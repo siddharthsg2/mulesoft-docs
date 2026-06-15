@@ -51,10 +51,10 @@ jobs:
             DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt | head -1)
 
             mkdir -p "products/$SLUG"
+
             HTTP_CODE=$(curl -sL -o "products/$SLUG/llms-full.txt" -w "%{http_code}" "https://docs.mulesoft.com/$SLUG/llms-full.txt" --max-time 30)
 
             if [ "$HTTP_CODE" = "200" ] && [ -s "products/$SLUG/llms-full.txt" ] && ! grep -qi "page not found" "products/$SLUG/llms-full.txt" 2>/dev/null; then
-              echo "- [$SLUG](products/$SLUG/llms-full.txt): $DESC" >> llms.txt
               SUCCESS=$((SUCCESS + 1))
               echo "[$COUNT] OK $SLUG"
             else
@@ -63,6 +63,11 @@ jobs:
               FAIL=$((FAIL + 1))
               echo "[$COUNT] FAIL $SLUG (HTTP $HTTP_CODE)"
             fi
+
+            # Also download product llms.txt
+            curl -sL -o "products/$SLUG/llms.txt" "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 15
+
+            echo "- [$SLUG](products/$SLUG/llms.txt): $DESC" >> llms.txt
           done
 
           echo "success=$SUCCESS" >> $GITHUB_OUTPUT
