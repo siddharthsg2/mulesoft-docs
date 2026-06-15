@@ -1,0 +1,1780 @@
+﻿# Salesforce Composite Connector - Full Documentation
+
+# Salesforce Composite Connector 3.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Salesforce Composite enables you to work with the Salesforce Batch and
+SObject Tree APIs. The connector exposes convenient methods for preparing subordinate requests,
+executing them in one batch, and parsing the results.
+
+Salesforce Composite Connector also enables you to create SObject trees by using the **Create
+sobject tree** operation, which is separate from the batch operations.
+
+This connector provides DataSense for execution and to:
+
+- Prepare subordinate requests and then parse the responses
+- Create SObject trees
+
+For compatibility information and fixed issues, see Salesforce Composite Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Salesforce Composite API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Credentials to access the Salesforce Composite target resource
+- Anypoint Studio version 7.0 or later
+
+## Authentication Types
+
+Salesforce Composite Connector connections use the following authentication types:
+
+- OAuth v2.0
+- OAuth Client Credentials
+- OAuth JWT
+- OAuth SAML
+- OAuth Username and Password
+- Token Connection
+
+For information about configuring these authentication types, see
+[Using Anypoint Studio to Configure Salesforce Composite Connector](salesforce-composite-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Salesforce Composite Connector 3.0 - Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## SObject Tree Operation Example
+
+This example uses the following operations to create an SObject tree to connect to Salesforce and
+transform and output the results in JSON format:
+
+- HTTP **Listener**
+
+  Accepts data from HTTP requests
+
+- **Transform Message**
+
+  Transforms the HTTP input
+
+- **Create sobject tree**
+
+  Connects with Salesforce and creates an SObject tree
+
+- **Transform Message**
+
+  Outputs the results of the **Create sobject tree** operation in JSON format
+
+![Studio flow with an HTTP Listener component, Transform components, and a Create operation](_images/salesforce-composite-studio-use-case.png)
+
+### Add an HTTP Listener
+
+The HTTP **Listener** source operation initiates the flow when it detects an event in the
+`createSObjectTree` path. To add the listener and trigger the flow, follow these steps:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation.
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the Listener properties window, set the **Path** field to `/createSObjectTree`.
+
+### Add the First Transform Message Component
+
+The first Transform Message component uses input data to transform the HTTP input for the following
+Create operation. To add the component, follow these steps:
+
+1.  In the **Mule Palette** view, search for **Transform Message**.
+2.  Drag the **Transform Message** component onto the canvas, to the right of **Listener**.
+3.  Enter the name `Transform HTTP input for Create SObject Tree`.
+
+The following is an example of HTTP input for the Transform Message component:
+
+```json
+{
+  "records": [
+    {
+      "ChildAccounts": {
+        "records": [
+          {
+            "Phone": "4321098765",
+            "Website": "www.salesforce.com",
+            "attributes": {
+              "objectType": "Account",
+              "referenceId": "ref5"
+            },
+            "NumberOfEmployees": "10",
+            "Name": "ChildAccount1"
+          }
+        ]
+      },
+      "Contacts": {
+        "records": [
+          {
+            "Email": "sample@salesforce.com",
+            "Title": "President",
+            "attributes": {
+              "objectType": "Contact",
+              "referenceId": "ref6"
+            },
+            "LastName": "Jones"
+          }
+        ]
+      },
+      "Phone": "5556543210",
+      "Website": "www.salesforce.com",
+      "attributes": {
+        "objectType": "Account",
+        "referenceId": "ref4"
+      },
+      "NumberOfEmployees": "101",
+      "Name": "CreateSobjectTreeAccount2"
+    },
+    {
+      "Contacts": {
+        "records": [
+          {
+            "Email": "sample@salesforce.com",
+            "Title": "President",
+            "attributes": {
+              "objectType": "Contact",
+              "referenceId": "ref2"
+            },
+            "LastName": "Smith"
+          },
+          {
+            "Email": "sample@salesforce.com",
+            "Title": "Vice President",
+            "attributes": {
+              "objectType": "Contact",
+              "referenceId": "ref3"
+            },
+            "LastName": "Evans"
+          }
+        ]
+      },
+      "Phone": "1234567890",
+      "Website": "www.salesforce.com",
+      "attributes": {
+        "objectType": "Account",
+        "referenceId": "ref1"
+      },
+      "NumberOfEmployees": "100",
+      "Name": "CreateSobjectTreeAccount1"
+    }
+  ]
+}
+```
+
+### Add the Create SObject Tree Operation
+
+Add the Create SObject Tree operation to connect with Salesforce and create an SObject tree. To add
+the operation, follow these steps:
+
+1.  In the **Mule Palette** view, search for `salesforce` and select **Create sobject tree**.
+2.  Drag **Create sobject tree** operation to the right of **Transform Message**.
+3.  Click the green plus sign (**+**) to the right of **Connector configuration** to access the
+    Salesforce Composite global element configuration fields.
+4.  In the **Create sobject tree** properties window, enter `Account` in the **SObject Root Type**
+    field.
+5.  In the properties file `src/main/mule/mule-app.properties`, declare and enter values for the
+    variables in the global element.
+
+### Add the Second Transform Message Component
+
+The second Transform Message component transforms the output result into JSON. To add the component,
+follow these steps:
+
+1.  Drag **Transform Message** again to the right of **Create sobject tree**.
+2.  Enter the following:
+
+    ```dataweave
+    %dw 2.0
+    %output application/json
+    payload
+    ---
+    {
+    "Id": payload.Id,
+    "Fields" : ["Id", "Name"],
+    "Type": "Account"
+    }
+    ```
+
+### XML for the SObject Tree Operation Flow
+
+Paste this XML code into the **Configuration XML** tab of the Anypoint Studio canvas to experiment
+with the flow:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce-composite="http://www.mulesoft.org/schema/mule/salesforce-composite"
+xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+   xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+   http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce-composite
+http://www.mulesoft.org/schema/mule/salesforce-composite/current/mule-salesforce-composite.xsd">
+	<configuration-properties file="mule-app.properties"/>
+	<http:listener-config name="HTTP_Listener_config"
+   doc:name="HTTP Listener config">
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<salesforce-composite:composite-config name="Salesforce_Composite_Salesforce_Composite"
+   doc:name="Salesforce Composite Salesforce Composite">
+		<salesforce-composite:oauth-user-pass-connection
+      consumerKey="${consumerKey}"
+      consumerSecret="${consumerSecret}"
+      username="${username}"
+      password="${password}"
+      securityToken="${securityToken}"
+      tokenEndpoint="${tokenEndpoint}" />
+	</salesforce-composite:composite-config>
+	<flow name="salesforce-composite-create-sobject-trees">
+		<http:listener doc:name="Listener"
+      path="/createSObjectTree"
+      config-ref="HTTP_Listener_config"/>
+		<ee:transform doc:name="Transform HTTP input for Create SObject Tree">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload.records map ((record , indexOfRecord) -> {
+	"attributes": {
+		"type": record.attributes.objectType,
+		"referenceId": record.attributes.referenceId
+	},
+	"Name": record.Name,
+	"Phone": record.Phone,
+	"Website": record.Website,
+	"NumberOfEmployees": record.NumberOfEmployees as Number,
+	("ChildAccounts": {
+		"records": record.ChildAccounts.records map ((record01, indexOfRecord01) -> {
+			"attributes": {
+				"type": record01.attributes.objectType,
+				"referenceId": record01.attributes.referenceId
+			},
+			"Name": record01.Name,
+			"Phone": record01.Phone,
+			"Website": record01.Website,
+			"NumberOfEmployees": record01.NumberOfEmployees as Number
+		})
+	}),
+	"Contacts": {
+		"records": record.Contacts.records map ((record01, indexOfRecord01) -> {
+			"attributes": {
+				"type": record01.attributes.objectType,
+				"referenceId": record01.attributes.referenceId
+			},
+			"LastName": record01.LastName,
+			"Email": record01.Email,
+			"Title": record01.Title
+		})
+	}
+})
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce-composite:create-sobject-tree
+      doc:name="Create SObject tree"
+      config-ref="Salesforce_Composite_Salesforce_Composite"
+      type="Account"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## Pre-Query Example
+
+This example provides metadata for an object to query, generates two subrequests that contain this
+metadata, and then executes the subrequests:
+
+- HTTP **Listener**
+
+  Accepts data from HTTP requests
+
+- **Transform Message**
+
+  Specifies a name for the object
+
+- **Pre create**
+
+  Provides metadata for the object to be created and generates a subrequest used in execution
+
+- **Transform Message**
+
+  Specifies values for fields
+
+- **Pre query**
+
+  Provides metadata for the object that is going to be queried and generates a subrequest used in
+  execution
+
+- **Transform Message**
+
+  Passes output from **Pre query** operation
+
+- **Execute composite batch**
+
+  Sends all subrequests in one batch
+
+- **Transform Message**
+
+  Outputs the results in JSON format
+
+![Studio flow with an HTTP Listener component, Transform components, and multiple Salesfore Composite operations](_images/salesforce-composite-prequery-flow.png)
+
+### Add an HTTP Listener
+
+The HTTP **Listener** source operation initiates the flow when it detects an event in the
+`executeFlow` path. To add the listener and trigger the flow, follow these steps:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation.
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the Listener properties window, set the **Path** field to `/executeFlow`.
+
+### Add the First Transform Message Component
+
+The first Transform Message component specifies a name for the created object and passes the name to
+the **Pre create** operation. To add the component, follow these steps:
+
+1.  In the **Mule Palette** view, search for **Transform Message**.
+2.  Drag **Transform Message** onto the canvas, to the right of **Listener**.
+3.  Enter the name `MyNewAccount`:
+
+    ```dataweave
+    %dw 2.0
+    %output application/java
+    ---
+    {
+       Name: "MyNewAccount"
+    }
+    ```
+
+### Add the Pre Create Operation
+
+The Pre Create operation provides metadata for creating an object called `NewAccount` and generates
+a subrequest for the `executeCompositeBatch` operation. To add the operation, follow these steps:
+
+1.  In the **Mule Palette** view, search for `salesforce` and select the Salesforce Composite **Pre
+    create** operation.
+2.  Drag the **Pre create** operation to the right of **Transform Message**.
+3.  Click the green plus icon (**+**) to the right of the **Connector configuration** field to
+    access the Salesforce Composite global element configuration fields.
+4.  In the **Pre create** properties window, enter `Account` in the **Type** field.
+5.  In the properties file `src/main/mule/mule-app.properties`, declare and enter values for the
+    variables in the global element.
+
+![Salesforce Composite Connector global element configuration window](_images/salesforce-composite-global-config.png)
+
+### Add the Second Transform Message Component
+
+The second Transform Message component specifies values for the **ID** and **Type** fields, and then
+passes these values to the **Pre query** operation. To add the component, follow these steps:
+
+1.  Drag a second **Transform Message** component to the right of **Pre create**.
+2.  Enter the following name-value pairs:
+
+    ```dataweave
+    %dw 2.0
+    %output application/java
+    ---
+    {
+       "Id": payload.Id,
+       "Fields" : ["Id", "Name"],
+       "Type": "Account"
+    }
+    ```
+
+### Add the Pre Query Operation
+
+The Pre Query operation provides metadata for an object to be queried. It generates a subrequest for
+the **Execute composite batch** operation. To add the operation, follow these steps:
+
+1.  Drag a Salesforce Composite **Pre query** operation to the right of the second **Transform
+    Message**.
+2.  In the **Query** field, enter the following:
+
+    `Select Name from Account WHERE Name LIKE '%:name %'`
+
+### Add the Third Transform Message Component
+
+The third Transform Message operation passes the output of the **Pre query** operation to the
+**Execute composite batch** operation. To add the component, follow these steps:
+
+1.  Drag a third **Transform Message** component to the right of **Pre query**.
+2.  Set the output to `payload`:
+
+    ```dataweave
+    %dw 2.0
+    %output application/java
+    ---
+    [
+    payload
+    ]
+    ```
+
+### Add the Execute Composite Batch Operation
+
+The Execute Composite Batch operation executes the subrequests that the Pre Create and Pre Query
+operations created.
+
+To add the operation, drag a Salesforce Composite **Execute composite batch** operation to the right
+of the third **Transform Message**.
+
+### Add the Fourth Transform Message Component
+
+The fourth Transform Message operation converts the output to JSON format. To add the component,
+follow these steps:
+
+1.  Drag a fourth **Transform Message** component to the right of **Execute composite batch**.
+2.  Set the output to `application/json`:
+
+    ```dataweave
+    %dw 2.0
+    %output application/json
+    ---
+    payload
+    ```
+
+### XML for the Pre-Query Example
+
+Paste this code into your XML editor to quickly load the flow for this example to your Mule app. If
+needed, change the values to reflect your environment.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:salesforce-composite="http://www.mulesoft.org/schema/mule/salesforce-composite" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+   xmlns:http="http://www.mulesoft.org/schema/mule/http"
+   xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce-composite http://www.mulesoft.org/schema/mule/salesforce-composite/current/mule-salesforce-composite.xsd">
+   <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+      <http:listener-connection host="0.0.0.0" port="8081" />
+   </http:listener-config>
+   <salesforce-composite:composite-config name="Salesforce_Composite_Config" doc:name="Salesforce Composite Config" >
+      <salesforce-composite:oauth-user-pass-connection consumerKey="${consumerKey}" consumerSecret="${consumerSecret}" username="${username}" password="${password}" securityToken="${securityToken}" />
+   </salesforce-composite:composite-config>
+   <flow name="composite-prequery-exampleFlow" >
+      <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/executeFlow"/>
+      <ee:transform doc:name="Transform Message" >
+         <ee:message >
+            <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+   Name: "MyNewAccount"
+}]]></ee:set-payload>
+         </ee:message>
+      </ee:transform>
+      <salesforce-composite:pre-create type="Account" doc:name="Pre create" config-ref="Salesforce_Composite_Config">
+      </salesforce-composite:pre-create>
+      <ee:transform doc:name="Transform Message" >
+         <ee:message >
+            <ee:set-payload ><![CDATA[output application/java
+---
+{
+   "Id": payload.Id,
+   "Fields" : ["Id", "Name"],
+   "Type": "Account"
+}]]></ee:set-payload>
+         </ee:message>
+      </ee:transform>
+      <salesforce-composite:pre-query doc:name="Pre query" config-ref="Salesforce_Composite_Config">
+         <salesforce-composite:query >Select Name from Account WHERE Name LIKE '%:name %'
+                    </salesforce-composite:query>
+         <salesforce-composite:parameters ><![CDATA[#[output application/java
+---
+{
+   "name" : "MyNewAccount"
+}]]]></salesforce-composite:parameters>
+      </salesforce-composite:pre-query>
+      <ee:transform doc:name="Transform Message" >
+         <ee:message >
+            <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+   payload
+]]]></ee:set-payload>
+         </ee:message>
+      </ee:transform>
+      <salesforce-composite:execute-composite-batch doc:name="Execute composite batch" config-ref="Salesforce_Composite_Config"/>
+      <ee:transform doc:name="Transform Message" >
+         <ee:message >
+            <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+         </ee:message>
+      </ee:transform>
+   </flow>
+</mule>
+```
+
+## See Also
+
+- [Salesforce Composite Connector Reference](salesforce-composite-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Salesforce Composite Connector 3.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Configurations
+
+---
+
+### Default Configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#composite-config_config-with-oauth">OAuth v2.0</a></p></li><li><p><a href="#composite-config_oauth-client-credentials">OAuth Client Credentials</a></p></li><li><p><a href="#composite-config_oauth-jwt">OAuth JWT</a></p></li><li><p><a href="#composite-config_oauth-saml">OAuth SAML</a></p></li><li><p><a href="#composite-config_oauth-user-pass">OAuth Username Password</a></p></li><li><p><a href="#composite-config_token-connection">Token Connection</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Connection Types
+
+### OAuth v2.0
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#tls-configuration">TLS Configuration</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the key store in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. Required if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If the Host is set, then this property is required and the value cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Wait time until a response is received. This attribute works in tandem with Response Timeout Unit. Values less than one millisecond are converted to <code>0</code>.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use for the Response Timeout parameter.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The socket connection timeout value. This attribute works in tandem with Connection Timeout Time Unit.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Connection Timeout.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The OAuth consumerKey as registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Consumer Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The OAuth consumerSecret as registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Authorization Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The service providerâs authorization endpoint URL. The default is <code>https://login.salesforce.com/services/oauth2/authorize</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Access Token Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The service providerâs accessToken endpoint URL. The default is <code>https://login.salesforce.com/services/oauth2/token</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scopes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The OAuth scopes to request during the dance. If not provided, it defaults to the scopes provided in the annotation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Resource Owner Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The resource owner ID that each component uses if it is not otherwise referenced.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Before</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a flow to execute immediately before starting the OAuth dance.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>After</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a flow to execute immediately after an accessToken is received.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Listener Config</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A reference to a <code>&lt;http:listener-config /&gt;</code> to use to create the listener that receives the access token callback endpoint.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Callback Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the access token callback endpoint.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Authorize Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the local HTTP endpoint that triggers the OAuth dance.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>External Callback Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>If the callback endpoint is behind a proxy or accessed through a non direct URL, use this parameter to tell the OAuth provider the URL to use to access the callback.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A reference to the object store to use to store each resource owner IDâs data. If an object store is not specified, Mule automatically provisions the default object store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### OAuth Client Credentials
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#tls-configuration">TLS Configuration</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the key store in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. Required if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If the Host is set, then this property is required and the value cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Wait time until a response is received. This attribute works in tandem with Response Timeout Unit. Values less than one millisecond are converted to <code>0</code>.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use for the Response Timeout parameter.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The socket connection timeout value. This attribute works in tandem with Connection Timeout Time Unit.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Connection Timeout.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Client Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The OAuth client ID as registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Client Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The OAuth client secret as registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Token Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The service providerâs token endpoint URL. The default is <code>https://login.salesforce.com/services/oauth2/token</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scopes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The OAuth scopes to request during the dance. If not provided, it defaults to the scopes provided in the annotation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A reference to the object store to use to store each resource owner IDâs data. If an object store is not specified, Mule automatically provisions the default object store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### OAuth JWT
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#tls-configuration">TLS Configuration</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the key store in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. Required if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If the Host is set, then this property is required and the value cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Wait time until a response is received. This attribute works in tandem with Response Timeout Unit. Values less than one millisecond are converted to <code>0</code>.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use for the Response Timeout parameter.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The socket connection timeout value. This attribute works in tandem with Connection Timeout Time Unit.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Connection Timeout.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Consumer key for the Salesforce-connected app.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the key store used to sign data during authentication.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Store Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password of the key store.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Certificate Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the certificate.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Principal</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username of the Salesforce user on whose behalf to take action.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Token Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL pointing to the server responsible for providing the authentication token. The default is <code>https://login.salesforce.com/services/oauth2/token</code>.</p></div><div><p>If implementation is for a community, <code>https://acme.force.com/customers/services/oauth2/token</code>, where <code>acme.force.com/customers</code> is your community URL.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Audience Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The audience identifies the authorization server as an intended audience. The authorization server must verify that it is an intended audience for the token.</p></div><div><p>Use the authorization serverâs URL for the audience value: <code>https://login.salesforce.com</code>. For testing, use: <code>https://test.salesforce.com</code>. For a community implementation, use: <code>https://community.force.com/customers</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### OAuth SAML
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#tls-configuration">TLS Configuration</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the key store in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. Required if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If the Host is set, then this property is required and the value cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Wait time until a response is received. This attribute works in tandem with Response Timeout Unit. Values less than one millisecond are converted to <code>0</code>.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use for the Response Timeout parameter.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The socket connection timeout value. This attribute works in tandem with Connection Timeout Time Unit.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Connection Timeout.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Consumer key for the Salesforce-connected app.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the key store used to sign data during authentication.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Store Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password of the key store.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Certificate Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the certificate.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Principal</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username of the Salesforce user on whose behalf to take action.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Token Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL pointing to the server responsible for providing the authentication token. The default is <code>https://login.salesforce.com/services/oauth2/token</code>.</p></div><div><p>If implementation is for a community, <code>https://acme.force.com/customers/services/oauth2/token</code>, where <code>acme.force.com/customers</code> is your community URL.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### OAuth Username Password
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#tls-configuration">TLS Configuration</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the key store in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div><div><p>HTTP</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. Required if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If the Host is set, then this property is required and the value cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Response Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Wait time until a response is received. This attribute works in tandem with Time Unit. Values less than one millisecond are converted to <code>0</code>.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Time unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use for the Response Timeout parameter.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The socket connection timeout value. This attribute works in tandem with Connection Timeout Time Unit.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Connection Timeout.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Consumer key for Salesforce-connected app.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Consumer Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Your applicationâs client secret (consumer secret in Remote Access Detail).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to initialize the session.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate the user</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Userâs security token. It can be omitted if your IP has been allowlisted on Salesforce.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Token Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL pointing to the server responsible for providing the authentication token. The default is <code>https://login.salesforce.com/services/oauth2/token</code>.</p></div><div><p>If implementation is for a community, <code>https://acme.force.com/customers/services/oauth2/token</code>, where <code>acme.force.com/customers</code> is your community URL.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Token Connection
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Session ID.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Instance Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Instance URL.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#tls-configuration">TLS Configuration</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the key store in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div><div><p><code>HTTP</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. Required if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If <strong>Host</strong> is set, then this property is required and the value cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long Mule waits for a response to complete before the request times out.</p></div></div></td><td><div><div><p><code>5</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Response timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Socket connection timeout value.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Operations
+
+- [Create Sobject Collections](#createSobjectCollections)
+- [Create sObject Tree](#createSobjectTree)
+- [Delete sObject Collections](#deleteSobjectCollections)
+- [Execute Composite Batch](#executeCompositeBatch)
+- [Execute Composite Graph](#executeCompositeGraph)
+- [Execute Composite Request](#executeCompositeRequest)
+- [Get sObject Collections](#getSobjectCollections)
+- [Post Create](#postCreate)
+- [Post Delete](#postDelete)
+- [Post Get Limits](#postGetLimits)
+- [Post Query](#postQuery)
+- [Post Query All](#postQueryAll)
+- [Post Retrieve](#postRetrieve)
+- [Post Search](#postSearch)
+- [Post Update](#postUpdate)
+- [Pre Create](#preCreate)
+- [Pre Delete](#preDelete)
+- [Pre Get Limits](#preGetLimits)
+- [Pre Query](#preQuery)
+- [Pre Query All](#preQueryAll)
+- [Pre Retrieve](#preRetrieve)
+- [Pre Search](#preSearch)
+- [Pre Update](#preUpdate)
+- [Unauthorize](#unauthorize)
+- [Update sObject Collections](#updateSobjectCollections)
+- [Upsert sObject Collections](#upsertSobjectCollections)
+
+### Create Sobject Collections
+
+`<salesforce-composite:create-sobject-collections>`
+
+Add up to 200 records and return a list of `SaveResult` objects. You can roll back the entire
+request if an error occurs.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Body</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The request body.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Create sObject Tree
+
+`<salesforce-composite:create-sobject-tree>`
+
+Sends a list of sObject trees to Salesforce to be created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>SObject Root Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The sObject type of the root of the trees.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>SObject Tree</strong></p></td><td><div><div><p>Array of Object</p></div></div></td><td><div><div><p>A list of maps containing representing the list of trees that need to be created.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Delete sObject Collections
+
+`<salesforce-composite:delete-sobject-collections>`
+
+Delete up to 200 records and return a list of `DeleteResult` objects. You can roll back the entire
+request if an error occurs.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Ids</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>The IDs of the entities to be deleted.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>All Or None</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether to roll back the entire request when the deletion of any object fails.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Execute Composite Batch
+
+`<salesforce-composite:execute-composite-batch>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Sub Requests</strong></p></td><td><div><div><p>Array of Object</p></div></div></td><td><div><div><p>The list of subrequests to execute.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Execute Composite Graph
+
+`<salesforce-composite:execute-composite-graph>`
+
+Performs composite requests by executing a series of REST API requests in a single call.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Graphs</strong></p></td><td><div><div><p>Array of Object</p></div></div></td><td><div><div><p>List of graphs to execute</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:VALIDATION
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+
+### Execute Composite Request
+
+`<salesforce-composite:execute-composite-request>`
+
+Execute a series of REST API requests in a single call. You can use the output of one request as the
+input to a subsequent request. The response bodies and HTTP statuses of the requests are returned in
+a single response body. The entire request counts as a single call toward your API limits.
+
+> [!NOTE] You can add `httpHeaders` within `compositeRequest`, for example:
+> `"httpHeaders" : { "X-REQUEST-ID" : "ReferenceId" }`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Body</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Request body</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Get sObject Collections
+
+`<salesforce-composite:get-sobject-collections>`
+
+Retrieve one or more records of the same object type.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The sObject type of the root of the trees.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List of ids</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>A list of one or more IDs of the objects to return. All IDs must belong to the same object type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List of fields</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>A list of fields to include in the response.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Create
+
+`<salesforce-composite:post-create>`
+
+Provide metadata for the result of a create. This operation takes as input one record from the
+result returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a create
+subrequest generated by `preCreate(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Create Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the create subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Delete
+
+`<salesforce-composite:post-delete>`
+
+Provide metadata for the result of a delete. This operation takes as input one record from the
+result returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a delete
+subrequest generated by `preDelete(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Delete Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the delete subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Get Limits
+
+`<salesforce-composite:post-get-limits>`
+
+Provide metadata for the result of a get limits request. This operation takes as input one record
+from the result returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a get
+limits subrequest generated by `preGetLimits()`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Get Limits Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the create subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Query
+
+`<salesforce-composite:post-query>`
+
+Provide metadata for the result of a query. This operation takes as input one record from the result
+returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a query subrequest
+generated by `preQuery(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The query that was used in the <code>preQuery</code> operation - needed for metadata.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the query subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Query All
+
+`<salesforce-composite:post-query-all>`
+
+Provide metadata for the result of a query. This operation takes as input one record from the result
+returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a query subrequest
+generated by `preQueryAll(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the create subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Retrieve
+
+`<salesforce-composite:post-retrieve>`
+
+Provide metadata for the result of a retrieve. This operation takes as input one record from the
+result returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a retrieve
+subrequest generated by `preRetrieve(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the retrieved object - used for metadata.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Retrieve Data</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the retrieve subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Search
+
+`<salesforce-composite:post-search>`
+
+Provide metadata for the result of a search. This operation takes as input one record from the
+result returned by `executeCompositeBatch(String, java.util.List)`, which belongs to a search
+subrequest generated by `preSearch(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Search Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the search subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Post Update
+
+`<salesforce-composite:post-update>`
+
+Provide metadata for the result of an update. This operation takes as input one record from the
+result returned by `executeCompositeBatch(String, java.util.List)`, which belongs to an update
+subrequest generated by `preUpdate(String, java.util.Map)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Update Result</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The result of the update subrequest.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Create
+
+`<salesforce-composite:pre-create>`
+
+Provide metadata for a create based on an object that is created and generates a subrequest for
+execution by `executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of object to create.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>S Object</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Object to create as a map that sticks to metadata for a selected type.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Delete
+
+`<salesforce-composite:pre-delete>`
+
+Provide metadata for a delete based on an object that is deleted and generates a subrequest for
+execution by `executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of object that is deleted.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the object that is deleted.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Get Limits
+
+`<salesforce-composite:pre-get-limits>`
+
+Provide metadata for getLimits and generate a subrequest for execution by
+`executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Query
+
+`<salesforce-composite:pre-query>`
+
+Provides metadata for a query based on an object that is queried, and generates a subrequest for
+execution by `executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The query that is run in <code>executeCompositeBatch</code>.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Parameters</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The parameters to use in a parameterized query.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Query All
+
+`<salesforce-composite:pre-query-all>`
+
+Provide metadata for a query based on an object that is queried and generates a subrequest for
+execution by `executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The query that is run in <code>executeCompositeBatch</code>.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Parameters</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The parameters to use in a parameterized query.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Retrieve
+
+`<salesforce-composite:pre-retrieve>`
+
+Provide metadata for a retrieve based on an object that is retrieved and generates a subrequest for
+execution by `executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Retrieve Data</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Object to retrieve as a map that sticks to metadata for a selected type.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Search
+
+`<salesforce-composite:pre-search>`
+
+Provide the user a way to input a SOSL String and generate a subrequest for execution by
+`executeCompositeBatch(java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Search</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The SOSL string that is run in executeCompositeBatch.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Pre Update
+
+`<salesforce-composite:pre-update>`
+
+Provide metadata for a create based on an object that is created and generates a subrequest for
+execution by `executeCompositeBatch(String, java.util.List)`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of object that is created.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>SObject</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Object to create as a map that sticks to metadata for a selected type.</p></div></div></td><td><div><div><p><code>#[payload]</code>.</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Unauthorize
+
+`<salesforce-composite:unauthorize>`
+
+Deletes all the access token information of a given resource owner ID so that itâs impossible to
+execute any operation for that user without repeating the authorization dance.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Resource Owner Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the resource owner for whom to invalidate access</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+### Update sObject Collections
+
+`<salesforce-composite:update-sobject-collections>`
+
+Update up to 200 records and return a list of `SaveResult` objects. You can roll back the entire
+request if an error occurs.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Body</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The request body.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+### Upsert sObject Collections
+
+`<salesforce-composite:upsert-sobject-collections>`
+
+Upsert up to 200 records of same type and return a list of `SaveResult` objects. You can roll back
+the entire request if an error occurs.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The sObject type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>External Field Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the external field for this sobject type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Body</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The request body.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#error-mapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p>Array of Object</p></td></tr><tr><td><p>Attributes Type a</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#composite-config)
+
+#### Throws
+
+- SALESFORCE-COMPOSITE:CONNECTIVITY
+- SALESFORCE-COMPOSITE:INVALID_SESSION
+- SALESFORCE-COMPOSITE:RETRY_EXHAUSTED
+- SALESFORCE-COMPOSITE:TRANSACTION
+- SALESFORCE-COMPOSITE:TRANSFORMATION
+- SALESFORCE-COMPOSITE:UNKNOWN
+- SALESFORCE-COMPOSITE:VALIDATION
+
+## Types
+
+### TLS Configuration
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma separated list that defines the enabled TLS protocols, which must be a subset of the globally enabled TLS protocols.</p></div></div></td><td><div><div><p>By default, the globally enabled TLS protocols are used.</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Chiper Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma separated list that defines the enabled TLS cipher suites, which must be a subset of the globally enabled cipher suites.</p></div></div></td><td><div><div><p>By default, the globally enabled cipher suites are used.</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store Configuration</strong></p></td><td><div><div><p><a href="#trust-store-configuration">Trust Store Configuration</a></p></div></div></td><td><div><div><p>Contains the configuration parameters for the trust store configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store Configuration</strong></p></td><td><div><div><p><a href="#key-store-configuration">Key Store Configuration</a></p></div></div></td><td><div><div><p>Contains the configuration parameters for the key store configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Trust Store Configuration
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the location of the trust store to use, which will be resolved relative to the current classpath and file system, if possible. A password is also required.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password to access the trust store that is specified in the path.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Key Store Configuration
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the location of the key store to use, which will be resolved relative to the current classpath and file system, if possible.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the alias of the key to use when the key store contains many private keys. By default, the first key in the file is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the password to access the key store that is specified in the path.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the algorithm used by the key store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Verify only the last element in the certificate chain.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Verify all elements in the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer CRLs</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Use the method that wasnât specified in the <strong>Prefer CRLs</strong> field (the secondary method) to check certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Do not use the secondary method to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Avoid verification failure.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Allow the verification to fail.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response, if present. The certificate must be in the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of instances that is initially allowed to be kept in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the <strong>Buffer Size Increment</strong> attribute, with an upper limit of <code>maxInMemorySize</code>. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised when the buffer gets full. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of instances to keep in memory. If more than that is required, then it will start to buffer the content on disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Objects</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Source</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Salesforce Composite Connector 3.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Salesforce Composite Reference](salesforce-composite-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  Select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Salesforce Composite Connector to your Mule project to automatically populate the XML code with
+the connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `salesforce composite` in the search field.
+3.  Click **Salesforce Composite** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Salesforce Composite Connector:
+
+- HTTP **Listener**  
+  Initiates a flow each time it receives a request on the configured host and port
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to **Connector configuration** to configure a global element that
+    can be used by all instances of HTTP Listener in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for Salesforce Composite Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Salesforce Composite** and then select the desired
+    operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials that the connector requires to access the target Salesforce Composite
+system. Salesforce Composite Connector supports OAuth v2.0, OAuth Client Credentials, OAuth JWT,
+OAuth SAML, and OAuth Username and Password.
+
+To configure the global element for Salesforce Composite Connector, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+3.  On the **General** tab, in **Connection**, select the authentication method to configure:
+    - **OAuth v2.0**
+    - **[OAuth Client Credentials](#oauth-client-credentials)**
+    - **OAuth JWT**
+    - **OAuth SAML**
+    - **[OAuth Username and Password](#oauth-username-password)**
+    - **Token Connection**
+
+      You can reference a configuration file that contains ANT-style property placeholders
+      (recommended), or you can enter your authorization credentials in the global configuration
+      properties. For information about the benefits of using property placeholders and how to
+      configure them, see
+      [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+7.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+8.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+9.  Click **OK**.
+
+### OAuth Username and Password
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure Basic authentication:
+
+- Consumer Key  
+  The consumer key for the Salesforce connected app
+- Consumer Secret  
+  The consumer secret for the connector to access Salesforce
+- Username  
+  The Salesforce username
+- Password  
+  The corresponding password
+  - Security Token  
+    The corresponding security token
+
+    ![Global configuration window for Basic Authentication](_images/salesforce-composite-studio-basic-auth.png)
+
+    Figure 1. The basic authentication includes a consumer key, consumer secret, username, and
+    password.
+
+### OAuth Client Credentials
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure OAuth client credentials authentication:
+
+- Client Id  
+  The OAuth client ID for the Salesforce connected app
+- Client Secret  
+  The OAuth client secret for the Salesforce connected app
+- Token Url  
+  The token endpoint URL used to request access tokens
+- Scopes (Optional)  
+  The OAuth scopes to request for the connection
+
+  ![Global configuration window for OAuth Client Credentials](_images/salesforce-composite-studio-oauth-client-credentials.png)
+
+  Figure 2. OAuth client credentials authentication includes a client ID, client secret, token URL,
+  and optional scopes.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`. You can configure the location of
+the log path in the app log file `log4j2.xml`.
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector. See [Examples](salesforce-composite-connector-examples) for use cases.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Composite Connector Reference](salesforce-composite-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating Salesforce Composite Connector to Version 3.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for Salesforce Composite (Salesforce Composite Connector) to version 3.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><p>2.x</p></td><td><p>3.x</p></td></tr></tbody></table>
+
+## Changes in This Release
+
+- This connector is now compatible with Java 17 only.
+- The connector now supports the new **OAuth Client Credentials** connection type.
+
+## Requirements
+
+Ensure your system meets the following compatibility requirements before you perform the upgrade:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Application/Service</th><th>Version</th></tr></thead><tbody><tr><td><p>Mule</p></td><td><p>4.9.0 and later</p></td></tr><tr><td><p>Java</p></td><td><p>17</p></td></tr></tbody></table>
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, create a backup of your files, data, and configuration in case you
+need to restore to the previous version.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade to version 3.x:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `salesforce composite` in the search field.
+4.  In **Available modules**, select **Salesforce Composite** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the Salesforce Composite dependency version is `3.x` in the projectâs `pom.xml`
+    file.
+
+Studio upgrades the connector automatically.
+
+## Post-Upgrade Steps
+
+After you install the latest version of the connector, verify that your error handling is updated to
+work with the minor changes in error codes in this version of the connector.
+
+## Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+## Revert the Upgrade
+
+If it is necessary to revert to the previous version of Salesforce Composite, change the
+`mule-salesforce-composite` dependency version in the projectâs `pom.xml` file to the previous
+version.
+
+You must update the projectâs `pom.xml` file in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Salesforce Composite Connector 3.0 - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+- If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/salesforce-composite
+http://www.mulesoft.org/schema/mule/salesforce-composite/current/mule-salesforce-composite.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:salesforce-composite="http://www.mulesoft.org/schema/mule/salesforce-composite" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+   xmlns:http="http://www.mulesoft.org/schema/mule/http"
+   xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce-composite http://www.mulesoft.org/schema/mule/salesforce-composite/current/mule-salesforce-composite.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-salesforce-composite-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Verify that the connector `version` corresponds to the one you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `salesforce composite`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](salesforce-composite-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

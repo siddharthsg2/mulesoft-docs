@@ -1,0 +1,2275 @@
+﻿# Roostify Connector - Full Documentation
+
+# Roostify Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Roostify Connector v1.0
+
+Anypoint Connector for Roostify (Roostify Connector) enables customers to convert completed loan
+applications to an optimized and intuitive digital user experience, tailored to each DBA, branch, or
+channel. It increases pull-through rates and provides a flexible and scalable framework for growing
+business requirements. Roostifyâs integrated platform enables faster loan closure and allows each
+loan officer to cultivate and manage more customers at the same time. This improves profitability as
+well as increases retention and referrals.
+
+Roostify Connector offers simplified access to 46 of Roostifyâs APIs to support workflows related
+to:
+
+- Access Control
+- Accounts
+- Desktop Underwriter Report
+- Documents
+- Leads (Draft)
+- Loan Applications
+- Messages
+- Offerings (Draft)
+- Reference Ids
+- Service
+- Settings
+- State Changes
+- Status Update
+- Tasks
+- User Management
+- User Settings
+- Webhook events
+- Webhooks
+
+Release Notes:
+[Roostify Connector Release Notes](../../release-notes/connector/roostify-connector-release-notes-mule-4)  
+Exchange:
+[Roostify Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-roostify-connector/)
+
+## Before You Begin
+
+To use this information, you should be familiar with Roostify, Mule concepts, Anypoint connectors,
+Anypoint Studio, the elements in a Mule flow, and global elements.
+
+The APIs use basic authentication, based on username and password. You need a Roostify account and
+credentials to use the connector. The username works as your account token and password as a service
+access token. The username and password are stored within the Authorization header in Base64-encoded
+string following the word Basic which when decoded follows the format of
+`account-token:service-access-token`.
+
+For software requirements and compatibility, see the Connector Release Notes.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-roostify-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "roostify".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "roostify" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+## Connector Namespace and Schema
+
+When designing your application in the Anypoint Studio, drag the connector from the palette to the
+canvas. This action automatically populates the XML code with the connector namespace and schema
+location.
+
+- Namespace: `http://www.mulesoft.org/schema/mule/roostify`
+- Schema Location: `http://www.mulesoft.org/schema/mule/roostify/current/mule-roostify.xsd`
+
+## Configure Roostify Connector in Anypoint Studio
+
+1.  In Anypoint Studio, create a new Mule project. Ensure that you have **HTTP Listener**
+    configured.
+2.  Drag the connector to the Studio Canvas.
+3.  Configure the connectorâs global element. You can either enter your credentials as global
+    configuration properties or reference a configuration file that contains these values. For
+    simpler maintenance and better reuse of your project, MuleSoft recommends that you use a
+    configuration file.
+    - **Address**: URL to access Roostify API
+    - **Username**: The user name to access Roostify API
+    - **Password**: Password to access Roostify API
+    - **Version**: Roostify API version. For example, this property should contain `/v1`, if the API
+      version is `v1`.
+
+      > [!TIP] An example configuration file for Roostify is available at
+      > `src/main/resources/configuration.yaml`. You can add this file in the Configuration
+      > Properties of the Global Configuration Elements.
+
+4.  To ensure that your connection is successful, Click **Test Connection**.
+5.  Select a connector operation.
+
+## Use Case: Create a Roostify User and a Loan Application
+
+The following use case demonstrates how you can use the Roostify connector along with Salesforce
+connector to:
+
+- Create a user in Roostify for a Salesforce account
+- Create a loan application for the same user in Roostify
+
+In this example, a Mule application queries Salesforce accounts and creates a user in Roostify for
+this account. Next step in the flow is to create a loan application for this new user in Roostify.
+
+![Create user and loan application flow](_images/roostify-create-loan-application.png)
+
+To test this use case:
+
+1.  Create a Mule application and set the connector configuration properties in the configuration
+    file in the `src/main/resources`. For example:
+
+    ```yaml
+    rsf:
+      address: "<url-to-access-roostify-api>"
+      version: "/<roostify-api-version>"
+      user: "<username-to-access-roostify-api>"
+      password: "<password-to-access-roostify-api>"
+    ```
+
+2.  Add the configuration file for the Roostify connector to the **Configuration Properties** of the
+    **Global Configuration Elements**.
+
+To create the new Mule application flow:
+
+1.  Drag an HTTP Listener to the canvas and configure it.
+2.  From the **Palette**, search for the Salesforce connector and drag **Query** operation. To
+    configure Salesforce operation,
+    1.  Add your query in the **Salesforce query**. For the purpose of this demo, use the following
+        query to get the account from Salesforce.
+
+        ```sql
+        SELECT Id, AccountNumber, Phone, Name FROM Account where Id = ':sfId'
+        ```
+
+    2.  In the **Parameters** section, create a parameter with `sfId` as **Name** and
+        `attributes.queryParams.sfcId` as **Value**.
+
+3.  Select and drag Transform Message at the flow on the canvas to prepare the input for the
+    Roostify connector. Hereâs an example of the output payload in the transform message.
+
+    ```json
+    %dw 2.0
+    output application/json
+    ---
+    {
+    	user_role: "borrower",
+    	home_phone: payload.Phone[0],
+    	reference_id: "Test-ref-123",
+    	last_name: "Demo",
+    	account_id: payload.AccountNumber[0],
+    	job_title: "ADMIN",
+    	first_name: payload.Name[0],
+    	email: payload.Id[0] ++ "@roostify.com"
+    }
+    ```
+
+4.  From Roostify operations, drag the **Create a User** connector operation after the transform
+    message. In the configuration options:
+    1.  Select the connector configuration that you created.
+    2.  Set the **General** section in the connector configuration to `payload`.
+    3.  Set the **Target Value** in the **Advanced** section to `#[payload]`.
+
+5.  From the **Mule Palette**, search and drag **Set Variable** operation after the Roostify
+    operation, to capture the user ID returned from Roostify into a variable. In the **Settings**
+    section of the **Set Variable** operation, set the following:
+    1.  **Name**: `userId`
+    2.  **Value**: `#[payload.id]`
+
+6.  From Roostify operations, drag **Create a Loan Application** operation. In the configuration
+    options,
+    1.  Use the following example payload in the **Create loan request** of the **General** section:
+
+        ```json
+        output application/json
+        ---
+        {
+        	reference_id: vars.refId,
+        	application_type: "purchase",
+        	loan_amount: 20000,
+        	down_payment: 1000,
+        	amortization_term: "30"
+        }
+        ```
+
+    2.  Set the **Target Value** in the **Advanced** section to `#[payload]`.
+
+7.  Once again, from the **Mule Palette**, search and drag **Set Variable** operation after the
+    Roostify operation, to capture the loan ID returned from Roostify into a variable. In the
+    **Settings** section of the **Set Variable** operation, set the following:
+    1.  **Name**: `userId`
+    2.  **Value**: `#[payload.id]`
+
+8.  Use another Transform Message component to display the response in JSON format. The output
+    payload of the transform message can be set to the following:
+
+    ```json
+    %dw 2.0
+    output application/json
+    ---
+    {
+    	"RSF Account Id" : payload.account_id,
+    	"User Id" : vars.userId,
+    	"Loan Id" : vars.loanId
+    }
+    ```
+
+9.  Run the application and point your browser to `http://localhost:8081/createLoanApplication`.
+
+## Use Cases XML: Create a Roostify User and a Loan Application
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:roostify="http://www.mulesoft.org/schema/mule/roostify"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/roostify
+http://www.mulesoft.org/schema/mule/roostify/current/mule-roostify.xsd
+http://www.mulesoft.org/schema/mule/salesforce
+http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<flow name="CREATE_ROOSTIFY_USER_LOAN_APPLOCATION">
+		<http:listener doc:name="8081/createLoanApplication"
+		config-ref="HTTP_Listener_config" path="createLoanApplication"/>
+		<salesforce:query doc:name="Get Salesforce Account" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query>SELECT Id, AccountNumber, Phone, Name  FROM Account where Id = ':sfId'</salesforce:salesforce-query>
+			<salesforce:parameters><![CDATA[#[output application/java
+---
+{
+	"sfId" : attributes.queryParams.sfcId
+}]]]></salesforce:parameters>
+
+		</salesforce:query>
+		<ee:transform doc:name="Convert to JSON">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	user_role: "borrower",
+	home_phone: payload.Phone[0],
+	reference_id: "Test-ref-123",
+	last_name: "Demo",
+	account_id: payload.AccountNumber[0],
+	job_title: "ADMIN",
+	first_name: payload.Name[0]
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="refId"><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"refId" : "Test-ref-123"
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<roostify:create-user doc:name="Create a User in Roostify" config-ref="Roostify_Config" />
+		<set-variable value="#[payload.id]" doc:name="Save User ID" variableName="userId" />
+		<roostify:creating-loan-application doc:name="Create a Loan Application in Roostify" config-ref="Roostify_Config">
+			<roostify:create-loan-request><![CDATA[#[output application/json
+---
+{
+	reference_id: vars.refId,
+	application_type: "purchase",
+	loan_amount: 20000,
+	down_payment: 1000,
+	amortization_term: "30"
+}]]]></roostify:create-loan-request>
+
+		</roostify:creating-loan-application>
+		<set-variable value="#[payload.id]" doc:name="Save Loan ID" variableName="loanId" />
+		<ee:transform doc:name="Display Response">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"RSF Account Id" : payload.account_id,
+	"User Id" : vars.userId,
+	"Loan Id" : vars.loanId
+
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Roostify Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Roostify Connector v1.0
+
+Anypoint Connector for Roostify (Roostify Connector) enables customers to convert completed loan
+applications to an optimized and intuitive digital user experience, tailored to each DBA, branch, or
+channel.
+
+This is the main class of an extension, and is the entry point from which configurations, connection
+providers, operations and sources are declared.
+
+Release Notes:
+[Roostify Connector Release Notes](../../release-notes/connector/roostify-connector-release-notes-mule-4)
+
+## Configurations
+
+---
+
+### Default Configuration
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Address</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances when it sees fit.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Proxy Configuration</p></td><td><div><div><p><a href="#Default">Default</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Use Persistent Connections</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p>true</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Idle Timeout</p></td><td><div><div><p>Number</p></div></div></td><td></td><td><p>60000</p></td><td></td></tr><tr><td><p>Stream Response</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p>false</p></td><td></td></tr><tr><td><p>Response Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td></td><td><p>60000</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Activate a User](#activateUser)
+- [Create a Lead](#creatingLead)
+- [Create a Loan Application](#creatingLoanApplication)
+- [Create a Message](#creatingMessage)
+- [Create a Status Update](#creatingStatusUpdate)
+- [Create a Task from a File Content Task](#creatingFileContentTask)
+- [Create a Task from a Form Task](#creatingTaskFromForm)
+- [Create a Task from a Regular Task](#creatingRegularTask)
+- [Create a Task from a Speed-bump Task](#creatingSpeedBumpTask)
+- [Create a Task from a View-only Task](#creatingViewOnlyTask)
+- [Create a Task from an Approval Task](#creatingTaskFromApproval)
+- [Create a Webhook](#creatingWebhook)
+- [Create a User](#createUser)
+- [Create an Access Control Group](#createAccessControl)
+- [Create or Update a Reference ID](#createUpdateReferenceId)
+- [Deactivate a User](#cancelOrder)
+- [Delete a Webhook](#deletingWebhook)
+- [Download a Document](#downloadingDocument)
+- [List Accounts](#listingAccounts)
+- [List Documents](#listingDocuments)
+- [List Loan Applications](#listingLoanApplications)
+- [List Messages](#getMessages)
+- [List Users](#listingUsers)
+- [List Webhooks](#listingWebhooks)
+- [Listing Tasks](#listingTasks)
+- [Listing Webhook Events](#listingWebhookEvents)
+- [Retrieve a Document Metadata](#retrievingDocument)
+- [Retrieve a Lead](#getLead)
+- [Retrieve a Loan Application](#loanApplicationsId)
+- [Retrieve a Loan Application by Reference ID](#loanApplicationByReferenceId)
+- [Retrieve a Loan Application in FNM Format](#loanApplicationsFNM)
+- [Retrieve a Loan Application in MISMO Format](#loanApplicationsMISMO)
+- [Retrieve a Message](#retrievingMessage)
+- [Retrieve a Service](#retrieveYourService)
+- [Retrieve a Task](#retrievingATask)
+- [Retrieve a User](#retrievingUser)
+- [Retrieve a User Settings](#userSettings)
+- [Retrieve a Webhook](#retrievingWebhook)
+- [Retrieve an Account](#retrievingAccount)
+- [Retrieve an Integration Service](#retrievingSettings)
+- [Update a Document Metadata](#updateDocument)
+- [Update a Loan Application](#updatingLoanApplication)
+- [Update a Task](#updateTask)
+- [Update a User](#updateUser)
+- [Update an Access Control Group](#updateAccessControl)
+- [Upload or Create a Document](#creatingDocument)
+
+## Operations
+
+### Activate a User
+
+`<roostify:activate-user>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>User ID (Required).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Deactivate a User
+
+`<roostify:cancel-order>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>User ID (Required).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create an Access Control Group
+
+`<roostify:create-access-control>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Access Control</p></td><td><div><div><p>Object</p></div></div></td><td><p>Create access control request body</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create or Update a Reference ID
+
+`<roostify:create-update-reference-id>`
+
+Reference IDs allow users to work with an external service or integration. Using this route either
+creates or updates a reference ID.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Loan_id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the loan application to update.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reference Body</p></td><td><div><div><p>Object</p></div></div></td><td><p>The request body for updating the loan.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a User
+
+`<roostify:create-user>`
+
+Create a user.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User Body</p></td><td><div><div><p>Object</p></div></div></td><td><p>Roostify create user request body.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Upload or Create a Document
+
+`<roostify:creating-document>`
+
+To upload a document, POST the document as JSON to /documents. The file_content in your payload body
+should be the base64 encoded bytes of the document.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Document</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for create a document</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Task from a File Content Task
+
+`<roostify:creating-file-content-task>`
+
+Create a task from a file content task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>File Content Task</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for creating a task from a file content task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Lead
+
+`<roostify:creating-lead>`
+
+The leads endpoint accepts parameters to create a Lead in Roostify. Each parameter must be
+allowlisted or it is not allowed within the system.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Create Lead</p></td><td><div><div><p>Object</p></div></div></td><td><p>The request body for creating a lead.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Loan Application
+
+`<roostify:creating-loan-application>`
+
+Creating a loan application must be granted on a service by service basis. Access is denied by
+default. A Loan Application may be created with any of the attributes listed above as parameters to
+the API.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Create Loan Request</p></td><td><div><div><p>Object</p></div></div></td><td><p>Create loan request body.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Message
+
+`<roostify:creating-message>`
+
+When the accounts email and name are filled in, the from address for messages created from this
+endpoint uses the account name and email address. Otherwise, emails are sent from an email address
+similar to [no-reply@deliver.roostify.com](mailto:no-reply@deliver.roostify.com).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message</p></td><td><div><div><p>Object</p></div></div></td><td><p>Message request body for creating message.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Task from a Regular Task
+
+`<roostify:creating-regular-task>`
+
+Create a task from a regular task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Regular Task</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for creating a task from a regular task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Task from a Speed-bump Task
+
+`<roostify:creating-speed-bump-task>`
+
+Create a task from a speed-bump task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Speed Bump Task</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for creating a task from a speed-bump task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Status Update
+
+`<roostify:creating-status-update>`
+
+A status update appears in the Stream that collaborators use to monitor updates to a loan
+application.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Status</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for create status update</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Task from an Approval Task
+
+`<roostify:creating-task-from-approval>`
+
+Create a new task from an approval task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Approval Task</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for creating a task from an approval task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Task from a Form Task
+
+`<roostify:creating-task-from-form>`
+
+Create a new task from a form task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Form Task</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for creating a task from a form task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Task from a View-only Task
+
+`<roostify:creating-view-only-task>`
+
+Create a talk from a view-only task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>View Only Task</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for creating a task from a view-only task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Create a Webhook
+
+`<roostify:creating-webhook>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Webhook Body</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for create webhook</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Delete a Webhook
+
+`<roostify:deleting-webhook>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Webhook Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the webhook to destroy.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Download a Document
+
+`<roostify:downloading-document>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Required. ID of the document to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Lead
+
+`<roostify:get-lead>`
+
+The leads endpoint accepts parameters to create a Lead in Roostify. Each parameter must be
+allowlisted or it is not allowed within the system.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Lead Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the lead.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### List Messages
+
+`<roostify:get-messages>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### List Accounts
+
+`<roostify:listing-accounts>`
+
+Retrieve a list of all accounts.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page of the index which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present, the pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present, the pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### List Documents
+
+`<roostify:listing-documents>`
+
+Retrieve metadata for documents.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page of the index which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>Term for filtering document metadata based presence of reference_id.</p></td><td></td><td></td></tr><tr><td><p>Search</p></td><td><div><div><p>String</p></div></div></td><td><p>Terms for searching document metadata. Current searchable terms are: document_name, loan_application_reference_id, and loan_application_id.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### List Loan Applications
+
+`<roostify:listing-loan-applications>`
+
+This retrieves all loan applications belonging to your account or its descendants. For clients with
+many loan applications, this may time out if you do not use pagination.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Search</p></td><td><div><div><p>String</p></div></div></td><td><p>Only lists loan applications which match the given attributes. Param structure is search[attribute]=â¦â</p></td><td></td><td></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page of the index which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Created</p></td><td><div><div><p>String</p></div></div></td><td><p>Filters loan applications based on when loan applications are created. The string must be formatted as two ISO-8601 datestamps separated by 'â¦â'. If the time zone designator is omitted it defaults to UTC.</p></td><td></td><td></td></tr><tr><td><p>Submitted</p></td><td><div><div><p>String</p></div></div></td><td><p>Filters loan applications based on when loan applications are submitted. The string must be formatted as two ISO-8601 datestamps separated by 'â¦â'. If the time zone designator is omitted it defaults to UTC.</p></td><td></td><td></td></tr><tr><td><p>Updated</p></td><td><div><div><p>String</p></div></div></td><td><p>Filters loan applications based on when loan applications are updated. The string must be formatted as two ISO-8601 datestamps separated by 'â¦â'. If the time zone designator is omitted it defaults to UTC.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Listing Tasks
+
+`<roostify:listing-tasks>`
+
+Return a list of all tasks and their details.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Loan_application_id</p></td><td><div><div><p>String</p></div></div></td><td><p>Loan application ID to search for associated tasks.</p></td><td></td><td></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page number which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### List Users
+
+`<roostify:listing-users>`
+
+List all users with their details.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page of the index which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Search</p></td><td><div><div><p>String</p></div></div></td><td><p>Only lists users that match the given attributes. Param structure is search[attribute]=â¦â Takes a url encoded hash of search parameters.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Listing Webhook Events
+
+`<roostify:listing-webhook-events>`
+
+Webhook events record every instance in which a webhook was fired for a particular event, and can
+act as an audit log for all events that occur that are trackable via webhooks.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page of the index which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Created</p></td><td><div><div><p>String</p></div></div></td><td><p>ISO 8601 DateTime range. Scope the returned results to only webhook events that were created this range of dates.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### List Webhooks
+
+`<roostify:listing-webhooks>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Page</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the page of the index which should be returned. When this parameter is not present and count is, it defaults to 1. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates the number of records per page returned. When this parameter is not present and page is, it defaults to 100. When both parameters are not present pagination is disabled.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Loan Application by Reference ID
+
+`<roostify:loan-application-by-reference-id>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reference Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the loan application to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Loan Application in FNM Format
+
+`<roostify:loan-applications-fnm>`
+
+Unlike most of the API, the loan applications FNM endpoint returns plaintext instead of JSON. The
+string returned is a Base64-encoded Fannie Mae file.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the loan application to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Loan Application
+
+`<roostify:loan-applications-id>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Find_id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the loan application to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Loan Application in MISMO Format
+
+`<roostify:loan-applications-mismo>`
+
+The ability to download a loan application in MISMO format must be requested from your Partner or
+Client Success Manager.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the loan application to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Service
+
+`<roostify:retrieve-your-service>`
+
+Applications built on Roostify often need to have configuration or other kinds of data tied to a
+particular user or account. For instance, if building a product to synchronize loan applications
+from Roostify to a loan origination system, you may want to have lenders provide their username for
+the loan origination system so you can properly assign them. These are considered User Settings.
+Account Settings are for data that is shared across a collection of users on an account. Lenders and
+account admins may set the values for these settings through the Roostify UI.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Task
+
+`<roostify:retrieving-a-task>`
+
+Retrieve a single task details.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Task Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of task.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve an Account
+
+`<roostify:retrieving-account>`
+
+Roostify users are members of an account. Accounts manages billing, permissions, service
+integrations, application and workflow customizations, co-branding styles, etc. You may access the
+basic information of any account that has an integration with your service.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the account.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Document Metadata
+
+`<roostify:retrieving-document>`
+
+Retrieve the metadata for a document.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Find_id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the document to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Message
+
+`<roostify:retrieving-message>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the message to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve an Integration Service
+
+`<roostify:retrieving-settings>`
+
+Roostify Services are customizable on an account level. The /settings endpoint provides access to
+the service settings and configurations. These are returned as key/value pairs. For instance, if
+Roostify leverages an Integration that requires configurations, these fields, values, and the
+associated Lender on the Account are returned via this GET request.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a User
+
+`<roostify:retrieving-user>`
+
+Get details of a single user.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the user</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a Webhook
+
+`<roostify:retrieving-webhook>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Webhook Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the webhook to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Update an Access Control Group
+
+`<roostify:update-access-control>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Access Control Group</p></td><td><div><div><p>Object</p></div></div></td><td><p>Update access control request body</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID or system name of the task. If searching for an id matching the string given yields no results, then a lookup against system name is attempted.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Update a Document Metadata
+
+`<roostify:update-document>`
+
+Update a documents metadata and returns the documents metadata.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Document Body</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for update a document</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the document to update.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Update a Task
+
+`<roostify:update-task>`
+
+Update details of a single task.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Task Body</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for updating task.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Task Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the task.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Update a User
+
+`<roostify:update-user>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for update user</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>User ID.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Update a Loan Application
+
+`<roostify:updating-loan-application>`
+
+Updating a loan application must be granted on a service by service basis. Access is denied by
+default.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Update_id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the loan application to update.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Update Loan Request</p></td><td><div><div><p>Object</p></div></div></td><td><p>Request body for updating loan application.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+### Retrieve a User Settings
+
+`<roostify:user-settings>`
+
+Retrieving settings for a particular user also returns the account settings for the account they are
+on. This reduces complexity by allowing you to make a single request for all a particular users
+settings.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Id of the user whose settings you would like to retrieve</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- ROOSTIFY:BAD_GATEWAY
+- ROOSTIFY:INTERNAL_SERVER_ERROR
+- ROOSTIFY:METHOD_NOT_ALLOWED
+- ROOSTIFY:UN_PROCESSABLE_ENTITY
+- ROOSTIFY:NOT_IMPLEMENTED
+- ROOSTIFY:CONNECTIVITY
+- ROOSTIFY:GENERIC_EXCEPTION
+- ROOSTIFY:NOT_ACCEPTABLE
+- ROOSTIFY:NOT_FOUND
+- ROOSTIFY:SERVICE_UNAVAILABLE
+- ROOSTIFY:RETRY_EXHAUSTED
+- ROOSTIFY:UNAUTHORIZED
+- ROOSTIFY:FORBIDDEN
+- ROOSTIFY:EMPTY_HEAD_COUNT
+- ROOSTIFY:CONFLICT
+- ROOSTIFY:BAD_REQUEST
+- ROOSTIFY:DEAD_TOKEN
+- ROOSTIFY:REQUEST_TIMEOUT
+
+## Types
+
+### Default
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Host where the proxy requests is sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port where the proxy requests is sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>The username to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Non Proxy Hosts</p></td><td><div><div><p>String</p></div></div></td><td><p>A list of comma-separated hosts against which the proxy should not be used</p></td><td></td><td></td></tr></tbody></table>
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the trust store.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the trust store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the trust store.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the key store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the key store contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file will be used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the key store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the key store.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Only verify the last element of the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer CRLs</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method (the one not selected before).</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server can not be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Response Status
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status Code</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of memory to allocate to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

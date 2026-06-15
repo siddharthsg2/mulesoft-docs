@@ -1,0 +1,5726 @@
+﻿# MuleSoft Terraform Provider - Full Documentation
+
+# API, MCP, and A2A Policy Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use policy resources to apply policies declaratively to APIs, MCP servers, gateways, and AI agent
+resources.
+
+## `anypoint_api_policy`
+
+Use the `anypoint_api_policy` resource to manage a policy applied to an API instance in API Manager.
+
+You can use `policy_type` for known policies, or provide `group_id`, `asset_id`, and `asset_version`
+directly for custom policies.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy" "rate_limit" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = var.api_instance_id
+
+  policy_type = "rate-limiting"
+  label       = "rate-limit-100rpm"
+  order       = 1
+
+  configuration_data = jsonencode({
+    key_selector = "#[attributes.queryParams['identifier']]"
+    rate_limits = [
+      {
+        maximum_requests            = 100
+        time_period_in_milliseconds = 60000
+      }
+    ]
+    expose_headers = true
+    clusterizable  = true
+  })
+}
+```
+
+### Custom Policy Example
+
+```hcl
+resource "anypoint_api_policy" "custom" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = var.api_instance_id
+
+  group_id      = "my-org-id"
+  asset_id      = "my-custom-policy"
+  asset_version = "1.0.0"
+  label         = "custom-policy"
+  order         = 2
+
+  configuration_data = jsonencode({
+    custom_field = "value"
+  })
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID where the API instance exists.
+- `api_instance_id` - Numeric ID of the API instance that the policy is applied to.
+- `configuration_data` - Policy configuration as a JSON string. Use `jsonencode()` to set this
+  value.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `policy_type` - Known policy type name, such as `rate-limiting`, `cors`, or `jwt-validation`.
+- `group_id` - Exchange group ID for the policy asset.
+- `asset_id` - Exchange asset ID that identifies the policy type.
+- `asset_version` - Version of the policy asset from Exchange.
+- `label` - Human-readable label for the policy instance.
+- `order` - Execution order of the policy.
+- `disabled` - Indicates whether the policy is disabled.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the applied policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy.example organization_id/environment_id/api_instance_id/policy_id
+```
+
+## `anypoint_api_policy_a2a_agent_card`
+
+Use the `anypoint_api_policy_a2a_agent_card` resource to manage an A2A Agent Card policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_a2a_agent_card" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    content        = "{\"name\": \"My Agent\", \"description\": \"An example A2A agent\"}"
+    consumer_url   = "https://example.com/agent"
+    card_path      = "/.well-known/agent-card.json"
+    file_name      = "agent-card.json"
+    file_mime_type = "application/json"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `content` - Agent card content as a JSON string.
+- `card_path` - Path where the agent card is served.
+- `consumer_url` - Consumer URL for the A2A agent.
+- `file_mime_type` - MIME type of the agent card file.
+- `file_name` - Filename of the agent card.
+- `file_source` - Source of the agent card file.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_a2a_agent_card.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_a2a_pii_detector`
+
+Use the `anypoint_api_policy_a2a_pii_detector` resource to manage an A2A PII Detector policy for an
+API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_a2a_pii_detector" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    entities = ["EMAIL", "PHONE_NUMBER", "CREDIT_CARD"]
+    action   = "mask"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `entities` - Array of PII entity types to detect.
+- `action` - Action performed when PII is detected.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_a2a_pii_detector.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_a2a_prompt_decorator`
+
+Use the `anypoint_api_policy_a2a_prompt_decorator` resource to manage an A2A Prompt Decorator policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_a2a_prompt_decorator" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    text_decorators = [
+      {
+        position = "prefix"
+        text     = "You are a helpful assistant."
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `file_decorators` - File-based prompt decorators.
+- `text_decorators` - Text-based prompt decorators.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_a2a_prompt_decorator.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_a2a_schema_validation`
+
+Use the `anypoint_api_policy_a2a_schema_validation` resource to manage an A2A Schema Validation
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_a2a_schema_validation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {}
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+This policy requires no configuration fields. Use an empty configuration block:
+
+```hcl
+configuration = {}
+```
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_a2a_schema_validation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_a2a_token_rate_limit`
+
+Use the `anypoint_api_policy_a2a_token_rate_limit` resource to manage an A2A Token Rate Limit policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_a2a_token_rate_limit" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    maximum_tokens              = 10000
+    time_period_in_milliseconds = 60000
+    key_selector                = "#[attributes.headers['Authorization']]"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `maximum_tokens` - Maximum number of tokens allowed during the configured period.
+- `time_period_in_milliseconds` - Time period for the rate limit window.
+- `key_selector` - Expression used to extract the rate limit key from the request.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_a2a_token_rate_limit.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_body_transformation`
+
+Use the `anypoint_api_policy_body_transformation` resource to manage a Body Transformation policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_body_transformation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    script       = "%%dw 2.0\noutput application/json\n---\npayload"
+    request_flow = "request"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `script` - DataWeave or transformation script.
+- `request_flow` - Flow where the transformation is applied, such as `request` or `response`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_body_transformation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_circuit_breaker`
+
+Use the `anypoint_api_policy_circuit_breaker` resource to manage a Circuit Breaker policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_circuit_breaker" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    thresholds = {
+      failure_rate_threshold       = 50
+      slow_call_rate_threshold     = 80
+      slow_call_duration_threshold = 5000
+      sliding_window_size          = 100
+      minimum_number_of_calls      = 10
+      wait_duration_in_open_state  = 60000
+    }
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `thresholds` - Circuit breaker threshold configuration object.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_circuit_breaker.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_access_block`
+
+Use the `anypoint_api_policy_access_block` resource to manage an Access Block policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_access_block" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {}
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block. This policy requires no configuration
+  fields â pass an empty block (`configuration = {}`).
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_access_block.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_client_id_enforcement`
+
+Use the `anypoint_api_policy_client_id_enforcement` resource to manage a Client ID Enforcement
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_client_id_enforcement" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    credentials_origin_has_http_basic_authentication_header = "customExpression"
+    client_id_expression     = "#[attributes.headers['client_id']]"
+    client_secret_expression = "#[attributes.headers['client_secret']]"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `client_id_expression` - Expression used to extract the client ID from the request.
+- `client_secret_expression` - Expression used to extract the client secret from the request.
+- `credentials_origin_has_http_basic_authentication_header` - Defines how client credentials are
+  provided.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_client_id_enforcement.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_cors`
+
+Use the `anypoint_api_policy_cors` resource to manage a CORS policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_cors" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    public_resource     = true
+    support_credentials = false
+
+    origin_groups = [
+      {
+        origins                = ["https://example.com"]
+        access_control_max_age = 600
+        methods                = ["GET", "POST", "PUT"]
+        headers                = ["Content-Type", "Authorization"]
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `origin_groups` - Origin group configuration for CORS.
+- `public_resource` - Indicates whether the resource is publicly accessible.
+- `support_credentials` - Indicates whether CORS requests can include credentials.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_cors.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_credential_injection_basic_auth`
+
+Use the `anypoint_api_policy_credential_injection_basic_auth` resource to manage a Credential
+Injection Basic Auth policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_credential_injection_basic_auth" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    username  = "service-account"
+    password  = "service-password"
+    overwrite = true
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `username` - Username for authentication.
+- `password` - Password for authentication.
+- `custom_header` - Custom header name for injecting credentials.
+- `overwrite` - Indicates whether existing credentials are overwritten.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_credential_injection_basic_auth.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_credential_injection_oauth2`
+
+Use the `anypoint_api_policy_credential_injection_oauth2` resource to manage a Credential Injection
+OAuth 2.0 policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_credential_injection_oauth2" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    oauth_service                    = "https://auth.example.com/oauth2/token"
+    client_id                        = "my-client-id"
+    client_secret                    = "my-client-secret"
+    scope                            = ["read", "write"]
+    overwrite                        = true
+    token_fetch_timeout              = 5000
+    allow_request_without_credential = false
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `oauth_service` - OAuth 2.0 token service URL.
+- `client_id` - OAuth 2.0 client ID.
+- `client_secret` - OAuth 2.0 client secret.
+- `token_fetch_timeout` - Timeout in milliseconds for fetching tokens.
+- `scope` - OAuth 2.0 scopes.
+- `overwrite` - Indicates whether existing credentials are overwritten.
+- `allow_request_without_credential` - Indicates whether requests without credentials are allowed.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_credential_injection_oauth2.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_credential_injection_oauth2_obo`
+
+Use the `anypoint_api_policy_credential_injection_oauth2_obo` resource to manage a Credential
+Injection OAuth 2.0 On-Behalf-Of policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_credential_injection_oauth2_obo" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    flow           = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+    client_id      = "my-client-id"
+    client_secret  = "my-client-secret"
+    token_endpoint = "https://auth.example.com/oauth2/token"
+    scope          = "openid profile"
+    timeout        = 5000
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `client_id` - OAuth 2.0 client ID.
+- `client_secret` - OAuth 2.0 client secret.
+- `flow` - OAuth 2.0 grant flow type.
+- `token_endpoint` - OAuth 2.0 token endpoint URL.
+- `ciba_enabled` - Indicates whether Client-Initiated Backchannel Authentication (CIBA) is enabled.
+- `scope` - OAuth 2.0 scopes.
+- `target_type` - Target resource type for the On-Behalf-Of flow.
+- `target_value` - Target resource value for the On-Behalf-Of flow.
+- `timeout` - Timeout value in milliseconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_credential_injection_oauth2_obo.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_dataweave_request_filter`
+
+Use the `anypoint_api_policy_dataweave_request_filter` resource to manage a DataWeave Request Filter
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_dataweave_request_filter" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    script           = "%%dw 2.0\noutput application/json\n---\ntrue"
+    requires_payload = false
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `script` - DataWeave or transformation script.
+- `requires_payload` - Indicates whether the script requires payload access.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_dataweave_request_filter.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_dataweave_body_transformation`
+
+Use the `anypoint_api_policy_dataweave_body_transformation` resource to manage a DataWeave Body
+Transformation policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_dataweave_body_transformation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    script       = "%%dw 2.0\noutput application/json\n---\npayload"
+    request_flow = "request"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `script` - (Required) The DataWeave or transformation script.
+  - `request_flow` - Which flow to apply the transformation to. Supported values are `request` and
+    `response`.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_dataweave_body_transformation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_dataweave_headers_transformation`
+
+Use the `anypoint_api_policy_dataweave_headers_transformation` resource to manage a DataWeave
+Headers Transformation policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_dataweave_headers_transformation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    script           = "%%dw 2.0\noutput application/json\n---\npayload"
+    requires_payload = false
+    request_flow     = "request"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `script` - DataWeave or transformation script.
+- `request_flow` - Flow where the transformation is applied, such as `request` or `response`.
+- `requires_payload` - Indicates whether the script requires payload access.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_dataweave_headers_transformation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_external_oauth2_access_token_enforcement`
+
+Use the `anypoint_api_policy_external_oauth2_access_token_enforcement` resource to manage an
+External OAuth 2.0 Access Token Enforcement policy for an API instance.
+
+> [!NOTE] This policy is only supported on `mule4` API instances.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_external_oauth2_access_token_enforcement" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    token_url                 = "https://auth.example.com/oauth2/token"
+    scope_validation_criteria = "AND"
+    scopes                    = "read write"
+    expose_headers            = false
+    skip_client_id_validation = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `token_url` - (Required) URL of the OAuth 2.0 token endpoint.
+  - `authentication_timeout` - Authentication request timeout in milliseconds.
+  - `expose_headers` - Whether to expose rate-limit headers in the response.
+  - `max_cache_entries` - Maximum number of entries in the cache.
+  - `scope_validation_criteria` - How scopes are validated. Supported values are `AND` and `OR`.
+  - `scopes` - Space-separated list of required OAuth scopes.
+  - `secure_trust_store` - Whether to use a secure trust store for token validation.
+  - `skip_client_id_validation` - Whether to skip client ID validation.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.6.0`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_external_oauth2_access_token_enforcement.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_header_injection`
+
+Use the `anypoint_api_policy_header_injection` resource to manage a Header Injection policy for an
+API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_header_injection" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    inbound_headers = [
+      {
+        name  = "X-Custom-Header"
+        value = "custom-value"
+      }
+    ]
+
+    outbound_headers = []
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `inbound_headers` - Inbound headers to inject.
+- `outbound_headers` - Outbound headers to inject.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_header_injection.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_header_removal`
+
+Use the `anypoint_api_policy_header_removal` resource to manage a Header Removal policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_header_removal" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    inbound_headers = [
+      {
+        name = "X-Remove-Me"
+      }
+    ]
+
+    outbound_headers = []
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `inbound_headers` - Inbound headers to remove.
+- `outbound_headers` - Outbound headers to remove.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_header_removal.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_header_transformation`
+
+Use the `anypoint_api_policy_header_transformation` resource to manage a Header Transformation
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_header_transformation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    script           = "%%dw 2.0\noutput application/json\n---\npayload"
+    requires_payload = false
+    request_flow     = "request"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `script` - DataWeave or transformation script.
+- `request_flow` - Flow where the transformation is applied, such as `request` or `response`.
+- `requires_payload` - Indicates whether the script requires payload access.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_header_transformation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_health_check`
+
+Use the `anypoint_api_policy_health_check` resource to manage a Health Check policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_health_check" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    endpoint    = "/health"
+    path        = "/health"
+    status_code = "200"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `endpoint` - Health check endpoint URL.
+- `path` - Health check path.
+- `status_code` - Expected HTTP status code for a healthy response.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_health_check.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_http_basic_authentication`
+
+Use the `anypoint_api_policy_http_basic_authentication` resource to manage an HTTP Basic
+Authentication policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_http_basic_authentication" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    username = "admin"
+    password = "secret"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `username` - Username for authentication.
+- `password` - Password for authentication.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_http_basic_authentication.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_http_caching`
+
+Use the `anypoint_api_policy_http_caching` resource to manage an HTTP Caching policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_http_caching" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    http_caching_key       = "#[attributes.requestPath]"
+    max_cache_entries      = 1000
+    ttl                    = 600
+    distributed            = false
+    persist_cache          = false
+    use_http_cache_headers = true
+    invalidation_header    = "X-Cache-Invalidate"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `distributed` - Indicates whether the cache is distributed across the cluster.
+- `http_caching_key` - Expression used to compute the cache key.
+- `invalidation_header` - Header that triggers cache invalidation.
+- `max_cache_entries` - Maximum number of cache entries.
+- `persist_cache` - Indicates whether the cache persists to disk.
+- `request_expression` - Expression evaluated for request caching decisions.
+- `response_expression` - Expression evaluated for response caching decisions.
+- `ttl` - Cache time-to-live in seconds.
+- `use_http_cache_headers` - Indicates whether standard HTTP cache headers are honored.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_http_caching.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_idle_timeout`
+
+Use the `anypoint_api_policy_idle_timeout` resource to manage an Idle Timeout policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_idle_timeout" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    timeout = 30000
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `timeout` - Timeout value in milliseconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_idle_timeout.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_intask_authentication_policy`
+
+Use the `anypoint_api_policy_intask_authentication_policy` resource to manage an InTask
+Authentication policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_intask_authentication_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    secondary_auth_provider = "example-provider"
+    authorization_endpoint  = "https://auth.example.com/authorize"
+    token_endpoint          = "https://auth.example.com/token"
+    redirect_uri            = "https://app.example.com/callback"
+    scopes                  = "openid profile"
+    response_type           = "code"
+    token_timeout           = 3600
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `upstream_ids` - (Required) List of upstream IDs where the policy is applied.
+- `configuration` - (Required) Policy configuration block.
+  - `authorization_endpoint` - (Required) URL of the OAuth 2.0 authorization endpoint.
+  - `redirect_uri` - (Required) The redirect URI for the OAuth 2.0 flow.
+  - `secondary_auth_provider` - (Required) Name of the secondary authentication provider.
+  - `token_endpoint` - (Required) URL of the OAuth 2.0 token endpoint.
+  - `body_encoding` - Encoding for the token request body.
+  - `challenge_response_status_code` - HTTP status code for the challenge response.
+  - `code_challenge_method` - The PKCE code challenge method (for example, `S256`).
+  - `response_type` - The OAuth 2.0 response type (for example, `code`).
+  - `scopes` - Space-separated list of required OAuth scopes.
+  - `token_audience` - Expected audience value for the token.
+  - `token_timeout` - Token validity timeout in seconds.
+  - `user_email_header` - Header name to extract the user email from.
+  - `user_id_header` - Header name to extract the user ID from.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version. Defaults to `1.0.0-20260113204639`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_intask_authentication_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_intask_authorization_code_policy`
+
+Use the `anypoint_api_policy_intask_authorization_code_policy` resource to manage an InTask
+Authorization Code policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_intask_authorization_code_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    secondary_auth_provider = "example-provider"
+    authorization_endpoint  = "https://auth.example.com/authorize"
+    token_endpoint          = "https://auth.example.com/token"
+    redirect_uri            = "https://app.example.com/callback"
+    scopes                  = "openid profile"
+    response_type           = "code"
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `authorization_endpoint` - OAuth 2.0 authorization endpoint URL.
+- `redirect_uri` - Redirect URI for the OAuth 2.0 flow.
+- `secondary_auth_provider` - Secondary authentication provider name.
+- `token_endpoint` - OAuth 2.0 token endpoint URL.
+- `body_encoding` - Encoding for the token request body.
+- `challenge_response_status_code` - HTTP status code for the challenge response.
+- `code_challenge_method` - PKCE code challenge method.
+- `response_type` - OAuth 2.0 response type.
+- `scopes` - Space-separated list of required OAuth scopes.
+- `token_timeout` - Token validity timeout in seconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_intask_authorization_code_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_ip_allowlist`
+
+Use the `anypoint_api_policy_ip_allowlist` resource to manage an IP Allowlist policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_ip_allowlist" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    ip_expression  = "#[attributes.remoteAddress]"
+    ips            = ["10.0.0.0/8", "172.16.0.0/12"]
+    methods_string = "GET|POST"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `ip_expression` - Expression used to extract the client IP address from the request.
+- `ips` - List of IP addresses or CIDR blocks.
+- `methods_string` - Pipe-separated list of HTTP methods where the policy applies.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_ip_allowlist.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_ip_blocklist`
+
+Use the `anypoint_api_policy_ip_blocklist` resource to manage an IP Blocklist policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_ip_blocklist" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    ip_expression  = "#[attributes.remoteAddress]"
+    ips            = ["192.168.1.0/24", "10.0.0.1"]
+    methods_string = "GET|POST"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `ip_expression` - Expression used to extract the client IP address from the request.
+- `ips` - List of IP addresses or CIDR blocks.
+- `methods_string` - Pipe-separated list of HTTP methods where the policy applies.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_ip_blocklist.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_injection_protection`
+
+Use the `anypoint_api_policy_injection_protection` resource to manage an Injection Protection policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_injection_protection" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    protect_path_and_query = true
+    protect_headers        = true
+    protect_body           = true
+    reject_requests        = true
+    built_in_protections   = ["sql-injection", "script-injection"]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `built_in_protections` - Array of built-in injection protection types to enable.
+  - `custom_protections` - Array of custom injection protection regex patterns.
+  - `protect_body` - Whether to apply injection protection to the request body.
+  - `protect_headers` - Whether to apply injection protection to headers.
+  - `protect_path_and_query` - Whether to apply injection protection to path and query parameters.
+  - `reject_requests` - Whether to reject requests that match injection patterns.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_injection_protection.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_json_threat_protection`
+
+Use the `anypoint_api_policy_json_threat_protection` resource to manage a JSON Threat Protection
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_json_threat_protection" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    max_container_depth          = 10
+    max_string_value_length      = 256
+    max_object_entry_name_length = 128
+    max_object_entry_count       = 50
+    max_array_element_count      = 50
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `max_array_element_count` - Maximum number of elements in a JSON array.
+- `max_container_depth` - Maximum nesting depth for JSON containers.
+- `max_object_entry_count` - Maximum number of entries in a JSON object.
+- `max_object_entry_name_length` - Maximum length for JSON object entry names.
+- `max_string_value_length` - Maximum length for JSON string values.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_json_threat_protection.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_jwt_validation`
+
+Use the `anypoint_api_policy_jwt_validation` resource to manage a JWT Validation policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_jwt_validation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    jwt_origin                = "httpBearerAuthenticationHeader"
+    signing_method            = "rsa"
+    signing_key_length        = 256
+    jwt_key_origin            = "jwks"
+    jwks_url                  = "https://example.com/.well-known/jwks.json"
+    skip_client_id_validation = true
+    validate_aud_claim        = true
+    mandatory_exp_claim       = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `jwt_origin` - Location where the JWT token is extracted from.
+- `claims_to_headers` - JWT claims mapped to response headers.
+- `client_id_expression` - Expression used to extract the client ID from the request.
+- `custom_key_expression` - Expression used to resolve the signing key.
+- `jwks_service_connection_timeout` - Connection timeout for the JWKS endpoint.
+- `jwks_service_time_to_live` - Time-to-live for cached JWKS keys.
+- `jwks_url` - JWKS endpoint URL for key retrieval.
+- `jwt_expression` - Custom expression used to extract the JWT token.
+- `jwt_key_origin` - Source of the signing key.
+- `mandatory_aud_claim` - Indicates whether the `aud` claim is required.
+- `mandatory_custom_claims` - Custom claims that must be present.
+- `mandatory_exp_claim` - Indicates whether the `exp` claim is required.
+- `mandatory_nbf_claim` - Indicates whether the `nbf` claim is required.
+- `non_mandatory_custom_claims` - Optional custom claims to validate when present.
+- `signing_key_length` - Key length for the signing algorithm.
+- `signing_method` - Signing algorithm.
+- `skip_client_id_validation` - Indicates whether client ID validation is skipped.
+- `supported_audiences` - Comma-separated list of supported audience values.
+- `text_key` - Inline signing key when `jwt_key_origin` is `text`.
+- `validate_aud_claim` - Indicates whether the `aud` claim is validated.
+- `validate_custom_claim` - Indicates whether custom claims are validated.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_jwt_validation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_ldap_authentication`
+
+Use the `anypoint_api_policy_ldap_authentication` resource to manage an LDAP Authentication policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_ldap_authentication" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    ldap_server_url           = "ldap://ldap.example.com:389"
+    ldap_server_user_dn       = "cn=admin,dc=example,dc=com"
+    ldap_server_user_password = "admin-password"
+    ldap_search_base          = "ou=users,dc=example,dc=com"
+    ldap_search_filter        = "(uid={0})"
+    ldap_search_in_subtree    = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `ldap_search_base` - Base DN for LDAP searches.
+- `ldap_search_filter` - LDAP search filter expression.
+- `ldap_server_url` - LDAP server URL.
+- `ldap_server_user_dn` - Distinguished name of the LDAP bind user.
+- `ldap_server_user_password` - Password for the LDAP bind user.
+- `ldap_search_in_subtree` - Indicates whether to search in subtrees.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_ldap_authentication.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_bedrock_llm_provider_policy`
+
+Use the `anypoint_api_policy_bedrock_llm_provider_policy` resource to manage a Bedrock LLM Provider
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_bedrock_llm_provider_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    aws_access_key_id     = "AKIAIOSFODNN7EXAMPLE"
+    aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    aws_region            = "us-east-1"
+    service_name          = "bedrock"
+    timeout               = 30000
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `upstream_ids` - (Required) List of upstream IDs where the policy is applied.
+- `configuration` - (Required) Policy configuration block.
+  - `aws_access_key_id` - (Required) AWS access key ID.
+  - `aws_region` - (Required) AWS region for the Bedrock service.
+  - `aws_secret_access_key` - (Required) AWS secret access key.
+  - `aws_session_token` - AWS session token for temporary credentials.
+  - `service_name` - The AWS service name.
+  - `timeout` - Timeout value in milliseconds.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version. Defaults to `1.0.1`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_bedrock_llm_provider_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_gemini_llm_provider_policy`
+
+Use the `anypoint_api_policy_gemini_llm_provider_policy` resource to manage a Gemini LLM Provider
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_gemini_llm_provider_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    api_key = "AIzaSy-xxxxxxxxxxxx"
+    timeout = 30000
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `upstream_ids` - (Required) List of upstream IDs where the policy is applied.
+- `configuration` - (Required) Policy configuration block.
+  - `api_key` - (Required) API key for the LLM provider.
+  - `model_mapper` - Array of model name mappings.
+  - `timeout` - Timeout value in milliseconds.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_gemini_llm_provider_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_gemini_transcoding_policy`
+
+Use the `anypoint_api_policy_gemini_transcoding_policy` resource to manage a Gemini Transcoding
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_gemini_transcoding_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {}
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `upstream_ids` - (Required) List of upstream IDs where the policy is applied.
+- `configuration` - (Required) Policy configuration block. This policy requires no configuration
+  fields â pass an empty block (`configuration = {}`).
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_gemini_transcoding_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_llm_gw_core_policy`
+
+Use the `anypoint_api_policy_llm_gw_core_policy` resource to manage an LLM Gateway Core Policy for
+an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_llm_gw_core_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    header_name           = "X-LLM-Vendor"
+    vendor_header_mapping = [
+      {
+        vendor       = "openai"
+        header_value = "openai"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `header_name` - Header name used for vendor routing.
+- `vendor_header_mapping` - Vendor-to-header-value mapping.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_llm_gw_core_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_llm_proxy_core`
+
+Use the `anypoint_api_policy_llm_proxy_core` resource to manage an LLM Proxy Core policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_llm_proxy_core" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {}
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+This policy requires no configuration fields. Use an empty configuration block:
+
+```hcl
+configuration = {}
+```
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_llm_proxy_core.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_llm_proxy_core_policy`
+
+Use the `anypoint_api_policy_llm_proxy_core_policy` resource to manage an LLM Proxy Core Policy for
+an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_llm_proxy_core_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    header_name           = "X-LLM-Vendor"
+    vendor_header_mapping = [
+      {
+        vendor       = "openai"
+        header_value = "openai"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `header_name` - Header name used for vendor routing.
+- `vendor_header_mapping` - Vendor-to-header-value mapping.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_llm_proxy_core_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_access_control`
+
+Use the `anypoint_api_policy_mcp_access_control` resource to manage an MCP Access Control policy for
+an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_access_control" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    rules = [
+      {
+        tool   = "list_files"
+        action = "allow"
+      }
+    ]
+    auth_type = "bearer"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `rules` - Access control or policy rules.
+- `auth_type` - Authentication type, such as `bearer` or `api_key`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_access_control.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_global_access_policy`
+
+Use the `anypoint_api_policy_mcp_global_access_policy` resource to manage an MCP Global Access
+Policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_global_access_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    rules = [
+      {
+        action = "allow"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `rules` - (Required) Array of access control rules.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_global_access_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_pii_detector`
+
+Use the `anypoint_api_policy_mcp_pii_detector` resource to manage an MCP PII Detector policy for an
+API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_pii_detector" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    entities = ["EMAIL", "PHONE_NUMBER", "CREDIT_CARD"]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `entities` - PII entity types to detect.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_pii_detector.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_schema_validation`
+
+Use the `anypoint_api_policy_mcp_schema_validation` resource to manage an MCP Schema Validation
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_schema_validation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    validate_tool_schema = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `validate_tool_schema` - Indicates whether MCP tool input and output are validated against a
+  schema.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_schema_validation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_support`
+
+Use the `anypoint_api_policy_mcp_support` resource to manage an MCP Support policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_support" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {}
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+This policy requires no configuration fields. Use an empty configuration block:
+
+```hcl
+configuration = {}
+```
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_support.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_tool_mapping`
+
+Use the `anypoint_api_policy_mcp_tool_mapping` resource to manage an MCP Tool Mapping policy for an
+API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_tool_mapping" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    tool_mappings = [
+      {
+        source_tool = "original_tool"
+        target_tool = "mapped_tool"
+      }
+    ]
+    log_mappings = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `tool_mappings` - Tool name mappings from source to target.
+- `log_mappings` - Indicates whether tool mapping operations are logged.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_tool_mapping.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_mcp_transcoding_router`
+
+Use the `anypoint_api_policy_mcp_transcoding_router` resource to manage an MCP Transcoding Router
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_mcp_transcoding_router" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    transcoding_path = "/mcp"
+    routes = [
+      {
+        tool    = "example_tool"
+        backend = "https://backend.example.com"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `routes` - Routing rules.
+- `transcoding_path` - Base path for MCP transcoding requests.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_mcp_transcoding_router.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_message_logging`
+
+Use the `anypoint_api_policy_message_logging` resource to manage a Message Logging policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_message_logging" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    logging_configuration = [
+      {
+        item_name = "request"
+        item_data = {
+          message       = "#[payload]"
+          conditional   = "#[true]"
+          level         = "INFO"
+          first_section = true
+        }
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `logging_configuration` - Logging rule configuration.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_message_logging.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_message_logging_outbound`
+
+Use the `anypoint_api_policy_message_logging_outbound` resource to manage an outbound Message
+Logging policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_message_logging_outbound" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    logging_configuration = [
+      {
+        item_name = "response"
+        item_data = {
+          message     = "#[payload]"
+          conditional = "#[true]"
+          level       = "INFO"
+        }
+      }
+    ]
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `logging_configuration` - Logging rule configuration.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_message_logging_outbound.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_model_based_routing`
+
+Use the `anypoint_api_policy_model_based_routing` resource to manage a Model-Based Routing policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_model_based_routing" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    supported_vendors = [
+      {
+        vendor = "openai"
+        models = ["gpt-4", "gpt-3.5-turbo"]
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `supported_vendors` - Supported LLM vendor configuration.
+- `fallback` - Fallback vendor configuration.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_model_based_routing.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_agent_connection_telemetry`
+
+Use the `anypoint_api_policy_agent_connection_telemetry` resource to manage an Agent Connection
+Telemetry policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_agent_connection_telemetry" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    source_agent_id = "agent-001"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `source_agent_id` - Identifier for the source agent connection.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_agent_connection_telemetry.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_native_aws_lambda`
+
+Use the `anypoint_api_policy_native_aws_lambda` resource to manage a Native AWS Lambda policy for an
+API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_native_aws_lambda" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    arn                 = "arn:aws:lambda:us-east-1:123456789012:function:my-function"
+    payload_passthrough = false
+    invocation_mode     = "synchronous"
+    authentication_mode = "static_credentials"
+
+    credentials = {
+      access_key_id     = "AKIAIOSFODNN7EXAMPLE"
+      secret_access_key = "example-secret-key"
+    }
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `arn` - ARN of the AWS Lambda function.
+- `payload_passthrough` - Indicates whether the request payload is passed directly to Lambda.
+- `invocation_mode` - Lambda invocation mode, such as `synchronous` or `asynchronous`.
+- `authentication_mode` - AWS authentication mode, such as `static_credentials` or `iam_role`.
+- `credentials` - AWS credentials configuration.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_native_aws_lambda.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_native_ext_authz`
+
+Use the `anypoint_api_policy_native_ext_authz` resource to manage a Native External Authorization
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_native_ext_authz" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    uri             = "grpc://auth-service:9090"
+    server_type     = "grpc"
+    request_timeout = 5000
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `server_type` - Server type, such as `grpc` or `http`.
+- `uri` - URI of the external authorization service.
+- `allowed_headers` - Headers forwarded to the external authorization service.
+- `include_peer_certificate` - Indicates whether the peer certificate is included in the
+  authorization request.
+- `path_prefix` - Path prefix for authorization requests.
+- `request_timeout` - Authorization request timeout in milliseconds.
+- `server_api_version` - API version of the external authorization server.
+- `service_request_headers_to_add` - Headers added to the authorization request.
+- `service_response_client_headers` - Headers returned to the client from the authorization
+  response.
+- `service_response_client_headers_on_success` - Headers returned on successful authorization.
+- `service_response_upstream_headers` - Headers forwarded upstream from the authorization response.
+- `service_response_upstream_headers_to_append` - Headers appended upstream from the authorization
+  response.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_native_ext_authz.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_native_ext_proc`
+
+Use the `anypoint_api_policy_native_ext_proc` resource to manage a Native External Processing policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_native_ext_proc" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    uri                  = "grpc://ext-proc-service:9091"
+    message_timeout      = 5000
+    failure_mode_allow   = false
+    request_header_mode  = "SEND"
+    response_header_mode = "SKIP"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `uri` - URI of the external processing service.
+- `allow_mode_override` - Indicates whether the external processor can override the processing mode.
+- `failure_mode_allow` - Indicates whether requests are allowed if the external processor fails.
+- `max_message_timeout` - Maximum message processing timeout in milliseconds.
+- `message_timeout` - Message processing timeout in milliseconds.
+- `request_body_mode` - Processing mode for the request body.
+- `request_header_mode` - Processing mode for request headers.
+- `request_trailer_mode` - Processing mode for request trailers.
+- `response_body_mode` - Processing mode for the response body.
+- `response_header_mode` - Processing mode for response headers.
+- `response_trailer_mode` - Processing mode for response trailers.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_native_ext_proc.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_oauth2_token_introspection`
+
+Use the `anypoint_api_policy_oauth2_token_introspection` resource to manage an OAuth 2.0 Token
+Introspection policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_oauth2_token_introspection" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    introspection_url         = "https://auth.example.com/oauth2/introspect"
+    authorization_value       = "Bearer token"
+    validated_token_ttl       = 600
+    skip_client_id_validation = true
+    expose_headers            = false
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `authorization_value` - Authorization header value for introspection requests.
+- `introspection_url` - OAuth 2.0 token introspection endpoint URL.
+- `authentication_timeout` - Authentication timeout in milliseconds.
+- `consumer_by` - Method used to identify the API consumer.
+- `expose_headers` - Indicates whether rate-limit headers are exposed in responses.
+- `max_cache_entries` - Maximum number of cache entries.
+- `scope_validation_criteria` - Scope validation mode, such as `AND` or `OR`.
+- `skip_client_id_validation` - Indicates whether client ID validation is skipped.
+- `validated_token_ttl` - Cache TTL for validated tokens in seconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_oauth2_token_introspection.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_openai_transcoding_policy`
+
+Use the `anypoint_api_policy_openai_transcoding_policy` resource to manage an OpenAI Transcoding
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_openai_transcoding_policy" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    api_key = "sk-xxxxxxxxxxxx"
+    timeout = 30000
+  }
+
+  upstream_ids = [anypoint_api_upstream.example.id]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `asset_version` - Policy asset version.
+
+### Configuration Arguments
+
+- `api_key` - API key for the LLM provider.
+- `model_mapper` - Model name mapping configuration.
+- `timeout` - Timeout value in milliseconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_openai_transcoding_policy.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_semantic_prompt_guard_policy_openai`
+
+Use the `anypoint_api_policy_semantic_prompt_guard_policy_openai` resource to manage a Semantic
+Prompt Guard (OpenAI) policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_semantic_prompt_guard_policy_openai" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    openai_url             = "https://api.openai.com/v1"
+    openai_api_key         = "sk-xxxxxxxxxxxx"
+    openai_embedding_model = "text-embedding-ada-002"
+    timeout                = 5000
+    deny_topics = [
+      {
+        topic       = "harmful content"
+        description = "Block harmful content generation"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `deny_topics` - (Required) Array of topics to deny in prompt guard evaluation.
+  - `openai_api_key` - (Required) API key for the OpenAI service.
+  - `openai_url` - (Required) URL of the OpenAI API.
+  - `openai_embedding_model` - The OpenAI embedding model to use.
+  - `threshold` - Threshold configuration object for similarity scoring.
+  - `timeout` - Timeout value in milliseconds.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0-20260130084752`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_semantic_prompt_guard_policy_openai.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_semantic_routing_policy_huggingface`
+
+Use the `anypoint_api_policy_semantic_routing_policy_huggingface` resource to manage a Semantic
+Routing (HuggingFace) policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_semantic_routing_policy_huggingface" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    huggingface_url     = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+    huggingface_api_key = "hf_xxxxxxxxxxxx"
+    timeout             = 5000
+    routes = [
+      {
+        description = "Route for customer queries"
+        upstream_id = "upstream-1"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `huggingface_api_key` - (Required) API key for the HuggingFace service.
+  - `huggingface_url` - (Required) URL of the HuggingFace inference API.
+  - `routes` - (Required) Array of routing rules.
+  - `fallback_route` - Fallback route configuration when no semantic match is found.
+  - `threshold` - Threshold configuration object for similarity scoring.
+  - `timeout` - Timeout value in milliseconds.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.0-20260130095514`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_semantic_routing_policy_huggingface.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_rate_limiting`
+
+Use the `anypoint_api_policy_rate_limiting` resource to manage a Rate Limiting policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_rate_limiting" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    rate_limits = [
+      {
+        maximum_requests            = 100
+        time_period_in_milliseconds = 60000
+      }
+    ]
+
+    expose_headers = false
+    clusterizable  = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `rate_limits` - Rate limit configuration rules.
+- `key_selector` - Expression used to extract the rate-limit key from the request.
+- `expose_headers` - Indicates whether rate-limit headers are exposed in responses.
+- `clusterizable` - Indicates whether counters are shared across the cluster.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_rate_limiting.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_rate_limiting_sla_based`
+
+Use the `anypoint_api_policy_rate_limiting_sla_based` resource to manage an SLA-based Rate Limiting
+policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_rate_limiting_sla_based" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    client_id_expression     = "#[attributes.headers['client_id']]"
+    client_secret_expression = "#[attributes.headers['client_secret']]"
+    expose_headers           = false
+    clusterizable            = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `client_id_expression` - Expression used to extract the client ID from the request.
+- `client_secret_expression` - Expression used to extract the client secret from the request.
+- `expose_headers` - Indicates whether rate-limit headers are exposed in responses.
+- `clusterizable` - Indicates whether counters are shared across the cluster.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_rate_limiting_sla_based.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_response_timeout`
+
+Use the `anypoint_api_policy_response_timeout` resource to manage a Response Timeout policy for an
+API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_response_timeout" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    timeout = 30000
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `timeout` - Timeout value in milliseconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_response_timeout.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_script_evaluation_transformation`
+
+Use the `anypoint_api_policy_script_evaluation_transformation` resource to manage a Script
+Evaluation Transformation policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_script_evaluation_transformation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    script           = "%%dw 2.0\noutput application/json\n---\npayload"
+    requires_payload = false
+    request_flow     = "request"
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `script` - DataWeave or transformation script.
+- `request_flow` - Flow where the transformation is applied, such as `request` or `response`.
+- `requires_payload` - Indicates whether the script requires payload access.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_script_evaluation_transformation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_sse_logging`
+
+Use the `anypoint_api_policy_sse_logging` resource to manage an SSE Logging policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_sse_logging" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    logs = [
+      {
+        message = "#[payload]"
+        level   = "INFO"
+      }
+    ]
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `logs` - Array of log entry configurations.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_sse_logging.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_spec_validation`
+
+Use the `anypoint_api_policy_spec_validation` resource to manage a Spec Validation policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_spec_validation" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    block_operation          = true
+    strict_params_validation = true
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `api_instance_id` - (Required) API instance ID associated with the policy.
+- `configuration` - (Required) Policy configuration block.
+  - `block_operation` - Whether to block operations not defined in the API spec.
+  - `strict_params_validation` - Whether to strictly validate query and header parameters.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version. Defaults to `1.0.1`.
+- `disabled` - Indicates whether the policy is disabled. Defaults to `false`.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_spec_validation.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_spike_control`
+
+Use the `anypoint_api_policy_spike_control` resource to manage a Spike Control policy for an API
+instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_spike_control" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    maximum_requests            = 100
+    time_period_in_milliseconds = 1000
+    delay_time_in_millis        = 500
+    delay_attempts              = 3
+    queuing_limit               = 5
+    expose_headers              = false
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `maximum_requests` - Maximum number of requests allowed during the configured time period.
+- `time_period_in_milliseconds` - Time period in milliseconds for the spike control window.
+- `delay_time_in_millis` - Delay time in milliseconds before retrying queued requests.
+- `delay_attempts` - Number of retry attempts before rejecting queued requests.
+- `queuing_limit` - Maximum number of queued requests.
+- `expose_headers` - Indicates whether rate-limit headers are exposed in responses.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_spike_control.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_stream_idle_timeout`
+
+Use the `anypoint_api_policy_stream_idle_timeout` resource to manage a Stream Idle Timeout policy
+for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_stream_idle_timeout" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    timeout = 30000
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `timeout` - Timeout value in milliseconds.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_stream_idle_timeout.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_tracing`
+
+Use the `anypoint_api_policy_tracing` resource to manage a Tracing policy for an API instance.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_tracing" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    span_name = "api-request"
+
+    sampling = {
+      probability = 0.1
+    }
+
+    labels = []
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `labels` - Array of custom labels attached to traces.
+- `sampling` - Tracing sampling configuration.
+- `span_name` - Custom name for the tracing span.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_tracing.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+
+## `anypoint_api_policy_xml_threat_protection`
+
+Use the `anypoint_api_policy_xml_threat_protection` resource to manage an XML Threat Protection
+policy for an API instance.
+
+This policy is supported only on `mule4` API instances.
+
+### Example
+
+```hcl
+resource "anypoint_api_policy_xml_threat_protection" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = anypoint_api_instance.example.id
+
+  configuration = {
+    max_node_depth                  = 10
+    max_attribute_count_per_element = 10
+    max_child_count                 = 50
+    max_text_length                 = 256
+    max_attribute_length            = 128
+    max_comment_length              = 128
+  }
+
+  order = 1
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `api_instance_id` - API instance ID associated with the policy.
+- `configuration` - Policy configuration block.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `label` - Human-readable label for the policy instance.
+- `order` - Policy execution order.
+- `asset_version` - Policy asset version.
+- `disabled` - Indicates whether the policy is disabled.
+- `upstream_ids` - List of upstream IDs where the policy is applied.
+
+### Configuration Arguments
+
+- `max_attribute_count_per_element` - Maximum number of attributes allowed per XML element.
+- `max_attribute_length` - Maximum length for XML attribute values.
+- `max_child_count` - Maximum number of child elements allowed per XML node.
+- `max_comment_length` - Maximum length for XML comments.
+- `max_node_depth` - Maximum XML node nesting depth.
+- `max_text_length` - Maximum length for XML text nodes.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the policy.
+- `policy_template_id` - Policy template ID assigned by the server.
+
+### Import
+
+```shell
+terraform import anypoint_api_policy_xml_threat_protection.example {organization_id}/{environment_id}/{api_instance_id}/{policy_id}
+```
+---
+
+# Access Management Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use Access Management resources to manage organizations, environments, connected applications,
+scopes, and teams in Anypoint Platform.
+
+Access Management resources require administrative privileges and use the `anypoint.admin` provider
+configuration for authentication.
+
+## `anypoint_connected_app_scopes`
+
+Use the `anypoint_connected_app_scopes` resource to manage scopes for a connected application.
+
+### Example
+
+```hcl
+resource "anypoint_connected_app_scopes" "example" {
+  provider = anypoint.admin
+
+  connected_app_id = "my-connected-app-id"
+
+  scopes = [
+    {
+      scope = "admin:cloudhub"
+      context_params = {
+        org = "your-org-id"
+      }
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `connected_app_id` - ID of the connected application.
+- `scopes` - Scopes assigned to the connected application.
+- `scope` - Scope name.
+- `context_params` - Context parameters associated with the scope.
+
+### Import
+
+```shell
+terraform import anypoint_connected_app_scopes.example <connected_app_id>
+```
+
+## `anypoint_environment`
+
+Use the `anypoint_environment` resource to manage Anypoint Platform environments.
+
+### Example
+
+```hcl
+resource "anypoint_environment" "example" {
+  provider = anypoint.admin
+
+  name            = "my-sandbox-env"
+  type            = "sandbox"
+  is_production   = false
+  organization_id = "your-org-id"
+}
+```
+
+### Key Arguments
+
+- `name` - Name of the environment.
+- `organization_id` - Organization ID where the environment is created.
+- `type` - Environment type. Valid values include `design`, `sandbox`, and `production`.
+- `is_production` - Indicates whether the environment is a production environment.
+- `arc_namespace` - ARC namespace associated with the environment.
+- `client_id` - Client ID associated with the environment.
+
+### Import
+
+```shell
+terraform import anypoint_environment.example <environment_id>
+```
+
+## `anypoint_organization`
+
+Creates and manages an Anypoint Platform organization (business group).
+
+> [!IMPORTANT] This is an Access Management resource and requires the **admin provider**
+> (`anypoint.admin`), which uses admin user credentials along with the `client_id` and
+> `client_secret` of a connected app to authenticate on behalf of the user (`auth_type = "user"`).
+> You must set `provider = anypoint.admin` on this resource. The default provider (connected app
+> credentials only) does not have sufficient privileges for Access Management operations.
+
+### Entitlement State Behaviour
+
+The provider honours user-defined state for entitlements, not platform defaults.
+
+- If you declare an entitlement field in your Terraform config, the provider manages it: any
+  platform-side change will be reverted on the next `apply`.
+- If you omit an entitlement field, the provider treats it as unmanaged. Platform-side updates to
+  that field are not reflected in the plan and will not be reverted.
+- Master-org-only entitlements (`hybrid`, `flex_gateway`, `service_mesh`, `worker_logging_override`,
+  `runtime_fabric`, `design_center`) are inherited on sub-orgs and cannot be set via this resource
+  on a business group. They are stripped from API requests to prevent HTTP 403 errors.
+
+Only declare entitlement fields you want Terraform to own. Leave everything else out of your config.
+
+### Example
+
+```hcl
+# Admin provider â authenticates on behalf of a user using connected app credentials
+provider "anypoint" {
+  alias         = "admin"
+  auth_type     = "user"
+  client_id     = var.anypoint_admin_client_id
+  client_secret = var.anypoint_admin_client_secret
+  username      = var.anypoint_admin_username
+  password      = var.anypoint_admin_password
+  base_url      = var.anypoint_base_url
+}
+
+resource "anypoint_organization" "example" {
+  provider = anypoint.admin
+
+  name                   = "my-sub-org"
+  parent_organization_id = "parent-org-id"
+  owner_id               = "owner-user-id"
+
+  entitlements = {
+    create_sub_orgs     = false
+    create_environments = true
+    global_deployment   = false
+
+    vcores_production = {
+      assigned = 0
+    }
+
+    vcores_sandbox = {
+      assigned = 0
+    }
+
+    vcores_design = {
+      assigned = 0
+    }
+
+    vpcs = {
+      assigned = 0
+    }
+
+    network_connections = {
+      assigned = 0
+    }
+
+    managed_gateway_small = {
+      assigned = 0
+    }
+
+    managed_gateway_large = {
+      assigned = 0
+    }
+  }
+}
+```
+
+### Key Arguments
+
+- `name` - (Required) Name of the organization.
+- `owner_id` - (Required) ID of the organization owner. Changing this forces a new resource.
+- `parent_organization_id` - (Required) ID of the parent organization. Changing this forces a new
+  resource.
+- `entitlements` - Entitlements for the organization. Only declared fields are managed by Terraform
+  â omitted fields are left to the platform.
+  - `create_environments` - Whether environments can be created. Defaults to `false`.
+  - `create_sub_orgs` - Whether sub-organizations can be created. Defaults to `false`.
+  - `global_deployment` - Whether global deployment is enabled. Defaults to `false`.
+  - `runtime_fabric` - Whether Runtime Fabric is enabled. **Master-org-only** â ignored on business
+    groups.
+  - `design_center` - Design Center entitlement. **Master-org-only** â ignored on business groups.
+    - `api` - Whether API Designer is enabled.
+    - `mozart` - Whether Flow Designer (Mozart) is enabled.
+
+  - `flex_gateway` - Omni Gateway entitlement. **Master-org-only** â ignored on business groups.
+    - `enabled` - Whether this feature is enabled.
+
+  - `hybrid` - Hybrid entitlement. **Master-org-only** â ignored on business groups.
+    - `enabled` - Whether this feature is enabled.
+
+  - `service_mesh` - Service Mesh entitlement. **Master-org-only** â ignored on business groups.
+    - `enabled` - Whether this feature is enabled.
+
+  - `worker_logging_override` - Worker logging override entitlement. **Master-org-only** â ignored
+    on business groups.
+    - `enabled` - Whether this feature is enabled.
+
+  - `vcores_production` - Production vCore entitlement.
+    - `assigned` - Number of assigned units. Defaults to `0`.
+    - `reassigned` - Number of reassigned units. Defaults to `0`.
+
+  - `vcores_sandbox` - Sandbox vCore entitlement.
+    - `assigned` - Number of assigned units. Defaults to `0`.
+    - `reassigned` - Number of reassigned units. Defaults to `0`.
+
+  - `vcores_design` - Design vCore entitlement.
+    - `assigned` - Number of assigned units. Defaults to `0`.
+    - `reassigned` - Number of reassigned units. Defaults to `0`.
+
+  - `vpcs` - VPC entitlement.
+    - `assigned` - Number of assigned units. Defaults to `0`.
+    - `reassigned` - Number of reassigned units. Defaults to `0`.
+
+  - `network_connections` - Network connections entitlement.
+    - `assigned` - Number of assigned units. Defaults to `0`.
+    - `reassigned` - Number of reassigned units. Defaults to `0`.
+
+  - `gateways` - Gateways entitlement.
+    - `assigned` - Number of assigned units.
+
+  - `load_balancer` - Load balancer entitlement.
+    - `assigned` - Number of assigned units.
+
+  - `managed_gateway_small` - Managed Gateway (small) entitlement.
+    - `assigned` - Number of assigned units.
+
+  - `managed_gateway_large` - Managed Gateway (large) entitlement.
+    - `assigned` - Number of assigned units.
+
+  - `mq_messages` - MQ messages entitlement.
+    - `base` - Base number of MQ units. Defaults to `0`.
+    - `add_on` - Add-on number of MQ units. Defaults to `0`.
+
+  - `mq_requests` - MQ requests entitlement.
+    - `base` - Base number of MQ units. Defaults to `0`.
+    - `add_on` - Add-on number of MQ units. Defaults to `0`.
+
+> [!NOTE] `static_ips` and `vpns` entitlements are managed server-side by Anypoint and are not
+> settable via Terraform. Configure them through the Anypoint UI or API.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier for the organization.
+- `client_id` - Client ID associated with the organization.
+- `created_at` - Timestamp when the organization was created.
+- `deleted_at` - Timestamp when the organization was deleted.
+- `domain` - Domain of the organization.
+- `environments` - Environments within the organization.
+  - `id` - Environment ID.
+  - `name` - Environment name.
+  - `organization_id` - Organization ID.
+  - `client_id` - Environment client ID.
+  - `type` - Environment type.
+  - `is_production` - Whether the environment is a production environment.
+  - `arc_namespace` - ARC namespace of the environment (optional, manageable).
+
+- `gdot_id` - GDOT ID of the organization.
+- `idprovider_id` - ID provider ID for the organization.
+- `is_automatic_admin_promotion_exempt` - Whether the organization is exempt from automatic admin
+  promotion.
+- `is_federated` - Whether the organization is federated.
+- `is_master` - Whether the organization is a master organization.
+- `is_root` - Whether the organization is a root organization.
+- `mfa_required` - Whether MFA is required for the organization.
+- `org_type` - Type of the organization.
+- `parent_organization_ids` - List of parent organization IDs (ancestor chain).
+- `session_timeout` - Session timeout for the organization.
+- `sub_organization_ids` - List of sub-organization IDs.
+- `subscription` - Subscription details for the organization.
+  - `category` - Subscription category.
+  - `type` - Subscription type.
+  - `expiration` - Subscription expiration date.
+  - `justification` - Subscription justification (optional, manageable).
+
+- `tenant_organization_ids` - List of tenant organization IDs.
+- `updated_at` - Timestamp when the organization was last updated.
+
+> [!NOTE] When a new organization is created, Anypoint Platform automatically provisions two
+> environments: Sandbox and Production. These appear in the `environments` read-only attribute after
+> the first apply and do not need to be declared in your configuration.
+
+### Import
+
+```shell
+terraform import anypoint_organization.example_org 00000000-0000-0000-0000-000000000000
+```
+
+Your HCL must declare `name`, `parent_organization_id`, and `owner_id` before you import â those are
+required attributes. The first `terraform plan` after import refreshes all read-only and optional
+attributes (including entitlements) from the Anypoint API.
+
+`parent_organization_id` is derived from the server-returned ancestor chain
+(`parent_organization_ids`) on the first refresh. If the derivation doesnât match what you wrote in
+HCL, update the HCL to match â changing `parent_organization_id` triggers a destroy and recreate.
+
+## `anypoint_team`
+
+Use the `anypoint_team` resource to manage teams in Anypoint Platform.
+
+### Example
+
+```hcl
+resource "anypoint_team" "example" {
+  provider = anypoint.admin
+
+  team_name      = "Development Team"
+  parent_team_id = "root-team-id"
+  team_type      = "internal"
+}
+```
+
+### Key Arguments
+
+- `team_name` - Name of the team.
+- `parent_team_id` - ID of the parent team.
+- `team_type` - Type of the team.
+- `organization_id` - Organization ID where the team is created.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier for the team.
+- `created_at` - Timestamp when the team was created.
+- `updated_at` - Timestamp when the team was last updated.
+
+### Import
+
+```shell
+terraform import anypoint_team.example <team_id>
+```
+---
+
+# API Manager Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use API Manager resources to manage APIs and API configuration in API Manager.
+
+## `anypoint_api_instance`
+
+Use the `anypoint_api_instance` resource to manage API instances in Anypoint API Manager.
+
+An API instance represents an API specification deployed to an Omni Gateway target with routing
+rules and upstream backends.
+
+### Minimal Configuration Example
+
+```hcl
+resource "anypoint_api_instance" "minimal" {
+  environment_id = var.environment_id
+  gateway_id     = var.gateway_id
+  instance_label = "minimal-demo"
+  upstream_uri   = "http://backend.internal:8080"
+
+  spec = {
+    asset_id = "my-api"
+    group_id = var.organization_id
+    version  = "1.0.0"
+  }
+
+  endpoint = {
+    base_path = "minimal"
+  }
+}
+```
+
+### Weighted Multi-Upstream Routing Example
+
+```hcl
+resource "anypoint_api_instance" "weighted_routing" {
+  environment_id = var.environment_id
+  gateway_id     = var.gateway_id
+  instance_label = "weighted-routing-demo"
+
+  spec = {
+    asset_id = "my-api"
+    group_id = var.organization_id
+    version  = "1.0.0"
+  }
+
+  endpoint = {
+    base_path = "weightedRouting"
+  }
+
+  routing = [
+    {
+      label = "canary"
+
+      upstreams = [
+        {
+          weight = 90
+          uri    = "http://backend-stable.internal:8080"
+          label  = "stable"
+        },
+        {
+          weight = 10
+          uri    = "http://backend-canary.internal:8080"
+          label  = "canary"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID where the API instance is created.
+- `spec` - (Required) Exchange asset specification associated with the API instance.
+  - `asset_id` - The Exchange asset ID.
+  - `group_id` - The Exchange group (organization) ID.
+  - `version` - The asset version.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `technology` - Gateway technology. Supported values are `omniGateway`, `mule4`, and `serviceMesh`.
+  Defaults to `omniGateway`.
+- `provider_id` - Identity provider ID for the API.
+- `instance_label` - Human-readable label for the API instance.
+- `approval_method` - Client approval method. Supported values are `manual` and `null`. Use `manual`
+  to require manual client approval. If omitted or set to `null`, client approval is automatic.
+- `consumer_endpoint` - Consumer-facing endpoint URI (the public URL clients use to reach the API).
+- `upstream_uri` - Shorthand for a single-upstream routing configuration. Mutually exclusive with
+  `routing`.
+- `gateway_id` - Omni Gateway UUID. When provided, the deployment block is auto-populated by
+  fetching gateway details (`target_id`, `target_name`, `gateway_version`) from the Gateway Manager.
+  Mutually exclusive with a full `deployment` block.
+- `endpoint` - Endpoint and proxy configuration for the API instance.
+  - `deployment_type` - Deployment type. Supported values are `HY` (hybrid), `CH` (CloudHub), `CH2`,
+    and `RF` (Runtime Fabric). Defaults to `HY`.
+  - `type` - Endpoint protocol type. Supported values are `http`, `rest`, and `raml`. Defaults to
+    `http`.
+  - `base_path` - API base path for OmniGateway (for example, `my-api`). Required when
+    `technology = "omniGateway"`. Mutually exclusive with `uri`.
+  - `uri` - Direct implementation URI for Mule4 or other technologies. Required when
+    `technology = "mule4"`. Mutually exclusive with `base_path`.
+  - `response_timeout` - Response timeout in milliseconds. Not supported when
+    `technology = "omniGateway"`; must be omitted or set to `null`.
+
+- `deployment` - Deployment target configuration. Auto-populated when `gateway_id` is set.
+  - `environment_id` - Environment ID for deployment.
+  - `type` - Deployment type. Supported values: `HY`, `CH`, `RF`. Defaults to `HY`.
+  - `expected_status` - Expected deployment status. Supported values: `deployed`, `undeployed`.
+    Defaults to `deployed`.
+  - `overwrite` - Whether to overwrite an existing deployment.
+  - `target_id` - Target gateway ID to deploy to.
+  - `target_name` - Target gateway name.
+  - `gateway_version` - Omni Gateway runtime version.
+
+- `routing` - Routing rules with weighted upstream backends. Mutually exclusive with `upstream_uri`.
+  - `label` - Label for this route.
+  - `rules` - Match conditions for this route.
+    - `methods` - Pipe-separated HTTP methods (for example, `GET`, `POST|PUT`).
+    - `path` - URL path pattern to match (for example, `/api/*`).
+    - `host` - Host header value to match.
+    - `headers` - Header key-value pairs to match.
+
+  - `upstreams` - (Required) Weighted upstream backends for this route.
+    - `uri` - (Required) Upstream backend URI.
+    - `weight` - Traffic weight percentage (0â100). Defaults to `100`.
+    - `label` - Label for this upstream.
+    - `tls_context_id` - TLS context for upstream connections. Format: `secretGroupId/tlsContextId`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the API instance.
+- `status` - Current status of the API instance.
+- `asset_id` - Exchange asset ID.
+- `asset_version` - Exchange asset version.
+- `product_version` - Product version.
+
+### Import
+
+```shell
+terraform import anypoint_api_instance.example <organization_id>/<environment_id>/<api_instance_id>
+```
+
+For root-level organizations, you can omit the organization ID:
+
+```shell
+terraform import anypoint_api_instance.example <env_id>/<instance_id>
+```
+
+## `anypoint_api_instance_sla_tier`
+
+Use the `anypoint_api_instance_sla_tier` resource to manage SLA tiers for API instances in API
+Manager.
+
+### Example
+
+```hcl
+resource "anypoint_api_instance_sla_tier" "gold" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  api_instance_id = var.api_instance_id
+
+  name         = "Gold"
+  description  = "Gold tier with high volume limits for premium customers"
+  auto_approve = true
+  status       = "ACTIVE"
+
+  limits = [
+    {
+      time_period_in_milliseconds = 60000
+      maximum_requests            = 1000
+      visible                     = true
+    },
+    {
+      time_period_in_milliseconds = 3600000
+      maximum_requests            = 50000
+      visible                     = true
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID where the API instance exists.
+- `api_instance_id` - Numeric ID of the API instance.
+- `name` - Name of the SLA tier.
+- `limits` - Rate limit configuration for the SLA tier.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `description` - Description of the SLA tier.
+- `auto_approve` - Indicates whether requests for the SLA tier are automatically approved.
+- `status` - Status of the SLA tier. Supported values are `ACTIVE` and `INACTIVE`.
+
+### Limit Arguments
+
+- `time_period_in_milliseconds` - Time period for the rate limit.
+- `maximum_requests` - Maximum number of requests allowed during the time period.
+- `visible` - Indicates whether the limit is visible to API consumers.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the SLA tier.
+
+### Import
+
+```shell
+terraform import anypoint_api_instance_sla_tier.example organization_id/environment_id/api_instance_id/tier_id
+```
+---
+
+# CloudHub 2.0 Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use CloudHub 2.0 resources to manage private spaces, network configuration, TLS contexts, VPN
+connections, and related infrastructure components.
+
+These resources help you provision and manage CloudHub 2.0 infrastructure declaratively with
+Terraform.
+
+## `anypoint_private_space_config`
+
+Use the `anypoint_private_space_config` resource to manage a CloudHub 2.0 private space, including
+its network configuration and firewall rules.
+
+This resource supports private space creation, network provisioning, egress configuration, IAM role
+configuration, and firewall rule management.
+
+### Example
+
+```hcl
+resource "anypoint_private_space_config" "example" {
+  name            = "my-private-space"
+  organization_id = var.organization_id
+  enable_egress   = true
+
+  network {
+    region     = "us-east-1"
+    cidr_block = "10.0.0.0/22"
+  }
+}
+```
+
+### Key Arguments
+
+- `name` - Name of the private space.
+- `organization_id` - Organization ID where the private space is created. If omitted, the provider
+  organization is used.
+- `enable_egress` - Enables egress for the private space.
+- `enable_iam_role` - Enables IAM role configuration for the private space.
+- `network` - Network configuration for the private space, including region and CIDR block.
+- `firewall_rules` - Firewall rules for the private space.
+
+### Import
+
+```shell
+terraform import anypoint_private_space_config.example <private_space_id>
+```
+
+## `anypoint_private_space_association`
+
+Use the `anypoint_private_space_association` resource to associate a CloudHub 2.0 private space with
+environments.
+
+### Example
+
+```hcl
+resource "anypoint_private_space_association" "example" {
+  private_space_id = var.private_space_id
+
+  associations = [
+    {
+      organization_id = "080f1918-0096-4cac-85b5-b1cd9cdf9260"
+      environment     = "all"
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `private_space_id` - (Required) ID of the private space.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `associations` - (Optional) List of associations to create between the private space and
+  environments. When omitted, the provider reads the existing associations from the API and
+  populates this field automatically.
+  - `organization_id` - (Required) Organization ID for the association.
+  - `environment` - (Required) Environment for the association. Accepted values: an environment
+    UUID, `all`, `production`, or `sandbox`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier for the Private Space Association resource.
+- `created_associations` - List of associations read from the Anypoint Platform API after apply or
+  import.
+  - `id` - ID of the created association.
+  - `organization_id` - Organization ID of the association.
+  - `environment` - Environment of the association.
+
+### Import
+
+Use an import block (Terraform â¥ 1.5, recommended) or the Terraform CLI.
+
+**Root organization â simple ID:**
+
+```hcl
+import {
+  to = anypoint_private_space_association.imported
+  id = "<private_space_id>"
+}
+
+resource "anypoint_private_space_association" "imported" {
+  private_space_id = "<private_space_id>"
+  organization_id  = "<organization_id>"
+}
+```
+
+**Business Group (sub-org) â composite ID:**
+
+```hcl
+import {
+  to = anypoint_private_space_association.imported
+  id = "<org_id>/<private_space_id>"
+}
+
+resource "anypoint_private_space_association" "imported" {
+  private_space_id = "<private_space_id>"
+  organization_id  = "<org_id>"
+}
+```
+
+To auto-generate the resource configuration instead of writing it manually, run:
+
+```shell
+terraform plan -generate-config-out=generated.tf
+```
+
+For Terraform < 1.5, use the CLI:
+
+```shell
+# Root organization:
+terraform import anypoint_private_space_association.example <private_space_id>
+
+# Business Group (sub-org):
+terraform import anypoint_private_space_association.example <org_id>/<private_space_id>
+```
+
+## `anypoint_private_space_upgrade`
+
+Use the `anypoint_private_space_upgrade` resource to schedule an upgrade for a CloudHub 2.0 private
+space.
+
+Deleting this resource cancels the scheduled upgrade.
+
+### Example
+
+```hcl
+resource "anypoint_private_space_upgrade" "example" {
+  private_space_id = var.private_space_id
+  organization_id  = var.organization_id
+  date             = "2025-09-12"
+  opt_in           = true
+}
+```
+
+### Key Arguments
+
+- `private_space_id` - ID of the private space to upgrade.
+- `organization_id` - Organization ID where the private space is located. If omitted, the provider
+  infers it from the connected app credentials.
+- `date` - Date when the upgrade is scheduled, in `YYYY-MM-DD` format.
+- `opt_in` - Whether to opt in to the upgrade.
+
+### Import
+
+```shell
+terraform import anypoint_private_space_upgrade.example <org_id>:<space_id>:<date>:<opt_in>
+```
+
+## `anypoint_privatespace_advanced_config`
+
+Use the `anypoint_privatespace_advanced_config` resource to manage advanced configuration for a
+CloudHub 2.0 private space.
+
+This resource supports ingress configuration and IAM role configuration.
+
+### Example
+
+```hcl
+resource "anypoint_privatespace_advanced_config" "example" {
+  private_space_id = var.private_space_id
+
+  ingress_configuration = {
+    read_response_timeout = "600"
+    protocol              = "https-redirect"
+  }
+
+  enable_iam_role = true
+}
+```
+
+### Key Arguments
+
+- `private_space_id` - ID of the private space to configure.
+- `organization_id` - Organization ID where the private space is located. If omitted, the provider
+  infers it from the connected app credentials.
+- `ingress_configuration` - Ingress configuration for the private space.
+- `enable_iam_role` - Enables IAM role configuration for the private space.
+
+### Import
+
+```shell
+terraform import anypoint_privatespace_advanced_config.example <private_space_id>
+```
+
+## `anypoint_tls_context`
+
+Use the `anypoint_tls_context` resource to manage a CloudHub 2.0 TLS context.
+
+This resource supports both PEM and JKS keystores.
+
+### Example
+
+```hcl
+resource "anypoint_tls_context" "pem_example" {
+  private_space_id     = "your-private-space-id"
+  name                 = "example-pem-tls-context"
+  keystore_type        = "PEM"
+
+  certificate          = file("cert.pem")
+  key                  = file("key.pem")
+  key_filename         = "key.pem"
+  certificate_filename = "cert.pem"
+
+  ciphers = {
+    aes128_gcm_sha256             = true
+    ecdhe_ecdsa_aes128_gcm_sha256 = true
+    ecdhe_rsa_aes128_gcm_sha256   = true
+    tls_aes128_gcm_sha256         = true
+  }
+}
+```
+
+### Key Arguments
+
+- `private_space_id` - ID of the private space that contains the TLS context.
+- `name` - Name of the TLS context.
+- `keystore_type` - Type of keystore. Supported values are `PEM` and `JKS`.
+- `certificate` - PEM certificate content. Required for PEM keystores.
+- `key` - PEM private key content. Required for PEM keystores.
+- `keystore_base64` - Base64-encoded JKS keystore content. Required for JKS keystores.
+- `store_passphrase` - Store passphrase for the JKS keystore.
+- `alias` - Alias for the JKS keystore.
+- `ciphers` - Cipher configuration for the TLS context.
+
+### Import
+
+```shell
+terraform import anypoint_tls_context.example <org_id>:<space_id>:<tls_id>
+```
+
+## `anypoint_vpn_connection`
+
+Use the `anypoint_vpn_connection` resource to create a VPN connection in a CloudHub 2.0 private
+space.
+
+### Example
+
+```hcl
+resource "anypoint_vpn_connection" "example" {
+  private_space_id = anypoint_private_space.example.id
+  name             = "my-vpn-connection"
+
+  vpns = [
+    {
+      local_asn         = "64512"
+      remote_asn        = "65534"
+      remote_ip_address = "203.0.113.1"
+      static_routes     = []
+
+      vpn_tunnels = [
+        {
+          psk            = "my-pre-shared-key-1"
+          ptp_cidr       = "169.254.10.0/30"
+          startup_action = "start"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `private_space_id` - ID of the private space.
+- `name` - Name of the VPN connection.
+- `organization_id` - Organization ID where the private space is located. If omitted, the provider
+  infers it from the connected app credentials.
+- `vpns` - List of VPN configurations.
+- `local_asn` - Local ASN for the VPN.
+- `remote_asn` - Remote ASN for the VPN.
+- `remote_ip_address` - Remote IP address for the VPN.
+- `static_routes` - Static routes for the VPN.
+- `vpn_tunnels` - VPN tunnel configuration.
+- `psk` - Pre-shared key for the VPN tunnel.
+- `ptp_cidr` - Point-to-point CIDR for the VPN tunnel.
+- `startup_action` - Startup action for the VPN tunnel.
+
+### Import
+
+```shell
+terraform import anypoint_vpn_connection.example <org_id>/<space_id>/<connection_id>
+```
+---
+
+# How the Provider Works
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The MuleSoft Terraform provider manages MuleSoft Platform resources using a declarative
+Infrastructure as Code (IaC) model.
+
+The following concepts explain how the provider provisions and manages resources across the MuleSoft
+Platform.
+
+## Declarative Configuration
+
+With Terraform, you define the desired state of your MuleSoft Platform resources in Terraform
+configuration files.
+
+Terraform compares the desired state with the current platform configuration and applies the
+required changes to reconcile both states.
+
+This approach helps maintain consistency across environments and supports version-controlled
+infrastructure management.
+
+## Control Plane and Runtime Plane
+
+The provider manages resources across both the control plane and the runtime plane.
+
+The control plane includes resources such as:
+
+- API Manager
+- Access Management
+- Secrets Manager
+- MCP server and AI agent resources
+- Policies and governance configuration
+
+The runtime plane includes deployment and infrastructure resources such as:
+
+- CloudHub 2.0 private spaces
+- Managed Omni Gateway resources
+- Network configuration
+- VPN connections
+- TLS contexts
+
+This separation enables you to manage APIs, gateways, policies, and infrastructure resources
+independently from application implementations.
+
+## Resource Management
+
+The provider manages resources declaratively through Terraform configuration files.
+
+When you apply a Terraform configuration:
+
+- Resources defined in the configuration are created or updated.
+- Resources removed from the configuration can be removed from the platform during reconciliation.
+- Changes made outside Terraform can be overwritten during future Terraform runs, depending on the
+  resource behavior.
+
+## API, MCP, and AI Agent Resources
+
+The provider supports multiple resource types across the MuleSoft Platform.
+
+Supported resources include:
+
+- API Manager resources
+- MCP server resources
+- AI agent resources
+- API, MCP, and A2A policies
+- CloudHub 2.0 infrastructure resources
+- Access Management resources
+- Secrets Manager resources
+
+These resources can be managed together as part of a unified Terraform workflow.
+
+## Multi-Environment Configuration
+
+Terraform enables consistent configuration across environments such as development, staging, and
+production.
+
+You can reuse Terraform configurations across environments while reducing manual configuration drift
+and maintaining consistent platform configuration.
+
+## See Also
+
+- [MuleSoft Terraform Provider](./)
+- [Install and Configure the Terraform Provider](install-configure)
+- [Resources](resources)
+---
+
+# MuleSoft Terraform Provider
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The MuleSoft Terraform provider enables you to manage MuleSoft resources using Infrastructure as
+Code (IaC).
+
+Use this provider to provision and manage MuleSoft resources declaratively through Terraform
+configuration files.
+
+The provider supports infrastructure and platform configuration across CloudHub 2.0, API Manager,
+Access Management, Secrets Manager, MCP servers, and A2A instances.
+
+## Key Capabilities
+
+- Manage CloudHub 2.0 resources, including private spaces, network configuration, ingress and egress
+  rules, VPN connections, and TLS contexts.
+- Create and manage managed Omni Gateway resources in CloudHub 2.0.
+- Manage Access Management resources, including business groups and teams.
+- Configure Secrets Manager resources, including secret groups, certificates, keystores,
+  truststores, and shared secrets.
+- Create and manage API Manager resources, including API instances and SLA tiers.
+- Create and manage MCP servers and A2A instances.
+- Apply API, MCP, and A2A policies declaratively.
+
+## Terraform Integration with MuleSoft
+
+The MuleSoft Terraform provider enables a declarative approach to managing platform resources.
+
+Instead of configuring resources through the UI or API calls, you define the desired state in
+Terraform configuration files. Terraform then provisions and updates resources to match that state.
+
+This approach helps ensure consistency across environments and supports version-controlled
+configuration management.
+
+The provider supports GitOps-based workflows, so you can manage MuleSoft resources alongside your
+cloud infrastructure resources.
+
+The provider integrates with Terraform workflows and can be used together with cloud providers such
+as AWS, Azure, and Google Cloud.
+
+## See Also
+
+- [Install and Configure the Terraform Provider](install-configure)
+- [How the Provider Works](how-provider-works)
+- [Resources](resources)
+---
+
+# Install and Configure the Terraform Provider
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To use the MuleSoft Terraform provider, install the provider from the Terraform Registry and
+configure authentication for your MuleSoft Platform organization.
+
+The provider supports Terraform-based management for MuleSoft Platform resources, including CloudHub
+2.0, API Manager, Access Management, Secrets Manager, MCP servers, and AI agent resources.
+
+## Access the Provider in the Terraform Registry
+
+Go to the Terraform Registry and search for the MuleSoft Terraform provider.
+
+For provider installation instructions and the complete list of supported resources, see the
+[MuleSoft Terraform provider documentation](https://registry.terraform.io/providers/mulesoft/anypoint/latest/docs).
+
+## Add the Provider
+
+Add the provider to your Terraform configuration file:
+
+```hcl
+terraform {
+  required_providers {
+    anypoint = {
+      source  = "mulesoft/anypoint"
+      version = "~> 1.0.0"
+    }
+  }
+}
+```
+
+> [!NOTE] Replace `1.0.0` with the latest version. See the
+> [MuleSoft Anypoint provider on the Terraform Registry](https://registry.terraform.io/providers/mulesoft/anypoint/latest)
+> for the current release.
+
+## Initialize Terraform
+
+Run the following command to download and install the provider:
+
+```bash
+terraform init
+```
+
+## Configure Credentials
+
+The provider supports multiple authentication methods depending on the resources you manage.
+
+### Connected App Credentials
+
+Use connected app credentials when resources support client credentials authentication:
+
+```bash
+export TF_VAR_anypoint_client_id="<client-id>"
+export TF_VAR_anypoint_client_secret="<client-secret>"
+export TF_VAR_anypoint_base_url="https://anypoint.mulesoft.com"
+```
+
+### Connected App Authentication for Access Management Resources
+
+Some Access Management resources require authentication on behalf of a user:
+
+```bash
+export TF_VAR_anypoint_admin_client_id="<admin-connected-app-client-id>"
+export TF_VAR_anypoint_admin_client_secret="<admin-connected-app-client-secret>"
+export TF_VAR_anypoint_admin_username="<admin-username>"
+export TF_VAR_anypoint_admin_password="<admin-password>"
+export TF_VAR_anypoint_base_url="https://anypoint.mulesoft.com"
+```
+
+## Configure the Provider
+
+Configure the provider using the authentication method required for your resources.
+
+### Connected App Credentials
+
+```hcl
+provider "anypoint" {
+  client_id     = var.anypoint_client_id
+  client_secret = var.anypoint_client_secret
+  base_url      = var.anypoint_base_url
+}
+```
+
+### Connected App Authentication for Access Management Resources
+
+```hcl
+provider "anypoint" {
+  alias         = "admin"
+  username      = var.anypoint_admin_username
+  password      = var.anypoint_admin_password
+  client_id     = var.anypoint_admin_client_id
+  client_secret = var.anypoint_admin_client_secret
+  base_url      = var.anypoint_base_url
+}
+```
+
+The provider also supports additional authentication methods, including access token authentication
+and control plane configuration. For the complete provider configuration reference, see the
+[MuleSoft Terraform provider documentation](https://registry.terraform.io/providers/mulesoft/anypoint/latest/docs).
+
+## See Also
+
+- [MuleSoft Terraform Provider](./)
+- [How the Provider Works](how-provider-works)
+- [Resources](resources)
+---
+
+# Managed Omni Gateway Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use Managed Omni Gateway resources to manage gateway instances deployed in CloudHub 2.0 private
+spaces.
+
+## `anypoint_managed_omni_gateway`
+
+Use the `anypoint_managed_omni_gateway` resource to manage a CloudHub 2.0 Managed Omni Gateway
+instance in Anypoint Platform.
+
+This resource supports gateway deployment configuration, release channel selection, gateway size,
+ingress settings, runtime properties, logging, and distributed tracing.
+
+> [!NOTE] The Gateway Manager API does not echo back `configuration.tracing` in POST/PUT responses.
+> The provider retains the plan-requested value in state after create/update so that
+> `tracing.enabled = true` works correctly. On the next `terraform refresh` or `plan`, the provider
+> reads the live value from the API for accurate drift detection.
+
+### Example
+
+```hcl
+resource "anypoint_managed_omni_gateway" "example" {
+  name           = "my-omni-gateway"
+  environment_id = "env-id-here"
+  target_id      = "target-private-space-id"
+
+  release_channel = "lts"
+  size            = "small"
+
+  ingress = {
+    forward_ssl_session = true
+    last_mile_security  = true
+  }
+
+  properties = {
+    upstream_response_timeout = 15
+    connection_idle_timeout   = 60
+  }
+
+  logging = {
+    level        = "info"
+    forward_logs = true
+  }
+
+  tracing = {
+    enabled = false
+  }
+}
+```
+
+### Key Arguments
+
+- `name` - (Required) Name of the managed Omni Gateway.
+- `environment_id` - (Required) Environment ID where the gateway is deployed.
+- `target_id` - (Required) Target private space ID for the gateway deployment.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `runtime_version` - Omni Gateway runtime version (for example, `1.9.9`). If omitted, the provider
+  auto-selects the latest version for the chosen release channel.
+- `release_channel` - Release channel for the gateway. Supported values are `lts` and `edge`.
+  Defaults to `lts`.
+- `size` - Size of the gateway instance. Supported values are `small` and `large`. Defaults to
+  `small`.
+- `ingress` - Ingress configuration for the gateway.
+  - `public_url` - Public URL for the gateway ingress. Auto-derived from the target domain when
+    empty.
+  - `internal_url` - Internal URL for the gateway ingress. Auto-derived from the target domain when
+    empty.
+  - `forward_ssl_session` - Whether to forward SSL sessions to upstream services. Defaults to
+    `true`.
+  - `last_mile_security` - Whether to enable last-mile security (TLS between gateway and upstream).
+    Defaults to `true`.
+
+- `properties` - Runtime properties for the gateway.
+  - `upstream_response_timeout` - Timeout in seconds for upstream service responses. Defaults to
+    `15`.
+  - `connection_idle_timeout` - Timeout in seconds for idle connections. Defaults to `60`.
+
+- `logging` - Logging configuration for the gateway.
+  - `level` - Log level. Supported values are `debug`, `info`, `warn`, and `error`. Defaults to
+    `info`.
+  - `forward_logs` - Whether to forward logs to Anypoint Monitoring. Defaults to `true`.
+
+- `tracing` - Distributed tracing configuration for the gateway.
+  - `enabled` - Whether distributed tracing is enabled. Defaults to `false`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the managed Omni Gateway.
+- `status` - Current status of the managed Omni Gateway.
+
+### Import
+
+```shell
+terraform import anypoint_managed_omni_gateway.example <organization_id>/<environment_id>/<gateway_id>
+```
+
+For root-level organizations, you can omit the organization ID:
+
+```shell
+terraform import anypoint_managed_omni_gateway.example <env_id>/<gateway_id>
+```
+---
+
+# MCP and AI Agent Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use these resources to manage MCP servers and AI agent resources.
+
+## `anypoint_mcp_server`
+
+Use the `anypoint_mcp_server` resource to manage MCP servers in Anypoint API Manager.
+
+An MCP server represents an MCP server specification deployed to an Omni Gateway target with routing
+rules and upstream backends.
+
+> [!NOTE] After a successful `terraform apply`, the `status` field is populated from a GET request
+> made immediately after the POST. The platform typically returns `status = "active"` right away.
+
+> [!NOTE] `upstream_uri` and `routing` are mutually exclusive. Use `upstream_uri` for a single
+> upstream. Only one upstream per route is supported for MCP servers â multi-upstream weighted
+> routing is not available.
+
+> [!NOTE] The computed `upstream_id` attribute is the server-assigned ID for the first upstream.
+> Reference it in outbound policy `upstream_ids` to bind policies to this MCP serverâs upstream.
+
+### Basic Example
+
+```hcl
+resource "anypoint_mcp_server" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  technology      = "omniGateway"
+  instance_label  = "atlassian-mcp-server"
+
+  spec = {
+    asset_id = "my-mcp-spec"
+    group_id = var.organization_id
+    version  = "1.0.0"
+  }
+
+  endpoint = {
+    deployment_type = "HY"
+    base_path       = "mcp1"
+  }
+
+  gateway_id   = var.gateway_id
+  upstream_uri = "http://example.com"
+}
+```
+
+### Explicit Routing Example
+
+```hcl
+resource "anypoint_mcp_server" "advanced" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  technology      = "omniGateway"
+  instance_label  = "enterprise-tools-mcp"
+
+  spec = {
+    asset_id = "postman-mcp-server"
+    group_id = var.organization_id
+    version  = "1.0.0"
+  }
+
+  endpoint = {
+    deployment_type = "HY"
+    base_path       = "mcp-tools"
+  }
+
+  gateway_id = var.gateway_id
+
+  routing = [
+    {
+      upstreams = [
+        {
+          weight = 100
+          uri    = "http://mcp-tools.internal:8080"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID where the MCP server is created.
+- `spec` - (Required) Exchange asset specification associated with the MCP server.
+  - `asset_id` - The Exchange asset ID.
+  - `group_id` - The Exchange group (organization) ID.
+  - `version` - The asset version.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `technology` - Gateway technology. Supported values are `omniGateway`, `mule4`, and `serviceMesh`.
+  Defaults to `omniGateway`.
+- `provider_id` - Identity provider ID for the MCP server.
+- `instance_label` - Human-readable label for the MCP server.
+- `approval_method` - Client approval method. Supported values are `manual` and `automatic`.
+- `endpoint` - Endpoint and proxy configuration for the MCP server.
+  - `deployment_type` - Deployment type. Supported values: `HY` (hybrid), `CH` (CloudHub), `RF`
+    (Runtime Fabric). Defaults to `HY`.
+  - `type` - Endpoint protocol type. For MCP servers, this is `mcp`. Defaults to `mcp`.
+  - `base_path` - MCP server base path for OmniGateway (for example, `my-mcp-server`). The provider
+    constructs the full proxy URI as
+    `[http://0.0.0.0:8081/<base_path>](http://0.0.0.0:8081/\<base_path\>);`. Required when
+    `technology = "omniGateway"`. Mutually exclusive with `uri`.
+  - `uri` - Direct implementation URI for Mule4 or other technologies. Required when
+    `technology = "mule4"`. Mutually exclusive with `base_path`.
+  - `response_timeout` - Response timeout in milliseconds.
+
+- `consumer_endpoint` - Consumer-facing endpoint URI (the public URL clients use to reach the MCP
+  server). For MCP, this is the proxy URI that clients connect to.
+- `upstream_uri` - Shorthand for a single-upstream routing configuration. When set, the provider
+  constructs routing as `[{upstreams: [{weight: 100, uri: <value>}]}]`. This is typically the
+  upstream MCP server URI that the proxy forwards to. Mutually exclusive with `routing`.
+- `gateway_id` - Omni Gateway UUID. When provided, the deployment block is auto-populated by
+  fetching gateway details (`target_id`, `target_name`, `gateway_version`) from the Gateway Manager.
+  Mutually exclusive with a full `deployment` block.
+- `deployment` - Deployment target configuration. Auto-populated when `gateway_id` is set.
+  - `environment_id` - Environment ID for deployment.
+  - `type` - Deployment type. Supported values: `HY`, `CH`, `RF`. Defaults to `HY`.
+  - `expected_status` - Expected deployment status. Supported values: `deployed`, `undeployed`.
+    Defaults to `deployed`.
+  - `overwrite` - Whether to overwrite an existing deployment.
+  - `target_id` - Target gateway ID to deploy to.
+  - `target_name` - Target gateway name.
+  - `gateway_version` - Omni Gateway runtime version.
+
+- `routing` - Routing rules with upstream backends. Upstreams point to the actual MCP server
+  implementation URIs. Mutually exclusive with `upstream_uri`.
+  - `label` - Label for this route.
+  - `rules` - Match conditions for this route.
+    - `methods` - Pipe-separated HTTP methods (for example, `GET`, `POST|PUT`).
+    - `path` - URL path pattern to match (for example, `/api/*`).
+    - `host` - Host header value to match.
+    - `headers` - Header key-value pairs to match.
+
+  - `upstreams` - (Required) Upstream backends for this route.
+    - `uri` - (Required) Upstream backend URI. For MCP servers, this is the actual MCP server
+      implementation URI that requests are forwarded to.
+    - `weight` - Traffic weight percentage (0â100). Defaults to `100`.
+    - `label` - Label for this upstream.
+    - `tls_context_id` - TLS context for upstream connections. Format: `secretGroupId/tlsContextId`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the MCP server.
+- `status` - Current status of the MCP server.
+- `asset_id` - Exchange asset ID.
+- `asset_version` - Exchange asset version.
+- `product_version` - Product version.
+- `upstream_id` - Server-assigned upstream ID for the first upstream. Use this to reference the
+  upstream in outbound policy `upstream_ids`.
+
+### Import
+
+```shell
+terraform import anypoint_mcp_server.example <organization_id>/<environment_id>/<instance_id>
+```
+
+## `anypoint_agent_instance`
+
+Use the `anypoint_agent_instance` resource to manage agent instances in Anypoint API Manager.
+
+An agent instance represents an agent specification deployed to an Omni Gateway target with routing
+rules and upstream backends.
+
+> [!NOTE] After a successful `terraform apply`, the `status` field is populated from a GET request
+> made immediately after the POST. The platform typically returns `status = "active"` right away. If
+> your Gateway is not yet ready, the provider retries the POST up to 5 times with a 20-second
+> backoff before failing.
+
+> [!NOTE] `upstream_uri` and `routing` are mutually exclusive. Use `upstream_uri` for a single
+> upstream â the provider expands it to `[{upstreams: [{weight: 100, uri: <value>}]}]`
+> automatically. Only one upstream per route is supported; multi-upstream weighted routing is not
+> available for agent instances.
+
+### Basic Example
+
+```hcl
+resource "anypoint_agent_instance" "example" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  technology      = "omniGateway"
+  instance_label  = "customer-support-agent"
+
+  spec = {
+    asset_id = "my-agent-spec"
+    group_id = var.organization_id
+    version  = "1.0.0"
+  }
+
+  endpoint = {
+    deployment_type = "HY"
+    base_path       = "agent/support"
+  }
+
+  gateway_id   = var.gateway_id
+  upstream_uri = "http://agent-service.internal:8080"
+}
+```
+
+### Explicit Routing Example
+
+```hcl
+resource "anypoint_agent_instance" "advanced" {
+  organization_id = var.organization_id
+  environment_id  = var.environment_id
+  technology      = "omniGateway"
+  instance_label  = "sales-agent"
+
+  spec = {
+    asset_id = "my-agent-spec"
+    group_id = var.organization_id
+    version  = "1.0.0"
+  }
+
+  endpoint = {
+    deployment_type = "HY"
+    base_path       = "agent/sales"
+  }
+
+  gateway_id = var.gateway_id
+
+  routing = [
+    {
+      upstreams = [
+        {
+          weight = 100
+          uri    = "http://sales-agent.internal:8080"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID where the agent instance is created.
+- `spec` - (Required) Exchange asset specification associated with the agent instance.
+  - `asset_id` - The Exchange asset ID.
+  - `group_id` - The Exchange group (organization) ID.
+  - `version` - The asset version.
+
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `technology` - Gateway technology. Supported values are `omniGateway`, `mule4`, and `serviceMesh`.
+  Defaults to `omniGateway`.
+- `provider_id` - Identity provider ID for the agent.
+- `instance_label` - Human-readable label for the agent instance.
+- `approval_method` - Client approval method. Supported values are `manual` and `automatic`.
+- `endpoint` - Endpoint and proxy configuration for the agent instance.
+  - `deployment_type` - Deployment type. Supported values: `HY` (hybrid), `CH` (CloudHub), `RF`
+    (Runtime Fabric). Defaults to `HY`.
+  - `type` - Endpoint protocol type. For agent instances, this is `a2a` (Agent-to-Agent). Defaults
+    to `a2a`.
+  - `base_path` - Agent base path for OmniGateway (for example, `my-agent`). Required when
+    `technology = "omniGateway"`. Mutually exclusive with `uri`.
+  - `uri` - Direct implementation URI for Mule4 or other technologies. Required when
+    `technology = "mule4"`. Mutually exclusive with `base_path`.
+  - `response_timeout` - Response timeout in milliseconds.
+
+- `consumer_endpoint` - Consumer-facing endpoint URI (the public URL clients use to reach the
+  agent).
+- `upstream_uri` - Shorthand for a single-upstream routing configuration. Mutually exclusive with
+  `routing`.
+- `gateway_id` - Omni Gateway UUID. When provided, the deployment block is auto-populated from the
+  Gateway Manager. Mutually exclusive with a full `deployment` block.
+- `deployment` - Deployment target configuration.
+  - `environment_id` - Environment ID for deployment.
+  - `type` - Deployment type. Supported values: `HY`, `CH`, `RF`. Defaults to `HY`.
+  - `expected_status` - Expected deployment status. Supported values: `deployed`, `undeployed`.
+    Defaults to `deployed`.
+  - `overwrite` - Whether to overwrite an existing deployment.
+  - `target_id` - Target gateway ID to deploy to.
+  - `target_name` - Target gateway name.
+  - `gateway_version` - Omni Gateway runtime version.
+
+- `routing` - Routing rules with weighted upstream backends. Mutually exclusive with `upstream_uri`.
+  - `label` - Label for this route.
+  - `rules` - Match conditions for this route.
+    - `methods` - Pipe-separated HTTP methods (for example, `GET`, `POST|PUT`).
+    - `path` - URL path pattern to match (for example, `/api/*`).
+    - `host` - Host header value to match.
+    - `headers` - Header key-value pairs to match.
+
+  - `upstreams` - (Required) Weighted upstream backends for this route.
+    - `uri` - (Required) Upstream backend URI.
+    - `weight` - Traffic weight percentage (0â100). Defaults to `100`.
+    - `label` - Label for this upstream.
+    - `tls_context_id` - TLS context for upstream connections. Format: `secretGroupId/tlsContextId`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the agent instance.
+- `status` - Current status of the agent instance.
+- `asset_id` - Exchange asset ID.
+- `asset_version` - Exchange asset version.
+- `product_version` - Product version.
+
+### Import
+
+```shell
+terraform import anypoint_agent_instance.example <organization_id>/<environment_id>/<instance_id>
+```
+---
+
+# MuleSoft Terraform Provider Release Notes
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The MuleSoft Terraform Provider enables you to manage MuleSoft resources declaratively using
+Terraform, supporting infrastructure-as-code workflows for API Manager, Runtime Manager, and other
+Anypoint Platform components.
+
+These release notes are provided for the MuleSoft Terraform Provider:
+
+- [MuleSoft Terraform Provider Release Notes](../release-notes/terraform/terraform-release-notes)
+
+## See Also
+
+- [MuleSoft Terraform Provider](./)
+---
+
+# Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The MuleSoft Terraform provider includes resources for managing infrastructure, API management,
+security, governance, and AI-related components across the MuleSoft Platform.
+
+## CloudHub 2.0 Resources
+
+Use these resources to manage CloudHub 2.0 infrastructure and networking components.
+
+- [`anypoint_private_space_config`](cloudhub2-resources#anypoint_private_space_config)
+- [`anypoint_private_space_association`](cloudhub2-resources#anypoint_private_space_association)
+- [`anypoint_private_space_upgrade`](cloudhub2-resources#anypoint_private_space_upgrade)
+- [`anypoint_privatespace_advanced_config`](cloudhub2-resources#anypoint_privatespace_advanced_config)
+- [`anypoint_tls_context`](cloudhub2-resources#anypoint_tls_context)
+- [`anypoint_vpn_connection`](cloudhub2-resources#anypoint_vpn_connection)
+
+## Managed Omni Gateway Resources
+
+Use these resources to manage managed Omni Gateway instances in CloudHub 2.0.
+
+- [`anypoint_managed_omni_gateway`](managed-gateway-resources#anypoint_managed_omni_gateway)
+
+## Access Management Resources
+
+Use these resources to manage Access Management configuration.
+
+- [`anypoint_connected_app_scopes`](access-management-resources#anypoint_connected_app_scopes)
+- [`anypoint_environment`](access-management-resources#anypoint_environment)
+- [`anypoint_organization`](access-management-resources#anypoint_organization)
+- [`anypoint_team`](access-management-resources#anypoint_team)
+
+## Secrets Manager Resources
+
+Use these resources to manage Secrets Manager configuration.
+
+- [`anypoint_secret_group`](secret-manager-resources#anypoint_secret_group)
+- [`anypoint_secret_group_certificate`](secret-manager-resources#anypoint_secret_group_certificate)
+- [`anypoint_secret_group_certificate_pinset`](secret-manager-resources#anypoint_secret_group_certificate_pinset)
+- [`anypoint_secret_group_keystore`](secret-manager-resources#anypoint_secret_group_keystore)
+- [`anypoint_secret_group_shared_secret`](secret-manager-resources#anypoint_secret_group_shared_secret)
+- [`anypoint_secret_group_tls_context`](secret-manager-resources#anypoint_secret_group_tls_context)
+- [`anypoint_secret_group_truststore`](secret-manager-resources#anypoint_secret_group_truststore)
+
+## API Manager Resources
+
+Use these resources to manage APIs and API configuration in API Manager.
+
+- [`anypoint_api_instance`](api-manager-resources#anypoint_api_instance)
+- [`anypoint_api_instance_sla_tier`](api-manager-resources#anypoint_api_instance_sla_tier)
+
+## MCP and AI Agent Resources
+
+Use these resources to manage MCP servers and AI agent resources.
+
+- [`anypoint_mcp_server`](mcp-resources#anypoint_mcp_server)
+- [`anypoint_agent_instance`](mcp-resources#anypoint_agent_instance)
+
+## API, MCP, and A2A Policy Resources
+
+Use these resources to apply policies declaratively to APIs, MCP servers, gateways, and AI agent
+resources.
+
+- [`anypoint_api_policy`](a2a-resources#anypoint_api_policy)
+- [`anypoint_api_policy_a2a_agent_card`](a2a-resources#anypoint_api_policy_a2a_agent_card)
+- [`anypoint_api_policy_a2a_pii_detector`](a2a-resources#anypoint_api_policy_a2a_pii_detector)
+- [`anypoint_api_policy_a2a_prompt_decorator`](a2a-resources#anypoint_api_policy_a2a_prompt_decorator)
+- [`anypoint_api_policy_a2a_schema_validation`](a2a-resources#anypoint_api_policy_a2a_schema_validation)
+- [`anypoint_api_policy_a2a_token_rate_limit`](a2a-resources#anypoint_api_policy_a2a_token_rate_limit)
+- [`anypoint_api_policy_body_transformation`](a2a-resources#anypoint_api_policy_body_transformation)
+- [`anypoint_api_policy_circuit_breaker`](a2a-resources#anypoint_api_policy_circuit_breaker)
+- [`anypoint_api_policy_access_block`](a2a-resources#anypoint_api_policy_access_block)
+- [`anypoint_api_policy_client_id_enforcement`](a2a-resources#anypoint_api_policy_client_id_enforcement)
+- [`anypoint_api_policy_cors`](a2a-resources#anypoint_api_policy_cors)
+- [`anypoint_api_policy_credential_injection_basic_auth`](a2a-resources#anypoint_api_policy_credential_injection_basic_auth)
+- [`anypoint_api_policy_credential_injection_oauth2`](a2a-resources#anypoint_api_policy_credential_injection_oauth2)
+- [`anypoint_api_policy_credential_injection_oauth2_obo`](a2a-resources#anypoint_api_policy_credential_injection_oauth2_obo)
+- [`anypoint_api_policy_dataweave_request_filter`](a2a-resources#anypoint_api_policy_dataweave_request_filter)
+- [`anypoint_api_policy_dataweave_body_transformation`](a2a-resources#anypoint_api_policy_dataweave_body_transformation)
+- [`anypoint_api_policy_dataweave_headers_transformation`](a2a-resources#anypoint_api_policy_dataweave_headers_transformation)
+- [`anypoint_api_policy_external_oauth2_access_token_enforcement`](a2a-resources#anypoint_api_policy_external_oauth2_access_token_enforcement)
+- [`anypoint_api_policy_header_injection`](a2a-resources#anypoint_api_policy_header_injection)
+- [`anypoint_api_policy_header_removal`](a2a-resources#anypoint_api_policy_header_removal)
+- [`anypoint_api_policy_header_transformation`](a2a-resources#anypoint_api_policy_header_transformation)
+- [`anypoint_api_policy_health_check`](a2a-resources#anypoint_api_policy_health_check)
+- [`anypoint_api_policy_http_basic_authentication`](a2a-resources#anypoint_api_policy_http_basic_authentication)
+- [`anypoint_api_policy_http_caching`](a2a-resources#anypoint_api_policy_http_caching)
+- [`anypoint_api_policy_idle_timeout`](a2a-resources#anypoint_api_policy_idle_timeout)
+- [`anypoint_api_policy_intask_authentication_policy`](a2a-resources#anypoint_api_policy_intask_authentication_policy)
+- [`anypoint_api_policy_intask_authorization_code_policy`](a2a-resources#anypoint_api_policy_intask_authorization_code_policy)
+- [`anypoint_api_policy_ip_allowlist`](a2a-resources#anypoint_api_policy_ip_allowlist)
+- [`anypoint_api_policy_ip_blocklist`](a2a-resources#anypoint_api_policy_ip_blocklist)
+- [`anypoint_api_policy_injection_protection`](a2a-resources#anypoint_api_policy_injection_protection)
+- [`anypoint_api_policy_json_threat_protection`](a2a-resources#anypoint_api_policy_json_threat_protection)
+- [`anypoint_api_policy_jwt_validation`](a2a-resources#anypoint_api_policy_jwt_validation)
+- [`anypoint_api_policy_ldap_authentication`](a2a-resources#anypoint_api_policy_ldap_authentication)
+- [`anypoint_api_policy_bedrock_llm_provider_policy`](a2a-resources#anypoint_api_policy_bedrock_llm_provider_policy)
+- [`anypoint_api_policy_gemini_llm_provider_policy`](a2a-resources#anypoint_api_policy_gemini_llm_provider_policy)
+- [`anypoint_api_policy_gemini_transcoding_policy`](a2a-resources#anypoint_api_policy_gemini_transcoding_policy)
+- [`anypoint_api_policy_llm_gw_core_policy`](a2a-resources#anypoint_api_policy_llm_gw_core_policy)
+- [`anypoint_api_policy_llm_proxy_core`](a2a-resources#anypoint_api_policy_llm_proxy_core)
+- [`anypoint_api_policy_llm_proxy_core_policy`](a2a-resources#anypoint_api_policy_llm_proxy_core_policy)
+- [`anypoint_api_policy_mcp_access_control`](a2a-resources#anypoint_api_policy_mcp_access_control)
+- [`anypoint_api_policy_mcp_global_access_policy`](a2a-resources#anypoint_api_policy_mcp_global_access_policy)
+- [`anypoint_api_policy_mcp_pii_detector`](a2a-resources#anypoint_api_policy_mcp_pii_detector)
+- [`anypoint_api_policy_mcp_schema_validation`](a2a-resources#anypoint_api_policy_mcp_schema_validation)
+- [`anypoint_api_policy_mcp_support`](a2a-resources#anypoint_api_policy_mcp_support)
+- [`anypoint_api_policy_mcp_tool_mapping`](a2a-resources#anypoint_api_policy_mcp_tool_mapping)
+- [`anypoint_api_policy_mcp_transcoding_router`](a2a-resources#anypoint_api_policy_mcp_transcoding_router)
+- [`anypoint_api_policy_message_logging`](a2a-resources#anypoint_api_policy_message_logging)
+- [`anypoint_api_policy_message_logging_outbound`](a2a-resources#anypoint_api_policy_message_logging_outbound)
+- [`anypoint_api_policy_model_based_routing`](a2a-resources#anypoint_api_policy_model_based_routing)
+- [`anypoint_api_policy_agent_connection_telemetry`](a2a-resources#anypoint_api_policy_agent_connection_telemetry)
+- [`anypoint_api_policy_native_aws_lambda`](a2a-resources#anypoint_api_policy_native_aws_lambda)
+- [`anypoint_api_policy_native_ext_authz`](a2a-resources#anypoint_api_policy_native_ext_authz)
+- [`anypoint_api_policy_native_ext_proc`](a2a-resources#anypoint_api_policy_native_ext_proc)
+- [`anypoint_api_policy_oauth2_token_introspection`](a2a-resources#anypoint_api_policy_oauth2_token_introspection)
+- [`anypoint_api_policy_openai_transcoding_policy`](a2a-resources#anypoint_api_policy_openai_transcoding_policy)
+- [`anypoint_api_policy_semantic_prompt_guard_policy_openai`](a2a-resources#anypoint_api_policy_semantic_prompt_guard_policy_openai)
+- [`anypoint_api_policy_semantic_routing_policy_huggingface`](a2a-resources#anypoint_api_policy_semantic_routing_policy_huggingface)
+- [`anypoint_api_policy_rate_limiting`](a2a-resources#anypoint_api_policy_rate_limiting)
+- [`anypoint_api_policy_rate_limiting_sla_based`](a2a-resources#anypoint_api_policy_rate_limiting_sla_based)
+- [`anypoint_api_policy_response_timeout`](a2a-resources#anypoint_api_policy_response_timeout)
+- [`anypoint_api_policy_script_evaluation_transformation`](a2a-resources#anypoint_api_policy_script_evaluation_transformation)
+- [`anypoint_api_policy_sse_logging`](a2a-resources#anypoint_api_policy_sse_logging)
+- [`anypoint_api_policy_spec_validation`](a2a-resources#anypoint_api_policy_spec_validation)
+- [`anypoint_api_policy_spike_control`](a2a-resources#anypoint_api_policy_spike_control)
+- [`anypoint_api_policy_stream_idle_timeout`](a2a-resources#anypoint_api_policy_stream_idle_timeout)
+- [`anypoint_api_policy_tracing`](a2a-resources#anypoint_api_policy_tracing)
+- [`anypoint_api_policy_xml_threat_protection`](a2a-resources#anypoint_api_policy_xml_threat_protection)
+
+For the complete list of supported policy resources, see the
+[Terraform Registry resources documentation](https://registry.terraform.io/providers/mulesoft/anypoint/latest/docs/resources).
+
+## See Also
+
+- [MuleSoft Terraform Provider](./)
+- [Install and Configure the Terraform Provider](install-configure)
+- [How the Provider Works](how-provider-works)
+---
+
+# Secrets Manager Resources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use Secrets Manager resources to manage secret groups, certificates, keystores, truststores, shared
+secrets, and TLS contexts in Anypoint Platform.
+
+These resources support declarative secrets and TLS configuration management for managed gateways
+and related infrastructure components.
+
+## `anypoint_secret_group`
+
+Use the `anypoint_secret_group` resource to manage secret groups in Anypoint Secrets Manager.
+
+### Example
+
+```hcl
+resource "anypoint_secret_group" "example" {
+  environment_id = var.environment_id
+  name           = "terraform-secrets"
+  downloadable   = false
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID where the secret group is created.
+- `name` - Name of the secret group.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `downloadable` - Indicates whether secrets in the group can be downloaded.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the secret group.
+- `current_state` - Current state of the secret group.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group.example organization_id/environment_id/secret_group_id
+```
+
+## `anypoint_secret_group_certificate`
+
+Use the `anypoint_secret_group_certificate` resource to manage certificates within a secret group.
+
+This resource supports PEM, JKS, PKCS12, and JCEKS certificate formats.
+
+### Example
+
+```hcl
+resource "anypoint_secret_group_certificate" "example" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "my-certificate"
+  type            = "PEM"
+
+  certificate_base64 = base64encode(file("${path.module}/certs/cert.pem"))
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `secret_group_id` - Secret group ID associated with the certificate.
+- `name` - Name of the certificate.
+- `certificate_base64` - Base64-encoded certificate content.
+- `type` - Certificate format. Supported values are `PEM`, `JKS`, `PKCS12`, and `JCEKS`.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the certificate.
+- `expiration_date` - Expiration date of the certificate.
+- `algorithm` - Signature algorithm of the certificate.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group_certificate.example organization_id/environment_id/secret_group_id/certificate_id
+```
+
+## `anypoint_secret_group_certificate_pinset`
+
+Use the `anypoint_secret_group_certificate_pinset` resource to manage certificate pinsets within a
+secret group.
+
+Certificate pinsets support certificate pinning validation workflows.
+
+### Example
+
+```hcl
+resource "anypoint_secret_group_certificate_pinset" "example" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "my-cert-pinset"
+
+  certificate_pinset_base64 = base64encode(file("${path.module}/certs/cert.pem"))
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `secret_group_id` - Secret group ID associated with the certificate pinset.
+- `name` - Name of the certificate pinset.
+- `certificate_pinset_base64` - Base64-encoded certificate file content.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the certificate pinset.
+- `expiration_date` - Expiration date of the pinned certificate.
+- `algorithm` - Signature algorithm of the pinned certificate.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group_certificate_pinset.example organization_id/environment_id/secret_group_id/certificate_pinset_id
+```
+
+## `anypoint_secret_group_keystore`
+
+Use the `anypoint_secret_group_keystore` resource to manage keystores within a secret group.
+
+This resource supports PEM, JKS, PKCS12, and JCEKS formats.
+
+### Example
+
+```hcl
+resource "anypoint_secret_group_keystore" "pem" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "tls-pem-keystore"
+  type            = "PEM"
+
+  certificate_base64 = base64encode(file("${path.module}/certs/cert.pem"))
+  key_base64         = base64encode(file("${path.module}/certs/key.pem"))
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `secret_group_id` - Secret group ID associated with the keystore.
+- `name` - Name of the keystore.
+- `type` - Keystore format. Supported values are `PEM`, `JKS`, `PKCS12`, and `JCEKS`.
+- `certificate_base64` - Base64-encoded certificate content.
+- `key_base64` - Base64-encoded private key content.
+- `keystore_file_base64` - Base64-encoded keystore file content.
+- `passphrase` - Passphrase for the keystore.
+- `alias` - Alias within the keystore.
+- `ca_path_base64` - Base64-encoded CA certificate chain.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the keystore.
+- `expiration_date` - Expiration date of the certificate in the keystore.
+- `algorithm` - Signature algorithm of the certificate.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group_keystore.example organization_id/environment_id/secret_group_id/keystore_id
+```
+
+## `anypoint_secret_group_shared_secret`
+
+Use the `anypoint_secret_group_shared_secret` resource to manage shared secrets within a secret
+group.
+
+This resource supports `UsernamePassword`, `S3Credential`, `SymmetricKey`, and `Blob` secret types.
+
+### Example
+
+```hcl
+resource "anypoint_secret_group_shared_secret" "db_creds" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "db-credentials"
+  type            = "UsernamePassword"
+
+  username = "admin"
+  password = var.db_password
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `secret_group_id` - Secret group ID associated with the shared secret.
+- `name` - Name of the shared secret.
+- `type` - Shared secret type. Supported values are `UsernamePassword`, `S3Credential`,
+  `SymmetricKey`, and `Blob`.
+- `expiration_date` - Optional expiration date for the secret.
+- `username` - Username for `UsernamePassword` secrets.
+- `password` - Password for `UsernamePassword` secrets.
+- `access_key_id` - AWS access key ID for `S3Credential` secrets.
+- `secret_access_key` - AWS secret access key for `S3Credential` secrets.
+- `key` - Base64-encoded symmetric key for `SymmetricKey` secrets.
+- `content` - Secret content for `Blob` secrets.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the shared secret.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group_shared_secret.example organization_id/environment_id/secret_group_id/shared_secret_id
+```
+
+## `anypoint_secret_group_truststore`
+
+Use the `anypoint_secret_group_truststore` resource to manage truststores within a secret group.
+
+This resource supports PEM, JKS, PKCS12, and JCEKS truststore formats.
+
+### Example
+
+```hcl
+resource "anypoint_secret_group_truststore" "pem" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "ca-truststore"
+  type            = "PEM"
+
+  truststore_base64 = base64encode(file("${path.module}/certs/truststore.pem"))
+}
+```
+
+### Key Arguments
+
+- `environment_id` - Environment ID.
+- `secret_group_id` - Secret group ID associated with the truststore.
+- `name` - Name of the truststore.
+- `truststore_base64` - Base64-encoded truststore content.
+- `type` - Truststore format. Supported values are `PEM`, `JKS`, `PKCS12`, and `JCEKS`.
+- `passphrase` - Passphrase for the truststore.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the truststore.
+- `expiration_date` - Expiration date of the certificate in the truststore.
+- `algorithm` - Signature algorithm of the certificate.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group_truststore.example organization_id/environment_id/secret_group_id/truststore_id
+```
+
+## `anypoint_secret_group_tls_context`
+
+Use the `anypoint_secret_group_tls_context` resource to manage an Omni Gateway TLS context within a
+secret group in Anypoint Secrets Manager.
+
+The target is automatically set to `OmniGateway`. References keystore and truststore resources by
+their IDs â the provider automatically builds the internal path references (`keystores/{id}`,
+`truststores/{id}`).
+
+> [!NOTE] The Anypoint Secrets Manager API does not expose individual DELETE endpoints for
+> sub-resources. `terraform destroy` removes this resource from Terraform state only â the TLS
+> context is deleted on the platform when the parent `anypoint_secret_group` is destroyed.
+
+### Basic TLS Context Example
+
+```hcl
+resource "anypoint_secret_group_tls_context" "example" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "omni-tls-context"
+
+  keystore_id   = anypoint_secret_group_keystore.tls.id
+  truststore_id = anypoint_secret_group_truststore.ca.id
+
+  min_tls_version = "TLSv1.3"
+  max_tls_version = "TLSv1.3"
+  alpn_protocols  = ["h2", "http/1.1"]
+
+  enable_client_cert_validation = false
+  skip_server_cert_validation   = false
+}
+```
+
+### mTLS-Enabled TLS Context Example
+
+```hcl
+resource "anypoint_secret_group_tls_context" "mtls" {
+  environment_id  = var.environment_id
+  secret_group_id = anypoint_secret_group.main.id
+  name            = "mtls-context"
+
+  keystore_id   = anypoint_secret_group_keystore.tls.id
+  truststore_id = anypoint_secret_group_truststore.ca.id
+
+  min_tls_version = "TLSv1.3"
+  max_tls_version = "TLSv1.3"
+  alpn_protocols  = ["h2", "http/1.1"]
+
+  enable_client_cert_validation = true
+  skip_server_cert_validation   = false
+}
+```
+
+### Key Arguments
+
+- `environment_id` - (Required) Environment ID.
+- `secret_group_id` - (Required) Secret group ID that this TLS context belongs to.
+- `name` - (Required) Name of the TLS context.
+- `organization_id` - Organization ID. If omitted, the provider infers it from the connected app
+  credentials.
+- `keystore_id` - ID of the keystore in the same secret group. Use
+  `anypoint_secret_group_keystore.example.id` to reference it.
+- `truststore_id` - ID of the truststore in the same secret group. Use
+  `anypoint_secret_group_truststore.example.id` to reference it.
+- `min_tls_version` - Minimum TLS version. Supported values are `TLSv1.1`, `TLSv1.2`, and `TLSv1.3`.
+  Defaults to `TLSv1.3`.
+- `max_tls_version` - Maximum TLS version. Supported values are `TLSv1.1`, `TLSv1.2`, and `TLSv1.3`.
+  Defaults to `TLSv1.3`.
+- `alpn_protocols` - ALPN protocol negotiation list. Supported values are `h2` and `http/1.1`. Order
+  determines preference: `["h2", "http/1.1"]` prefers H2, `["http/1.1", "h2"]` prefers HTTP/1.1.
+- `cipher_suites` - Allowed cipher suites. Empty list means use defaults.
+- `enable_client_cert_validation` - Enables mutual TLS client certificate validation (inbound).
+  Defaults to `false`.
+- `skip_server_cert_validation` - Skips outbound server certificate validation. Defaults to `false`.
+
+### Read-Only Attributes
+
+- `id` - Unique identifier of the TLS context.
+- `target` - Target runtime for the TLS context. Always `OmniGateway` for this resource.
+- `expiration_date` - Expiration date of the TLS context.
+
+### Import
+
+```shell
+terraform import anypoint_secret_group_tls_context.example organization_id/environment_id/secret_group_id/tls_context_id
+```
+

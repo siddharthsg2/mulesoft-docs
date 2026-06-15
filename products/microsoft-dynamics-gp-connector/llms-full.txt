@@ -1,0 +1,564 @@
+﻿# Microsoft Dynamics GP Connector - Full Documentation
+
+# Microsoft Dynamics GP Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Microsoft Dynamics GP Connector v2.1
+
+Anypoint Connector for Microsoft Dynamics GP enables Mule applications to interact with the
+Microsoft Dynamics Great Plains (GP) Web Services.
+
+Release Notes:
+[Microsoft Dynamics GP Connector Release Notes](../../release-notes/connector/microsoft-dynamics-gp-connector-release-notes-mule-4)  
+Exchange:
+[Microsoft Dynamics GP Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-microsoft-dynamics-gp-connector/)
+
+## Before You Begin
+
+To use this information, you should be familiar with Microsoft Dynamics GP, Mule runtime engine
+(Mule), Anypoint Connectors, Anypoint Studio, Mule concepts, elements in a Mule flow, and Global
+Elements.
+
+To use this connector, you need:
+
+- Microsoft Dynamics GP instance.
+- Valid credentials for a Kerberos connection.
+- MuleSoft Enterprise License.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-microsoft-dynamics-gp-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "gp".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "gp" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure in Studio
+
+1.  Drag the connector operation to the Studio canvas.
+2.  Configure the global element for the connector.
+
+    ![Microsoft Dynamics GP global elements properties config window](_images/ms-dynamics-gp-anypoint-config.png)
+
+## Use Case: Studio
+
+- [Create Customer](#use-case-1)
+- [Get Customer](#use-case-2)
+- [Update Customer](#use-case-3)
+- [Delete Customer](#use-case-4)
+- [Get Customer List](#use-case-5)
+
+### Create Customer
+
+![Create customer use case flow](_images/ms-dynamics-gp-create-customer.png)
+
+1.  From the Mule Palette drag an HTTP Listener element to the canvas and use the default
+    configuration but with the path set to /createCustomer.
+2.  Drag a Transform Message element next to the HTTP Listener and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/xml
+    ns ns0 http://schemas.microsoft.com/dynamics/gp/2010/01
+    ns ns01 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.Common
+    ns ns02 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.GP
+    ns xsi http://www.w3.org/2001/XMLSchema-instance
+    ---
+    {
+    	ns0#CreateCustomer: {
+    		ns0#customer: {
+    			ns02#Key: {
+    				ns02#Id: attributes.queryParams.customerKeyID
+    			},
+    			ns02#Name: attributes.queryParams.customerName
+    		},
+    		ns0#context: {
+    			ns01#OrganizationKey @(xsi#"type": "ns01:CompanyKey") : {
+    				ns01#Id: attributes.queryParams.companyKeyID
+    			}
+    		}
+    	}
+    }
+    ```
+
+3.  Drag a Microsoft Dynamics GP connector next to the Transform Message.
+4.  Set its configuration and fill in the required fields, this applies to any other Dynamics GP
+    connectors that are dragged into the flows.
+5.  Select the operation Create Entity. Pick the Customer entity from the drop-down list. Leave the
+    Input Reference as it is.
+6.  Drag a Set Payload element next to the Connector and set its value to `Success`.
+
+### Get Customer
+
+![Get customer use case flow](_images/ms-dynamics-gp-get-customer.png)
+
+1.  From the Mule Palette, drag an HTTP Listener element to the canvas and use the default
+    configuration but with the path set to /getCustomer.
+2.  Drag a Transform Message element next to the HTTP Listener and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/xml
+    ns ns0 http://schemas.microsoft.com/dynamics/gp/2010/01
+    ns ns01 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.GP
+    ns ns02 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.Common
+    ns xsi http://www.w3.org/2001/XMLSchema-instance
+    ---
+    {
+    	ns0#GetCustomerByKey: {
+    		ns0#key: {
+    			ns01#Id: attributes.queryParams.customerKeyID
+    		},
+    		ns0#context: {
+    			ns02#OrganizationKey @(xsi#"type": "ns02:CompanyKey") : {
+    				ns02#Id: attributes.queryParams.companyKeyID
+    			}
+    		}
+    	}
+    }
+    ```
+
+3.  Drag a Microsoft Dynamics GP connector next to the Transform Message.
+4.  Select the operation Get Entity By Key. Pick the Customer entity from the drop-down list. Leave
+    the Input Reference as it is.
+5.  Drag a Transform Message next to the connector and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Update Customer
+
+![Update customer use case flow](_images/ms-dynamics-gp-update-customer.png)
+
+1.  From the Mule Palette, drag an HTTP Listener element to the canvas and use the default
+    configuration but with the path set to /updateCustomer.
+2.  Drag a Transform Message element next to the HTTP Listener and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/xml
+    ns ns0 http://schemas.microsoft.com/dynamics/gp/2010/01
+    ns ns01 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.Common
+    ns ns02 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.GP
+    ns xsi http://www.w3.org/2001/XMLSchema-instance
+    ---
+    {
+    	ns0#GetCustomerByKey: {
+    		ns0#key: {
+    			ns02#Id: attributes.queryParams.keyId
+    		},
+    		ns0#context: {
+    			ns01#OrganizationKey @(xsi#"type": "ns01:CompanyKey") : {
+    				ns01#Id: attributes.queryParams.companyKeyID
+    			}
+    		}
+    	}
+    }
+    ```
+
+3.  Create a variable called 'updatedComment' on this Transform Message with this value:
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	comment1: payload.customer.comment1
+    }
+    ```
+
+4.  Drag a Microsoft Dynamics GP connector next to the Transform Message.
+5.  Select the Get Entity By Key operation. Pick the Customer entity from the drop-down list. Leave
+    the Input Reference as it is.
+6.  Drag a Transform Message element next to the Connector and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    %dw 2.0
+    output application/xml
+    ns ns0 http://schemas.microsoft.com/dynamics/gp/2010/01
+    ns ns01 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.Common
+    ns ns02 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.GP
+    ns xsi http://www.w3.org/2001/XMLSchema-instance
+    ---
+    {
+    	ns0#UpdateCustomer: {
+    		ns0#customer: {
+    			ns02#Comment1: vars.comment1,
+    			ns02#Key: {
+    				ns02#Id: payload.key.id
+    			},
+    			ns02#Name: payload.name
+    		},
+    		ns0#context: {
+    			ns01#OrganizationKey @(xsi#"type": "ns01:CompanyKey") : {
+    				ns01#Id: attributes.queryParams.companyKeyID
+    			}
+    		}
+    	}
+    }
+    ```
+
+7.  Drag a Microsoft Dynamics GP connector next to the Transform Message.
+8.  Select the Update Entity operation. Pick the Customer entity from the drop-down list. Leave the
+    Input Reference as it is.
+9.  Drag a Set Payload element next to the connector and set its value to `Success`.
+
+### Delete Customer
+
+![Delete customer use case flow](_images/ms-dynamics-gp-delete-customer.png)
+
+1.  From the Mule Palette, drag an HTTP Listener element to the canvas and use the default
+    configuration but with the path set to /deleteCustomer.
+2.  Drag a Transform Message element next to the HTTP Listener and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/xml
+    ns ns0 http://schemas.microsoft.com/dynamics/gp/2010/01
+    ns ns01 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.GP
+    ns ns02 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.Common
+    ns xsi http://www.w3.org/2001/XMLSchema-instance
+    ---
+    {
+    	ns0#DeleteCustomer: {
+    		ns0#key: {
+    			ns01#Id: attributes.queryParams.customerKeyID
+    		},
+    		ns0#context: {
+    			ns02#OrganizationKey @(xsi#"type": "ns02:CompanyKey") : {
+    				ns02#Id: attributes.queryParams.companyKeyID
+    			}
+    		}
+    	}
+    }
+    ```
+
+3.  Drag a Microsoft Dynamics GP connector next to the Transform Message.
+4.  Select the Delete Entity. Pick the Customer entity from the drop-down list. Leave the Input
+    Reference as it is.
+5.  Drag a Set Payload element next to the connector and set its value to `Success`.
+
+### Get Customer List
+
+![Get customer list use case flow](_images/ms-dynamics-gp-get-customer-list.png)
+
+1.  From the Mule Palette, drag an HTTP Listener element to the canvas and use the default
+    configuration but with the path set to /getCustomerList.
+2.  Drag a Transform Message element next to the HTTP Listener and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/xml
+    ns ns0 http://schemas.microsoft.com/dynamics/gp/2010/01
+    ns ns01 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.Common
+    ns ns02 http://schemas.datacontract.org/2004/07/Microsoft.Dynamics.GP
+    ns xsi http://www.w3.org/2001/XMLSchema-instance
+    ---
+    {
+    	ns0#GetCustomerList: {
+    		ns0#criteria: {
+    			ns02#Name: {
+    				ns01#Like: attributes.queryParams.like
+    			}
+    		},
+    		ns0#context: {
+    			ns01#OrganizationKey @(xsi#"type": "ns01:CompanyKey") : {
+    				ns01#Id: attributes.queryParams.companyKeyID
+    			}
+    		}
+    	}
+    }
+    ```
+
+3.  Drag a Microsoft Dynamics GP connector next to the Transform Message.
+4.  Select the Get Entity List. Pick the Customer entity from the drop-down list. Leave the Input
+    Reference as it is.
+5.  Drag a Transform Message next to the connector and add:
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Dynamics GP Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Microsoft Dynamics GP Connector v2.1
+
+Release Notes:
+[Microsoft Dynamics GP Connector Release Notes](../../release-notes/connector/microsoft-dynamics-gp-connector-release-notes-mule-4)
+
+## Default Configuration
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#config_kerberos-authentication">Kerberos Authentication</a></p></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances when it sees fit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Connection Types
+
+#### Kerberos Authentication
+
+##### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Endpoint URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Base URL where the SOAP services are exposed.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>SPN</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Service Principal Name that identifies the service instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Login Conf. Location</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to a customized Login Properties File</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Krb5 Conf. Location</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to a customized Kerberos Properties File</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies <strong>Connection Timeout</strong> and <strong>Read Timeout</strong> attributes. Defaults to SECONDS.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The HTTP connection timeout value. This attribute works in tandem with <strong>Timeout Unit</strong>. Defaults to 5.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The HTTP read timeout value. This attribute works in tandem with <strong>Timeout Unit</strong>. Defaults to 5.</p></div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Operations
+
+- [Create Entity](#createEntity)
+- [Delete Entity](#deleteEntity)
+- [Get Entity By Key](#getEntityByKey)
+- [Get Entity List](#getEntityList)
+- [Multitenant Enabled](#multitenantEnabled)
+- [Update Entity](#updateEntity)
+- [Void Entity](#voidEntity)
+
+### Create Entity
+
+`<dynamicsgp:create-entity>`
+
+Creates a new entity in Dynamics GP.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the entity to create.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The web service input, containing the entity to create, the context and policy.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+### Delete Entity
+
+`<dynamicsgp:delete-entity>`
+
+Deletes an existing entity in Dynamics GP.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the entity to delete.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The web service input, containing the key object, the context and policy.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+### Get Entity By Key
+
+`<dynamicsgp:get-entity-by-key>`
+
+Retrieves an entity from Dynamics GP, based on the key values supplied.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the entity to retrieve.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The web service input, containing the key object and the context.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+### Get Entity List
+
+`<dynamicsgp:get-entity-list>`
+
+Retrieves a list of entities from Dynamics GP that match the specified criteria.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the entity to fetch.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The web service input, containing the search criteria and the context.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+### Multitenant Enabled
+
+`<dynamicsgp:multitenant-enabled>`
+
+Indicates whether the Dynamics GP service is installed in a multi-tenant configuration.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+### Update Entity
+
+`<dynamicsgp:update-entity>`
+
+Updates an existing entity in Dynamics GP.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the entity to update.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The web service input, containing the entity to update, the context and policy.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+### Void Entity
+
+`<dynamicsgp:void-entity>`
+
+Voids an existing entity in Dynamics GP.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of the entity to void.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The web service input, containing the key object, the context and policy.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- DYNAMICSGP:CONNECTIVITY
+- DYNAMICSGP:DYNAMICSGP_INTERNAL
+- DYNAMICSGP:RETRY_EXHAUSTED
+- DYNAMICSGP:UNKNOWN
+- DYNAMICSGP:WS_SECURITY
+- DYNAMICSGP:XML_PARSING
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds)</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory that will be allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which all these attributes are expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

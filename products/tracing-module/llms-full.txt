@@ -1,0 +1,565 @@
+﻿# Tracing Module - Full Documentation
+
+# Tracing Module 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Tracing module enables you to enhance your logs by adding, removing, and clearing all variables from
+the logging context for a given Mule event. It also enables you to modify the correlation ID during
+flow execution.
+
+For compatibility information and fixed issues, see the Tracing Module Release Notes.
+
+## Before You Begin
+
+To use this module, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have Anypoint Platform and Anypoint Studio or Anypoint Code
+Builder.
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create your own app and configure the
+connector using [Anypoint Studio](tracing-module-studio-configuration).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Tracing Module Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To fully benefit from using Tracing module, see the following examples of configuring the module
+operations and scope:
+
+- [Change the Correlation ID During Flow Execution](tracing-module-with-correlationid)  
+  Configure the **With CorrelationID** scope to modify the correlation ID during flow execution.
+- [Configure Logging Variables](tracing-module-logging)  
+  Configure the **Clear logging variables**, **Remove logging variable** and **Set logging
+  variable** Tracing module operations.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Configure Tracing Module Logging Variable Operations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Tracing module **Clear logging variables**, **Remove logging variable** and **Set logging
+variable** operations enable you to enhance your logs by adding, removing, and clearing variables
+from the logging context of a single Mule event.
+
+Mapped Diagnostic Context (MDC) enriches logging and improves tracking by providing more context or
+information in the logs for the current Mule event. By default, Mule logs two MDC entries:
+`processor`, which shows the location of the current event, and `event`, which shows the correlation
+ID of the event.
+
+## Before You Begin
+
+To use the Tracing module logging operations, complete the following tasks:
+
+- Add the module to your Mule project.
+- Change the pattern layouts in the `log4j.xml` file to `MDC`.
+
+## Add the Module to Your Mule Project
+
+Add Tracing module to your Mule project to automatically populate the XML code with the moduleâs
+namespace and schema location and to add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `tracing` in the search field.
+3.  Click **Tracing Module** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+## Change the Pattern Layouts in the log4j.xml File
+
+This change instructs Mule to automatically add the MDC context, which includes the correlation ID
+and the processor path. To make the change, modify `log4j.xml` in your Mule app or within
+`/conf/log4j2.xml` in your Mule instance.
+
+Follow these steps to change the pattern layouts to MDC:
+
+1.  Open the `log4j.xml` file for editing.
+2.  Replace `[processor: %X{processorPath}; event: %X{correlationId}]` with `[%MDC]`.
+
+### Example log4j.xml File Configurations
+
+Example: Default log4j.xml file without MDC logging.
+
+<PatternLayout pattern="%-5p %d \[%t\] \[processor: %X{processorPath}; event: %X{correlationId}\] %c: %m%n"/>
+
+Example: Updated log4j.xml file with MDC logging.
+
+<PatternLayout pattern="%-5p %d \[%t\] \[%MDC\] %c: %m%n"/>
+
+## Configure Tracing Module Operations in Studio
+
+To configure the logging variables operations, add any of the available operations **Clear logging
+variables**, **Remove logging variable** or **Set logging variables** to your Mule app flow and
+specify the corresponding attributes.
+
+In the following example, you configure the **Set logging variables** operation:
+
+1.  In the **Mule Palette** view of Studio, select **Tracing > Set logging variable**
+2.  Drag **Set logging variable** to your Mule app.
+3.  Set **Variable name** to `testVar`.
+4.  Set **Value** to `testValue`.
+
+![A set logging variable operation configuration window](_images/tracing-module-set-logging-variable.png)
+
+In the Configuration XML editor, the `<tracing:set-logging-variable>` configuration looks like this:
+
+```xml
+<flow name="exampleFlow">
+    ...
+    <tracing:set-logging-variable variableName="testVar" value="testValue" />
+    ...
+</flow>
+```
+
+After executing the flow, the output logs are:
+
+INFO 2021-04-08 16:58:26,882 \[\[MuleRuntime\].uber.15: \[test-project-app\].exampleFlow.CPU_LITE
+@18f679\] \[{correlationId=c85e16c0-98a4-11eb-bc34-cac765a2219b,
+processorPath=exampleFlow/processors/2, testVar=testValue}\]
+org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Example
+
+The previous logging context example affects any output of a **Logger** component and any internal
+logging that Mule runtime engine produces.
+
+## Create a Set Logging Variable Mule App
+
+In the following example, you configure the **Set logging variable** operation to log variables
+based on the request payload and attributes:
+
+![A set logging variable flow in Studio canvas](_images/tracing-module-set-logging-variable-flow.png)
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, set **Path** to `/order`.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP listener in the app.
+5.  In the **Mule Palette** view, select **Tracing > Set logging variable**.
+6.  Drag **Set logging variable** to the right of HTTP Listener.
+7.  Set **Variable name** to `customerId`.
+8.  Set **Value** to `#[payload.customerId]` to log the customer ID sent in the request.
+9.  Drag another **Set logging variable** operation to the right of the first **Set logging
+    variable** operation.
+10. Set **Variable name** to `requestPath`.
+11. Set **Value** to `'#["$(attributes.method):$(attributes.requestPath)"]'` to log the request
+    path.
+12. Drag a **Logger** component to the right of the second **Set logging variable** operation.
+13. Set **Message** to `#[output application/json --- payload]` to log the request payload.
+14. Save and run your Mule app.
+15. Send the following curl command:
+
+    ```xml
+    curl --location --request GET '0.0.0.0:8081/order' \
+    --header 'Content-Type: application/json' \
+    --data-raw '{
+        "orderId": 548102842,
+        "customerId": "ARG-12934",
+        "items": [
+            "CP-123",
+            "CP-452"
+        ]
+    }'
+    ```
+
+The output logs `customerId`, `requestPath`, and the request payload:
+
+```xml
+INFO  2021-04-09 11:14:38,409 [[MuleRuntime].uber.05: [tracing-module].tracing-moduleFlow.CPU_LITE @34a62707] [processor: tracing-moduleFlow/processors/2; event: eb2b2461-993d-11eb-8a64-4865ee1fd814] {correlationId=eb2b2461-993d-11eb-8a64-4865ee1fd814, customerId=ARG-12934, processorPath=tracing-moduleFlow/processors/2, requestPath=GET:/order} org.mule.runtime.core.internal.processor.LoggerMessageProcessor: {
+    "orderId": 548102842,
+    "customerId": "ARG-12934",
+    "items": [
+        "CP-123",
+        "CP-452"
+    ]
+}
+```
+
+### XML for the Set Logging Variable Mule App
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:tracing="http://www.mulesoft.org/schema/mule/tracing"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tracing http://www.mulesoft.org/schema/mule/tracing/current/mule-tracing.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="2258f968-60ad-41d3-a1c1-5afeffd89297" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="tracingmodule2Flow" >
+		<http:listener  config-ref="HTTP_Listener_config" path="/order"/>
+		<tracing:set-logging-variable variableName="#[customerId]" value="#[payload.customerId]"/>
+		<tracing:set-logging-variable  variableName="requestPath" value='#["$(attributes.method):$(attributes.requestPath)"]'/>
+		<logger level="INFO" message="#[output application/json --- payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Tracing Module Examples](tracing-module-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Tracing Module 1.2 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Tracing module enables you to enhance your logs by adding, removing, and clearing variables from the
+logging context for a given Mule event. It also enables you to modify the correlation ID during flow
+execution.
+
+## Configurations
+
+---
+
+### Default Configuration
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+## Operations
+
+### Clear Logging Variables
+
+`<clear-logging-variables>`
+
+Clears all the logging variables from the event logging context. This operation does not remove the
+correlation ID nor the current event processor because those variables are managed by Mule runtime
+engine.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Display name for the operation</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Remove Logging Variables
+
+`<remove-logging-variable>`
+
+Removes a variable from the event logging context.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Display name for the operation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Variable name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable to remove.</p></div></div></td><td><div><div><p>x</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Set Logging Variables
+
+`<set-logging-variable>`
+
+Sets a new logging variable and its value. The new variable is present in the next operation
+execution for the event.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Display name for the operation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Variable name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable to log.</p></div></div></td><td><div><div><p>x</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Value to assign to the variable. Accepts DataWeave expressions.</p></div></div></td><td><div><div><p>x</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+## Scopes
+
+### With CorrelationID
+
+`<with-correlation-id>`
+
+Scope that creates a process where the inner chain modifies the current correlation ID in the event
+flow. After the process finishes its execution, the correlation ID returns to the previous ID.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Display name for the scope</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Correlation id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Set a custom correlation ID.</p></div></div></td><td><div><div><p>x</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Tracing Module 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Tracing Module Reference](tracing-module-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Module to Your Mule Project
+
+Add Tracing module to your Mule project to automatically populate the XML code with the moduleâs
+namespace and schema location and to add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `tracing` in the search field.
+3.  Click **Tracing Module** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a module to a Mule project in Studio does not make that module available to other projects in
+your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these input
+sources to use with Tracing module:
+
+- **HTTP > Listener**  
+  Initiates a flow each time it receives a request on the configured host and port
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP listener in the app.
+6.  On the **General** tab, specify the connection information for the listener.
+7.  On the **TLS** tab, optionally specify the TLS information for the listener.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Module Operation or Scope to the Flow
+
+When you add a module operation or scope to your flow, you immediately define a specific operation
+for that module to perform.
+
+To add an operation or scope for Tracing module, follow these steps:
+
+1.  In the **Mule Palette** view, select **Tracing** and then select the desired operation or scope.
+2.  Drag the operation or scope onto the Studio canvas and to the right of the input source.
+
+![A Mule Palette including Tracing module operation and scope in Anypoint Studio](_images/tracing-module-operations.png)
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Tracing Module Reference](tracing-module-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Change the Correlation ID During Flow Execution with Tracing Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You might want to change the correlation ID of the event for a given scope or a set of operations
+if:
+
+- You are processing the results of a database query inside a **For Each** scope and you want to
+  correlate the event with the register you are processing.
+- You are consuming a JMS message queue and you want to proceed using the JMS correlation ID for
+  traceability purposes.
+
+For these scenarios, the Tracing module **With CorrelationID** scope enables you to modify the
+correlation ID during the execution of that scope.
+
+## Configure the With CorrelationID Scope
+
+In the following Mule app example, you configure the **With CorrelationID** scope in Studio:
+
+![A flow showing a With CorrelationID scope flow](_images/tracing-module-scope-flow.png)
+
+1.  In the **Mule Palette** view of Studio, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  Set **Path** to `/test`.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+5.  Configure the HTTP Listener global element and click **OK**.
+6.  Drag a **Set Payload** component to the right of HTTP Listener.
+7.  Set **Value** to `some`.
+8.  In the **Mule Palette** view of Studio, select **Logger**.
+9.  Drag **Logger** to the right of Set Payload.
+10. Set **Message** to `#[payload]`.
+11. Set **Level** to `WARN`.
+12. Drag the **With CorrelationID** scope to the Studio canvas.
+13. Set **Correlation id** to `#[correlationId ++ '-EXAMPLE']`:
+
+    ![A With CorrelationID scope configuration window with Correlation ID field](_images/tracing-module-with-correlationid.png)
+
+14. Drag another **Logger** component into the **With CorrelationID** scope.
+15. Set **Message** to `#[payload]`.
+16. Set **Level** to `WARN`.
+17. Save and run your Mule app.
+18. Test the app by running `curl localhost:8081/test` at the command line.
+
+The application output logs are:
+
+```xml
+WARN  2021-03-30 16:46:11,269 [[MuleRuntime].uber.05: [test-project-app].example.CPU_LITE @6d3b5ad] [processor: example/processors/1; event: bad0e5b0-9191-11eb-a0b3-36548d51aeee] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: some
+WARN  2021-03-30 16:46:11,271 [[MuleRuntime].uber.05: [test-project-app].example.CPU_LITE @6d3b5ad] [processor: example/processors/2/processors/0; event: bad0e5b0-9191-11eb-a0b3-36548d51aeee-EXAMPLE] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: some
+WARN  2021-03-30 16:46:11,274 [[MuleRuntime].uber.05: [test-project-app].example.CPU_LITE @6d3b5ad] [processor: example/processors/3; event: bad0e5b0-9191-11eb-a0b3-36548d51aeee] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: some
+```
+
+## XML for Configuring With CorrelationID Scope
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:tracing="http://www.mulesoft.org/schema/mule/tracing"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tracing http://www.mulesoft.org/schema/mule/tracing/current/mule-tracing.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+	<http:listener-config name="HTTP_Listener_config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="tracingmodule2Flow"  >
+		<http:listener config-ref="HTTP_Listener_config" path="/test"/>
+		<set-payload value="some" />
+		<logger level="WARN" message="#[payload]"/>
+		<tracing:with-correlation-id correlationId="#[correlationId ++ '-EXAMPLE']">
+			<logger level="WARN"  message="#[payload]"/>
+		</tracing:with-correlation-id>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Tracing Module Examples](tracing-module-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Tracing Module XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can access the connector from your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+If you add the connector in Studio, Studio automatically populates the XML code with the connectorâs
+namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/tracing
+http://www.mulesoft.org/schema/mule/tracing/current/mule-tracing.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:tracing="http://www.mulesoft.org/schema/mule/tracing"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/tracing
+	http://www.mulesoft.org/schema/mule/tracing/current/mule-tracing.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.modules</groupId>
+  <artifactId>mule-tracing-module</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `tracing module`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[examples](tracing-module-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

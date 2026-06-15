@@ -1,0 +1,2393 @@
+﻿# Oracle EBS 12.1 Connector - Full Documentation
+
+# Oracle EBS 12.1 Connector 5.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Oracle E-Business Suite (Oracle EBS Connector) provides real-time
+connectivity to query and update Oracle EBS using web services and message queues. The connector has
+been developed for the Oracle EBS v12.1.x.
+
+Oracle EBS Connector provides integration to the following:
+
+- Financial Management and Order Management Modules: Full API coverage for Financials and Order
+  Management services
+- PL/SQL Integration: Both standard PL/SQL or user-defined PL/SQL can be invoked
+- XML Gateway: Inbound and Outbound, to send and receive message to and from EBS
+- Business Events: The ability to receive messages when an event is fired in EBS, via the
+  `WF_JMS_JMS_OUT` topic
+
+## Before You Begin
+
+To use this information, you should be familiar with Oracle EBS, Mule runtime engine (Mule),
+Anypoint Connectors, Anypoint Studio, Mule concepts, elements in a Mule flow, and Global Elements.
+
+You need login credentials to test your connection to your target resource.
+
+To use this connector with Maven, view the pom.xml dependency information in the Dependency Snippets
+in Anypoint Exchange.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>org.mule.connectors</groupId>
+  <artifactId>mule-oracle-ebs-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Connector Architecture
+
+Oracle EBS offers different technologies or products to address various types of integrations. The
+most widely used technologies for integration with enterprise applications includes:
+
+1.  Data-centric integration
+2.  Event-driven integration using Oracle Business Event System and XML Gateway queues
+3.  Integration through Web Services using Oracle E-Business Suite Integrated SOA Gateway (ISG)
+
+![Oracle EBS Connector Architecture](_images/oracle-ebs-connector-architecture.png)
+
+## Web Service Endpoints
+
+The supported Oracle Web Service endpoints include the following:
+
+- Receivables
+  - DQM Search Service (`/oracle/apps/ar/hz/service/party/DqmSearchService`)
+    - Find Parties
+
+  - Email Business Object Services (`/oracle/apps/ar/hz/service/party/EmailService`)
+    - Create E-mail
+    - Get E-mail
+    - Save E-mail
+    - Update E-mail
+
+  - Location Business Object Services (`/oracle/apps/ar/hz/service/party/LocationService`)
+    - Create Location
+    - Get Location
+    - Save Location
+    - Update Location
+
+  - Organization Business Object Services (`/oracle/apps/ar/hz/service/party/OrganizationService`)
+    - Create Organization
+    - Get Organization
+    - Get Organizations Created
+    - Get Organizations Updated
+    - Save Organization
+    - Update Organization
+
+  - Organization Contact Business Object Services
+    (`/oracle/apps/ar/hz/service/party/OrgContactService`)
+    - Create Organization Contact
+    - Get Organization Contact
+    - Save Organization Contact
+    - Update Organization Contact
+
+  - Organization Customer Business Object Services
+    (`/oracle/apps/ar/hz/service/account/OrgCustomerService`)
+    - Create Organization Customer
+    - Get Organization Customer
+    - Get Organization Customers Created
+    - Get Organization Customers Updated
+    - Save Organization Customer
+    - Update Organization Customer
+
+  - Party Site Business Object Services (`/oracle/apps/ar/hz/service/party/PartySiteService`)
+    - Create Party Site
+    - Get Party Site
+    - Save Party Site
+    - Update Party Site
+
+  - Person Business Object Services (`/oracle/apps/ar/hz/service/party/PersonService`)
+    - Create Person
+    - Get Person
+    - Get Persons Created
+    - Get Persons Updated
+    - Save Person
+    - Update Person
+
+  - Person Customer Business Object Services
+    (`/oracle/apps/ar/hz/service/account/PersonCustomerService`)
+    - Create Person Customer
+    - Get Person Customer
+    - Get Person Customers Created
+    - Get Person Customers Updated
+    - Save Person Customer
+    - Update Person Customer
+
+  - Phone Business Object Services (`/oracle/apps/ar/hz/service/party/PhoneService`)
+    - Create Phone
+    - Get Phone
+    - Save Phone
+    - Update Phone
+
+  - Relationship Business Object Services (`/oracle/apps/ar/hz/service/party/RelationshipService`)
+    - Create Relationship
+    - Get Relationship
+    - Save Relationship
+    - Update Relationship
+
+  - Web Business Object Services (`/oracle/apps/ar/hz/service/party/WebService`)
+    - Create Web
+    - Get Web
+    - Save Web
+    - Update Web
+
+For PL/SQL functions, the connector supports the following out of the box, along with custom
+functions:
+
+- Install Base
+  - Manage Item Instances (`CSI_ITEM_INSTANCE_PUB`)
+    - Copy Item Instance
+    - Create Item Instance
+    - Get Item Instances
+    - Get Item Instance Details
+    - Update Item Instance
+
+- Order Management
+  - Process Order API (`OE_ORDER_PUB`)
+    - Delete Line
+    - Delete Order
+    - Get Order
+    - ID to Value
+    - Lock Order
+    - Process Header
+    - Process Line
+    - Process Order
+    - Update Header
+    - Update Line
+    - Value to ID
+
+  - Purchase Order Acknowledgments Extension Columns API (`EC_POAO_EXT`)
+    - POAO Populate Ext Lev01
+    - POAO Populate Ext Lev02
+
+  - Purchase Order Change Acknowledgments Extension Columns API (`EC_POCAO_EXT`)
+    - POCAO Populate Ext Lev01
+    - POCAO Populate Ext Lev02
+
+  - Sales Agreement API (`OE_BLANKET_PUB`)
+    - Process Blanket
+
+  - Ship Conformation (`OE_SHIP_CONFIRMATION_PUB`)
+    - Ship Zero
+
+- Payables
+  - Suppliers Package (`AP_VENDOR_PUB_PKG`)
+    - Create Vendor
+    - Create Vendor Contact
+    - Create Vendor Site
+
+- Receivables
+  - Invoice Creation (`AR_INVOICE_API_PUB`)
+    - Create Invoice
+    - Create Single Invoice
+
+- Trading Community
+  - Location (`HZ_LOCATION_V2PUB`)
+    - Create Location
+    - Create Location 1
+    - Update Location
+    - Update Location 1
+
+  - Party Contact (`HZ_PARTY_CONTACT_V2PUB`)
+    - Create Org Contact
+    - Create Org Contact Role
+    - Update Org Contact
+    - Update Org Contact Role
+
+### Add Libraries for This Connector
+
+To subscribe to business events or to the XML Gateway queue, the JMS Configuration requires two
+external libraries:
+
+1.  Go to the connectorâs JMS configuration.
+2.  Click **Set Up** under the message to setup drivers.
+3.  Upload and select your libraries.
+    1.  Oracle AQ API: Can be retrieved from the EBS instance, at
+        `$ORACLE_HOME/rdbms/jlib/aqapi.jar`.
+    2.  Oracle Database JDBC Driver: Can also be found in the instance, at
+        `$ORACLE_HOME/jdbc/lib/ojdbc6.jar`.
+
+        ![OracleEBS JMS Drivers for the Oracle JDBC driver and AQ API](_images/oracle-ebs-jms-dependencies.png)
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project:
+
+- From the Exchange button in the Studio taskbar
+- From the Mule Palette view
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "ebs".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "ebs" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure in Studio
+
+1.  Drag a connectorâs operation to the Studio Canvas.
+2.  Configure the example Get Party Site:
+    1.  Id: TCA identifier for the Party Site business object.
+    2.  Orig Sys: Party Site original system name.
+    3.  Orig Sys Ref: Party Site original system reference.
+
+![Get Party Site operation configuration](_images/oracle-ebs-get-party-site-studio.png)
+
+## Log PSQL and Web Service Requests and Responses
+
+To log PSQL and Web Service requests and responses when using the connector, configure a logger:
+
+- For PSQL requests and responses, add this line to the `Loggers` element of the `log4j2.xml`
+  configuration file for the Mule app:
+
+  ```xml
+  <AsyncLogger name=name="org.mule.service.http.impl.service.HttpMessageLogger"
+     level="DEBUG"/>
+  ```
+
+- For web service requests and responses, add this line to the `Loggers` element of the `log4j2.xml`
+  configuration file for the Mule app:
+
+  ```xml
+  <AsyncLogger name="org.apache.cxf.service" level="INFO"/>
+  ```
+
+  The following example shows the `Loggers` element with the `AsyncLogger` line configured to log
+  web service requests and responses:
+
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <Configuration status="WARN">
+      <Appenders>
+          <Console name="Console" target="SYSTEM_OUT">
+              <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+          </Console>
+      </Appenders>
+      <Loggers>
+          <AsyncLogger name="org.apache.cxf.service" level="INFO" additivity="false">
+              <appender-ref ref="Console" level="debug"/>
+          </AsyncLogger>
+      </Loggers>
+  </Configuration>
+  ```
+
+## Use Case: Call and Log an Operation
+
+This sample flow calls an operation every 30 seconds and logs its output.
+
+1.  Drag a Scheduler and set the frequency to 30 seconds.
+2.  Select **Oracle EBS > Get Party Site** from the Mule Palette view and drag it to the flow.
+3.  Configure its input.
+4.  Drag a Logger and set its message to `#[payload]`.
+
+![Studio flow with Scheduler, Get Party Site, and Logger icons](_images/oracle-ebs-studio-flow.png)
+
+### Use Case: XML
+
+Here is the code for the aforementioned example:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:oracle-ebs="http://www.mulesoft.org/schema/mule/oracle-ebs"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/oracle-ebs
+http://www.mulesoft.org/schema/mule/oracle-ebs/current/mule-oracle-ebs.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<oracle-ebs:web-services-config
+		name="OracleEBS_Web_Services"
+		doc:name="OracleEBS Web Services" >
+		<oracle-ebs:web-services-connection
+			username="${username}"
+			password="${password}"
+			host="${host}"
+			responsibilityName="${responsibilityName}"
+			responsibilityApplicationName="${responsibilityApplicationName}" />
+	</oracle-ebs:web-services-config>
+	<flow name="ebs_testFlow" >
+		<scheduler doc:name="Scheduler" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="30" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<oracle-ebs:get-party-site
+			doc:name="Get party site"
+			config-ref="OracleEBS_Web_Services"
+			id="1000"/>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Oracle E-Business Suite 12.1 Connector Release Notes](../../release-notes/connector/oracle-ebs-connector-release-notes-mule-4)
+- [Oracle E-Business Suite (EBS) 12.1 Connector](https://www.mulesoft.com/exchange/org.mule.connectors/mule-oracle-ebs-connector/)
+- [Oracle site](https://www.oracle.com/applications/ebusiness/)
+- [Oracle E-Business Suite Documentation Web Library](https://docs.oracle.com/cd/E18727_01/index.htm)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Oracle EBS 12.1 Connector Reference 5.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Oracle EBS 12.1 (Oracle EBS 12.1 Connector) Version 5.3
+
+## Configurations
+
+---
+
+### JMS
+
+Default configuration for Oracle EBS operations.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#jms-config_jms-parameter-config">JMS Parameter Config</a></p></li><li><p><a href="#jms-config_jms-url-config">JMS URL Config</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Read Receive Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>30000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### JMS Parameter Configuration
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>1521</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Database SID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### JMS URL Configuration
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Sources
+
+- [Business Events Source](#BusinessEventsSource)
+- [XML Gateway Outbound Source](#XmlGatewayOutboundSource)
+
+---
+
+### PL-SQL Configuration
+
+Default configuration for Oracle EBS operations.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#plsql-config_plsql">Plsql</a></p></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### PLSQL Connection Type
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Custom PL/SQL name list</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>30000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>8000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>SSL</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Fix url end point</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Overrides the URL to use the URL of the WSDL file.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Responsibility name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Responsibility application name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security group name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>STANDARD</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>NLS language</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>AMERICAN</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Org. ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>204</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Invoke PL SQL](#invokePlSql)
+
+---
+
+### Web Services Configuration
+
+Default configuration for Oracle EBS operations.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#web-services-config_web-services">Web Services</a></p></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Web Services Connection Type
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>TrustStore file name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path where the TrustStore is located.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TrustStore password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password for the TrustStore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Disable Common Name checking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to disable or not the checking of the Common Name in the certificate.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>8000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>SSL</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Fix url end point</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Overrides the URL to use the URL of the WSDL file.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Responsibility name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Responsibility application name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security group name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>STANDARD</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>NLS language</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>AMERICAN</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Org. ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>204</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Operations
+
+- [Create Email](#createEmail)
+- [Create Location](#createLocation)
+- [Create Organization](#createOrganization)
+- [Create Organization Contact](#createOrganizationContact)
+- [Create Organization Customer](#createOrganizationCustomer)
+- [Create Party Site](#createPartySite)
+- [Create Person](#createPerson)
+- [Create Person Customer](#createPersonCustomer)
+- [Create Phone](#createPhone)
+- [Create Relationship](#createRelationship)
+- [Create Web](#createWeb)
+- [Find Parties](#findParties)
+- [Get Created Organization Customers](#getCreatedOrganizationCustomers)
+- [Get Email](#getEmail)
+- [Get Location](#getLocation)
+- [Get Organization](#getOrganization)
+- [Get Organization Contact](#getOrganizationContact)
+- [Get Organization Customer](#getOrganizationCustomer)
+- [Get Organizations Created](#getOrganizationsCreated)
+- [Get Organizations Updated](#getOrganizationsUpdated)
+- [Get Party Site](#getPartySite)
+- [Get Person](#getPerson)
+- [Get Person Customer](#getPersonCustomer)
+- [Get Person Customers Created](#getPersonCustomersCreated)
+- [Get Person Customers Updated](#getPersonCustomersUpdated)
+- [Get Persons Created](#getPersonsCreated)
+- [Get Persons Updated](#getPersonsUpdated)
+- [Get Phone](#getPhone)
+- [Get Relationship](#getRelationship)
+- [Get Updated Organization Customers](#getUpdatedOrganizationCustomers)
+- [Get Web](#getWeb)
+- [Invoke PL SQL](#invokePlSql)
+- [Save Email](#saveEmail)
+- [Save Location](#saveLocation)
+- [Save Organization](#saveOrganization)
+- [Save Organization Contact](#saveOrganizationContact)
+- [Save Organization Customer](#saveOrganizationCustomer)
+- [Save Party Site](#savePartySite)
+- [Save Person](#savePerson)
+- [Save Person Customer](#savePersonCustomer)
+- [Save Phone](#savePhone)
+- [Save Relationship](#saveRelationship)
+- [Save Web](#saveWeb)
+- [Update Email](#updateEmail)
+- [Update Location](#updateLocation)
+- [Update Organization](#updateOrganization)
+- [Update Organization Contact](#updateOrganizationContact)
+- [Update Organization Customer](#updateOrganizationCustomer)
+- [Update Party Site](#updatePartySite)
+- [Update Person](#updatePerson)
+- [Update Person Customer](#updatePersonCustomer)
+- [Update Phone](#updatePhone)
+- [Update Relationship](#updateRelationship)
+- [Update Web](#updateWeb)
+- [XML Gateway](#xmlGateway)
+
+### Create Email
+
+`<oracle-ebs:create-email>`
+
+Creates a EmailDTO business object. You pass object data to the operation, packaged within an object
+type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes lower-level
+embedded child entities or objects that can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The EmailDTO business object (in json format) to be created</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Location
+
+`<oracle-ebs:create-location>`
+
+Creates a LocationDTO business object. You pass object data to the operation, packaged within an
+object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The Location to create.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Organization
+
+`<oracle-ebs:create-organization>`
+
+Creates a OrganizationDTO business object. You pass object data to the operation, packaged within an
+object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Organization Contact
+
+`<oracle-ebs:create-organization-contact>`
+
+Creates a OrgContactDTO business object. You pass object data to the operation, packaged within an
+object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Organization Customer
+
+`<oracle-ebs:create-organization-customer>`
+
+Creates an OrganizationDTO Customer business object. You pass object data to the operation, packaged
+within an object type defined specifically for the business operation. In addition to the objectâs
+business object attributes, the object type also includes lower-level embedded child entities or
+objects that can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Party Site
+
+`<oracle-ebs:create-party-site>`
+
+Creates a Party Site business object. You pass object data to the operation, packaged within an
+object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Person
+
+`<oracle-ebs:create-person>`
+
+Creates a PersonDTO business object. You pass object data to the operation, packaged within an
+object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Person Customer
+
+`<oracle-ebs:create-person-customer>`
+
+Creates a PersonDTO Customer business object. You pass object data to the operation, packaged within
+an object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Phone
+
+`<oracle-ebs:create-phone>`
+
+Creates a PhoneDTO business object. You pass object data to the operation, packaged within an object
+type defined specifically for the business operation. In addition to the objectâs business object
+attributes, the object type also includes lower-level embedded child entities or objects that can be
+simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Relationship
+
+`<oracle-ebs:create-relationship>`
+
+Creates a RelationshipDTO business object. You pass object data to the operation, packaged within an
+object type defined specifically for the business operation. In addition to the objectâs business
+object attributes, the object type also includes lower-level embedded child entities or objects that
+can be simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Create Web
+
+`<oracle-ebs:create-web>`
+
+Creates a WebDTO business object. You pass object data to the operation, packaged within an object
+type defined specifically for the business operation. In addition to the objectâs business object
+attributes, the object type also includes lower-level embedded child entities or objects that can be
+simultaneously created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:RETRY_EXHAUSTED
+
+### Find Parties
+
+`<oracle-ebs:find-parties>`
+
+Takes a list of Search Party objects and returns a list of Matched Party objects based on the search
+criteria and match rule id.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Criteria</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The request</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Created Organization Customers
+
+`<oracle-ebs:get-created-organization-customers>`
+
+Extracts a particular OrganizationDTO Customer object from Oracle Trading Community Architecture
+(TCA). You pass the Oracle Business Event System eventâs identification information to the
+operation, and it returns the identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the OrganizationDTO Customer business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Email
+
+`<oracle-ebs:get-email>`
+
+Extracts a particular EmailDTO business object from Oracle Trading Community Architecture (TCA). You
+pass the objectâs identification information to the operation, and it returns the identified
+business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the EmailDTO business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>EmailDTO original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>EmailDTO original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Location
+
+`<oracle-ebs:get-location>`
+
+Extracts a particular LocationDTO business object from Oracle Trading Community Architecture (TCA).
+You pass the objectâs identification information to the operation, and it returns the identified
+business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the LocationDTO business object.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>LocationDTO original system name.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>LocationDTO original system reference.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Organization
+
+`<oracle-ebs:get-organization>`
+
+Extracts a particular OrganizationDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the OrganizationDTO business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OrganizationDTO original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OrganizationDTO original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Organization Contact
+
+`<oracle-ebs:get-organization-contact>`
+
+Extracts a particular OrgContactDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the OrganizationDTO Contact business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OrganizationDTO Contact original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OrganizationDTO Contact original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Organization Customer
+
+`<oracle-ebs:get-organization-customer>`
+
+Extracts a particular OrgCustomerDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the OrganizationDTO Customer business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Parent object original system name.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Parent object original system reference.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Organizations Created
+
+`<oracle-ebs:get-organizations-created>`
+
+Extracts a particular OrganizationDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the Oracle Business Event System eventâs identification information to the
+operation, and it returns the identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>ID of BES eventâs raised when this business object was created.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Organizations Updated
+
+`<oracle-ebs:get-organizations-updated>`
+
+Extracts a particular OrganizationDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the Oracle Business Event System eventâs identification information to the
+operation, and it returns the identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>ID of BES eventâs raised when this business object was updated.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Party Site
+
+`<oracle-ebs:get-party-site>`
+
+Extracts a particular Party Site business object from Oracle Trading Community Architecture (TCA).
+You pass the objectâs identification information to the operation, and it returns the identified
+business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the Party Site business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Party Site original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Party Site original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Person
+
+`<oracle-ebs:get-person>`
+
+Extracts a particular PersonDTO business object from Oracle Trading Community Architecture (TCA).
+You pass the objectâs identification information to the operation, and it returns the identified
+business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the PersonDTO business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PersonDTO original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PersonDTO original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Person Customer
+
+`<oracle-ebs:get-person-customer>`
+
+Extracts a particular PersonCustomerDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the PersonDTO Customer business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PersonDTO Customer original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PersonDTO Customer original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Person Customers Created
+
+`<oracle-ebs:get-person-customers-created>`
+
+Extracts a particular PersonDTO Customer Created business object from Oracle Trading Community
+Architecture (TCA). You pass the objectâs identification information to the operation, and it
+returns the identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>ID of BES eventâs raised when this object was created.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Person Customers Updated
+
+`<oracle-ebs:get-person-customers-updated>`
+
+Extracts a particular PersonDTO Customer Updated business object from Oracle Trading Community
+Architecture (TCA). You pass the objectâs identification information to the operation, and it
+returns the identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>ID of BES eventâs raised when this object was updated.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Persons Created
+
+`<oracle-ebs:get-persons-created>`
+
+Extracts a particular PersonDTO Created business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>ID of BES eventâs raised when this business object was created</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Persons Updated
+
+`<oracle-ebs:get-persons-updated>`
+
+Extracts a particular PersonDTO Updated business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>of BES eventâs raised when this business object was updated</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Phone
+
+`<oracle-ebs:get-phone>`
+
+Extracts a particular PhoneDTO business object from Oracle Trading Community Architecture (TCA). You
+pass the objectâs identification information to the operation, and it returns the identified
+business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the PhoneDTO business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PhoneDTO original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Orig Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PhoneDTO original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Relationship
+
+`<oracle-ebs:get-relationship>`
+
+Extracts a particular RelationshipDTO business object from Oracle Trading Community Architecture
+(TCA). You pass the objectâs identification information to the operation, and it returns the
+identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the RelationshipDTO business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Updated Organization Customers
+
+`<oracle-ebs:get-updated-organization-customers>`
+
+Extracts a particular OrganizationDTO customers object from Oracle Trading Community Architecture
+(TCA). You pass the Oracle Business Event System eventâs identification information to the
+operation, and it returns the identified business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the OrganizationDTO Customer business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Get Web
+
+`<oracle-ebs:get-web>`
+
+Extracts a particular WebDTO business object from Oracle Trading Community Architecture (TCA). You
+pass the objectâs identification information to the operation, and it returns the identified
+business object as it exists in TCA.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>TCA identifier for the WebDTO business object</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Orig Sys</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>WebDTO original system name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sys Ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>WebDTO original system reference</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:RETRY_EXHAUSTED
+
+### Invoke PL SQL
+
+`<oracle-ebs:invoke-pl-sql>`
+
+Calls a PL/SQL web service.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Content to be processed. Cannot be null.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In-Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>PL/SQL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [PL-SQL Configuration](#plsql-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Email
+
+`<oracle-ebs:save-email>`
+
+Saves a EmailDTO business object. You pass new or modified object data to the operation, packaged
+within an object type defined specifically for the business operation. The service then determines
+if the object exists in TCA, based upon the provided identification information, and creates or
+updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createEmail or updateEmail). See those operations for more details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The EmailDTO business object (in json format) to be saved</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Location
+
+`<oracle-ebs:save-location>`
+
+Saves a LocationDTO business object. You pass new or modified object data to the operation, packaged
+within an object type defined specifically for the business operation. The service then determines
+if the object exists in Oracle Trading Community Architecture (TCA), based upon the provided
+identification information, and creates or updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createLocation or updateLocation). See those operations for more details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The LocationDTO business object (in json format) to be saved.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Organization
+
+`<oracle-ebs:save-organization>`
+
+Saves a OrganizationDTO business object. You pass new or modified object data to the operation,
+packaged within an object type defined specifically for the business operation. The service then
+determines if the object exists in TCA, based upon the provided identification information, and
+creates or updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createOrganization or updateOrganization). See those operations for more
+details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Organization Contact
+
+`<oracle-ebs:save-organization-contact>`
+
+Saves a OrgContactDTO business object. You pass new or modified object data to the operation,
+packaged within an object type defined specifically for the business operation. The service then
+determines if the object exists in TCA, based upon the provided identification information, and
+creates or updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createOrgContact or updateOrgContact). See those operations for more
+details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Organization Customer
+
+`<oracle-ebs:save-organization-customer>`
+
+Saves a OrgCustomerDTO business object. You pass new or modified object data to the operation,
+packaged within an object type defined specifically for the business operation. The service then
+determines if the object exists in TCA, based upon the provided identification information, and
+creates or updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createOrgCustomer or updateOrgCustomer). See those operations for more
+details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Party Site
+
+`<oracle-ebs:save-party-site>`
+
+Saves a Party Site business object. You pass new or modified object data to the operation, packaged
+within an object type defined specifically for the business operation. The service then determines
+if the object exists in TCA, based upon the provided identification information, and creates or
+updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createPartySite or updatePartySite). See those operations for more
+details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Person
+
+`<oracle-ebs:save-person>`
+
+Saves a PersonDTO business object. You pass new or modified object data to the operation, packaged
+within an object type defined specifically for the business operation. The service then determines
+if the object exists in TCA, based upon the provided identification information, and creates or
+updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createPerson or updatePerson). See those operations for more details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Person Customer
+
+`<oracle-ebs:save-person-customer>`
+
+Saves a PersonDTO Customer business object. You pass new or modified object data to the operation,
+packaged within an object type defined specifically for the business operation. The service then
+determines if the object exists in TCA, based upon the provided identification information, and
+creates or updates the object. For either case, the object type that you provide will be processed
+as if the respective API procedure is being called (createPersonCustomer or updatePersonCustomer).
+Please see those operations for more details. In addition to the objectâs business object
+attributes, the object type also includes embedded child business entities or objects that can be
+simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Phone
+
+`<oracle-ebs:save-phone>`
+
+Saves a PhoneDTO business object. You pass new or modified object data to the operation, packaged
+within an object type defined specifically for the business operation. The service then determines
+if the object exists in TCA, based upon the provided identification information, and creates or
+updates the object. For either case, the object type that you provide will be processed as if the
+respective API procedure is being called (createPhone or updatePhone). Please see those operations
+for more details. In addition to the objectâs business object attributes, the object type also
+includes embedded child business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Relationship
+
+`<oracle-ebs:save-relationship>`
+
+Saves a RelationshipDTO business object. You pass new or modified object data to the operation,
+packaged within an object type defined specifically for the business operation. The service then
+determines if the object exists in TCA, based upon the provided identification information, and
+creates or updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createRelationship or updateRelationship). See those operations for more
+details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Save Web
+
+`<oracle-ebs:save-web>`
+
+Saves a PhoneDTO business object. You pass new or modified object data to the operation, packaged
+within an object type defined specifically for the business operation. The service then determines
+if the object exists in TCA, based upon the provided identification information, and creates or
+updates the object.
+
+For either case, the object type that you provide will be processed as if the respective API
+procedure is being called (createWeb or updateWeb). See those operations for more details.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:RETRY_EXHAUSTED
+
+### Update Email
+
+`<oracle-ebs:update-email>`
+
+Updates a EmailDTO business object. You pass any modified object data to the operation, packaged
+within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The EmailDTO business object (in json format) to be updated</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Location
+
+`<oracle-ebs:update-location>`
+
+Updates a LocationDTO business object. You pass any modified object data to the operation, packaged
+within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The LocationDTO business object (in json format) to be updated.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Organization
+
+`<oracle-ebs:update-organization>`
+
+Updates a OrganizationDTO business object. You pass any modified object data to the operation,
+packaged within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Organization Contact
+
+`<oracle-ebs:update-organization-contact>`
+
+Updates a OrgContactDTO business object. You pass any modified object data to the operation,
+packaged within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Organization Customer
+
+`<oracle-ebs:update-organization-customer>`
+
+Updates a OrgCustomerDTO business object. You pass any modified object data to the operation,
+packaged within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Party Site
+
+`<oracle-ebs:update-party-site>`
+
+Updates a Party Site business object. You pass any modified object data to the operation, packaged
+within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Person
+
+`<oracle-ebs:update-person>`
+
+Updates a PersonDTO business object. You pass any modified object data to the operation, packaged
+within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Person Customer
+
+`<oracle-ebs:update-person-customer>`
+
+Updates a PersonDTO Customer business object. You pass any modified object data to the operation,
+packaged within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Phone
+
+`<oracle-ebs:update-phone>`
+
+Updates a PhoneDTO business object. You pass any modified object data to the operation, packaged
+within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Relationship
+
+`<oracle-ebs:update-relationship>`
+
+Updates a RelationshipDTO business object. You pass any modified object data to the operation,
+packaged within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CANNOT_REACH
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:ILLEGAL_ARGUMENT
+- ORACLE-EBS:INVALID_CREDENTIALS
+- ORACLE-EBS:IO_EXCEPTION
+- ORACLE-EBS:PASSWORD
+- ORACLE-EBS:RETRY_EXHAUSTED
+- ORACLE-EBS:UNKNOWN
+- ORACLE-EBS:UNSUPPORTED_OPERATION
+
+### Update Web
+
+`<oracle-ebs:update-web>`
+
+Updates a WebDTO business object. You pass any modified object data to the operation, packaged
+within an object type defined specifically for the business operation.
+
+In addition to the objectâs business object attributes, the object type also includes embedded child
+business entities or objects that can be simultaneously created or updated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:RETRY_EXHAUSTED
+
+### XML Gateway
+
+`<oracle-ebs:xml-gateway>`
+
+Enqueues a message via XML gateway inbound.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Message Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Payload message format. This defaults to XML. Oracle XML Gateway currently supports only XML.</p></div></div></td><td><div><div><p>XML</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Standard</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Message format standard as displayed in the Define Transactions form and entered in the Define XML Standards form. This defaults to OAG.</p></div></div></td><td><div><div><p>OAG</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Transaction Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>External Transaction Type for the business document from the Trading Partner table.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Transaction Subtype</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>External Transaction Subtype for the business document from the Trading Partner table.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Document Number</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The document identifier used to identify the transaction, such as a purchase order or invoice number. This parameter is not used by the XML Gateway, but it may be passed on inbound messages. Optional.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Party Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The party identifier. Optional.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Party Site Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The party site identifier for the inbound XML document.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The payload to be enqueued.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Web Services Configuration](#web-services-config)
+
+#### Throws
+
+- ORACLE-EBS:CONNECTIVITY
+- ORACLE-EBS:RETRY_EXHAUSTED
+
+## Sources
+
+### Business Events Source
+
+`<oracle-ebs:business-events-source>`
+
+Subscribes to the `WF_JMS_JMS_OUT` topic and retrieves any business event enqueued to it.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Durable Subscription</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Subscription Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should only be executed on the primary node when running in Cluster</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In-Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [JMS](#jms-config)
+
+### XML Gateway Outbound Source
+
+`<oracle-ebs:xml-gateway-outbound-source>`
+
+Subscribes to the `ECX_OUTBOUND` queue and retrieves any messages enqueued to it.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should only be executed on the primary node when running in Cluster</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In-Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [JMS](#jms-config)
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds)</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In-Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory that will be allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which all these attributes are expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use. If not set, the default is SHA-256.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property may only be set if useSecureHash is false.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

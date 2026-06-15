@@ -1,0 +1,890 @@
+﻿# Microsoft Dynamics 365 For Finance and Operations Connector - Full Documentation
+
+# Microsoft Dynamics 365 for Finance and Operations Connector 3.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Dynamics 365 for Finance and Operations (Microsoft Dynamics 365 for
+Finance and Operations Connector) enables integration with Microsoft Dynamics 365 for Operations Web
+API.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Microsoft Dynamics 365 for Finance and Operations API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements in a Mule flow
+- Global elements
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have access to a Microsoft Dynamics 365 instance (online or
+on-premises) managed by Azure Active Directory.
+
+## Common Use Cases for the Connector
+
+This connector enables you to perform these operations:
+
+- Authorize or unauthorize access to a Microsoft Dynamics 365 for Finance and Operations server
+- Create a recurring job on Microsoft Dynamics 365 for Finance and Operations server
+- Retrieve multiple entries, including retrieval using DataSense Query Language
+- Execute operations
+
+See [Examples](microsoft-365-finance-operations-connector-examples) for use cases.
+
+## Audience
+
+- New users, read:
+  - [Using Anypoint Studio to Configure the Connector](microsoft-365-finance-operations-connector-studio)
+    to create your Mule app
+
+- [Examples](microsoft-365-finance-operations-connector-examples), which provides an example use
+  case for the connector
+- Advanced users, read:
+  - [XML and Maven Support](microsoft-365-finance-operations-connector-xml-maven)
+
+- The [Examples](microsoft-365-finance-operations-connector-examples), which provide one or more use
+  cases for the connector
+
+## Authentication Types
+
+Microsoft Dynamics 365 for Finance and Operations Connector uses the OAuth 2.0 authentication
+connection type, which delegates user authentication to the service hosting the user account.
+
+## Next Step
+
+After you complete the prerequisites and experiment with templates and examples, you are ready to
+create an app and configure the connector using
+[Anypoint Studio](microsoft-365-finance-operations-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Microsoft Dynamics 365 for Finance and Operations Connector Reference](microsoft-365-ops-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Dynamics 365 for Finance and Operations Connector 3.1 Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In Microsoft Dynamics 365 for Finance and Operations Connector 3.1.7 and later, you can use custom
+logic to configure properties of complex types when creating entities.
+
+## Configure Complex Types with Custom Logic
+
+In Microsoft Dynamics 365 for Finance and Operations Connector 3.1.6 and earlier, suppose you use
+the following payload in the **Create** operation:
+
+```json
+%dw 2.0
+output application/java
+---
+{
+    "Name": "GENERIC-CUSTOMER-NAME",
+    "CustomerAccount": "CUSTOMER-ACCOUNT",
+    "SalesCurrencyCode": "EUR",
+    "CustomerGroupId": "GROUP-ID",
+    "IsServiceDeliveryAddressBased": "No"
+}
+```
+
+`IsServiceDeliveryAddressBased` is a property of the `Microsoft.Dynamics.DataEntities.NoYes` type,
+which is an enum type in the Microsoft data model. Using this payload in the **Create** operation
+throws an exception because the value for `IsServiceDeliveryAddressBased` is `No`, which is a string
+instead of an enum type.
+
+In Microsoft Dynamics 365 for Finance and Operations Connector 3.1.7 and later, use the newly added
+custom logic to properly configure the property and avoid exceptions:
+
+```json
+%dw 2.0
+output application/java
+---
+{
+    "Name": "GENERIC-CUSTOMER-NAME",
+    "CustomerAccount": "CUSTOMER-ACCOUNT",
+    "SalesCurrencyCode": "EUR",
+    "CustomerGroupId": "GROUP-ID",
+    "IsServiceDeliveryAddressBased": {
+            "muleAdditions": {
+                "kind": "enum",
+                "type": "Microsoft.Dynamics.DataEntities.NoYes"
+            },
+            "value" : "No"
+        }
+}
+```
+
+The value for `IsServiceDeliveryAddressBased` must be an object type that contains the following
+fields:
+
+- `muleAdditions`
+  - `kind`
+
+    Key that indicates the kind of complex object. The only supported value is `enum`.
+
+  - `type`
+
+    Key that indicates the type in the Microsoft data model. Supported values are any enum type in
+    the Microsoft data model.
+
+    To find out the enum type:
+    - In Microsoft Dynamics 365 for Finance and Operations Connector 3.1.7 and later, the improved
+      metadata now shows the complete name of a data type.
+
+      ![List of metadata that shows the complete naming of the data type](_images/enum.png)
+
+    - Execute a GET request on `https://{tenant}.com/data/$metadata`. The resulting XML file
+      contains the entire data model.
+
+- `value`
+
+  Key with the enum value as a string.
+
+## Next Step
+
+After you complete configuring the connector, you can try the
+[Examples](microsoft-365-finance-operations-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Dynamics 365 for Finance and Operations Connector 3.1 - Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example illustrates how to work with the features of Anypoint Connector for Microsoft
+Dynamics 365 for Finance and Operations (Microsoft Dynamics 365 for Finance and Operations
+Connector) using the **Retrieve Multiple** operation to accept data and then output the results in
+JSON format.
+
+This example uses the following operations in the flow:
+
+1.  **HTTP Listener**  
+    Accepts data from HTTP requests
+2.  **Microsoft Dynamics 365 for Operations Retrieve multiple**  
+    Connects and executes a query to retrieve all the customer entities
+3.  **Transform Message**  
+    Outputs the results of the **Retrieve Multiple** operation in JSON format.
+
+The following screenshot shows the Studio app flow for this example:
+
+![Microsoft Dynamics 365 for Operations Use Case Flow](_images/microsoft-365-ops-studio-use-case.png)
+
+Figure 1. Microsoft Dynamics 365 for Operations Use Case Flow
+
+Use a properties file to define these attributes for use in the flow:
+
+- `username="${operations.username}"`
+- `password="${operations.password}"`
+- `resource="${operations.resource}"`
+- `clientId="${operations.client_id}"`
+- `clientSecret="${operations.client_secret}"`
+- `tokenRequestEndpoint="${operations.request_endpoint}"`
+
+You can paste this XML code into Anypoint Studio to experiment with the flow:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:dynamics365ForOperations="http://www.mulesoft.org/schema/mule/dynamics365ForOperations"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/dynamics365ForOperations
+http://www.mulesoft.org/schema/mule/dynamics365ForOperations/current/mule-dynamics365ForOperations.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection
+		host="localhost"
+		port="8081" />
+	</http:listener-config>
+	<dynamics365ForOperations:dynamics-365-for-operations-config
+		name="Dynamics_365_For_Operations_Dynamics_365_for_operations"
+		doc:name="Dynamics 365 For Operations Dynamics 365 for operations">
+		<dynamics365ForOperations:oauth2-user-password-connection
+			username="USERNAME"
+			password="PASSWORD"
+			resource="https://muledev.sandbox.operations.dynamics.com"
+			clientId="CLIENT_ID"
+			clientSecret="CLIENT_SECRET"
+			tokenRequestEndpoint="https://login.windows.net/TOKEN/oauth2/token" />
+	</dynamics365ForOperations:dynamics-365-for-operations-config>
+	<dynamics365ForOperations:dynamics-365-for-operations-config
+	name="Dynamics_365_For_Operations_Dynamics_365_for_operations1"
+	doc:name="Dynamics 365 For Operations Dynamics 365 for operations">
+		<dynamics365ForOperations:oauth2-user-password-connection
+		username="${operations.username}"
+		password="${operations.password}"
+		resource="${operations.resource}"
+		clientId="${operations.client_id}"
+		clientSecret="${operations.client_secret}"
+		tokenRequestEndpoint="${operations.request_endpoint}" />
+	</dynamics365ForOperations:dynamics-365-for-operations-config>
+	<flow name="dynamics-op-testFlow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/retrieve" />
+		<dynamics365ForOperations:retrieve-multiple doc:name="Retrieve multiple"
+		config-ref="Dynamics_365_For_Operations_Dynamics_365_for_operations1">
+			<dynamics365ForOperations:data-query-url ><![CDATA[https://muledev.sandbox.operations.dynamics.com/data/Customers]]></dynamics365ForOperations:data-query-url>
+		</dynamics365ForOperations:retrieve-multiple>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Microsoft Dynamics 365 for Finance and Operations Connector 3.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see
+[Microsoft Dynamics 365 for Finance and Operations Reference](microsoft-365-ops-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Microsoft Dynamics 365 for Finance and Operations (Microsoft Dynamics 365
+for Operations Connector) to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Dependencies to Project**, type `dynamics finance` in the search field.
+3.  Click the connector name in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Microsoft Dynamics 365 for Operations Connector:
+
+- `HTTP Listener`  
+  Initiates a flow each time it receives a request on the configured host and port
+- `Scheduler`\+ Initiates a flow when a time-based condition is met
+
+For example, to configure HTTP Listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for Microsoft Dynamics 365 for Operations Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Dynamics 365 for Operations** and then select the desired
+    operation.
+2.  Drag the operation onto the Studio canvas and to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target Microsoft Dynamics 365 system.
+Microsoft Dynamics 365 for Operations Connector supports OAuth 2.0 authentication.
+
+To configure the global element for Microsoft Dynamics 365 for Operations Connector, follow these
+steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, in **Connection**, select the authentication method to configure:
+    - [**OAuth Client Credentials**](#oauth-client-credentials)
+    - [**OAuth 2.0**](#oauth-2.0)
+
+      You can reference a configuration file that contains ANT-style property placeholders
+      (recommended), or you can enter your authorization credentials in the global configuration
+      properties. For information about the benefits of using property placeholders and how to
+      configure them, see
+      [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+### OAuth Client Credentials
+
+Enter the following required information on the **General** tab of the **Global Element Properties**
+screen to configure **OAuth Client Credentials** authentication:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Resource</strong></p></td><td><div><div><p>App ID URI of the web API</p></div></div></td></tr><tr><td><p><strong>Client Id</strong></p></td><td><div><div><p>OAuth client ID as registered with the service provider</p></div></div></td></tr><tr><td><p><strong>Client Secret</strong></p></td><td><div><div><p>OAuth client secret as registered with the service provider</p></div></div></td></tr></tbody></table>
+
+### OAuth 2.0
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure **OAuth 2.0** authentication:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Resource</strong></p></td><td><div><div><p>The OAuth endpoint URL.</p></div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>The app ID assigned to your app when you registered it with Azure Active Directory. You can find this in the Azure Portal (portal.azure.com). Click <strong>Active Directory</strong>, click the directory, choose the app, and click <strong>Configure</strong>.</p></div></div></td></tr><tr><td><p><strong>Consumer Secret</strong></p></td><td><div><div><p>The secret that you created in the app registration portal for your app. Do not use this in a native app because client secrets cannot be reliably stored on devices. The client secret is required for web apps and web APIs, which have the ability to store the client secret securely on the server side. You can find this in the Azure Portal (portal.azure.com). A client secret is a numerical value known only to your app and the Azure server, which enables access for your app.</p></div></div></td></tr><tr><td><p><strong>Authorization URL</strong></p></td><td><div><div><p>Tenant-specific OAuth2.0 endpoint in the format: <code>https://login.microsoftonline.com/{tenant}/oauth2/authorize</code> (follow instructions presented in the previous link for specific information on how to obtain the endpoint).</p></div></div></td></tr><tr><td><p><strong>Access token URL</strong></p></td><td><div><div><p>Tenant-specific endpoint for requesting the access token in the format: <code>https://login.microsoftonline.com/{tenant}/oauth2/token</code> (follow instructions presented in the previous link for specific information on how to obtain the endpoint).</p></div></div></td></tr><tr><td><p><strong>Listener config</strong></p></td><td><div><div><p>Name of the HTTP Listener instance created in the Anypoint Studio flow.</p></div></div></td></tr><tr><td><p><strong>Callback path</strong></p></td><td><div><div><p>The URL to which authentication responses can be sent and received by your app.</p></div></div></td></tr><tr><td><p><strong>Authorize path</strong></p></td><td><div><div><p>The URL that triggers the OAuth mechanism.</p></div></div></td></tr><tr><td><p><strong>External callback URL</strong></p></td><td><div><div><p>Required only if the callback URL is not accessible directly, for example, when using proxies. The callback path uses this format: <code>http://localhost:8081/callback</code></p></div></div></td></tr></tbody></table>
+
+\+ image::microsoft-365-ops-as-oauth2.png\["Microsoft Dynamics for Finance and Operations Connector
+OAuth 2.0 configuration fields"\]
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Microsoft Dynamics 365 for Finance and Operations Connector Reference](microsoft-365-ops-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating Microsoft Dynamics for Finance and Operations Connector to Version 3.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Dynamics 365 for Finance and Operations (Microsoft Dynamics 365 for
+Finance and Operations Connector) version 3.0 supports OAuth Client Credentials authentication.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>2.x.x</p></div></div></td><td><div><div><p>3.x.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+The OAuth Client Credentials connection authentication type has been added in Microsoft Dynamics 365
+for Finance and Operations Connector version 3.0. To use this authentication method, you must use
+Mule 4.2.1 or later.
+
+## Requirements
+
+Ensure that you are using Mule 4.2.1 or later before you perform the upgrade.
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, you must create a backup of your files, data, and configurations in
+case you need to restore to them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, open the Mule project for your connector.
+2.  In the Anypoint Studio menu, select **Help > Check for Updates**.
+3.  Select the latest version of **Mule Server Runtime** and click **Next**.
+4.  Select **I accept the terms of the license agreement** and click **Finish**.
+5.  In the **Mule Palette** view, click **Search in Exchange**.
+6.  In **Add Dependencies to Project**, enter `dynamics finance` in the search field.
+7.  In **Available modules**, select **Microsoft Dynamics 365 for Operations** and click **Add**.
+8.  Click **Finish**.
+9.  Click **Yes** to restart Studio.  
+    Studio upgrades the connector automatically.
+10. After Studio restarts, verify that the dependency version is 3.0.0 in the `pom.xml` file in the
+    Mule project.
+
+### Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+### Revert the Upgrade
+
+If it is necessary to revert to the previous version of Microsoft Dynamics 365 for Finance and
+Operations Connector Connector, change the `mule-microsoft-dynamics365-for-operations-connector`
+dependency version in the projectâs `pom.xml` file to the previous version.
+
+You must update the projectâs `pom.xml` file in Anypoint Studio.
+---
+
+# Microsoft Dynamics 365 for Finance and Operations Connector 3.1 - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio. When
+you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/microsoft-365-for-operations
+http://www.mulesoft.org/schema/mule/microsoft-365-for-operations/current/mule-microsoft-365-for-operations.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:dynamics365ForOperations="http://www.mulesoft.org/schema/mule/dynamics365ForOperations"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/dynamics365ForOperations
+	http://www.mulesoft.org/schema/mule/dynamics365ForOperations/current/mule-dynamics365ForOperations.xsd">
+```
+
+## Add a POM File Dependency
+
+The `pom.xml` Apache Maven file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your POM file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-microsoft-dynamics365-for-operations-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `dynamics finance`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](microsoft-365-finance-operations-connector-examples).
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Dynamics 365 For Operations Connector 3.1 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Dynamics 365 for Finance and Operations (Microsoft Dynamics 365 for
+Operations Connector) enables integration with Microsoft Dynamics 365 for Operations Web API.
+
+## Microsoft Dynamics 365 For Operations Configurations
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#Dynamics365ForOperations_OauthClientCredentials">OAuth Client Credentials</a></p></li><li><p><a href="#Dynamics365ForOperations_Oauth2">Oauth2</a></p></li><li><p><a href="#Dynamics365ForOperations_Oauth2UserPassword">(DEPRECATED) Oauth Username Password</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide for this configuration.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The identifier of this element, by which other components reference it.</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Connection Types
+
+### OAuth Client Credentials
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Resource</p></td><td><div><div><p>String</p></div></div></td><td><p>App ID URI of the web API.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td></td><td></td></tr><tr><td><p>Read Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time, in milliseconds, that the consumer will wait for a response before it times out. Default value is <code>0</code>, which means infinite.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Read Timeout Time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use for the <strong>Read Timeout</strong> parameter.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Hostname of the proxy if a proxy is used. If this property is not set, then no proxy is used.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port number of the proxy. If the <strong>Host</strong> value is specified, this property is required and cannot be a negative number.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>If a proxy is used, this is the username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Client Id</p></td><td><div><div><p>String</p></div></div></td><td><p>OAuth client ID as registered with the service provider.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Client Secret</p></td><td><div><div><p>String</p></div></div></td><td><p>OAuth client secret as registered with the service provider.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Token Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The service providerâs token endpoint URL</p></td><td><p><code>https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token</code></p></td><td></td></tr><tr><td><p>Scopes</p></td><td><div><div><p>String</p></div></div></td><td><p>OAuth scopes to request during the OAuth dance. If not provided, this defaults to the scopes specified in the annotation.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>String</p></div></div></td><td><p>A reference to the object store to use to store each resource owner IDâs data. If not specified, Mule automatically provisions the default object store.</p></td><td></td><td></td></tr></tbody></table>
+
+### OAuth 2.0
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Scope</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OpenID Connect scope.</p></div></div></td><td><div><div><p>openid</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Resource</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth endpoint URL.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Response Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Tells the authorization server what parameters to return from the authorization endpoint.</p></div></div></td><td><div><div><p>query</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer waits for a response before it times out. Default value is <code>0</code>, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout Time unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use for the <strong>Connection Timeout</strong> and <strong>Read Timeout</strong> parameters.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy if a proxy is used. If this property is not set, then no proxy is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number of the proxy. If the <strong>Host</strong> value is specified, this property is required and cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the app is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth consumer key as registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Consumer Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth consumer secret as registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authorization Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Service providerâs authorization endpoint URL.</p></div></div></td><td><div><div><p><code>https://login.microsoftonline.com/{tenant}/oauth2/authorize</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Access Token Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Service providerâs access token endpoint URL.</p></div></div></td><td><div><div><p><code>https://login.microsoftonline.com/{tenant}/oauth2/token</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Scopes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth scopes to request during the OAuth dance. If not provided, it defaults to the scopes provided in the annotation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Resource Owner Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Resource Owner ID that each component uses if a reference is not otherwise provided.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Before</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the flow to execute before starting the OAuth dance.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>After</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the flow to execute immediately after an access token is received.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Listener Config</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A reference to a <code>&lt;http:listener-config /&gt;</code> to use to create the listener for the access token callback endpoint.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Callback Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path of the access token callback endpoint.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authorize Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path of the local HTTP endpoint that triggers the OAuth dance.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>External Callback Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>If the callback endpoint is behind a proxy or accessible through a non direct URL, use this parameter to specify the URL the OAuth provider should use to access the callback.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A reference to the object store to use to store each resource owner IDâs data. If not specified, Mule automatically provisions the default object store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### OAuth Username Password (Deprecated)
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, the user must configure the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td></td><td></td></tr><tr><td><p>Read Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time, in milliseconds, that the consumer will wait for a response before it times out. Default value is 0, which means infinite.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Read Timeout Time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to be used for the Read Timeout parameter</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Hostname of the proxy. If this property is not set then no proxy will be used, otherwise a proxy will be used, but a proxy host must be specified.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port of the proxy. If host is set then this property must be set and cannot be a negative number.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username used to authenticate against the proxy. If this property is not set then no authentication is going to be used against the proxy, otherwise this value must be specified.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username used to initialize the session</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to authenticate the user</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Resource</p></td><td><div><div><p>String</p></div></div></td><td><p>The App ID URI of the web API (secured resource).</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Client Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The Application Id assigned to your app when you registered it with Azure AD. You can find this in the Azure Portal. Click Active Directory, click the directory, choose the application, and click Configure.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Client Secret</p></td><td><div><div><p>String</p></div></div></td><td><p>The Application Secret that you created in the app registration portal for your app. It should not be used in a native app, because client_secrets cannot be reliably stored on devices. It is required for web apps and web APIs, which have the ability to store the client_secret securely on the server side.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Token Request Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>The endpoint where the authorization request should be sent.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy</p></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time, in milliseconds, that the consumer will attempt to establish a connection before it times out. Default value is 0, which means infinite.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Connection Timeout Time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to be used for the Connection parameter</p></td><td><p>SECONDS</p></td><td></td></tr></tbody></table>
+
+## Associated Operations
+
+- [Acknowledge Export From Recurring Job](#AcknowledgeExportFromRecurringJob)
+- [Create](#Create)
+- [Dequeue Recurring Job](#DequeueRecurringJob)
+- [Execute Operation](#executeOperation)
+- [Export Data From Recurring Job](#ExportDataFromRecurringJob)
+- [Import Data Recurring Job](#importDataRecurringJob)
+- [Retrieve Multiple](#retrieveMultiple)
+- [Retrieve Multiple By Query](#retrieveMultipleByQuery)
+- [Unauthorize](#unauthorize)
+
+### Acknowledge Export From Recurring Job
+
+`<dynamics365ForOperations:acknowledge-export-from-recurring-job>`
+
+Performs the acknowledgment action for the downloaded data package from a recurring job, as
+described in
+[this link](https://learn.microsoft.com/en-us/dynamics365/fin-ops-core/dev-itpro/data-entities/recurring-integrations).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Dequeue Recurring Job Response</p></td><td><div><div><p>Any</p></div></div></td><td><p>InputStream containing the required JSON text that has the response of the dequeue recurring job operation.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Activity Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Activity ID.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:RETRY_EXHAUSTED
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Create
+
+`<dynamics365ForOperations:create>`
+
+Creates a new entity. Refer to
+[this link](<https://learn.microsoft.com/en-us/previous-versions/dynamicscrm-2016/developers-guide/gg328090(v=crm.8)?redirectedfrom=MSDN>)
+for creating an entity and
+[this link](<https://learn.microsoft.com/en-us/previous-versions/dynamicscrm-2016/developers-guide/mt607875(v=crm.8)?redirectedfrom=MSDN>)
+for associating an entity upon creation.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Logical Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Logical name of the entity. It is always the schema name in lower case.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Object</p></div></div></td><td><p>Attributes of the entity created as a map.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p>RepeatableInMemoryStream</p></li><li><p>RepeatableFileStoreStream</p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr><tr><td><p><strong>Attributes Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:RETRY_EXHAUSTED
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Dequeue Recurring Job
+
+`<dynamics365ForOperations:dequeue-recurring-job>`
+
+Performs the dequeue action for the activity specified, as described in
+[this link](https://learn.microsoft.com/en-us/dynamics365/fin-ops-core/dev-itpro/data-entities/recurring-integrations).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Activity Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Activity ID.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p>RepeatableInMemoryStream</p></li><li><p>RepeatableFileStoreStream</p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Any</p></div></div></td></tr><tr><td><p><strong>Attributes Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:RETRY_EXHAUSTED
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Execute Operation
+
+`<dynamics365ForOperations:execute-operation>`
+
+Executes a request against a URL in the
+`https://host_uri/api/Services/service_group_name/service_group_service_name/operation_name` format.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Parameters</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Parameters of the operation to execute.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to be used to execute this component</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Service Group</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The service group name (first level metadata key).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Service Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The service name (second level metadata key).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The operation name (third level metadata key).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable in which to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:RETRY_EXHAUSTED
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Export Data From Recurring Job
+
+`<dynamics365ForOperations:export-data-from-recurring-job>`
+
+Returns a data package that contains all of the data entities defined in the data project as
+described in
+[this link](https://learn.microsoft.com/en-us/dynamics365/fin-ops-core/dev-itpro/data-entities/recurring-integrations).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Download URL</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the data package to download. It can be extracted from the response of the dequeue recurring job operation.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p>RepeatableInMemoryStream</p></li><li><p>RepeatableFileStoreStream</p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr><tr><td><p><strong>Attributes Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:RETRY_EXHAUSTED
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Import Data Recurring Job
+
+`<dynamics365ForOperations:import-data-recurring-job>`
+
+Facilitates submitting data to recurring data jobs.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Uri Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Import URI, for example: <code>:/api/connector/enqueue/</code></p></div></div></td><td><div><div><p><code>api/connector/enqueue/</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Activity Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Activity ID.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entity Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Entity name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Data to submit.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to be used to execute this component</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable in which to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:RETRY_EXHAUSTED
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Retrieve Multiple
+
+`<dynamics365ForOperations:retrieve-multiple>`
+
+Retrieve multiple entities by URL.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Data Query URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL, in ODATA format, to use to retrieve the entities.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to be used to execute this component</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In-Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable in which to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Retrieve Multiple By Query
+
+`<dynamics365ForOperations:retrieve-multiple-by-query>`
+
+Retrieve multiple entities by DSQL query.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>DataSense Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The DSQL query to use to retrieve entities. The query is transformed into a URL internally.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Expand</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>Name of the configuration used to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In-Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable in which to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+#### Throws
+
+- DYNAMICS365FOROPERATIONS:CONNECTIVITY
+- DYNAMICS365FOROPERATIONS:INVALID_CONNECTION
+- DYNAMICS365FOROPERATIONS:INVALID_CREDENTIALS
+- DYNAMICS365FOROPERATIONS:INVALID_INPUT
+- DYNAMICS365FOROPERATIONS:LOGIN_FAILED
+- DYNAMICS365FOROPERATIONS:NOT_FOUND
+- DYNAMICS365FOROPERATIONS:TIMEOUT
+
+### Unauthorize
+
+`<dynamics365ForOperations:unauthorize>`
+
+Deletes all of the access token information of a given resource owner ID so that itâs impossible to
+execute any operation for that user without repeating the authorization dance.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Resource Owner Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the resource owner for whom to invalidate access</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to be used to execute this component</p></div></div></td><td><div></div></td><td><div><div><p><strong>x</strong></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Microsoft Dynamics 365 For Operations Configurations](#Dynamics365ForOperations)
+
+## Types
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of protocols enabled for this context</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of cipher suites enabled for this context</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Truststore
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location, which is resolved relative to the current classpath and file system, if possible, of the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of truststore used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, no certificate validations are performed, which renders connections vulnerable to attacks. Use at your own risk.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Keystore
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location, which is resolved relative to the current classpath and file system, if possible, of the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of keystore used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>When the keystore contains many private keys, this attribute specifies the alias of the key to use. If not specified, the first key in the file is used by default.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, only verifies the last element of the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, try CRL first, then OCSP.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Do not use the secondary checking method (the one not selected before).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Avoid verification failure when the revocation server canât be reached or is busy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response (must be in the truststore), if present.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the app is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the <strong>Max Idle Time</strong> attribute.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In-Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of instances to initially keep in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the <strong>Buffer Size Increment</strong> attribute, with an upper limit of maxInMemorySize. Default value is 100 instances.</p></div></div></td><td><div><div><p>100</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer does not expand, and that a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised when the buffer gets full. Default value is 100 instances.</p></div></div></td><td><div><div><p>100</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used, then a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value of less than or equal to zero means there is no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of instances to keep in memory. If more than is required, then content is buffered on to the disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which <strong>Max In Memory Size</strong> is expressed.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

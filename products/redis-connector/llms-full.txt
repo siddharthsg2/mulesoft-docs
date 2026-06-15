@@ -1,0 +1,1711 @@
+﻿# Redis Connector - Full Documentation
+
+# Redis Connector 5.6
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Remote Dictionary Server (Redis Connector) is an open source, in-memory data
+structure store used to cache user profiles, create leader boards, track real-time activities on a
+website, and filter spam. You can use Redis Connector as a message queue, custom object store, and
+more.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Redis API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements in a Mule flow
+- Global elements
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have access to the Redis target resource.
+
+## Connection Types
+
+> [!NOTE] Redis Connector supports only password-based authentication. Redis Connector does not
+> currently support Role-Based Access Control (RBAC).
+
+Redis Connector uses the following connection types:
+
+- Clustered
+- NonClustered
+- Sentinel
+
+## Next Step
+
+After you complete the prerequisites and experiment with examples, you are ready to create an app
+and configure the connector using [Anypoint Studio](redis-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Redis in Anypoint Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-redis-connector/)
+- [Redis in EU Anypoint Exchange](https://eu1.anypoint.mulesoft.com/exchange/com.mulesoft.connectors/mule-redis-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Redis Connector 5.6 Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Redis Connector contributes an object store implementation. Although Redis offers flexible eviction
+and persistence, you must understand how the Mule Redis-backed object store is designed to work when
+Redis is shared across multiple applications or systems. Learn key design constraints, eviction
+behavior, and best practices for using Redis as an object store in Mule applications, with a focus
+on avoiding deserialization and eviction-related failures.
+
+## Redis as a Mule Object Store
+
+When Redis is configured as an object store in Mule:
+
+- Mule serializes payloads before storing them in Redis.
+- Object Store operations (retrieve, remove, expire) require successful deserialization of stored
+  values.
+
+As a result, the Redis object store is designed to manage only entries that it created and can
+deserialize.
+
+## Common Deployment Patterns
+
+In some architectures, Redis is deployed as a shared service and accessed by:
+
+- Multiple Mule applications
+- External (non-Mule) applications
+- Operational or administrative scripts that insert or delete keys
+
+This pattern is valid for Redis itself but introduces important considerations when Redis is used
+specifically as a Mule object store.
+
+## Examples of Object Store Behavior
+
+Here are some scenarios of how the Redis object store behaves when Redis is shared across multiple
+applications or systems.
+
+### In-Memory Object Store per Application
+
+![App A and App B, each connecting to its own cloud service and dedicated database to store unique access and refresh tokens](_images/redis-scenario-1.png)
+
+Setup
+
+- Application A and Application B each use an in-memory object store.
+
+Outcome
+
+- Each application maintains its own isolated store.
+- No key collisions or deserialization issues occur.
+- Expiration and invalidation are fully controlled per application.
+
+This is the safest and most isolated configuration.
+
+### Shared External Object Store (Not Redis)
+
+![App A and App B sharing a single database that stores multiple sets of access and refresh tokens](_images/redis-scenario-2.png)
+
+Setup
+
+- Application A and Application B use a common external object store.
+- Identical object IDs (for example, access_token) are used.
+
+Outcome
+
+- Redis object store implementation prevents overwriting entries created by another application.
+- This behavior is intentional to prevent data corruption.
+
+Cross-application data ownership is restricted by design.
+
+### Redis as a Shared External Object Store
+
+![App A and App B both connecting to a centralized Redis database while also maintaining individual connections to Salesforce and ServiceNow](_images/redis-scenario-3.png)
+
+Setup
+
+- Redis is configured as a shared external object store.
+- Mule Application A, Application B, and external systems write to the same Redis instance.
+- Stored data includes:
+  - Java-serialized objects (via Mule object store)
+  - Plain text or JSON (via direct Redis operations)
+
+Outcome
+
+- During eviction or expiration, the Mule object store might encounter entries it canât deserialize.
+- This can result in errors such as:
+
+  ```text
+  org.mule.runtime.api.store.ObjectStoreException: Could not deserialize object
+  Caused by: java.lang.ClassNotFoundException
+  ```
+
+Eviction or cleanup fails when Redis contains entries not owned by the current application or
+classloader.
+
+## Expectation vs. Actual Behavior
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Expectation</th><th>Actual Behavior</th></tr></thead><tbody><tr><td><p>Redis object store can be freely shared across applications.</p></td><td><p>Each application can only deserialize objects created within its own classloader.</p></td></tr><tr><td><p>Expiration task cleans all excess entries.</p></td><td><p>Expiration fails when encountering unknown or incompatible entries.</p></td></tr><tr><td><p>Non-Mule data can coexist in Redis.</p></td><td><p>Non-serialized data can cause object store failures.</p></td></tr><tr><td><p>Cache Scope can be invalidated across applications.</p></td><td><p>Cache invalidation is application-bound.</p></td></tr></tbody></table>
+
+## Why This Behavior Is by Design
+
+The Redis object store follows strict safety and isolation principles:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Design Principle</th><th>Explanation</th></tr></thead><tbody><tr><td><p>Data Ownership</p></td><td><p>Manages only data that the object store owns</p></td></tr><tr><td><p>Data Integrity</p></td><td><p>Prevents accidental deletion of external or foreign data</p></td></tr><tr><td><p>Classloader Isolation</p></td><td><p>Deserializes objects only from its own Mule application</p></td></tr><tr><td><p>Fail-Safe Operation</p></td><td><p>Fails safely instead of performing destructive deletes</p></td></tr></tbody></table>
+
+This ensures predictable behavior and avoids unintended side effects in shared environments.
+
+## Redis Eviction and Mule Object Store
+
+Redis eviction policies operate at the Redis level, not at the Mule object store level. Mule object
+store expiration deserializes values even during expiration. As a result, Mule object store
+expiration can fail if incompatible entries exist.
+
+## Recommended Best Practices
+
+- Separate Object Store and Generic Redis Usage
+  - Use object store APIs only for Mule-managed, serialized data stored in Redis object store.
+  - Use Redis Connector operations for plain text, JSON, or external data.
+
+- Namespace Keys Explicitly
+  - For shared Redis object store, ensure object store keys donât overlap with externally managed
+    Redis keys.
+---
+
+# Redis Connector 5.6 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show how to use Redis Connector to set a key value on the Redis server and
+how to use Redis Connector as a custom object store in a Mule app.
+
+## Set a Key Value on the Redis Server
+
+The following screenshot shows the flow for this example:
+
+![Studio flow with Listener, Set, and Set Payload](_images/redis-set-raw-flow.png)
+
+To use Anypoint Studio to set a key value on the Redis server:
+
+1.  Create a new Mule project by clicking **File** > **New** > **Mule Project**.
+2.  Enter a name for the new project and click **Finish**.
+3.  In the **Mule Palette** view, select **HTTP** > **Listener** and drag it to the Studio canvas.
+
+    HTTP Listener is the entry point for the flow and provides the key and its value.
+
+4.  Click the plus sign (+) next to the **Connector Configuration** field.
+5.  Leave the default configuration and click **OK**.
+6.  Set the **Path** field to `/`.
+7.  In the **Mule Palette** view, search for `redis` and drag the **Set** operation to the right of
+    **Listener**.
+
+    The **Set** operation sends data to the Redis server.
+
+8.  Set the properties for the **Set** operation as follows:
+    - Set the **Display Name** field to `Set value for key into Redis`.
+    - Set the **Key** field to `#[payload.key]`.
+    - Set the **Value** field to `#[payload.value]`:
+
+      ![Set operation properties window on General tab](_images/redis-set-config.png)
+
+9.  In the **Mule Palette** view, search for `payload` and drag the **Set Payload** component to the
+    right of **Set value for key into Redis** on the Studio canvas.
+
+    The **Set Payload** component creates the response for the incoming HTTP request.
+
+10. Set the **Set Payload** properties as follows:
+    - Set the **Display Name** field to `Set value response`.
+    - Set the **Value** field to `Successfully set value: #[payload.value] to key: #[payload.key]`:
+
+      ![Set Payload properties window on General tab](_images/redis-set-response-config.png)
+
+11. Save your changes and deploy the app by right-clicking the Studio canvas and selecting **Run
+    project <project name>**.
+12. When the app is running, use an HTTP client app to send a POST request to `localhost:8081/` with
+    content-type `application/x-www-form-urlencoded` and a body in `url-encoded` format.
+
+    The request body should contain a key and value:
+
+    `curl -X POST -d "key=test-key" -d "value=test-value" localhost:8081/`
+
+The XML for this example should look like this:
+
+```text
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:redis="http://www.mulesoft.org/schema/mule/redis"
+        xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking"
+        xmlns:http="http://www.mulesoft.org/schema/mule/http"
+        xmlns="http://www.mulesoft.org/schema/mule/core"
+        xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+        xmlns:spring="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-current.xsd
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/tracking
+        http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+        http://www.mulesoft.org/schema/mule/redis
+        http://www.mulesoft.org/schema/mule/redis/current/mule-redis.xsd">
+    <redis:config
+            name="Redis__Configuration"
+            host="${config.host}"
+            connectionTimeout="${config.connectionTimeout}"
+            port="${config.port}"
+            doc:name="Redis: Configuration"/>
+â
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" basePath="/">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="set-flow">
+        <http:listener
+                config-ref="HTTP_Listener_config"
+                path="/"
+                doc:name="Set value HTTP endpoint"/>
+        <redis:set
+                config-ref="Redis__Configuration"
+                key="#[payload.key]"
+                value="#[payload.value]"
+        doc:name="Set value for key into Redis">
+			<redis:value ><![CDATA[payload.key]]></redis:value>
+		</redis:set>
+        <set-payload
+         value="Successfully set value: #[payload.value] to key: #[payload.key]"
+         doc:name="Set value response"/>
+    </flow>
+</mule>
+```
+
+## Use Redis Connector as a Custom Object Store
+
+In Studio to configure Redis Connector as a custom object store in a Mule app:
+
+1.  Add the Redis namespace to the `<mule>` element:
+
+    ```none
+    xmlns:redis="http://www.mulesoft.org/schema/mule/redis"
+    ```
+
+2.  Add the location of the Redis schema referred to by the Redis namespace:
+
+    ```text
+    http://www.mulesoft.org/schema/mule/redis
+    http://www.mulesoft.org/schema/mule/redis/current/mule-redis.xsd
+    ```
+
+3.  Add the HTTP namespace to the `<mule>` element:
+
+    ```none
+    xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    ```
+
+4.  Add the location of the HTTP schema referred to by the HTTP namespace:
+
+    ```text
+    http://www.mulesoft.org/schema/mule/http
+    http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+    ```
+
+5.  Add the object store namespace to the `<mule>` element:
+
+    ```none
+    xmlns:os="http://www.mulesoft.org/schema/mule/os"
+    ```
+
+6.  Add the location of the object store schema referred to by the object storeâs namespace:
+
+    ```text
+    http://www.mulesoft.org/schema/mule/os
+    http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+    ```
+
+7.  Using the Studio XML editor, add an `<os:config>` element to your project and configure it to
+    contain a Redis connection type (`clustered-connection` or `nonclustered-connection`).
+
+    ```xml
+    <os:config name="ObjectStore_Config">
+         <redis:nonclustered-connection host="${redis.host}"/>
+    </os:config>
+    ```
+
+8.  Add an `<os:object-store>` element to your project and configure it to reference the
+    configuration created previously:
+
+    ```xml
+    <os:object-store
+    	name="Object_store"
+    	config-ref="ObjectStore_Config"
+    	maxEntries="1"
+    	entryTtl="60"
+    	expirationInterval="10"
+    	expirationIntervalUnit="SECONDS"/>
+    ```
+
+9.  Add an `<http:listener-config>` element to your project and configure its attributes:
+
+    ```xml
+    <http:listener-config
+    	name="HTTP_Listener_Configuration"
+    	host="0.0.0.0"
+     	port="8081" doc:name="Listener"/>
+    ```
+
+10. Add an empty `<flow>` element to your project:
+
+    ```xml
+    <<flow> name="set-flow">
+    </flow>
+    ```
+
+11. Within the `<flow>` element, add an `<http:listener>` element:
+
+    ```xml
+    <http:listener config-ref="HTTP_Listener_Configuration" path="/" />
+    ```
+
+12. Within the `<flow>` element, add an `<os:store>` element after the `<http:listener>` element and
+    configure `<os:store>` to use the object store created previously:
+
+    ```xml
+    <os:store
+    	key="#[attributes.queryParams.key]"
+    	objectStore="Object_store"
+    	failIfPresent="true"
+    	failOnNullValue="false">
+    	<os:value ><![CDATA[#[attributes.queryParams.value]]]></os:value>
+    </os:store>
+    ```
+
+    When youâre done, the XML file should look like this:
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    â
+    <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+            xmlns:http="http://www.mulesoft.org/schema/mule/http"
+            xmlns:os="http://www.mulesoft.org/schema/mule/os"
+            xmlns:redis="http://www.mulesoft.org/schema/mule/redis"
+            xmlns="http://www.mulesoft.org/schema/mule/core"
+            xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="
+    http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+            http://www.mulesoft.org/schema/mule/ee/core
+            http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+            http://www.mulesoft.org/schema/mule/core
+            http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+            http://www.mulesoft.org/schema/mule/redis
+            http://www.mulesoft.org/schema/mule/redis/current/mule-redis.xsd
+            http://www.mulesoft.org/schema/mule/os
+            http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+            http://www.mulesoft.org/schema/mule/http
+            http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+    â
+            <http:listener-config name="HTTP_Listener_config">
+                    <http:listener-connection
+                    host="0.0.0.0"
+                    port="8081" />
+            </http:listener-config>
+    â
+            <os:object-store
+                    name="Object_store"
+                    config-ref="ObjectStore_Config"
+                    maxEntries="1"
+                    entryTtl="60"
+                    expirationInterval="10"
+                    expirationIntervalUnit="SECONDS"/>
+    â
+            <os:config name="ObjectStore_Config">
+            <redis:nonclustered-connection
+                            host="${redis.host}"/>
+                </os:config>
+    â
+            <flow name="StoreFlow" >
+            <http:listener
+                    doc:name="Listener"
+                    config-ref="HTTP_Listener_config"
+                            path="/store"/>
+    		<os:store
+                            doc:name="Store"
+                            key="#[attributes.queryParams.key]"
+                            objectStore="Object_store"
+                            failIfPresent="true"
+                            failOnNullValue="false">
+                    <os:value ><![CDATA[#[attributes.queryParams.value]]]></os:value>
+            </os:store>
+                </flow>
+    </mule>
+    ```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Redis Connector 5.6 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+> [!NOTE] You can set configurations in Expression mode, except when Redis Connector is used in
+> conjunction with Object Store Connector, which does not support Expression mode.
+
+Starting with Redis Connector 5.4.5, Mule apps that use an Object Store **Entry TTL** exceeding 24
+days now observe that the TTL for new keys is set to the correct values.
+
+## Redis Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#redis_clustered">Clustered</a></p></li><li><p><a href="#redis_nonclustered">NonClustered</a></p></li><li><p><a href="#redis_sentinel">Sentinel</a></p></li></ul></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+## Connection Types
+
+> [!NOTE] Redis Connector supports only password-based authentication. Redis Connector does not
+> currently support Role-Based Access Control (RBAC).
+
+### Clustered
+
+> [!NOTE] Redis Connector does not support clustered connections on Redis Enterprise Active-Active
+> databases. To connect to one of the Redis Enterprise active-active clusters, non-clustered
+> connection should be used in the connector. However, the connection is only made to the specified
+> node.
+>
+> Redis Connector does not support clustered sharded connections.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Endpoint identification algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTPS</p></li><li><p>LDAPS</p></li><li><p>DISABLED</p></li></ul></div></div></td><td><p>The endpoint identification algorithm used by clients to validate the server hostname. The default value is an empty string, which means that this functionality is disabled. Clients, including client connections created by the broker for inter-broker communication, verify that the broker hostname matches the hostname in the brokerâs certificate.</p></td><td><p>DISABLED</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Configures TLS. If you are running the Mule app securely by using the HTTPS protocol, you must configure TLS in the connector.</p></td><td></td><td></td></tr><tr><td><p>Max Total</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections that can be in the pool at a given time</p></td><td><p>8</p></td><td></td></tr><tr><td><p>Max Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of idle connections allowed in a pool before the connections are closed</p></td><td><p>8</p></td><td></td></tr><tr><td><p>Min Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum number of idle connections in the pool that are ready for immediate use</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Lifo</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the queue is last-in first-out</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Fairness</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the thread that waited for the longest amount of time to connect acquires the next available connection</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max Wait Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of milliseconds the client can wait before a connection is available</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Min Evictable Idle Time Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time a connection can be idle in the pool before it is evicted</p></td><td><p>1800000</p></td><td></td></tr><tr><td><p>Soft Min Evictable Idle Time Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time a connection can be idle in pool before it is evicted</p></td><td><p>1800000</p></td><td></td></tr><tr><td><p>Num Tests Per Eviction Run</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of connections to test per eviction attempt</p></td><td><p>3</p></td><td></td></tr><tr><td><p>Test On Create</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Test On Borrow</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection before it is borrowed from the pool</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Test On Return</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection before it is returned from the pool</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Test While Idle</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to enable idle resource detection</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Time Between Eviction Runs Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Cycle of time for idle resources detection</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Block When Exhausted</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether the client waits when the resource pool is exhausted</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Jmx Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables JMX monitoring when set to <code>true</code></p></td><td><p>true</p></td><td></td></tr><tr><td><p>Jmx Name Prefix</p></td><td><div><div><p>String</p></div></div></td><td><p>JMX name prefix used as part of the name assigned to the JMX-enabled pool</p></td><td><p>pool</p></td><td></td></tr><tr><td><p>Jmx Name Base</p></td><td><div><div><p>String</p></div></div></td><td><p>JMX name base used as part of the name assigned to the JMX-enabled pool</p></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Redis instance Connection timeout value.</p></td><td><p>2000</p></td><td></td></tr><tr><td><p>Connection Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for Redis instance connection timeout.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Redis password. Set if the server requires authentication.</p></td><td></td><td></td></tr><tr><td><p>Entry TTL</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default time to live to set on keys stored for the connector.</p></td><td></td><td></td></tr><tr><td><p>Cluster Hosts</p></td><td><div><div><p>String</p></div></div></td><td><p>Redis cluster hosts separated by commas and having the format <code>host:port</code>. Use this field when you want to access your Redis cluster through the connector.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+### NonClustered
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Endpoint identification algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTPS</p></li><li><p>LDAPS</p></li><li><p>DISABLED</p></li></ul></div></div></td><td><p>The endpoint identification algorithm used by clients to validate the server hostname. The default value is an empty string, which means that this functionality is disabled. Clients, including client connections created by the broker for inter-broker communication, verify that the broker hostname matches the hostname in the brokerâs certificate.</p></td><td><p>DISABLED</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Configures TLS. If you are running the Mule app securely by using the HTTPS protocol, you must configure TLS in the connector.</p></td><td></td><td></td></tr><tr><td><p>Max Total</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections that can be in the pool at a given time</p></td><td><p>8</p></td><td></td></tr><tr><td><p>Max Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of idle connections allowed in a pool before the connections are closed</p></td><td><p>8</p></td><td></td></tr><tr><td><p>Min Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum number of idle connections in the pool that are ready for immediate use</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Lifo</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the queue is last-in first-out</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Fairness</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the thread that waited for the longest amount of time to connect acquires the next available connection</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max Wait Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of milliseconds the client can wait before a connection is available</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Min Evictable Idle Time Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time a connection can be idle in the pool before it is evicted</p></td><td><p>1800000</p></td><td></td></tr><tr><td><p>Soft Min Evictable Idle Time Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time a connection can be idle in pool before it is evicted</p></td><td><p>1800000</p></td><td></td></tr><tr><td><p>Num Tests Per Eviction Run</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of connections to test per eviction attempt</p></td><td><p>3</p></td><td></td></tr><tr><td><p>Test On Create</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Test On Borrow</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection before it is borrowed from the pool</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Test On Return</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection before it is returned from the pool</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Test While Idle</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to enable idle resource detection</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Time Between Eviction Runs Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Cycle of time for idle resources detection</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Block When Exhausted</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether the client waits when the resource pool is exhausted</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Jmx Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables JMX monitoring when set to <code>true</code></p></td><td><p>true</p></td><td></td></tr><tr><td><p>Jmx Name Prefix</p></td><td><div><div><p>String</p></div></div></td><td><p>JMX name prefix used as part of the name assigned to the JMX-enabled pool</p></td><td><p>pool</p></td><td></td></tr><tr><td><p>Jmx Name Base</p></td><td><div><div><p>String</p></div></div></td><td><p>JMX name base used as part of the name assigned to the JMX-enabled pool</p></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Redis instance Connection timeout value.</p></td><td><p>2000</p></td><td></td></tr><tr><td><p>Connection Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for Redis instance connection timeout.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Redis password. Set this if the server requires authentication.</p></td><td></td><td></td></tr><tr><td><p>Entry TTL</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default time to live to be set on keys stored for the connector.</p></td><td></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Redis host. Use this field when you want to access you Redis server that is not part of a cluster through connector.</p></td><td><p>localhost</p></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Redis port. The port on which your non cluster server is running.</p></td><td><p>6379</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Sentinel
+
+Sentinel provides a high-availability solution in case of failure on your Redis cluster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Endpoint identification algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTPS</p></li><li><p>LDAPS</p></li><li><p>DISABLED</p></li></ul></div></div></td><td><p>The endpoint identification algorithm used by clients to validate the server hostname. The default value is an empty string, which means that this functionality is disabled. Clients, including client connections created by the broker for inter-broker communication, verify that the broker hostname matches the hostname in the brokerâs certificate.</p></td><td><p>DISABLED</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Configures TLS. If you are running the Mule app securely by using the HTTPS protocol, you must configure TLS in the connector.</p></td><td></td><td></td></tr><tr><td></td><td><p>Max Total</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections that can be in the pool at a given time</p></td><td><p>8</p></td></tr><tr><td></td><td><p>Max Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of idle connections allowed in a pool before the connections are closed</p></td><td><p>8</p></td></tr><tr><td></td><td><p>Min Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum number of idle connections in the pool that are ready for immediate use</p></td><td><p>0</p></td></tr><tr><td></td><td><p>Lifo</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the queue is last-in first-out</p></td><td><p>true</p></td></tr><tr><td></td><td><p>Fairness</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the thread that waited for the longest amount of time to connect acquires the next available connection</p></td><td><p>false</p></td></tr><tr><td></td><td><p>Max Wait Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of milliseconds the client can wait before a connection is available</p></td><td><p>-1</p></td></tr><tr><td></td><td><p>Min Evictable Idle Time Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time a connection can be idle in the pool before it is evicted</p></td><td><p>1800000</p></td></tr><tr><td></td><td><p>Soft Min Evictable Idle Time Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time a connection can be idle in pool before it is evicted</p></td><td><p>1800000</p></td></tr><tr><td></td><td><p>Num Tests Per Eviction Run</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of connections to test per eviction attempt</p></td><td><p>3</p></td></tr><tr><td></td><td><p>Test On Create</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection</p></td><td><p>false</p></td></tr><tr><td></td><td><p>Test On Borrow</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection before it is borrowed from the pool</p></td><td><p>false</p></td></tr><tr><td></td><td><p>Test On Return</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to test the validity of the connection before it is returned from the pool</p></td><td><p>false</p></td></tr><tr><td></td><td><p>Test While Idle</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to enable idle resource detection</p></td><td><p>false</p></td></tr><tr><td></td><td><p>Time Between Eviction Runs Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Cycle of time for idle resources detection</p></td><td><p>-1</p></td></tr><tr><td></td><td><p>Block When Exhausted</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether the client waits when the resource pool is exhausted</p></td><td><p>true</p></td></tr><tr><td></td><td><p>Jmx Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables JMX monitoring when set to <code>true</code></p></td><td><p>true</p></td></tr><tr><td></td><td><p>Jmx Name Prefix</p></td><td><div><div><p>String</p></div></div></td><td><p>JMX name prefix used as part of the name assigned to the JMX-enabled pool</p></td><td><p>pool</p></td></tr><tr><td></td><td><p>Jmx Name Base</p></td><td><div><div><p>String</p></div></div></td><td><p>JMX name base used as part of the name assigned to the JMX-enabled pool</p></td><td></td></tr><tr><td></td><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Redis instance connection timeout value.</p></td><td><p>2000</p></td></tr><tr><td></td><td><p>Connection Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for Redis instance connection timeout.</p></td><td><p>MILLISECONDS</p></td></tr><tr><td></td><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Redis password. Set this if the server requires authentication.</p></td><td></td></tr><tr><td></td><td><p>Entry TTL</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default time to live to be set on keys stored for the connector.</p></td><td></td></tr><tr><td></td><td><p>Sentinels Hosts</p></td><td><div><div><p>String</p></div></div></td><td><p>Set of sentinel addresses that are monitoring the master host to which the connector will connect.</p></td><td></td></tr><tr><td><p><strong>x</strong></p></td><td><p>Master Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Redis master name. The name of the master for which the sentinels will return the current address.</p></td><td></td></tr><tr><td></td><td><p>Sentinel Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Sentinel password. Set this if the sentinel servers require authentication.</p></td><td></td></tr><tr><td></td><td><p>Index</p></td><td><div><div><p>Number</p></div></div></td><td><p>The index of the database that the pool will use.</p></td><td></td></tr><tr><td></td><td><p>Sentinel Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Sentinel connection timeout value.</p></td><td><p>2000</p></td></tr><tr><td></td><td><p>Sentinel Connection Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for sentinel connection timeout.</p></td><td><p>MILLISECONDS</p></td></tr><tr><td></td><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td></tr></tbody></table>
+
+## Sources
+
+Supported source:
+
+- [Subscribe](#subscribe)
+
+### Subscribe
+
+`<redis:subscribe>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Channels</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of channel names or globbing patterns.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The MIME type of the payload that this source outputs.</p></td><td></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should be executed on the primary node only when running in a cluster.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#SubscribeChannelAttributes">Subscribe Channel Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+## Operations
+
+Supported operations:
+
+- [Add To Set](#addToSet)
+- [Add To Sorted Set](#addToSortedSet)
+- [Decrement](#decrement)
+- [Del](#del)
+- [Exists](#exists)
+- [Expire](#expire)
+- [Expire At](#expireAt)
+- [Get](#get)
+- [Get All From Hash](#getAllFromHash)
+- [Get From Hash](#getFromHash)
+- [Get Range By Index](#getRangeByIndex)
+- [Get Range By Score](#getRangeByScore)
+- [Get TTL](#getTtl)
+- [Increment](#increment)
+- [Increment Hash](#incrementHash)
+- [Increment Sorted Set](#incrementSortedSet)
+- [Persist](#persist)
+- [Pop From List](#popFromList)
+- [Pop From Set](#popFromSet)
+- [Publish](#publish)
+- [Push To List](#pushToList)
+- [Random Member From Set](#randomMemberFromSet)
+- [Range From List](#rangeFromList)
+- [Set](#set)
+- [Set In Hash](#setInHash)
+- [Trim From List](#trimFromList)
+
+### Add To Set
+
+`<redis:add-to-set>`
+
+Add the message payload to the set stored at the specified key. If the key does not exist, a new key
+holding a set is created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for SADD</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value to set.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Must Succeed</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, ensures that adding to the set is successful (that is, no pre-existing identical value is in the set)</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The outcome of the expression is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Add To Sorted Set
+
+`<redis:add-to-sorted-set>`
+
+Add the message payload with the desired score to the sorted set stored at the specified key. If the
+key does not exist, a new key holding a sorted set is created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for ZADD</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value to set.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Score</p></td><td><div><div><p>Number</p></div></div></td><td><p>Score to use for the value</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Must Succeed</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, ensures that adding to the set is successful (that is, no pre-existing identical value is in the set)</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Decrement
+
+`<redis:decrement>`
+
+Decrements the number stored at key by step. If the key does not exist, it is set to 0 before
+performing the operation. An error is returned if the key contains a value of the wrong type or
+contains data that cannot be represented as integer.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for DECR.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Step</p></td><td><div><div><p>Number</p></div></div></td><td><p>Step used for the increment.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Del
+
+`<redis:del>`
+
+Remove the specified key, if it exists.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for DEL</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The outcome of the expression is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Exists
+
+`<redis:exists>`
+
+Test if the specified key exists.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for EXISTS</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Expire
+
+`<redis:expire>`
+
+Set a timeout on the specified key.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key in the sorted set.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Seconds</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to live in seconds.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Expire At
+
+`<redis:expire-at>`
+
+Set a timeout in the form of a UNIX timestamp (number of seconds elapsed since 1 Jan 1970) on the
+specified key.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key in the sorted set.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Unix Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>The UNIX timestamp in seconds.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Get
+
+`<redis:get>`
+
+Get the value of the specified key. If the key does not exist, a null value is returned.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for GET</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Get All From Hash
+
+`<redis:get-all-from-hash>`
+
+Get all fields and values of the hash stored at the specified key. If the field or the hash donât
+exist, a null value is returned.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for HGETALL</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Get From Hash
+
+`<redis:get-from-hash>`
+
+Get the value stored at the specified field in the hash at the specified key. If the field or the
+hash donât exist, a null value is returned.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for HGET</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Field</p></td><td><div><div><p>String</p></div></div></td><td><p>Field to use for HGET</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Get Range By Index
+
+`<redis:get-range-by-index>`
+
+Retrieve a range of values from the sorted set stored at the specified key. The range of values is
+defined by indices in the sorted set and sorted as desired.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for ZRANGE/ZREVRANGE</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Start</p></td><td><div><div><p>Number</p></div></div></td><td><p>Range start index</p></td><td></td><td><p>x</p></td></tr><tr><td><p>End</p></td><td><div><div><p>Number</p></div></div></td><td><p>Range end index</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ascending Order</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Index order for sorting the range. If the parameter is set to <code>true</code>, the range is sorted in ascending order. If the parameter is set to <code>false</code>, the range is sorted in descending order.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Get Range By Score
+
+`<redis:get-range-by-score>`
+
+Retrieve a range of values from the sorted set stored at the specified key. The range of values is
+defined by scores in the sorted set and sorted as desired.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for ZRANGEBYSCORE and ZREVRANGEBYSCORE</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Min</p></td><td><div><div><p>Number</p></div></div></td><td><p>Range start score</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Max</p></td><td><div><div><p>Number</p></div></div></td><td><p>Range end score</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ascending Order</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Score order for sorting the range. If the parameter is set to <code>true</code>, the range is sorted in ascending order. If the parameter is set to <code>false</code>, the range is sorted in descending order.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Get TTL
+
+`<redis:get-ttl>`
+
+Get the remaining time to live of a volatile key, in seconds.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key in the sorted set.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Increment
+
+`<redis:increment>`
+
+Increments the number stored at key by step. If the key does not exist, it is set to 0 before
+performing the operation. An error is returned if the key contains a value of the wrong type or
+contains data that can not be represented as integer.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for INCR.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Step</p></td><td><div><div><p>Number</p></div></div></td><td><p>Step used for the increment.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Increment Hash
+
+`<redis:increment-hash>`
+
+Increments the number stored at field in the hash stored at key by increment. If the key does not
+exist, a new key holding a hash is created. If field does not exist, the value is set to `0` before
+the operation is performed.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for HGET</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Field</p></td><td><div><div><p>String</p></div></div></td><td><p>Field to use for HGET</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Step</p></td><td><div><div><p>Number</p></div></div></td><td><p>Step used for the increment.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Increment Sorted Set
+
+`<redis:increment-sorted-set>`
+
+Increments the score of member in the sorted set stored at key by increment. If member does not
+exist in the sorted set, it is added with increment as its score (as if its previous score was
+`0.0`). If the key does not exist, a new sorted set with the specified member as its sole member is
+created.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key in the sorted set.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value to set.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Step</p></td><td><div><div><p>Number</p></div></div></td><td><p>The step to use to increment the score.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Persist
+
+`<redis:persist>`
+
+Undo an expire or expireAt, turning the volatile key into a normal key.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key in the sorted set.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Pop From List
+
+`<redis:pop-from-list>`
+
+Pop a value from the desired side of the list stored at the specified key.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for LPOP/RPOP</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Pop Left</p></td><td><div><div><p>boolean</p></div></div></td><td><p>The side from which to pop the value. If the parameter is <code>true</code>, the value is popped from the left side. If the parameter is <code>false</code>, the value is popped from the right side.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Pop From Set
+
+`<redis:pop-from-set>`
+
+Pops a random value from the set stored at the specified key.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for SPOP</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Publish
+
+`<redis:publish>`
+
+Publish the message payload to the specified channel.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Channel</p></td><td><div><div><p>String</p></div></div></td><td><p>Destination of the published message</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message</p></td><td><div><div><p>String</p></div></div></td><td><p>The message to publish.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Push To List
+
+`<redis:push-to-list>`
+
+Push the message payload to the desired side (LEFT or RIGHT) of the list stored at the specified
+key. If the key does not exist, a new key holding a list is created as long as ifExists is `false`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for LPUSH or RPUSH, or LPUSHX or RPUSHX.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value to push.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Push Left</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Side that receives the pushed payload. If the parameter is true, push the payload on the left side. If the parameter is <code>false</code>, push the payload on the right side.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>If Exists</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the parameter is <code>true</code>, execute LPUSHX or RPUSHX. If the parameter is <code>false</code>, execute LPUSH or RPUSH.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Random Member From Set
+
+`<redis:random-member-from-set>`
+
+Reads a random value from the set stored at the specified key.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for SRANDMEMBER</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Range From List
+
+`<redis:range-from-list>`
+
+Returns the specified range of elements from an existing list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><p>String</p></td><td><p>Key of the list from which to return elements</p></td><td></td><td><p>x</p></td></tr><tr><td><p>start</p></td><td><p>String</p></td><td><p>Zero-based index at which the range starts. A negative value indicates that the offset starts at the end of the list.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>stop</p></td><td><p>String</p></td><td><p>Zero-based index at which the range ends. A negative value indicates that the offset starts at the end of the list.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Set
+
+`<redis:set>`
+
+Set the key to hold the payload. If the key already holds a value, it is overwritten, regardless of
+its type as long as ifNotExists is `false`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key used to store payload</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value to set.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Expire</p></td><td><div><div><p>Number</p></div></div></td><td><p>Set a timeout on the specified key in seconds. After the timeout the key is automatically deleted by the server. A key with an associated timeout is said to be volatile in Redis terminology.</p></td><td></td><td></td></tr><tr><td><p>If Not Exists</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, then execute SETNX on the Redis server, otherwise execute SET.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Set In Hash
+
+`<redis:set-in-hash>`
+
+Set the specified hash field to the message payload. If the key does not exist, a new key holding a
+hash is created as long as ifNotExists is true.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Key to use for HSET</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value to set.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Field</p></td><td><div><div><p>String</p></div></div></td><td><p>Field to use for HSET</p></td><td></td><td></td></tr><tr><td><p>If Not Exists</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code> execute HSETNX, otherwise HSET.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The outcome of the expression is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+### Trim From List
+
+`<redis:trim-from-list>`
+
+Modify an existing list so that it contains only the specified range of elements.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Key</p></td><td><p>String</p></td><td><p>Key of the list to modify</p></td><td></td><td><p>x</p></td></tr><tr><td><p>start</p></td><td><p>String</p></td><td><p>Zero-based index at which the range starts. A negative value indicates that the offset starts at the end of the list.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>stop</p></td><td><p>String</p></td><td><p>Zero-based index at which the range ends. A negative value indicates that the offset starts at the end of the list.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates against the operationâs output. The outcome of the expression is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Redis Configuration](#redis)
+
+#### Throws
+
+- REDIS:CONNECTIVITY
+- REDIS:INVALID_REQUEST_DATA
+- REDIS:INVALID_CONFIGURATION
+- REDIS:INVALID_STRUCTURE_FOR_INPUT_DATA
+- REDIS:RETRY_EXHAUSTED
+- REDIS:UNKNOWN
+- REDIS:UNABLE_TO_UNSUBSCRIBE
+
+## Types
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><p>Configures the TLS truststore.</p></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><p>Configures the TLS keystore.</p></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the truststore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the truststore uses.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></td><td></td><td></td></tr></tbody></table>
+
+### Keystore
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the keystore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the keystore uses.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Which elements to verify in the certificate chain:</p><p>* <code>true</code></p><p>Verify only the last element in the certificate chain.</p><p>* <code>false</code></p><p>Verify all elements in the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>How to check certificate validity:</p><p>* <code>true</code></p><p>Check the Certification Revocation List (CRL) for certificate validity.</p><p>* <code>false</code></p><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to use the secondary method to check certificate validity:</p><p>* <code>true</code></p><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p><p>* <code>false</code></p><p>Do not use the secondary method to check certificate validity.</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>What to do if the revocation server canât be reached or is busy:</p><p>* <code>true</code></p><p>Avoid verification failure.</p><p>* <code>false</code></p><p>Allow the verification to fail.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Max Idle Time</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Subscribe Channel Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Channel</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p><p>* Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p><p>* Configure a smaller buffer size to decrease memory load at the expense of response time.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>In Memory Size</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Non-repeatable Stream
+
+Disables the repeatable stream functionality and use non-repeatable streams to have less performance
+overhead, memory use, and cost.
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>One or more expressions that determine when a message was redelivered. You can set this property only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>Object Store</p></div></div></td><td><p>Configures the object store that stores the redelivery counter for each message.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Redis Connector 5.6
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+When you run your app, you can view the app log as described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Redis Connector 5.3 Reference](redis-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Aynpoint Connector for Redis to your Mule project to automatically populate the XML code with
+the connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Dependencies to Project**, type `redis` in the search field.
+3.  Click **Redis Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source
+
+An input source initiates a flow when a specified condition is met. You can configure one of these
+input sources to use with Redis Connector:
+
+- **Subscribe**  
+  Enables the Mule app to listen to specified channels
+- **HTTP Listener**  
+  Initiates a flow each time it receives a request on the configured host and port
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure the **Subscribe** input source, follow these steps:
+
+1.  In the **Mule Palette** view, select **Redis > Subscribe**.
+2.  Drag **Subscribe** to the Studio canvas.
+3.  On the **Subscribe** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  In **Channels** provide a list of Redis channel names or globbing patterns.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for Redis Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Redis** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target Redis system. Redis Connector
+supports global elements for clustered Redis configurations and non-clustered Redis configurations.
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to configure a global element that can be used by all instances of Redis
+    Connector in the app.
+
+    When you configure a global element, you can reference a configuration file that contains
+    ANT-style property placeholders (recommended), or you can enter your authorization credentials
+    in the global configuration properties. For information about the benefits of using property
+    placeholders and how to configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+3.  On the **Connection** tab, select the connection type:
+    - **[Clustered](#clustered-config)**
+    - **[NonClustered](#nonclustered-config)**
+    - **[Sentinel](#sentinel-config)**
+
+4.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+5.  Click **OK**.
+
+### Clustered Redis Configuration
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure a Clustered connection:
+
+![Configuration fields for Redis clustered connection type](_images/redis-basic-config-clustered.png)
+
+1.  In **Name**, enter a name for the configuration.
+2.  In **Connection**, select **Clustered** to use the connector with a clustered Redis
+    configuration.
+3.  Enter values for the following fields:
+    - **Cluster hosts**  
+      Comma-separated list for all Redis cluster hosts using the format `host:port`
+    - **Connection timeout**  
+      Optional connection timeout value, in milliseconds
+    - **Entry Ttl** Optional default time-to-live value to set on keys stored through the connector
+      **Password**  
+      Redis password for server authentication
+
+4.  Click **Test Connection**.
+5.  Click **OK**.
+
+### Nonclustered Redis Configuration
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure a non-clustered connection:
+
+![Configuration fields for Redis non-clustered connection type](_images/redis-basic-config.png)
+
+1.  In **Name**, enter a name for the configuration.
+2.  In **Connection**, select **NonClustered** to use the connector with a non-clustered Redis
+    configuration.
+3.  Enter values for the following fields:
+    - **Host**  
+      Host for the Redis server
+    - **Port**  
+      Port on which the non-clustered server is running **Connection Timeout**  
+      Optional connection timeout value, in milliseconds
+    - **Entry Ttl**  
+      Optional default time-to-live value to set on keys stored through the connector.
+    - **Password**  
+      Password for server authentication.
+
+4.  Click **Test Connection**.
+5.  Click **OK**.
+
+## Sentinel Configuration
+
+Sentinel provides a high-availability solution in case of failure on your Redis cluster.
+
+To configure a Sentinel connection:
+
+1.  On the **General** tab of the **Global Element Properties**, enter a name for the configuration.
+2.  In **Connection**, select **Sentinel** to use the connector with a non-clustered Redis
+    configuration.
+3.  Enter values for the following fields:
+    - **Sentinels hosts**  
+      Sentinel addresses that monitor the Redis master host to which the connector will connect
+    - **Master name**  
+      Name of the Redis master for which Sentinel discovers and returns the address of the master
+      instance to connect to
+    - **Sentinel password**  
+      Password for Sentinel server authentication
+    - **Index**  
+      Index of the database that the pool uses
+    - **Password**  
+      Password for Redis server authentication
+    - **Entry ttl**  
+      Optional default time-to-live value to set on keys stored through the connector
+
+4.  Click **Test Connection**.
+5.  Click **OK**.
+
+### TLS Configuration
+
+To enable and configure TLS for your app:
+
+1.  In the **Connection** section for the configuration, click the **Security** tab.
+2.  To configure a truststore, in **TLS Configuration**, select **Edit inline** and provide the
+    following values:
+    - **Path**  
+      Location of the truststore file.
+    - **Password**  
+      Password for the truststore file.
+    - **Type**  
+      File format of the truststore file.
+    - **Algorithm**  
+      Algorithm the truststore uses.
+    - **Insecure**  
+      Boolean that determines whether or not to validate the truststore. If set to `true`, no
+      validation occurs. The default value is `false`.
+
+3.  To configure a keystore, enter the following values:
+    - **Type**  
+      Optionally specify the file format of the keystore file. The default value is `JKS`.
+    - **Path**  
+      Optionally specify the location of the keystore file. This can be used for two-way
+      authentication for the connector.
+    - **Alias**  
+      Attribute that indicates the alias of the key to use when the keystore contains many private
+      keys. If not defined, the first key in the file is used by default.
+    - **Key password**  
+      Key manager password, which is the password for the private key inside the keystore.
+    - **Password**  
+      Store password for the keystore file. This is required only if the **Key Store Location** is
+      configured.
+      - **Algorithm**  
+        Algorithm used in the keystore.
+
+4.  Click **Test Connection**.
+5.  Click **OK**.
+
+## View the App Log
+
+You can view the app log for the connector as follows:
+
+- If youâre running the app from the Anypoint Platform, the output is visible in the Anypoint Studio
+  **Console** window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path was customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in `MULE_HOME/logs/<app-name>.log`.
+
+For more information about the app log, see
+[Configuring Logging](../../mule-runtime/latest/logging-in-mule).
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Redis Connector 5.6 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/redis
+http://www.mulesoft.org/schema/mule/redis/current/mule-redis.xsd">
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:redis="http://www.mulesoft.org/schema/mule/redis"
+	xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-current.xsd
+	http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/tracking
+	http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+	http://www.mulesoft.org/schema/mule/redis
+	http://www.mulesoft.org/schema/mule/redis/current/mule-redis.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-redis-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `redis`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next
+
+After completing your namespace and `pom.xml` file, you can try the Redis
+[Examples](redis-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

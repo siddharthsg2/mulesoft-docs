@@ -1,0 +1,1237 @@
+﻿# Confluent Schema Registry Connector - Full Documentation
+
+# Confluent Schema Registry 1.1 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This example shows how to publish and consume avro messages by integrating Confluent Schema Registry
+with Kafka Connector to reduce the size of the messages. The example contains two flows:
+
+1.  The first flow generates an avro message containing the schema and sends it to the Kafka topic.
+    The **Transform Message** component creates an avro message with the schema and the **Replace
+    AVRO schema with id** operation replaces the schema embedded in the message with an ID from
+    Confluent Schema Registry.
+2.  The second flow reads the avro message from the Kafka topic and prints out the content of the
+    deserialized avro message to the console. The **Replace id with AVRO schema** operation replaces
+    the ID in the received message with the actual schema retrieved from Confluent Schema Registry.
+
+## Create the Producer Flow
+
+The Producer flow publishes a message to the configured Kafka topic. The following screenshot shows
+the Producer flow in Anypoint Studio:
+
+![Confluent Schema Registry Connector Producer Flow in Studio](_images/confluent-schema-registry-producer-flow.png)
+
+In this flow, you configure:
+
+- An HTTP **Listener** component
+- **Transform Message** component
+- **Logger** component
+- **Replace AVRO schema with id** operation
+- **Publish** operation
+- A second **Transform Message** component
+
+### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8082`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In **Mule Palette**, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/`:
+
+### Add the First Transform Message Component
+
+The first **Transform Message** component generates an avro message containing the schema:
+
+1.  In **Mule Palette**, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to the **Listener** component.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/avro schemaUrl='classpath://schema.json'
+    ---
+    {
+    	"f1": "demo_message"
+    }
+    ```
+
+The following shows the content of the schema used in this example:
+
+`{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"}]}`
+
+This schema describes a JSON object that has a field named `f1` and has the type `string`.
+
+### Add a Logger Component
+
+1.  In **Mule Palette**, search for `logger`.
+2.  Drag the **Logger** component onto the canvas, next to the **Transform Message** component.
+3.  Configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Response</code></p></td></tr><tr><td><p>Message</p></td><td><p>Enter <code>#[payload]</code>.</p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+### Add the Replace AVRO Schema with ID Operation
+
+The **Replace AVRO schema with id** operation replaces the schema in an avro message with an ID from
+Confluent Schema Registry to reduce the size of the message.
+
+1.  Drag the **Replace AVRO schema with id** operation onto the canvas, next to the **Logger**
+    component.
+2.  In the **Replace AVRO schema with id** configuration, click the **Connector configuration**
+    dropdown and select **Confluent_Schema_Registry_Connector_Config**.
+3.  Configure the following fields in the **Replace AVRO schema with id** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Subject</p></td><td><p><code>${config.subject}</code></p></td></tr><tr><td><p>Message</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+### Add the Publish Operation
+
+The **Publish** operation publishes a message to the Kafka topic.
+
+1.  Drag the **Publish** operation onto the canvas, next to the **Replace AVRO schema with id**
+    operation.
+2.  Configure the following fields in the **Publish** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the operation, such as <code>Producer</code></p></td></tr><tr><td><p>Topic</p></td><td><p><code>#[payload.topic]</code></p></td></tr><tr><td><p>Key</p></td><td><p><code>#[now()]</code></p></td></tr></tbody></table>
+
+3.  In the **General** configuration screen for the **Publish** operation, click the **Add** icon to
+    access the global element configuration fields.
+    1.  In the **Bootstrap server URLs** field, select **Edit inline** and then click the **Add**
+        icon.
+    2.  Enter the value `${config.basic.bootstrapServers}` and click **Finish**.
+
+### Add the Second Transform Message Component
+
+The second **Transform Message** component prints the response of the **Publish** operation.
+
+1.  In **Mule Palette**, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to the **Publish** operation.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+## Create the Consumer Flow
+
+The Consumer flow consumes the published message from the Kafka topic and prints it out to the
+console. The following screenshot shows the Consumer flow in Anypoint Studio:
+
+![Confluent Schema Registry Connector Consumer Flow in Studio](_images/confluent-schema-registry-consumer-flow.png)
+
+In this flow, you configure:
+
+- **Message listener**
+- **Logger** component
+- **Replace id with AVRO schema** operation
+- **Transform Message** component
+- A second **Logger** component
+
+### Add a Message Listener
+
+The **Message listener** consumes the published message from the Kafka topic.
+
+1.  Drag the **Message listener** onto the canvas.
+2.  Configure the following fields in the **Message listener** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the operation, such as <code>Producer</code></p></td></tr><tr><td><p>Topic</p></td><td><p><code>#[payload.topic]</code></p></td></tr><tr><td><p>Key</p></td><td><p><code>#[now()]</code></p></td></tr></tbody></table>
+
+3.  Click the **Add** icon next to the **Connector configuration** field to access the global
+    element configuration fields.
+4.  Complete these fields:
+    1.  In the **Bootstrap server URLs** field, select **Edit inline** and then click the **Add**
+        icon.
+    2.  Enter the value `${config.basic.bootstrapServers}` and click **Finish.**
+    3.  In the **Group ID** field, enter `${consumer.groupId}`.
+    4.  In the **Topic Subscription Patterns** field, select **Edit inline** and then click the
+        **Add** icon.
+    5.  Enter the value `${config.topics}` and click **Finish**.
+
+### Add the First Logger Component
+
+1.  In **Mule Palette**, search for `logger`.
+2.  Drag the **Logger** component onto the canvas, next to **Message listener**.
+3.  Configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Response</code></p></td></tr><tr><td><p>Message</p></td><td><p>Enter <code>#[payload]</code>.</p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+### Add the Replace ID with AVRO Schema Operation
+
+The **Replace id with AVRO schema** operation replaces the embedded ID with the avro schema.
+
+1.  Drag the **Replace id with AVRO schema** operation onto the canvas, next to the **Logger**
+    component.
+2.  In the **Replace id with AVRO schema** configuration, click the **Connector configuration**
+    dropdown and select **Confluent_Schema_Registry_Connector_Config**.
+3.  Configure the following fields in the **Replace id with AVRO schema** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Message</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+### Add the Transform Message Component
+
+The **Transform Message** component transforms the payload into JSON.
+
+1.  In **Mule Palette**, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to the **Replace id with AVRO
+    schema** operation.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Add the Second Logger Component
+
+1.  In **Mule Palette**, search for `logger`.
+2.  Drag the **Logger** component onto the canvas, next to **Transform Message**.
+3.  Configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Response</code></p></td></tr><tr><td><p>Message</p></td><td><p>Enter <code>#[payload[0]]</code>.</p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+## XML for Publishing and Consuming Avro Messages
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+	xmlns:confluent-schema-registry="http://www.mulesoft.org/schema/mule/confluent-schema-registry" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/confluent-schema-registry http://www.mulesoft.org/schema/mule/confluent-schema-registry/current/mule-confluent-schema-registry.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties file="mule-app.properties"/>
+
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ac9811ff-9234-4f44-9dc0-83100cb6c1bd" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<confluent-schema-registry:config name="Confluent_Schema_Registry_Connector_Config" doc:name="Confluent Schema Registry Connector Config" doc:id="faae820f-cd5a-46d0-9692-f28b53ea3bb6" >
+		<confluent-schema-registry:basic-auth-connection username="${config.user}" password="${config.pass}" baseUri="${config.schemaUrl}" />
+	</confluent-schema-registry:config>
+	<kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="d0443fc9-b2d3-4bbc-939f-126e98255cf3" >
+		<kafka:consumer-plaintext-connection groupId="${config.consumerGroup}" >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="${config.bootstrapServer}" />
+			</kafka:bootstrap-servers>
+			<kafka:topic-patterns >
+				<kafka:topic-pattern value="${config.topic}" />
+			</kafka:topic-patterns>
+		</kafka:consumer-plaintext-connection>
+	</kafka:consumer-config>
+
+	<kafka:producer-config name="Apache_Kafka_Producer_configuration" doc:name="Apache Kafka Producer configuration" doc:id="f378b3d4-4486-487d-84e2-8cc80aae7295" >
+		<kafka:producer-plaintext-connection >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="${config.bootstrapServer}" />
+			</kafka:bootstrap-servers>
+		</kafka:producer-plaintext-connection>
+	</kafka:producer-config>
+	<flow name="demoFlow" doc:id="80c4cd43-2c65-4395-8e3e-52e6f7ed882b" >
+		<http:listener doc:name="Listener" doc:id="a0c9691a-b202-4aaf-9dcf-6b1385709ee6" config-ref="HTTP_Listener_config" path="/test"/>
+		<ee:transform doc:name="Transform Message" doc:id="4dc43b6d-f7c7-4cba-bbcd-db733cae1de4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/avro schemaUrl='classpath://schema.json'
+---
+{
+	"f1": "demo_message"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<confluent-schema-registry:replace-avro-schema-with-id doc:name="Replace AVRO schema with id" doc:id="61b1d3b7-eabe-4d53-b5ca-357fda8bbd1e" config-ref="Confluent_Schema_Registry_Connector_Config" subject="${config.subject}"/>
+		<kafka:publish doc:name="Publish" doc:id="aad92d55-a388-4680-86f1-e99adfcb14f5" config-ref="Apache_Kafka_Producer_configuration" topic="${config.topic}"/>
+		<ee:transform doc:name="Transform Message" doc:id="f64a1dd7-d091-47bc-a0c7-b533c4c8d492" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="demoFlow1" doc:id="a244ee60-143f-4320-a34e-6b572de50341" >
+		<kafka:message-listener doc:name="Message listener" doc:id="056db197-1353-407a-ba58-8d90fc68e766" config-ref="Apache_Kafka_Consumer_configuration"/>
+		<confluent-schema-registry:replace-id-with-avro-schema doc:name="Replace Id With Avro Schema" doc:id="26a15edf-94e2-4138-8acb-385821fc9710" config-ref="Confluent_Schema_Registry_Connector_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="a17bd48c-37e7-449e-84a0-d8cd14e4925f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Confluent Schema Registry Connector 1.1 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Confluent Schema Registry (Confluent Schema Registry Connector) enables
+interaction with Confluentâs Schema Registry to save and retrieve avro schemas to reduce the size of
+an avro message while it transports through the network.
+
+## Config
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#Config_BasicAuth">Basic Auth Connection Provider</a></p></li><li><p><a href="#Config_Unsecured">Unsecured Connection Provider</a></p></li></ul></div></div></td><td><p>Connection types for this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td><p>MINUTES</p></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Time to live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time that a cached schema lives.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Time to live time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS **MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Time to live</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Persist cache</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Defines if the cache is persistent.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr></tbody></table>
+
+## Connection Types
+
+### Basic Auth Connection Provider
+
+Basic HTTP authentication supported by the API.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Default Headers</p></td><td><div><div><p>Array of <a href="#DefaultHeader">Default Header</a>.</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Query Parameters</p></td><td><div><div><p>Array of <a href="#DefaultQueryParam">Default Query Param</a>.</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Timeout for establishing connections to the remote service.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Connection Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Use Persistent Connections</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether to use persistent connections:</p><p>* <code>true</code></p><p>Mule uses persistent connections.</p><p>* <code>false</code></p><p>Mule closes the connection after the first request completes.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections to open to the backend. HTTP requests are sent in parallel over multiple connections. Setting this value too high can impact latency and consume additional resources without increasing throughput.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Idle Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>When persistent connections are enabled, how long a connection can remain idle before Mule closes it.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Idle Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Connection Idle Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Proxy Config</p></td><td><div><div><p><a href="#Proxy">Proxy</a></p></div></div></td><td><p>Configures a proxy for outbound connections.</p></td><td></td><td></td></tr><tr><td><p>Stream Response</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If this value is <code>true</code>, Mule streams received responses.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Response Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer that stores the HTTP response, in bytes.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate the requests.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to authenticate the requests.</p></td><td></td><td></td></tr><tr><td><p>Base Uri</p></td><td><div><div><p>String</p></div></div></td><td><p>Parameter base URI. Each instance or tenant gets its own.</p></td><td></td><td></td></tr><tr><td><p>Protocol</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTP</p></li><li><p>HTTPS</p></li></ul></div></div></td><td><p>Protocol to use for communication.</p></td><td><p>HTTP</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Configures TLS. If using the HTTPS protocol, you must configure TLS.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+### Unsecured Connection Provider
+
+Unauthenticated.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Default Headers</p></td><td><div><div><p>Array of <a href="#DefaultHeader">Default Header</a>.</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Query Parameters</p></td><td><div><div><p>Array of <a href="#DefaultQueryParam">Default Query Param</a>.</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Timeout for establishing connections to the remote service.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Connection Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Use Persistent Connections</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether to use persistent connections:</p><p>* <code>true</code></p><p>Mule uses persistent connections.</p><p>* <code>false</code></p><p>Mule closes the connection after the first request completes.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections to open to the backend. HTTP requests are sent in parallel over multiple connections. Setting this value too high can impact latency and consume additional resources without increasing throughput.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Idle Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>When persistent connections are enabled, how long a connection can remain idle before Mule closes it.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Idle Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Connection Idle Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Proxy Config</p></td><td><div><div><p><a href="#Proxy">Proxy</a></p></div></div></td><td><p>Configures a proxy for outbound connections.</p></td><td></td><td></td></tr><tr><td><p>Stream Response</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If this value is <code>true</code>, Mule streams received responses.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Response Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer that stores the HTTP response, in bytes.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Base Uri</p></td><td><div><div><p>String</p></div></div></td><td><p>Parameter base URI. Each instance or tenant gets its own.</p></td><td></td><td></td></tr><tr><td><p>Protocol</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTP</p></li><li><p>HTTPS</p></li></ul></div></div></td><td><p>Protocol to use for communication.</p></td><td><p>HTTP</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Configures TLS. If using the HTTPS protocol, you must configure TLS.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+## Operations
+
+- [Create compatibility subject](#CreateCompatibilitySubject)
+- [Delete subject](#DeleteSubject)
+- [Delete subject version](#DeleteSubjectVersion)
+- [Get global compatibility level](#GetGlobalCompatibilityLevel)
+- [Get schema by id](#GetSchemaById)
+- [Get schema for subject version](#GetSchemaForSubjectVersion)
+- [Get subject by version](#GetSubjectByVersion)
+- [Get subject config](#GetSubjectConfig)
+- [Get subject versions](#GetSubjectVersions)
+- [Get Subjects](#GetSubjects)
+- [Is schema registered](#IsSchemaRegistered)
+- [Register schema for subject](#RegisterSchemaForSubject)
+- [Replace AVRO schema with id](#ReplaceAvroSchemaWithId)
+- [Replace Id With AVRO Schema](#ReplaceIdWithAvroSchema)
+- [Update global config](#UpdateGlobalConfig)
+- [Update subject config](#UpdateSubjectConfig)
+
+## Create compatibility subject
+
+`<confluent-schema-registry:create-compatibility-subject>`
+
+Creates a compatibility subject. This operation makes an HTTP POST request to the
+/compatibility/subjects/{Subject}/versions/{Version} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td><p>Version number (or <code>latest</code>).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>Content to use.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Delete subject
+
+`<confluent-schema-registry:delete-subject>`
+
+Deletes all schema versions under the subject. This operation makes an HTTP DELETE request to the
+/subjects/{Subject} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Permanent</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to delete the subject permanently.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Number</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Delete subject version
+
+`<confluent-schema-registry:delete-subject-version>`
+
+Deletes a specific version of a subject. This operation makes an HTTP DELETE request to the
+/subjects/{Subject}/versions/{Version} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td><p>Version number.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Permanent</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to delete the subject permanently.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get global compatibility level
+
+`<confluent-schema-registry:get-global-compatibility-level>`
+
+Gets the top level config. This operation makes an HTTP GET request to the /config endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get schema by id
+
+`<confluent-schema-registry:get-schema-by-id>`
+
+Fetch a schema by a globally unique ID. This operation makes an HTTP GET request to the
+/schemas/ids/{Id} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique ID.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get schema for subject version
+
+`<confluent-schema-registry:get-schema-for-subject-version>`
+
+Gets the avro schema for a specified version of the subject. Returns only the unescaped schema. This
+operation makes an HTTP GET request to the /subjects/{Subject}/versions/{Version}/schema endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td><p>Version number (or <code>latest</code>).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get subject by version
+
+`<confluent-schema-registry:get-subject-by-version>`
+
+Gets a specific version of the schema registered under the subject. This operation makes an HTTP GET
+request to the /subjects/{Subject}/versions/{Version} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td><p>Version number (or <code>latest</code>).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get subject config
+
+`<confluent-schema-registry:get-subject-config>`
+
+Gets the subject config. This operation makes an HTTP GET request to the /config/{Subject} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get subject versions
+
+`<confluent-schema-registry:get-subject-versions>`
+
+Gets a list of versions registered under the specified subject. This operation makes an HTTP GET
+request to the /subjects/{Subject}/versions endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Number</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Get Subjects
+
+`<confluent-schema-registry:get-subjects>`
+
+Lists all subjects. This operation makes an HTTP GET request to the /subjects endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Is schema registered
+
+`<confluent-schema-registry:is-schema-registered>`
+
+Checks if a schema is registered under the subject. This operation makes an HTTP POST request to the
+/subjects/{Subject} endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>Content to use.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Register schema for subject
+
+`<confluent-schema-registry:register-schema-for-subject>`
+
+Registers a new schema under the specified subject. This operation makes an HTTP POST request to the
+/subjects/{Subject}/versions endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>Content to use.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Replace AVRO schema with id
+
+`<confluent-schema-registry:replace-avro-schema-with-id>`
+
+Replaces an avro schema with a schema ID. This operation replaces the schema in an avro message with
+an ID from Confluent Schema Registry.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message</p></td><td><div><div><p>Any</p></div></div></td><td><p>Avro serialized message that contains the schema ID.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Schema ID</p></td><td><div><div><p>Number</p></div></div></td><td><p>Schema used to replace the schema ID in the deserialized message.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INCOMPATIBLE_SCHEMA
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:INVALID_AVRO_MESSAGE
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Replace Id With AVRO Schema
+
+`<confluent-schema-registry:replace-id-with-avro-schema>`
+
+Replaces an ID with an avro schema.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message</p></td><td><div><div><p>Any</p></div></div></td><td><p>Avro serialized message that contains the schema ID.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Schema</p></td><td><div><div><p>String</p></div></div></td><td><p>Schema used to replace the schema ID in the deserialized message.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INCOMPATIBLE_SCHEMA
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:INVALID_AVRO_MESSAGE
+- CONFLUENT-SCHEMA-REGISTRY:INVALID_SCHEMA
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Update global config
+
+`<confluent-schema-registry:update-global-config>`
+
+Updates the global config. This operation makes an HTTP PUT request to the /config endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>Content to use.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Update subject config
+
+`<confluent-schema-registry:update-subject-config>`
+
+Updates the subject config. This operation makes an HTTP PUT request to the /config/{Subject}
+endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subject</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subject.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>Content to use.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The specified query parameters are merged with the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The specified custom headers are merged with the default headers that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the response times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>How the connector streams request content to the remote service:</p><p>* <code>AUTO</code> (default)</p><p>Connector automatically uses the best streaming strategy based on the request content.</p><p>* <code>ALWAYS</code></p><p>Connector always streams the request content.</p><p>* <code>NEVER</code></p><p>Connector does not stream the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">HTTP Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+### Throws
+
+- CONFLUENT-SCHEMA-REGISTRY:BAD_REQUEST
+- CONFLUENT-SCHEMA-REGISTRY:CLIENT_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:CONNECTIVITY
+- CONFLUENT-SCHEMA-REGISTRY:INTERNAL_SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:NOT_FOUND
+- CONFLUENT-SCHEMA-REGISTRY:RETRY_EXHAUSTED
+- CONFLUENT-SCHEMA-REGISTRY:SERVER_ERROR
+- CONFLUENT-SCHEMA-REGISTRY:TIMEOUT
+- CONFLUENT-SCHEMA-REGISTRY:UNAUTHORIZED
+
+## Types
+
+### Default Header
+
+Headers automatically added to every outbound request.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Key for this type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Value for this type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Default Query Param
+
+Query parameters automatically added to every outbound request.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Key for this type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Value for this type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Proxy
+
+Configures the settings used to connect through a proxy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname or IP address of the proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Non Proxy Hosts</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><div><div><p>Configures the TLS truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><div><div><p>Configures the TLS keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td><div><div><p>Configures how to validate certificates.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system, if possible.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the truststore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Keystore
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system, if possible.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the keystore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Verify only the last element in the certificate chain.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Verify all elements in the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Do not use the secondary checking method (the one not selected before).</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Do not use the secondary method to check certificate validity.</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Avoid verification failure.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Allow the verification to fail.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div><div><p>Path to the CRL file.</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Allow the deployment to fail.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Ignore the results of the connectivity test.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector operation source or operation
+attempts to reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often the Mule app attempts to reconnect to the remote service or API, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures the minimum amount of time that a dynamic configuration instance can remain idle before
+Mule considers it eligible for expiration.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### HTTP Response Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Status Code</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reason Phrase</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the memory stream. If the stream data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Confluent Schema Registry Connector Overview](./)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Confluent Schema Registry Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Confluent Schema Registry Reference](confluent-schema-registry-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Confluent Schema Registry Connector to your Mule project to automatically populate the XML code
+with the connectorâs namespace and schema location and add the required dependencies to the
+projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `confluent schema registry` in the search
+    field.
+3.  Click **Confluent Schema Registry** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met.
+
+You can configure one of these sources to use with Confluent Schema Registry Connector:
+
+- HTTP Listener  
+  Initiates a flow each time it receives a request on the configured host and port
+- Scheduler  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for Confluent Schema Registry Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Confluent Schema Registry** and then select the desired
+    operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target Confluent Schema Registry system. Confluent Schema
+Registry Connector supports Basic Auth and Unsecured. To configure the global element for Confluent
+Schema Registry Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, in **Connection**, select the authentication method to configure:
+    - [Basic Auth](#basic_auth)
+    - [Unsecured](#unsecured)
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+### Basic Auth
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure Basic auth:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>User Action</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Enter the configuration name.</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p>Select <strong>Basic</strong>.</p></div></div></td></tr></tbody></table>
+
+### Unsecured
+
+Enter the following information on the **General** tab of the global element configuration screen to
+configure Unsecured authentication:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>User Action</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Enter the configuration name.</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p>Select <strong>Unsecured</strong>.</p></div></div></td></tr></tbody></table>
+
+## Configure Additional Connector Fields
+
+After you configure a global element for Confluent Schema Registry, configure the other required
+fields for the connector. The required fields vary depending on which connector operation you use.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`. You can configure the location of
+the log path in the app log file `log4j2.xml`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Confluent Schema Registry Connector Reference](confluent-schema-registry-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Confluent Schema Registry - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/confluent-schema-registry
+http://www.mulesoft.org/schema/mule/confluent-schema-registry/current/mule-confluent-schema-registry.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:$2="http://www.mulesoft.org/schema/mule/confluent-schema-registry"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/$2
+	http://www.mulesoft.org/schema/mule/$2/current/mule-confluent-schema-registry.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-confluent-schema-registry-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `<version>` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `Confluent Schema Registry`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Confluent Schema Registry Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Confluent Schema Registry (Confluent Schema Registry Connector) enables
+interaction with Confluentâs Schema Registry to save and retrieve avro schemas to reduce the size of
+an avro message while it transports through the network.
+
+For information about compatibility and fixed issues, see the Confluent Schema Registry Connector
+Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Confluent Schema Registry Connectorâs API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have:
+
+- Credentials to access the Confluent Schema Registry target resource
+- Anypoint Platform
+- Anypoint Studio or Anypoint Code Builder
+
+## Common Use Cases For the Connector
+
+Some possible uses for this connector include:
+
+- Send an avro message to a Kafka broker.
+- Consume an avro message with a schema ID.
+- Send a schema to Confluent Schema Registry using authentication.
+
+## Connection Types
+
+Confluent Schema Registry connections use the following authentication types:
+
+- Basic auth  
+  Basic HTTP authentication supported by the API.
+- Unsecured  
+  Unauthenticated.
+
+For information about configuring authentication types, see
+[Using Anypoint Studio to Configure Confluent Schema Registry Connector](confluent-schema-registry-connector-studio).
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create an app and configure the connector
+using [Anypoint Studio](confluent-schema-registry-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Confluent Schema Registry Connector Reference](confluent-schema-registry-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+

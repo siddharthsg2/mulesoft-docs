@@ -1,0 +1,953 @@
+﻿# Accelerators - Full Documentation
+
+# MuleSoft Accelerators Release Notes
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following release notes are available for Accelerators:
+
+- [MuleSoft Accelerator for Consumer Goods Release Notes](../release-notes/accelerators/consumer-goods/consumer-goods-release-notes)
+- [MuleSoft Accelerator for Financial Services Release Notes](../release-notes/accelerators/financial-services/financial-services-release-notes)
+- [MuleSoft Accelerator for Healthcare Release Notes](../release-notes/accelerators/healthcare/healthcare-release-notes)
+- [MuleSoft Accelerator for Life Sciences Release Notes](../release-notes/accelerators/life-sciences/life-sciences-release-notes)
+- [MuleSoft Accelerator for Manufacturing Release Notes](../release-notes/accelerators/manufacturing/manufacturing-release-notes)
+- [MuleSoft Accelerator for Retail Release Notes](../release-notes/accelerators/retail/retail-release-notes)
+- [MuleSoft Accelerator for Salesforce OMS Release Notes](../release-notes/accelerators/salesforce-oms/salesforce-oms-release-notes)
+
+## See Also
+
+- [MuleSoft Accelerators Overview](./)
+---
+
+# Additional Customizations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following customizations can be made to tailor the accelerator components to suit your needs.
+
+## Maven POM Parent
+
+All Accelerator projects inherit from a parent Maven POM. In addition to some global settings and
+repository references, this config also defines the versions of all MuleSoft connectors and modules
+used by applications. Refer to the
+[Accelerator POM Parent](https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-pom-parent-src/)
+asset for more information about making changes to the POM parent file.
+
+## Common Core Library
+
+It is a best practice in MuleSoft application development to place common flows, configuration
+settings, and other resources into a shared library. The
+[Accelerator Common Core Library](https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-common-core-src/)
+asset contains the source used by most implementation templates created for the accelerators. It is
+referenced as a Maven dependency only and is _not_ an application you can run.
+
+If you need to make changes to it you will need to download the asset, extract the source, and then
+import it into Studio (use the `Anypoint Studio project from File System` wizard). As with the POM
+parent, update the version number before making any changes. See the `README.md` file in the project
+source for more details.
+
+In order for applications to reference the new version, you must either install the updated library
+in your local Maven repository or deploy it to your own Exchange instance. The process is similar to
+that described for the POM Parent, described above. In each application, update the
+`accelerator-common-core.version` property in the POM file to use the new library when building.
+
+## Configurable Properties
+
+In all applications, including the common core library, MuleSoft property files are located under
+the `src/main/resources/config` folder and are in YAML format. Each project has a
+`config-local.yaml` file, which holds configuration properties suitable for running the application
+from Anypoint Studio. The `config-dev.yaml` file contains properties for deployment to the DEV
+environment.
+
+You can modify these files as per your own environment settings. In most cases, you must replace the
+property values where the value shows something similar to `REPLACE_BY_USER` in order for the
+application to be useful. Consult the project `README.md` file and/or the use case configuration
+steps for more details on configuring individual applications. You can also create entirely new sets
+of files for additional deployment environments.
+
+All properties can be overridden at deployment time by supplying the fully-qualified property name
+to the Mule runtime. For CloudHub deployments, add the property to the `Properties` tab in Runtime
+Manager with the desired value. For example, the common core library has the following default
+property definition (some content omitted for clarity):
+
+common: notifications: send: "none"
+
+This can be overridden for an application by providing the following:
+
+common.notifications.send=email
+
+For local deployments, prefix the above with `-M-D` on the command line.
+
+## Encryption Keys
+
+For convenience, passwords, secrets, hostnames, URLs have been converted to plain-text so that itâs
+easy to paste into Studioâs "Run Configurations". This also eases CloudHub deployment by using
+"hidden" properties not stored in any files. However, all components do support the use of encrypted
+properties out-of-the-box.
+
+To use secure properties, set an `encryption-key` (called "mule.key" in configurations) for
+encrypting secrets. Individual properties can then be encrypted and placed in the
+`config-secured-${mule.env}.yaml` file, as appropriate. These files will automatically be imported
+at runtime. For maximum security, use a different encryption key for each application.
+
+Refer to the
+[MuleSoft documentation](https://docs.mulesoft.com/cloudhub/secure-application-properties) for more
+information.
+
+## Application Messages
+
+Use `application-msgs.********` properties in YAML across all projects to configure the log messages
+as per the requirement. For example, `${application-msgs.before-post-inventory-call}` is used by the
+Logger before the HTTP POST inventory call to B2C Commerce.
+
+## Notifications
+
+The `common.notifications.send` property, defined in the common core library, is used to configure
+error notification settings for the APIs. Valid values are as follows:
+
+- `email` sends an email notification
+- `sms` sends an SMS notification
+- `slack` sends a Slack notification
+- `all` sends to all notification routes
+- `none` does not send any notifications
+
+The default setting is `none`. To enable the sending of notifications for a single application, you
+can override the value of this property at deployment time, either by adding the property to the
+`cloudHubDeployment` section in the application `pom.xml` file or by setting it directly in Runtime
+Manager.
+
+To change the default behavior for all applications, modify the property value in the common core
+library, deploy the new version to Exchange, and then update all applications to reference the new
+version of the library.
+
+## See Also
+
+- [Getting Started](getting-started)
+- [Build Environment](build-environment)
+- [Application Deployment](application-deployment)
+- [Application Testing](application-testing)
+- [MuleSoft Accelerators](./)
+---
+
+# Application Deployment
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Each Accelerator implementation template in Exchange includes Bash and Windows scripts for building
+and deploying the APIs to CloudHub. These scripts depend on repositories, global settings,
+deployment profiles, and associated properties configured in the Maven `settings.xml` file.
+
+Many templates can also be run from Anypoint Studio without having to customize the Run/Debug
+profiles. However, some templates make use of hidden deployment properties to protect sensitive
+information such as passwords and secret keys. These properties must be supplied to the runtime by
+updating the configuration profile and adding them as VM arguments.
+
+## Running the Application from Anypoint Studio
+
+The following instructions are for running applications from Studio but apply to debugging as well.
+
+1.  Update the `src/main/resources/config/config-local.yaml` file and provide appropriate values for
+    any mandatory property overrides listed for that application.
+2.  Right-click the project and select **Run As â Mule Application (configure)**
+3.  If hidden deployment properties are required (for example, Anypoint MQ credentials), select the
+    **Arguments** tab and add the property definitions to the **VM arguments** section as shown in
+    the following example.
+
+    -M-Danypoint-mq.client-id=<client id> -M-Danypoint-mq.client-secret=<client secret>
+    - Click **Run** to launch the application.
+
+To debug an application, choose **Debug As â Mule Application (configure)** in the second step
+instead.
+
+## Deployment Instructions for CloudHub
+
+The following instructions apply to CloudHub deployments only.
+
+1.  Update the `config-dev.yaml` properties as described above. You can also choose to add them to
+    your `settings.xml` file instead.
+2.  Use one of the following scripts to deploy the application to CloudHub:
+    - `packageDeploy.sh` (Mac/Linux) or `packageDeploy.cmd` (Windows) - clean, build, and deploy the
+      application
+    - `deployOnly.sh` (Mac/Linux) or `deployOnly.cmd` (Windows) - deploy a previously-built
+      application
+
+3.  Bring up the Runtime Manager console in Anypoint and monitor the application for proper startup.
+
+See below for more detailed steps on configuring CloudHub deployments using Maven profiles.
+
+### Configuring the Deployment Profile
+
+The default `settings-accelerators.xml` file, provided by the "Accelerator Common Resources -
+Source" asset, defines a single deployment profile called `CloudHub-DEV`. The key properties that
+can be configured are described in the following table:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Property Name</th><th>Description</th><th>Mandatory</th></tr></thead><tbody><tr><td><p>cloudhub.mavenServerId</p></td><td><p>Maven server entry providing credentials for target Anypoint instance</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.region</p></td><td><p>Target deployment region</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.businessGroupId</p></td><td><p>ID (not name) of the target business group</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.environment</p></td><td><p>Exact name of the target deployment environment (case-sensitive)</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.applicationName</p></td><td><p>Constructs the deployed application name from app/env properties</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.muleVersion</p></td><td><p>Target Mule runtime version</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.applyLatestPatch</p></td><td><p>Set to true to automatically apply latest patches on deployment</p></td><td><p>no</p></td></tr><tr><td><p>cloudhub.workerType</p></td><td><p>Worker size (translates to vCores)</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.workers</p></td><td><p>Number of workers</p></td><td><p>yes</p></td></tr><tr><td><p>cloudhub.objectStoreV2</p></td><td><p>Set to true to use ObjectStore V2</p></td><td><p>no</p></td></tr><tr><td><p>cloudhub.persistentQueues</p></td><td><p>Set true to use persistent queues</p></td><td><p>no</p></td></tr><tr><td><p>cloudhub.skipDeploymentVerification</p></td><td><p>Set to false to wait for application to be fully deployed before continuing</p></td><td><p>no</p></td></tr><tr><td><p>cloudhub.deploymentTimeout</p></td><td><p>Amount of time (in milliseconds) to wait for complete application deployment</p></td><td><p>no</p></td></tr><tr><td><p>mule.environment</p></td><td><p>Specifies the configuration properties files to use</p></td><td><p>yes</p></td></tr><tr><td><p>mule.encryptionKey</p></td><td><p>If secured properties are used an encryption key is required</p></td><td><p>no</p></td></tr><tr><td><p>anypoint.platform.clientId</p></td><td><p>Client ID of the target environment or business group</p></td><td><p>yes</p></td></tr><tr><td><p>anypoint.platform.clientSecret</p></td><td><p>Client secret of the target environment or business group</p></td><td><p>yes</p></td></tr><tr><td><p>anypoint.platform.enableMonitoring</p></td><td><p>Set to true to enable monitoring and visualization</p></td><td><p>no</p></td></tr></tbody></table>
+
+> [!NOTE] The template described previously is generic. Many accelerators provide their own version
+> of the common resources project, which contains a similar template specialized for that
+> accelerator.
+
+### Application Naming
+
+The default setting for the `cloudhub.applicationName` property constructs the application name base
+on the following segments:
+
+- Global Prefix (default is `org-`)
+- Maven artifact ID (from project pom.xml)
+- API compliance version (from project pom.xml)
+- Target environment name (hard-coded for profile)
+
+An example of a deployed application name using the default settings is
+`org-notifications-prc-api-v1-dev`.
+
+> [!IMPORTANT] CloudHub application names must be _globally_ unique. Therefore, we highly
+> recommended you set the `global.cloudhub.appPrefix` property, which is defined in the
+> `global-settings` profile, to a 2-4 character abbreviation unique to your organization. Exceeding
+> four characters may cause deployments to fail when using the CloudHub 1.0 runtime (see below).
+
+### Deploying Applications Using Maven Profiles
+
+Once appropriate values have been defined for the properties for the environment profile, individual
+applications can be deployed to that environment simply by specifying the profile name on the Maven
+command line. For example, the command `mvn clean deploy -DskipTests -PCloudHub-DEV` uses the
+settings in the `CloudHub-DEV` profile to build and deploy the application.
+
+## Troubleshooting
+
+The following sections provide solutions to common deployment issues.
+
+### Error Deploying Project Imported into Anypoint Studio
+
+If you choose to import accelerator projects into Anypoint Studio, be aware that Studio may
+automatically make modifications to the application `pom.xml` files, which could impact deployment.
+In particular, be sure to cancel the prompt to "Upgrade your workspace" when importing projects. If
+you run into trouble, check the `pom.xml` file and verify the configuration of the
+`mule-maven-plugin` looks something like the following:
+
+<plugin>
+    <groupId>org.mule.tools.maven</groupId>
+    <artifactId>mule-maven-plugin</artifactId>
+    <extensions>true</extensions>
+    <configuration>
+        <cloudHubDeployment>
+        ...
+        </cloudHubDeployment>
+        <classifier>${mule.app.classifier}</classifier>
+    </configuration>
+</plugin>
+
+Make sure there is no `<version>` element included and that the `<classifier>` element contains the
+property reference indicated above.
+
+### Unauthorized Error
+
+If deployment fails due to an `unauthorized` error, it is possible that the complete application
+name exceeds the 42 character limit on CloudHub deployment names. Adjust the prefix, the
+`artifactId` value in the project pom.xml, or the deployment name pattern to ensure the complete
+application name does not exceed 42 characters in length.
+
+## See Also
+
+- [Getting Started](getting-started)
+- [Build Environment](build-environment)
+- [Application Testing](application-testing)
+- [Additional Customizations](additional-customizations)
+- [MuleSoft Accelerators](./)
+---
+
+# Application Testing
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+All application projects include MUnit test suites, which provide basic unit test cases and
+functional tests defined in a Postman collection.
+
+## Postman Tests
+
+For running the Postman collections you will need to download and install the latest Postman release
+from [https://www.postman.com/downloads/](https://www.postman.com/downloads/). A Postman account is
+required to launch and run tests.
+
+Before importing the project collection into your Postman workspace you will need to set up an
+environment specifically for running Accelerator test collections. In the
+`accelerator-common-resources` project, there is a pre-defined environment file under the `testing`
+folder. Import this file into Postman and update the variables to reflect your own settings.
+
+## MUnit Tests
+
+From the command line, running any Maven goal that includes the testing phase automatically executes
+the MUnit tests. This includes the goals `test`, `package`, and `deploy`. To avoid running the MUnit
+tests, specify either `-DskipMunitTests` or `-DskipTests` on the Maven command line (for example,
+`mvn package -DskipTests`). Case matters when specifying the values.
+
+## See Also
+
+- [Getting Started](getting-started)
+- [Build Environment](build-environment)
+- [Application Deployment](application-deployment)
+- [Additional Customizations](additional-customizations)
+- [MuleSoft Accelerators](./)
+---
+
+# Build Environment
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+All Mule applications run under the Java Runtime Environment (JRE). Application components are built
+and deployed using Maven, a popular software management tool used in DevOps environments. MuleSoft
+also provides an Eclipse-based Integrated Development Environment (IDE) called Anypoint Studio,
+which is used for developing Mule applications in a graphical environment. While Studio can also be
+used for building, testing, and deploying applications, the instructions provided in the Accelerator
+documentation assume the use of Maven from the command line, except where noted.
+
+## Software Requirements
+
+The MuleSoft Accelerators for Salesforce Clouds are built on Mule 4 and Studio 7. Assets may work
+with other versions of Mule and Studio, but no assurances can be given. The following is a list of
+the minimum software requirements for working with Accelerator assets:
+
+- Anypoint Studio 7.12.0 or higher
+- Mule Runtime 4.4.0 or higher (included with Studio)
+- Latest AdoptOpenJDK 8 release (included with Studio)
+- Latest Maven 3.8.x release (for command-line deployments)
+- Postman 9.x or higher (for API testing)
+
+> [!NOTE] If you use Anypoint Studio 7.16 and later, you must override the Maven settings to use
+> Maven version 3.8.x. To override the settings:
+>
+> 1.  Open Maven settings in Anypoint Studio > Settings > Anypoint Studio.
+> 2.  Uncheck **Use embedded Maven installation**.
+> 3.  Enter the local Maven 3.8.x installation path in **Maven installation home directory**.
+> 4.  Click **Apply and Close**.
+
+## Workstation Setup
+
+Perform the following steps to prepare your workstation for building, deploying, and testing
+Accelerator assets. These instructions assume some basic knowledge of using Maven and Eclipse-based
+products.
+
+### Installing
+
+1.  Download and install the latest 64-bit version of the OpenJDK 8 release from
+    [https://adoptium.net/](https://adoptium.net/). On Windows, add or update the `JAVA_HOME`
+    environment variable to point to the installation root directory, for example
+    `C:\Program Files\Java\jdk1.8.0_265`, and append `%JAVA_HOME%\bin` to the `PATH` variable.
+2.  Download and install the latest Apache Maven 3.8.x release from
+    [https://maven.apache.org/download.cgi](https://maven.apache.org/download.cgi). Add or update
+    the `MAVEN_HOME` environment variable to point to the installation root directory, for example
+    `C:\Utilities\apache-maven-3.8.4`, and append `%MAVEN_HOME%\bin` (`$MAVEN_HOME/bin` on
+    Linux/MacOS) to the `PATH` variable.
+3.  Download and install the latest 64-bit version of the Anypoint Studio 7 release from
+    [https://www.mulesoft.com/lp/dl/anypoint-mule-studio](https://www.mulesoft.com/lp/dl/anypoint-mule-studio).
+    Do not install the product under a folder containing spaces in the name.
+4.  Launch Studio and create a new workspace for the accelerator assets. Do not locate the workspace
+    under a folder containing spaces in the name.
+
+### Configuring the Accelerator Build
+
+1.  Download the
+    [Accelerator Common Resources](https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-common-resources-src)
+    asset from Exchange and unpack the archive to a temporary directory. The directory should
+    contain a single Studio project folder called `accelerator-common-resources`.
+2.  Import the project folder into Studio using the **accel/Existing Projects into Workspace**
+    wizard (not the Anypoint Studio project wizard). If the project does not import as
+    `accelerator-common-resources`, you can select the project in the Package Explorer view and
+    press F2 to rename it:
+    ![sfc-doc-setupguide_01.png](https://www.mulesoft.com/ext/solutions/images/sfc-doc-setupguide_01.png)
+3.  Copy the contents of the `settings-accelerators.xml` file to your local Maven `settings.xml`
+    file, which is usually located under `$HOME/.m2` on Linux/MacOS hosts and `%USERPROFILE%\.m2` on
+    Windows hosts; create a new file if it does not exist. If the file already exists, make sure to
+    merge the contents of the `settings-accelerators.xml` with the existing. You may also choose to
+    keep the file separate and specify the `-s <filename>` option when running Maven commands; in
+    Studio you will also need to override the user settings path, which is under
+    `Anypoint Studio/Maven/User Settings` in the Preferences dialog.
+
+    > [!NOTE] This step is optional, if the project is intended to build only in Anypoint Studio.
+
+4.  For now, update the `server` entries to specify your own usernames and passwords for the two
+    Exchange repositories: `anypoint-exchange-v2` and `accelerator-exchange`. If you want to run
+    MUnit tests from the command line, you will also need to provide separate credentials for the
+    MuleSoft Nexus EE repository \`mule-enterprise).
+
+## Testing the Configuration
+
+> [!NOTE] Having proper values in the Maven settings file is critical for being able to resolve,
+> build and deploy components using Maven.
+
+To verify your workstation setup, import any Accelerator implementation template asset into Studio.
+You can either manually download the asset from Exchange and import it using the
+`Packaged mule application (jar)` wizard or you can launch the Exchange viewer in Studio to browse
+and open one directly.
+
+Once the project has been imported, verify that the project name in Studio matches the `name`
+element in the `pom.xml` file. If it does not, which is usually the case when importing from a
+downloaded archive, press F2 to rename it accordingly. This will make it easier to use the build
+scripts later. Ignore any warnings or errors for now.
+
+Open your favorite shell and navigate to the project root folder, for example
+`C:\workspaces\accelerators\accelerator-jira-sys-api`). Run the command `mvn clean`. If the message
+`BUILD SUCCESS` appears, then the command has completed successfully. If any errors are reported,
+they must be resolved before continuing; consult the Troubleshooting section below for help with
+common issues.
+
+In Studio, close the project, wait until Studio has finished processing any tasks, and then open it
+again. Ensure the project builds with no errors.
+
+## Troubleshooting
+
+If the `mvn clean` command does not complete successfully, or if Studio reports errors for the
+imported project, something in your setup is missing or incorrect. The following table provides
+common issues that may be encountered and steps for resolving the issues:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Issue</th><th>Possible Cause</th><th>Resolution</th></tr></thead><tbody><tr><td><p>Maven cannot find one or more dependencies</p></td><td><p>Credentials provided for the <code>server</code> entries may be invalid. If they are correct, it is possible Maven cached an earlier attempt to download the dependencies.</p></td><td><p>First, verify your credentials, and then add then run <code>mvn clean -U</code> to force Maven to update all dependencies. You can also force an update by removing cached dependencies from the <code>.m2/repository</code> folder. If this does not resolve the issue, download the POM Parent and Common Core assets and install them locally as per the <a href="additional-customizations">Additional customizations</a> page.</p></td></tr><tr><td><p>Studio reports "null" version errors</p></td><td><p>Studio is not resolving the parent POM correctly.</p></td><td><p>If the <code>mvn clean</code> command succeeded, close the project and then reopen it. If that does not work, try restarting Studio. As a last resort, delete the project, but not the files, from Studio and then import it again.</p></td></tr><tr><td><p>Error reported during project rename</p></td><td><p>Studio has locked one or more files.</p></td><td><p>Verify the new project folder contains the same files as the old one. Close Studio, delete the old project folder, and then launch Studio again.</p></td></tr><tr><td><p>Studio reports "cannot import as Mule project" error</p></td><td><p>The wrong wizard was used to import the project.</p></td><td><p>If the project still appears in the Package Explorer view, you can ignore the error. If it does not still appear, try the import again with a different import wizard.</p></td></tr><tr><td><p>Cannot update connector versions using Studio</p></td><td><p>Accelerator assets use dependency management defined in the parent Maven config.</p></td><td><p>To update the version of a dependency, either add a <code>&lt;version&gt;</code> tag directly to the applicationâs <code>pom.xml</code> file or update the version in the parent and redeploy it. Be sure to update the version of the parent POM and reference the new version in the application.</p></td></tr></tbody></table>
+
+## See Also
+
+- [Getting Started](getting-started)
+- [Application Deployment](application-deployment)
+- [Additional Customizations](additional-customizations)
+- [Application Testing](application-testing)
+- [MuleSoft Accelerators](./)
+---
+
+# MuleSoft Accelerators Common Services
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The MuleSoft Accelerators leverage a number of common components, referred to here as "common
+services". These services include the following:
+
+- [Common Scheduler](#common-scheduler) - unified scheduling
+- [Notification Services](#notification-services) - send notifications
+- [Security Services](#security-services) - API security policies
+
+The notification and scheduler services can be configured and installed as independent applications.
+The notification services consists of multiple applications, depending on which notification targets
+are selected. One or more security policies can be applied using API Manager.
+
+## Common Scheduler
+
+The Common Scheduling Service is an optional component that will run schedules and perform API
+calls. The benefit of having a common scheduler service is to have all the integration-level
+schedules maintained in one place. Here is a high-level view of how the scheduler service works:
+
+![accel-scheduling-service-diagram.png](https://www.mulesoft.com/ext/solutions/images/accel-scheduling-service-diagram.png)
+
+The service may be built in two different ways, depending on the target deployment platform. The
+Anypoint Platform offers operational advantages to applications deployed in CloudHub when dealing
+with schedules.
+
+### High-level Workflow
+
+The following is a high level description of the workflow for the scheduler process:
+
+1.  A predefined schedule is triggered. Schedules have enriched information about the last execution
+    such as SCHEDULE_TYPE and WATERMARK.
+2.  The scheduling service calls the job configured for this event and updates the schedule status
+    to "TRIGGERED" with a current timestamp. A Trigger ID and CALLBACK URL are generated.
+3.  Once the process completes, it does a call-back to the scheduling status service through the
+    callback URLs to report the execution status.
+
+For service configuration details please refer to the [Getting Started](getting-started) guide as
+well as the implementation template for the services itself.
+
+## Notification Services
+
+The solution provides an optional Notifications Process API, which consumes notification events and
+sends notifications to individuals or groups via SMS, email, or Slack via system APIs specific to
+those services. The high-level design is as follows:
+
+![accel-notification-service-diagram.png](https://www.mulesoft.com/ext/solutions/images/accel-notification-service-diagram.png)
+
+As you can see, the API offloads incoming requests directly to a queue in order to avoid blocking
+calling apps.
+
+### High-level Workflow
+
+The following is a high level description of the workflow for the notification process:
+
+1.  A module calls the Notifications Process API, providing:
+    - `NOTIFICATION\_TYPE`âââEither email, sms, or slack
+    - `NOTIFICATION\_ADDRESS`âââDestination address/number
+    - `NOTIFICATION\_MESSAGE`âââNotification message text
+
+2.  The API places the message on a queue for downstream processing and immediately returns a
+    success response.
+3.  A queue subscriber receives the message and routes it to the appropriate System API based on the
+    `NOTIFICATION\_TYPE`.
+4.  The System API synchronously processes the message and posts it to the back-end service.
+
+For service configuration details please refer to the [Getting Started](getting-started) guide as
+well as the individual RAML specifications and implementation templates for the individual services
+themselves.
+
+## Security Services
+
+Most APIs use the HTTPS protocol by default for secure communications. The APIs provided by the
+solution can also be secured by applying the `Client ID enforcement` policy in API Manager; the
+`Basic Authentication` policy is also supported.
+
+### CloudHub load balancers and HTTPS
+
+Applications that expose API endpoints or make calls to other APIs will do so via the HTTPS
+protocol. To simplify deployment, listeners use a self-signed certificate provided by the
+`accelerator-common-core` library. While this approach works fine when using the shared CloudHub
+load balancer in the target deployment region, the certificate will generally need to be replaced if
+running under a Dedicated Load Balancer.
+
+### How to apply the API Manager policy
+
+This section describes the procedure to enable the `Client ID enforcement` policy for a deployed
+API.
+
+**Your organization must have API Manager included in your Anypoint subscription in order to
+proceed.**
+
+#### Creating the managed API instance
+
+The simplest way to create a managed API instance is from an existing Exchange asset. Here are the
+steps:
+
+1.  Download the API RAML Definition asset from the MuleSoft Exchange and upload it to your own
+    Exchange instance. Be sure to select the correct business group.
+2.  In API Manager, select the same business group and choose a target environment. Click the
+    `Manage API` button and then select the `Manage API from Exchange` option.
+3.  In the `API Name` field, start typing the name of the API to manage. The asset type and version
+    fields should populate automatically.
+4.  Scroll down to the `Mule version` option and enable it. Clear the contents of the
+    `Implementation URI` field.
+5.  To make the API easier to find later, expand the `Advanced options` section and enter the full
+    display name of the API in the `Label` field (for example, `Accelerator Jira Experience API`).
+6.  Click `Save` to create the API instance. On the summary page, copy the `API ID` value found
+    under the `Autodiscovery` label.
+
+#### Requesting access to the API
+
+Locate the API asset in Exchange and select the `Request access` option from the menu located in the
+top-right corner of the asset page (may be hidden under the "three dots" menu). Select the API you
+created earlier and choose an application to use (create one if necessary). **Be sure to copy the
+client ID and client secret values.**
+
+In your local Maven `settings.xml` file (the one you configured specifically for the accelerator
+deployments), set the values of the `accelerator-api.client-id` and `accelerator-api.client-id`
+properties in the target deployment profile (for example, `CloudHub-DEV`) using the values you
+copied above.
+
+For a higher degree of security, create a separate application for each API consumer. For API to API
+calls, you will need to add each client ID/secret pair to your deployment profile and update the
+property name references in the `pom.xml` file for the consuming API.
+
+### Enabling support for API Manager in applications
+
+Each application must include a configuration element corresponding to the API ID that itâs
+implementing. The accelerator applications already include support for this; you only need to update
+them as follows:
+
+1.  In the implementation project, open the `global.xml` file found under the `src/main/mule`
+    folder.
+2.  When the editor opens, select the `Configuration XML` tab to reveal the XML source.
+3.  Locate the `api-gateway:autodiscovery` element and uncomment it. Leave the values as they are.
+4.  In the property file representing the target deployment environment (for example,
+    `config-dev.yaml`) under the `src/main/resources/config` folder, locate the `autodiscoveryID`
+    property and set it to the value copied from the `API ID` value, above. Be sure to keep the
+    double-quotes (this applies to all YAML config properties).
+5.  Deploy the updated application and monitor the log file. Just before the
+    `Your application is started` message, there should be one similar to the following:
+
+    API ApiKey{id='16422525'} is now unblocked (available).
+
+6.  Verify that the status of the API instance in API Manager now shows as "Available".
+
+#### Applying the policy
+
+The following steps describe how to apply the `Client ID enforcement policy` to a specific API:
+
+1.  In API Manager, locate the API to apply the policy to and click the version label to bring up
+    the API settings page.
+2.  Select the `Policies` item from the left navigation menu and click the `Apply New Policy`
+    button.
+3.  Select the latest version of the `Client ID enforcement` policy and then click
+    `Configure Policy`.
+4.  In the policy configuration page, choose the `HTTP Basic Authentication Header` option for the
+    `Credentials origin` setting.
+5.  Click the `Apply` button to create and apply the policy to the API.
+
+The policy should take effect after a few moments.
+
+### Automated policies
+
+An easier way to apply policies to all APIs is to deploy them as Automated policy. Existing
+applications will be updated, while new deployments will automatically get the policy. The steps for
+configuring the policies themselves remain the same.
+
+## See Also
+
+- The
+  [API Template Project](https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-api-template-src/)
+  is a generic implementation template that allows you to quickly create implementations for new API
+  specifications.
+- The
+  [Maven Archetype Plugin](https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-api-archetype-src/)
+  is a Maven archetype pre-built with Accelerator best practices to help developers kick start their
+  development of new APIs.
+- The [Getting Started](getting-started) guide provides detailed information about configuring and
+  using these services. Refer to the navigation pages on the left for more information about these
+  services from a functional perspective.
+- The [MuleSoft Accelerators](./) main page.
+---
+
+# Getting Started with MuleSoft Accelerators
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This guide helps you configure your local build environment to download, modify, and deploy
+accelerator assets successfully.
+
+![](https://play.vidyard.com/QS8NvfzwAZ7ghBppheYQSS.jpg)
+
+## Quick Start
+
+To get started:
+
+1.  Set up your [local build environment](build-environment) with the required software and Maven
+    build configuration.
+2.  Download and configure the assets required for the use case(s) you wish to implement. Some use
+    cases will require changes to the systems being integrated (for example, SAP, Salesforce Service
+    Cloud, etc.) Be sure to read and follow the instructions specified for each accelerator
+    carefully. This also applies when using only a few select assets instead of implementing
+    complete use cases.
+3.  Deploy the applications individually to your own CloudHub instance, either manually or by using
+    simple Maven commands. There may also be some helper configuration files available for deploying
+    multiple components at once.
+
+Refer to the sections below for more details on obtaining and using accelerator assets.
+
+### Asset Types
+
+The following table provides more information about the types of accelerator assets provided and how
+they fit into the overall solution.
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Type</th><th>Purpose</th><th>Example</th></tr></thead><tbody><tr><td><p>API Spec Fragments</p></td><td><p>Shared RAML specifications reused by multiple APIs. These define standard characteristics, data types and response codes common across most APIs.</p></td><td><p>Accelerator Global Resources</p></td></tr><tr><td><p>REST APIs</p></td><td><p>RAML specifications describing the resources and methods an API makes available to consumers. They are categorized into layers - System, Process, Experience - as per MuleSoftâs API-led approach.</p></td><td><p>Accelerator OMS System API</p></td></tr><tr><td><p>Templates</p></td><td><p>Runtime implementations of individual APIs and other integrations. These must be customized and deployed to your own Mule runtime environment (for example, CloudHub) to implement desired use cases.</p></td><td><p>Accelerator OMS System API - Implementation Template</p></td></tr><tr><td><p>Custom assets</p></td><td><p>Documentation and other downloadable components that do not fit into other categories.</p></td><td><p>Accelerator POM Parent - Source</p></td></tr></tbody></table>
+
+### Obtaining Accelerator Assets
+
+All accelerator assets are available from the main Anypoint Exchange site and are freely
+downloadable by customers with current subscriptions. Refer to the sections in the page navigation
+menu on the left for more information about configuring, building, and deploying these assets.
+
+The following instructions assume you have already configured your Maven `settings.xml` file
+according to the [build environment configuration](build-environment) guide.
+
+#### Import Directly into Anypoint Studio
+
+##### Import from Exchange
+
+All accelerator templates can be imported into Anypoint Studio directly from Exchange if your
+Anypoint credentials have been provided; refer to the Studio documentation for more details.
+
+- From Studio, open the Exchange window.
+- If prompted, log in to Anypoint Exchange.
+- Select the `Provided by MuleSoft` view.
+- Click the **Asset type** selector, and then choose **Templates**.
+- Copy and paste the title of this API into the **Search** field and press **Enter** on your
+  keyboard.
+- Click on the desired result to open the home page for the asset.
+- Click on the **Open** icon to import the asset into the current workspace.
+
+If it appears, you can safely cancel out of the `Update your Workspace` dialog as well as the
+subsequent `Are you sure?` prompt: our templates will work correctly with or without the suggested
+changes.
+
+##### Download and Import Manually to Anypoint Studio
+
+The following instructions assume you are viewing this page from your browser:
+
+- Click the **Download** button and save the template archive to your local file system.
+- In Studio, ensure the current perspective is set to `Mule Design`.
+- Right-click in an empty area in the `Package Explorer` and select **Import...**.
+- In the select dialog, expand the **Anypoint Studio** folder.
+- Choose the `Packaged mule application (.jar)` option and click **Next >**.
+- Enter the full path name of the downloaded jar file or select from the file browser.
+- Remove the version and `mule-application-template` suffixes from the project name, if desired.
+- Click **Finish** to import the project.
+
+As above, you can safely cancel out of the `Update your Workspace` dialog, if prompted.
+
+#### Import into Anypoint Code Builder
+
+To import into Anypoint Code Builder, visit
+[Importing Projects into the IDE](../anypoint-code-builder/int-import-mule-project).
+
+### Next Steps
+
+Ensure your [Build Environment](build-environment) is configured correctly before attempting to
+import or deploy any assets. Also refer to the [Application Deployment](application-deployment),
+[Application Testing](application-testing) and
+[Additional Customizations](additional-customizations) pages for more details on deploying, testing,
+and customizing accelerator assets. For more information about accelerators, see
+[MuleSoft Accelerators](./).
+
+## See Also
+
+- [Build environment](build-environment)
+- [Application deployment](application-deployment)
+- [Application testing](application-testing)
+- [Additional customizations](additional-customizations)
+- [MuleSoft Accelerators](./)
+---
+
+# MuleSoft Accelerators Overview
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Accelerators are a collection of technical assets (predominantly API specifications and
+implementation templates), reference architectures, and documentation that can be used to accelerate
+the implementation of multiple use cases supporting a larger business or industry problem.
+
+Accelerators are designed as modular building blocks: customers can change the patterns, mappings,
+and endpoints to suit their needs. They represent best practices we recommend to customers in
+accomplishing these use cases. Customers will save hours of discovery, design, development, and
+testing each time they use an accelerator asset.
+
+To access any of the asset links described within the following Accelerators, you must log in to
+[Anypoint Platform](https://anypoint.mulesoft.com/home/).
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><div><div><p><span><img src="_images/cg-icon.png" alt="Consumer Goods" width="100%"></span></p></div></div></td><td><div><div><p><a href="../consumer-goods/latest/">MuleSoft Accelerator for Consumer Goods</a></p></div></div></td><td><div><div><p>Helps consumer goods companies integrate their digital operations to gain visibility into trade promotion management and retail execution.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/dc-icon.png" alt="Data Cloud" width="100%"></span></p></div></div></td><td><div><div><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/mulesoft-accelerator-for-datacloud/" target="_blank" rel="noopener">MuleSoft Accelerator for Data Cloud</a></p></div></div></td><td><div><div><p>Enable organizations to easily unlock and connect core systems of record for Data Cloud.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/fs-icon.png" alt="Financial Services" width="100%"></span></p></div></div></td><td><div><div><p><a href="../financial-services/latest/">MuleSoft Accelerator for Financial Services</a></p></div></div></td><td><div><div><p>Simplifies customer 360 initiatives by unlocking both core banking and insurance platforms, systems of engagement (such as CRM and ITSM), Insuretechs, and FinTech data.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/hc-icon.png" alt="Healthcare" width="100%"></span></p></div></div></td><td><div><div><p><a href="../healthcare/latest/">MuleSoft Accelerator for Healthcare</a></p></div></div></td><td><div><div><p>Equips Payer, Provider, and Life Sciences organizations with foundational assets to accelerate their digital transformation journey.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/ls-icon.png" alt="Life Sciences" width="100%"></span></p></div></div></td><td><div><div><p><a href="../life-sciences/latest/">MuleSoft Accelerator for Life Sciences</a></p></div></div></td><td><div><div><p>Helps pharmaceuticals, medical device companies, and contract research organizations (CROs) integrate digital operations and get their products to market faster.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/mfg-icon.png" alt="Manufacturing" width="100%"></span></p></div></div></td><td><div><div><p><a href="../manufacturing/latest/">MuleSoft Accelerator for Manufacturing</a></p></div></div></td><td><div><div><p>Equips discrete and process manufacturers with foundational assets for common use cases to accelerate their digital transformation journey.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/oms-icon.png" alt="OMS" width="100%"></span></p></div></div></td><td><div><div><p><a href="../salesforce-oms/latest/">MuleSoft Accelerator for Salesforce OMS</a></p></div></div></td><td><div><div><p>Enables you to extend and integrate Salesforce Order Management with external business partners and application ecosystems by leveraging the application and B2B integration capabilities of Anypoint Platform.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/retail-icon.png" alt="Retail" width="100%"></span></p></div></div></td><td><div><div><p><a href="../retail/latest/">MuleSoft Accelerator for Retail</a></p></div></div></td><td><div><div><p>Empowers retail IT teams to unlock data from systems including ERP, CRM, MDM, commerce, and marketing to activate digital projects faster.</p></div></div></td></tr><tr><td><div><div><p><span><img src="_images/sap-icon.png" alt="SAP" width="100%"></span></p></div></div></td><td><div><div><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/mulesoft-accelerator-for-sap/" target="_blank" rel="noopener">MuleSoft Accelerator for SAP</a></p></div></div></td><td><div><div><p>Enable organizations to easily expose SAP ERP data for consumption by all.</p></div></div></td></tr></tbody></table>
+
+If you have any questions or feedback, let us know at
+[solutions-questions@mulesoft.com](mailto:solutions-questions@mulesoft.com). You can also engage
+with other users on the
+[MuleSoft Trailblazer Community](https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft)
+and submit ideas on the [Salesforce Ideas Portal](https://ideas.salesforce.com/).
+
+## See Also
+
+- [Getting Started](getting-started)
+- [MuleSoft Accelerators on Anypoint Exchange](https://anypoint.mulesoft.com/exchange/org.mule.examples/mulesoft-accelerators-introduction/).
+---
+
+# Shared Assets
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following assets may be used by one or more accelerators. They can also be downloaded and used
+independently. All asset links refer to Anypoint Exchange and require you to login in order to be
+able to access them. Select the tab corresponding to the Cloud instance of your account in order to
+ensure you follow the correct links.
+
+## API Libraries
+
+The following RAML libraries are available for use in all API specifications.
+
+- US Exchange
+- EU Exchange
+- GovCloud Exchange
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator Global Resources</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-global-resources" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Finance Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-finance-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM FINS Extension Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-fins-ext-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Fulill Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-fulfill-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Market Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-market-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Produce Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-produce-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Sell Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-sell-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Setup Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-setup-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator Global Resources</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-global-resources" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Finance Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-finance-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM FINS Extension Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-fins-ext-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Fulill Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-fulfill-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Market Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-market-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Produce Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-produce-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Sell Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-sell-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Setup Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-cim-setup-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator Global Resources</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-global-resources" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Finance Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-finance-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM FINS Extension Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-fins-ext-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Fulill Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-fulfill-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Market Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-market-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Produce Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-produce-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Sell Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-sell-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr><tr><td><p>CIM Setup Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-cim-setup-library" target="_blank" rel="noopener">RAML Library</a></p></td></tr></tbody></table>
+
+## System APIs
+
+The following APIs are used by multiple accelerators to access and manage data in various external
+systems. These correspond to the System layer in MuleSoftâs API-led approach.
+
+- US Exchange
+- EU Exchange
+- GovCloud Exchange
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator AWS Storage System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-aws-storage-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-aws-storage-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Email System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-email-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-email-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Financial Account System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-finacct-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-mdb-global-finacct-sys-api" target="_blank" rel="noopener">Implementation Template (MariaDB)</a></p></td></tr><tr><td><p>Accelerator Global Party System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-party-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-mdb-global-party-sys-api" target="_blank" rel="noopener">Implementation Template (MariaDB)</a></p></td></tr><tr><td><p>Accelerator Salesforce Customers System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Slack System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-slack-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-slack-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator SMS System API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-sms-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sms-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator AWS Storage System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-aws-storage-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-aws-storage-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Email System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-email-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-email-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Financial Account System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-global-finacct-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-mdb-global-finacct-sys-api" target="_blank" rel="noopener">Implementation Template (MariaDB)</a></p></td></tr><tr><td><p>Accelerator Global Party System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-global-party-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-mdb-global-party-sys-api" target="_blank" rel="noopener">Implementation Template (MariaDB)</a></p></td></tr><tr><td><p>Accelerator Salesforce Customers System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sfdc-customers-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sfdc-customers-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Slack System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-slack-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-slack-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator SMS System API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-sms-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sms-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator AWS Storage System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-aws-storage-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-aws-storage-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Email System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-email-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-email-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Financial Account System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-finacct-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-mdb-global-finacct-sys-api" target="_blank" rel="noopener">Implementation Template (MariaDB)</a></p></td></tr><tr><td><p>Accelerator Global Party System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-party-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-mdb-global-party-sys-api" target="_blank" rel="noopener">Implementation Template (MariaDB)</a></p></td></tr><tr><td><p>Accelerator Salesforce Customers System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-sys-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Slack System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-slack-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-slack-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator SMS System API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-sms-sys-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sms-sys-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+## Process APIs
+
+The following APIs represent the reusable business processes that are leveraged by multiple
+accelerators. These correspond to the Process layer in MuleSoftâs API-led approach.
+
+- US Exchange
+- EU Exchange
+- GovCloud Exchange
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator Customers Process API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-customers-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-customers-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Financial Account Process API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-finacct-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-finacct-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Party Process API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-party-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-party-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Notifications Process API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-notifications-prc-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-notifications-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator Customers Process API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-customers-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-customers-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Financial Account Process API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-global-finacct-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-global-finacct-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Party Process API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-global-party-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-global-party-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Notifications Process API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-notifications-prc-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-notifications-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator Customers Process API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-customers-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-customers-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Financial Account Process API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-finacct-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-finacct-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Global Party Process API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-party-prc-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-global-party-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Notifications Process API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-notifications-prc-api" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-notifications-prc-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+## Experience APIs
+
+The following APIs provide tailor-made endpoints for specific applications to consume. These
+correspond to the Experience layer in MuleSoftâs API-led approach.
+
+- US Exchange
+- EU Exchange
+- GovCloud Exchange
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator Salesforce Customers Experience API</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-exp-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-exp-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator Salesforce Customers Experience API</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sfdc-customers-exp-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sfdc-customers-exp-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>Accelerator Salesforce Customers Experience API</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-exp-api-spec" target="_blank" rel="noopener">API Specification</a></p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-customers-exp-api" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+## Integration Applications
+
+The following applications provide key integrations but do not expose any APIs as such.
+
+- US Exchange
+- EU Exchange
+- GovCloud Exchange
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator Salesforce Financial Account Event Listener</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-finacct-event-listener" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Salesforce Party Event Listener</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-party-event-listener" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator Salesforce Financial Account Event Listener</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sfdc-finacct-event-listener" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Salesforce Party Event Listener</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accel-sfdc-party-event-listener" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator Salesforce Financial Account Event Listener</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-finacct-event-listener" target="_blank" rel="noopener">Implementation Template</a></p></td></tr><tr><td><p>Accelerator Salesforce Party Event Listener</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accel-sfdc-party-event-listener" target="_blank" rel="noopener">Implementation Template</a></p></td></tr></tbody></table>
+
+## Shared Components
+
+The following non-application components are also used by multiple accelerators.
+
+- US Exchange
+- EU Exchange
+- GovCloud Exchange
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator API Archetype Plugin</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-api-archetype-src" target="_blank" rel="noopener">Plugin Source</a></p></td></tr><tr><td><p>Accelerator API Template Project</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-api-template-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator Common Core Library</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-common-core-src" target="_blank" rel="noopener">Library Source</a></p></td></tr><tr><td><p>Accelerator Common Resources Project</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-common-resources-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator Knit Maven Plugin</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-knit-plugin-src" target="_blank" rel="noopener">Plugin Source</a></p></td></tr><tr><td><p>Accelerator ID Graph Lightning Web Component</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-idgraph-lwc-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator MuleSoft Lightning Web Component</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-lwc-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator POM Parent</p></td><td><p><a href="https://anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-pom-parent-src" target="_blank" rel="noopener">Project Source</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator API Archetype Plugin</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-mulesoft-api-archetype-src" target="_blank" rel="noopener">Plugin Source</a></p></td></tr><tr><td><p>Accelerator API Template Project</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-mulesoft-api-template-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator Common Core Library</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-common-core-src" target="_blank" rel="noopener">Library Source</a></p></td></tr><tr><td><p>Accelerator Common Resources Project</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-common-resources-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator Knit Maven Plugin</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-knit-plugin-src" target="_blank" rel="noopener">Plugin Source</a></p></td></tr><tr><td><p>Accelerator ID Graph Lightning Web Component</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-idgraph-lwc-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator MuleSoft Lightning Web Component</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-mulesoft-lwc-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator POM Parent</p></td><td><p><a href="https://eu1.anypoint.mulesoft.com/exchange/org.mule.templates/accelerator-pom-parent-src" target="_blank" rel="noopener">Project Source</a></p></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Accelerator API Archetype Plugin</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-api-archetype-src" target="_blank" rel="noopener">Plugin Source</a></p></td></tr><tr><td><p>Accelerator API Template Project</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-api-template-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator Common Core Library</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-common-core-src" target="_blank" rel="noopener">Library Source</a></p></td></tr><tr><td><p>Accelerator Common Resources Project</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-common-resources-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator Knit Maven Plugin</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-knit-plugin-src" target="_blank" rel="noopener">Plugin Source</a></p></td></tr><tr><td><p>Accelerator ID Graph Lightning Web Component</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-idgraph-lwc-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator MuleSoft Lightning Web Component</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-mulesoft-lwc-src" target="_blank" rel="noopener">Project Source</a></p></td></tr><tr><td><p>Accelerator POM Parent</p></td><td><p><a href="https://gov.anypoint.mulesoft.com/exchange/org.mule.examples/accelerator-pom-parent-src" target="_blank" rel="noopener">Project Source</a></p></td></tr></tbody></table>
+
+## See Also
+
+- [Getting Started](getting-started)
+- [Accelerator Common Services](common-services)
+- [MuleSoft Accelerators](./)
+---
+
+# Considerations for Simplifying Accelerator Assets
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+MuleSoft Accelerators follow an API-led approach to connectivity, which separates app, process, and
+system integration layers while enabling a high level of reusability, particularly with System APIs.
+The low maintenance costs and ability to enable future growth make this process highly recommended.
+However, if you want a less complex approach, follow this guidance to simplify your integrations and
+architecture.
+
+## Simplify Accelerator Assets
+
+Keeping the assets and corresponding solutions as simple as possible drives the design and
+implementation of use cases supported by the MuleSoft Accelerators, as well as providing solid,
+functional, and maintainable architectures for customers to build upon.
+
+The following key principles demonstrate the philosophy behind the solution design:
+
+- Follows the API-led connectivity approach but creates APIs only where necessary to support clean
+  integration with external apps and systems.
+- Keeps exception handling clean and simple, allowing for straightforward extension and
+  customization.
+- Avoids using heavy logging, monitoring, or exception-handling frameworks.
+- Leverages a reusable canonical data model within the business process layer to simplify
+  communication between layers.
+- Uses messaging only where necessary to support high-volume deployments.
+- Uses inline subflows instead of top-level flows where possible.
+
+The assets developed for the MuleSoft Accelerators are flexible and extensible, supporting existing
+use cases and other use cases that customers need to support their business. Some APIs include
+additional endpoints, especially System APIs shared across multiple use cases. Not all customer
+deployments require the additional endpoints. The reference architectures for most solutions support
+long-term growth and evolution, which can result in additional apps and interactions that are not
+always required for smaller deployments.
+
+To reduce the number of flows in accelerator apps, apply the guidance in the following sections.
+
+### Remove Unused APIkit Handlers
+
+- Remove scaffolded flows from the main router flow file in APIkit, which is usually the `*-api.xml`
+  file.
+- Leave the API specification unchanged instead of rescaffolding, because you always edit the file
+  manually to remove the scaffolded flows.
+- Avoid circumventing the APIkit router with a plain choice router, because that makes the router
+  less discoverable and increases maintenance costs.
+- Remove the flow for the APIkit console.
+
+### Remove API Health Checks
+
+The `get:/ping` endpoint periodically monitors the health status of deployed APIs. If you donât need
+to monitor, remove the handlers for these endpoints from the main APIkit flow file. If you keep the
+endpoints, remove the checks for downstream dependencies to reduce messages and throughput.
+
+### Generalize Event Sources
+
+Instead of creating monolithic flows that listen to generic events, combine event sources into more
+granular events. For example, general events exist for publishing and consuming updates to Parties,
+such as Individual and Household, and to Party Roles, such as Customer and Supplier. By combining
+the update queues, you bind them to both Exchanges and a single handler consumes them. You receive
+the same number of messages but with fewer flow event sources.
+
+Take the same approach for VMQueue subscribers, SFTP listeners, and other event sources.
+
+### Reduce the Number of APIs
+
+Backend systems like Salesforce have a modern API and limited mapping between a canonical model and
+the backend model. To reduce the number of message flows, consider making calls directly to the
+target system from the Process layer instead of through a dedicated System API.
+
+The use cases for Experience APIs provide data transformation, authentication mediation, and service
+filtering for external consumers. If API Manager governs the target APIs, you donât need an
+Experience API for internal systems aligned to the same data, authentication, and services as the
+Process or System APIs.
+
+When providing similar functionality to external apps via Experience APIs, find opportunities to
+provide a single Experience API to support multiple channels, rather than one Experience API per
+channel. For example, combine multiple Salesforce Experience APIs to reduce the number of message
+flows and apps.
+
+Provide shared functionality via Mule libraries instead of standalone APIs, such as when an Account
+or Order lookup from Salesforce is required by multiple apps in the Process layer. To reduce flows
+and message count, implement the shared functionality in one or more subflows, package it into a
+Mule library, and include it with the Process APIs.
+
+## Additional Simplifications
+
+To simplify your integrations, reduce the number of Mule messages and throughput.
+
+### Reduce Mule Messages
+
+Receiving an event from an event source, including incoming API requests, produces Mule messages. To
+consume fewer messages when handling a top-level event, reduce the number of API-to-API calls, such
+as Experience API to Process API.
+
+The accelerator solutions also avoid making unnecessary hops, such as an Experience API calling a
+System API directly when no intermediate transformation, validation, or aggregation is required. The
+solutions avoid introducing an intermediate Process API that acts as a passthrough hop.
+
+To optimize the solutions further:
+
+- Make calls to backend systems directly from Process APIs that have a straightforward interface for
+  the target system.
+- Remove the flows for health checks that look at downstream system health if you enable the
+  `checkDependencies` flag.
+- Replace VMQueue or Anypoint MQ messaging if you use low volume deployments and synchronous
+  processing.
+- Update endpoints to accept arrays of objects instead of single items when performing request
+  batching.
+
+### Reduce Data Throughput
+
+Some of the simplification steps described previously also reduce data throughput. When considering
+custom frameworks, such as for logging or exception handling, take data throughput into account for
+your deployments.
+
+## See Also
+
+- [Getting Started with MuleSoft Accelerators](getting-started)
+- [Usage Reports](../general/usage-reports)
+- [API-led Connectivity](https://blogs.mulesoft.com/learn-apis/api-led-connectivity/)
+- [MuleSoft Accelerators Overview](./)
+

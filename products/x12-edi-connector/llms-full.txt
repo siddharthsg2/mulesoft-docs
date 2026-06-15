@@ -1,0 +1,2202 @@
+﻿# X12 EDI Connector - Full Documentation
+
+# X12 EDI Connector 2.18
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Support Category:
+[Premium](https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/versioning-back-support-policy.pdf)
+
+Anypoint Connector for X12 EDI (X12 EDI Connector) enables you to convert X12 messages to and from
+DataWeave-compatible representations by using lists and maps. All of the schema definitions you need
+for [supported X12 standard transaction sets](x12-edi-versions-x12) are included. For complete
+information about schemas, see
+[X12 EDI Schema Language Reference](x12-edi-schema-language-reference).
+
+Many Health Insurance Portability and Accountability Act (HIPAA) document versions are also
+supported, as listed separately in the [Supported HIPAA Versions](x12-edi-versions-hipaa). For more
+information about HIPAA usage, refer to [Connector HIPAA Standards](x12-edi-connector-hipaa).
+
+## Prerequisites
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Purchased a MuleSoft license for X12 EDI Connector.
+
+  Contact your Account Representative about purchasing a license.
+
+- Anypoint Studio or Anypoint Code Builder
+
+> [!NOTE] X12 EDI Connector supports files of up to 15 MB in size, and the memory requirement is
+> approximately 40 to 1. For example, a 1 MB file requires up to 40 MB of memory to process, so itâs
+> important to consider this memory requirement in conjunction with your Transactions Per Second
+> (TPS) needs for large X12 files. This is not an exact figure; the value varies according to the
+> complexity of the mapping instructions.
+
+## Exchange Templates and Examples
+
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) provides templates that you can use as
+starting points for your apps and examples that illustrate a complete solution.
+
+### X12 EDI Connector Templates in Exchange
+
+X12 EDI Connector templates provide starting points that help you:
+
+- [Map application messages to outbound X12 transactions](https://www.mulesoft.com/exchange/org.mule.examples/template-b2b-edi-outbound-x12-map/minor/1.0/)
+- [Map inbound X12 transactions to the application message format](https://www.mulesoft.com/exchange/org.mule.examples/template-b2b-edi-inbound-x12-map/minor/1.0/)
+- [Set up your Partner Manager content storage](https://www.anypoint.mulesoft.com/exchange/com.mulesoft.b2b/partner-manager-content-storage-service-s3/minor/1.0/)
+
+### X12 EDI Connector Examples in Exchange
+
+X12 EDI Connector examples in Exchange enable you to:
+
+- [Customize an X12 EDI schema for B2B integrations](https://www.mulesoft.com/exchange/works.integration/b2b-x12-custom-schema-example/minor/1.0/)
+- [Transform outbound purchase order XML messages to X12 850 transactions](https://www.mulesoft.com/exchange/org.mule.examples/example-b2b-nto-outbound-purchase-order-01/minor/1.0/)
+- [Transform inbound X12 850 transactions to JSON purchase orders](https://www.mulesoft.com/exchange/org.mule.examples/example-b2b-mythical-inbound-purchase-order-01/minor/1.0/)
+- [Transform outbound XML messages into X12 purchase orders, inbound X12 purchase orders into JSON, and generate a functional acknowledgement](https://www.mulesoft.com/exchange/org.mule.examples/b2b-demo-x12-transform/)
+- [Implement an end-to-end order to cash workflow from the perspective of a seller](https://www.mulesoft.com/exchange/com.mulesoft.muleesb.modules/b2b-order-to-cash-mapping/minor/1.0/)
+- [Implement an end-to-end B2B procure to pay workflow from the perspective of a buyer](https://www.mulesoft.com/exchange/com.mulesoft.muleesb.modules/b2b-procure-to-pay-mappings/minor/1.0/)
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create your own app and configure the
+connector using [Anypoint Studio](x12-edi-connector-studio).
+
+## See Also
+
+[Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+
+[Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 Batch Outbound X12 Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+For EDI messages that are not time-sensitive, such as invoice and payment remittances, use the Write
+batch operation to merge multiple individual messages into a single interchange to send to your
+trading partners.
+
+## Batching Stages
+
+Use the Anypoint Connector for X12 EDI (X12 EDI Connector) Write batch operation to merge individual
+X12 messages into a single transmission to send to your trading partners.
+
+Implementing a batch involves two stages:
+
+1.  Accumulate the transactions.
+2.  Release the batch.
+
+### Accumulate the Transactions
+
+To accumulate transactions for a batch:
+
+1.  Transform the payloads into X12 messages using DataWeave and X12 as you receive application
+    messages (such as a JSON invoice) from the backend systems.
+2.  Create X12 payloads using temporary control number keys in the X12 Write operation.
+
+    This enables sending the accumulated X12 as a batch at a later time. The batch is created using
+    control numbers that are not used in the final batch that is sent to the trading partner, for
+    example,
+    `<x12:write doc:name="Create a single X12 810 Invoice Txn" doc:id="767e1321-044d-4ed4-95ba-6ddc78efb0b4" config-ref="X12_EDI_Write_810" interchangeNumberKey="MYTHICAL-NTOETAIL-ISA-TMP" groupNumberKey="MYTHICAL-NTOETAIL-GS-TMP"/>`.
+
+3.  Store the intermediate X12 message payloads in your choice of storage, such as a database table:
+
+![Accumulate the transactions](_images/X12-edi-connector-batch-flow-1.jpg)
+
+For example, this implementation of a Mule flow:
+
+- Receives JSON payloads from the backend systems.
+- Transforms to an `X12 810` invoice message.
+- Generates the intermediate X12 message payload using the X12 Write operation.
+- Stores the X12 payload in a database table.
+
+### Release the Batch
+
+Trading partners have varying criteria for how they want transactions batched:
+
+- Release the batch at a specific time interval or a specific time of the day.
+- Release the batch when a specific number of transactions are accumulated.
+- Release the batch when the total size of the accumulated transactions is near a specified
+  threshold.
+
+To release the batch:
+
+1.  Implement the logic or module to monitor the transactions accumulated in the temporary storage
+    and determine when a particular batch is released.
+2.  Retrieve the accumulated intermediate X12 messages from the temporary storage based on the batch
+    criteria, group the transactions together, and then send the appended payload to the X12 Write
+    batch operation.
+
+    You can either use the control number key on the Write batch operation or leave the control
+    number key fields empty at the time of Write batch operation execution, allowing the X12 EDI
+    Connector to generate the control number sequence automatically based on the sender and receiver
+    identifier combination:
+
+    `<x12:batch doc:name="Batch" doc:id="6f105235-1406-45bb-b41e-f3b28cdf2eb5" config-ref="X12_EDI_Batch" batchInterchangeNumberKey="MYTHICAL-NTOETAIL-ISA" batchGroupNumberKey="MYTHICAL-NTOETAIL-GS"> <x12:batch-content ><![CDATA[#[vars.batchInput]]]></x12:batch-content></x12:batch>`.
+
+3.  Ensure that the input payload sent to the Write batch operation contains EDI transactions with
+    data elements in the ISA and GS envelope segments, such as `Sender ID`, `Receiver ID`, and
+    `Version number`:
+
+![Release the batch](_images/x12-edi-connector-batch-flow-2.png)
+
+For example, this implementation of a Mule flow:
+
+- Receives an HTTP request to release accumulated X12 messages transactions for a specific partner.
+  The request is triggered after the batch release criteria are met.
+- Retrieves the intermediate X12 messages from the database table.
+- Applies a transformation to group the individual X12 messages.
+- Sends the appended payload through the X12 Write batch operation to merge the messages into a
+  single transaction.
+- Prints the generated control numbers, which reconcile the inbound functional acknowledgments
+  received from the partners.
+- Delivers the batched X12 transaction to the trading partnerâs SFTP site.
+
+If the input payload contains EDI transactions with non-matching data elements in the envelope
+segments, the Batch operation throws an exception.
+---
+
+# X12 EDI Connector 2.18 Schema and Trading Partner Configuration
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use these additional XML configuration options to:
+
+- Set your schema location if you are using custom schemas
+- Define your trading partner relationship by setting SELF or PARTNER identification
+
+You can set the types of error conditions that reject receive transaction sets and any writer
+message separator operations. These general parameters control both Send and Receive document
+handling.
+
+## Set Your Schema Locations
+
+If youâre using one or more custom schemas, locate these under a directory in `src/main/resources`
+and refer to the location relative to this directory. For example, if an `850` schema (either
+overlay or full) is under `src/main/resources/mypartner/850.esl`, the schema location is
+`/mypartner/850.esl`.
+
+You can configure schema locations in the Anypoint Studio XML view. The schema files are loaded when
+the connector is initialized, so runtime expressions such as flow variables are not supported.
+
+To configure schemas in Anypoint Studio:
+
+1.  Switch to the XML view by clicking Configuration XML
+2.  Modify your X12 EDI configuration to include a list of all the schemas for use by adding an
+    `<x12:schema>` element for each document type:
+
+```xml
+<x12-edi:config name="X12_EDI__Configuration" identKeys="true" doc:name="X12 EDI: Configuration">
+  <x12-edi:schemas>
+    <x12:schema value="/x12/005010/850.esl"/>
+  </x12-edi:schemas>
+</x12-edi:config>
+```
+
+If you donât include any schemas in the configuration, X12 EDI Connector attempts to load the
+standard X12 schema definitions provided with the connector. However, in this case you wonât see any
+metadata to define the structure of the data passed in and out of the connector.
+
+If the schema definition configuration includes a `997` or `999` Functional Acknowledgment schema,
+then that schema is used to generate Functional Acknowledgments.
+
+> [!NOTE] To use the Functional Acknowledgment schema type (`997` or `999`), that schema must match
+> the `generate999Acks` Parser parameter (`false` for `997`, `true` for `999`).
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>formValidation="X12"/"HIPAA_SNIP1"/"HIPAA_SNIP2"</p></td><td><p>The schema form and validation level can be either X12 or HIPAA. The default is X12.</p></td></tr><tr><td><p>schemas=list of values</p></td><td><p>List of schema paths the connector can use. These paths can be either a file system or <code>classpath</code>.</p></td></tr><tr><td><p>characterEncoding="PLATFORM"/"ASCII"/"ISO8859_1"/"IBM1047"/"UTF8"</p></td><td><p>The character encoding used for both send and receive messages. The default <code>PLATFORM</code> is the Mule default encoding.</p></td></tr><tr><td><p>stringCharacterSet="BASIC"/"EXTENDED"/"UNRESTRICTED"</p></td><td><p>Use a substitution character for invalid characters, or reject them as errors if set to <code>none</code> or enabled for receive messages in the parser options. The default is <code>EXTENDED</code> for string data.</p></td></tr><tr><td><p>stringSubstitutionChar="?"</p></td><td><p>Substitution character used to replace invalid characters in string values. The default is <code>none</code>.</p></td></tr><tr><td><p>versionIdentifierSuffix="XYZ"</p></td><td><p>Version identifier code suffix for the group (GS). Setting this value affects both Send and Receive message handling. On the Receive side, the GS08 version code must contain X12 schema version (for example, <code>004010</code>, <code>005010</code>, and so on) followed by this suffix. Not setting this value means the Receive-only just verifies that the GS version identifier code starts with the configured schema version. On the Send side, the combination of X12 schema version and this suffix comprises the GS08 value.</p></td></tr><tr><td><p>lockMechanism="AUTO"/"RUNTIME_LOCK_MANAGER"/"OBJECT_STORE"</p></td><td><p>Mechanism to use to manage locks for control number sequencing.</p></td></tr></tbody></table>
+
+## Self Identification Parameters
+
+Use these parameters to identify your side of the trading partner relationship.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>interchangeIdQualifierSelf="ZZ"</p></td><td><p>The ID qualifier for Mule in Exchange (known as the <em>ISA segment</em>). Use this value in combination with the <code>Interchange ID</code> value. Both values must be either specified or not specified.</p></td></tr><tr><td><p>interchangeIdSelf="MULE"</p></td><td><p>The ID qualifier for Mule runtime engine in Exchange (known as the ISA segment). Use this value in combination with the <code>Interchange ID</code> value. Both values must be either specified or not specified.</p></td></tr><tr><td><p>groupIdSelf="MULEAPP"</p></td><td><p>Application code for Mule runtime engine in a group (GS segment).</p></td></tr></tbody></table>
+
+## Partner Identification Parameters
+
+These identify your partner.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>interchangeIdQualifierSelf="ZZ"</p></td><td><p>The ID qualifier for a partner in Exchange (known as the <em>ISA segment</em>). Use this value in combination with the <code>Interchange ID</code> value. Both values must be either specified or not specified.</p></td></tr><tr><td><p>interchangeIdSelf="PARTNER"</p></td><td><p>The ID qualifier for a partner in Exchange (known as the <em>ISA segment</em>). Use this value in combination with the <code>Interchange ID</code> value. Both values must be either specified or not specified.</p></td></tr><tr><td><p>groupIdSelf="PARTNERAPP"</p></td><td><p>Application Code for a partner in a group (GS segment)</p></td></tr></tbody></table>
+
+## Parser Parameters for Error Conditions
+
+These control the parser operation and the types of error conditions that reject Receive transaction
+sets.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>enforceLengthLimits="true"</p></td><td><p>Enforce the minimum and maximum lengths for receive values.</p></td></tr><tr><td><p>truncateExceedingMaxLength="false"</p></td><td><p>Truncate to the maximum lengths for received values.</p></td></tr><tr><td><p>enforceCharacterSet="true"</p></td><td><p>Enforce the allowed character set.</p></td></tr><tr><td><p>enforceValueRepeats="true"</p></td><td><p>Enforce the repetition count limits for receive values.</p></td></tr><tr><td><p>allowUnknownSegments="false"</p></td><td><p>Allow unknown segments in a transaction set.</p></td></tr><tr><td><p>enforceSegmentOrder="true"</p></td><td><p>Enforce the segment order in a transaction set.</p></td></tr><tr><td><p>allowUnusedSegments="false"</p></td><td><p>Allow segments marked as <code>Unused</code> in a transaction set.</p></td></tr><tr><td><p>enforceSegmentRepeats="true"</p></td><td><p>Enforce segment repetition count limits in a transaction set.</p></td></tr><tr><td><p>requireUniqueInterchanges="true"</p></td><td><p>Require unique ISA Interchange Control Numbers (such as ISA13). The default behavior records the interchange numbers previously processed and rejects duplicate interchange numbers from the same partner. It is derived from the interchange Sender and Receiver identification. Setting to <code>false</code> enables received interchange processing to continue and relies on the application flow to track the numbers and handle them appropriately.</p></td></tr><tr><td><p>requireUniqueGroups="false"</p></td><td><p>Enforce globally unique Group Control Numbers (GS06) for received functional groups. By default, group numbers need to be unique within an interchange. Setting to <code>true</code> requires group numbers to be unique across all interchanges received from the same partner and application. This is derived from the interchange sender and receiver identification combined with the functional group sender and receiver application codes.</p></td></tr><tr><td><p>requireUniqueTransactionSets="false"</p></td><td><p>Enforce globally unique Transaction Set Control Numbers (ST02) for received transaction sets. By default, transaction set control numbers need to be unique only within a particular functional group. Setting to <code>true</code> requires transaction set numbers to be unique across all functional groups received from the same partner and application. This is derived from the interchange sender and receiver identification, combined with the functional group sender and receiver application codes.</p></td></tr><tr><td><p>daysToStore="30"</p></td><td><p>Minimum number of days to store interchange, group, and transaction set numbers for uniqueness checking.</p></td></tr><tr><td><p>ackAllSets="false"</p></td><td><p>Include a separate AK2/AK5 (<code>997</code>) or AK2/IK5 (<code>999</code>) acknowledgment for every Received transaction set. By default (<code>false</code>), transaction sets containing errors are part of the acknowledgment, with all other transaction sets implicitly acknowledged. Changing to <code>true</code> acknowledges each Received transaction set.</p></td></tr><tr><td><p>generate999Acks="false"</p></td><td><p>Generate <code>999</code> Implementation Acknowledgments instead of <code>997</code> Functional Acknowledgments. Setting to <code>false</code>, the <code>997</code> Functional Acknowledgment transaction sets are generated for each received interchange. Setting to <code>true</code> generates <code>999</code> Implementation Acknowledgments instead. Support for <code>999</code> Implementation Acknowledgments does not include CTX segment generation.</p></td></tr><tr><td><p>reportSegmentErrors="true"</p></td><td><p>Report segment error details to the sender in the <code>997`or`999</code> flag. Setting to <code>true</code> includes the details of any segment errors that are generated in the <code>997`or`999</code> flag. Setting to <code>false</code> does not include the details.</p></td></tr><tr><td><p>includeFASchema="true"</p></td><td><p>Expect <code>997</code> or <code>999</code> Functional Acknowledgments and include the <code>997</code> or <code>999</code> schema. <code>true</code> automatically includes the schema for the <code>997</code> or <code>999</code> acknowledgment transaction sets within the set of schemas used by X12 EDI connector. Setting to <code>false</code>, means directly specifying the <code>997</code> or <code>999</code> schema to process as the input. The schemas used for generating <code>997</code> or <code>999</code> Functional Acknowledgments are hardcoded and cannot be modified.</p></td></tr><tr><td><p>setAckSchemaByInboundMessage="false"</p></td><td><p>If the <strong>acknowledgmentSchemaPath</strong> is <code>EMPTY</code> and this property is <code>true</code> it will use the <strong>Version / Release / Industry Identifier Code (GS08)</strong> field value from the inbound message to set the Functional/Implementation Acknowledgment structure. When <code>false</code> it uses a hardcoded Functional/Implementation Acknowledgment structure of the 005010 version.</p></td></tr><tr><td><p>acknowledgmentSchemaPath=""</p></td><td><p>Expect the path either from the file system or the <code>classpath</code>. If the path is specified, it overwrites the default acknowledgment path.</p></td></tr><tr><td><p>enforceConditionalRules="false"</p></td><td><p>Enforce conditional rules for Receive values.</p></td></tr><tr><td><p>enforceCodeSetValidationsParse="false"</p></td><td><p>Enforce code set validations on the <strong>Read</strong> operation.</p></td></tr><tr><td><p>reportWarningMessagesInACK="true"</p></td><td><p>Report non-fatal errors in acknowledgments.</p></td></tr><tr><td><p>includeTrailerSegments="false"</p></td><td><p>Include 'InterchangeTrailer' and 'GroupTrailer' in each transaction</p></td></tr><tr><td><p>includeElementsFromIgnoredSegments="false"</p></td><td><p>Whether to include data elements from segments with Ignore as the usage type in the output map and metadata.</p></td></tr></tbody></table>
+
+## Writer Parameters
+
+These control the types of writer operations.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>dataSeparator="*"</p></td><td><p>Data element separator character. The default uses the configured value for all output messages and can be overridden at the message level.</p></td></tr><tr><td><p>componentSeparator="&gt;"</p></td><td><p>Component separator character. The default uses the configured value for all output messages and can be overridden at the message level.</p></td></tr><tr><td><p>repetitionSeparator="U"</p></td><td><p>Repetition separator character. The default uses the configured value for all output messages and can be overridden at the message level. <code>U</code> means repetitions are not used</p></td></tr><tr><td><p>segmentTerminator="~"</p></td><td><p>Segment terminator character. The default uses the configured value for all output messages and can be overridden at the message level.</p></td></tr><tr><td><p>lineEnding="NONE"/"LF"/"CRLF"/"CR"</p></td><td><p>Line ending to add between segments. The default is <code>NONE</code>. You can add line endings between segments to improve message text output readability.</p></td></tr><tr><td><p>writeUseCRLFLastLine="false"</p></td><td><p>Use configured 'Segment Line Ending' at the end of the last line.</p></td></tr><tr><td><p>sendUniqueGroupNumbers="false"</p></td><td><p>Send unique Group Control Numbers. <code>false</code> (default) assigns functional group control numbers sequentially within each interchange and reuses them in different interchanges. <code>true</code> assigns unique group numbers across all interchanges sent to the same partner and application. It is derived from the interchange sender and receiver identification combined with the functional group sender and receiver application codes.</p></td></tr><tr><td><p>sendUniqueTransactionNumbers="false"</p></td><td><p>Send unique Transaction Set Control Numbers. <code>false</code> (default) assigns transaction set control numbers sequentially within each functional group and reuses them in different groups. <code>true</code> assigns unique transaction set numbers across all interchanges sent to the same partner and application. It is derived from the interchange sender and receiver identification, combined with the functional group sender and receiver application codes.</p></td></tr><tr><td><p>implementationConventionReference=""</p></td><td><p>Implementation convention reference for transactions (ST segment). Setting this value uses the ST Implementation Convention Reference unless overridden in the message parameters.</p></td></tr><tr><td><p>initialInterchangeNumber="1"</p></td><td><p>The initial Interchange Control Number used for outgoing messages.</p></td></tr><tr><td><p>initialGroupNumber="1"</p></td><td><p>The initial Group Control Number used for outgoing messages.</p></td></tr><tr><td><p>initialSetNumber="1"</p></td><td><p>The initial Transaction Set Control Number used for outgoing messages.</p></td></tr><tr><td><p>ackRequested="false"</p></td><td><p>Request acknowledgments for sent transactions flag. If true, <code>997</code> or <code>999</code> acknowledgments are requested for all sent transactions.</p></td></tr><tr><td><p>defaultUsageIndicator="P"</p></td><td><p>Default ISA15 interchange usage indicator: <code>I</code> for Information, <code>P</code> for Production Data, <code>T</code> for Test Data.</p></td></tr><tr><td><p>useSuppliedValues="false"</p></td><td><p>Use values from supplied data for control segment identifiers (ISA/IEA, GS/GE, ST/SE segments). <code>false</code> generates control numbers when writing.</p></td></tr><tr><td><p>outputEdiMimeType="APPLICATION_PLAIN"/"APPLICATION_EDIX12"</p></td><td><p>Output MIME type to be set for the message, either the default <code>application/plain</code> or X12-specific alternative <code>application/edi-x12</code>.</p></td></tr><tr><td><p>writeEnforceLengthLimits="true"</p></td><td><p>Enforce minimum and maximum lengths for write values. The default of <code>true</code> throws an exception when an element is too long or too short. <code>false</code> leaves the values as-is.</p></td></tr><tr><td><p>writeTruncateExceedingMaxLength="false"</p></td><td><p>Truncate to the maximum lengths for received values.</p></td></tr><tr><td><p>enforceConditionalRulesOnWriter="false"</p></td><td><p>Enforce conditional rules for write values.</p></td></tr><tr><td><p>interchangeNumberKey=""</p></td><td><p>Interchange number key name for the object store.</p></td></tr><tr><td><p>enforceCodeSetValidationsWrite="false"</p></td><td><p>Enforce code set validations on the <strong>Write</strong> operation.</p></td></tr></tbody></table>
+
+## Write Batch Parameters
+
+These control the types of Write batch (`<edifact:write-batch>`) operations.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>batchDataSeparator="*"</p></td><td><p>Data element separator character. The default uses the configured value for all output messages and can be overridden at the message level.</p></td></tr><tr><td><p>batchComponentSeparator="&gt;"</p></td><td><p>Component separator character. The default uses the configured value for all output messages and can be overridden at the message level.</p></td></tr><tr><td><p>batchRepetitionSeparator="U"</p></td><td><p>Repetition separator character. The default uses the configured value for all output messages and can be overridden at the message level. <code>U</code> means repetitions are not used</p></td></tr><tr><td><p>batchSegmentTerminator="~"</p></td><td><p>Segment terminator character. The default uses the configured value for all output messages and can be overridden at the message level.</p></td></tr><tr><td><p>batchLineEnding="NONE"/"LF"/"CRLF"/"CR"</p></td><td><p>Line ending to add between segments. The default is <code>NONE</code>. You can add line endings between segments to improve message text output readability.</p></td></tr><tr><td><p>batchUseCRLFLastLine="false"</p></td><td><p>Use configured 'Segment Line Ending' at the end of the last line.</p></td></tr><tr><td><p>batchSendUniqueGroupNumbers="false"</p></td><td><p>Send unique Group Control Numbers. <code>false</code> (default) assigns functional group control numbers sequentially within each interchange and reuses them in different interchanges. <code>true</code> assigns unique group numbers across all interchanges sent to the same partner and application. It is derived from the interchange sender and receiver identification combined with the functional group sender and receiver application codes.</p></td></tr><tr><td><p>batchSendUniqueTransactionNumbers="false"</p></td><td><p>Send unique Transaction Set Control Numbers. <code>false</code> (default) assigns transaction set control numbers sequentially within each functional group and reuses them in different groups. <code>true</code> assigns unique transaction set numbers across all interchanges sent to the same partner and application. It is derived from the interchange sender and receiver identification, combined with the functional group sender and receiver application codes.</p></td></tr><tr><td><p>batchInitialInterchangeNumber="1"</p></td><td><p>The initial Interchange Control Number used for outgoing messages.</p></td></tr><tr><td><p>batchInitialGroupNumber="1"</p></td><td><p>The initial Group Control Number used for outgoing messages.</p></td></tr><tr><td><p>batchInitialSetNumber="1"</p></td><td><p>The initial Transaction Set Control Number used for outgoing messages.</p></td></tr><tr><td><p>batchAckRequested="false"</p></td><td><p>Request acknowledgments for sent transactions flag. If true, <code>997</code> or <code>999</code> acknowledgments are requested for all sent transactions.</p></td></tr><tr><td><p>batchDefaultUsageIndicator="P"</p></td><td><p>Default ISA15 interchange usage indicator: <code>I</code> for Information, <code>P</code> for Production Data, <code>T</code> for Test Data.</p></td></tr><tr><td><p>batchOutputEdiMimeType="APPLICATION_PLAIN"/"APPLICATION_EDIX12"</p></td><td><p>Output MIME type to be set for the message, either the default <code>application/plain</code> or X12-specific alternative <code>application/edi-x12</code>.</p></td></tr><tr><td><p>batchInterchangeNumberKey=""</p></td><td><p>Interchange number key name for object store.</p></td></tr><tr><td><p>batchGroupNumberKey=""</p></td><td><p>Group number key name for object store.</p></td></tr><tr><td><p>batchTransactionNumberKey=""</p></td><td><p>Transaction number key name for object store.</p></td></tr><tr><td><p>batchEnforceLengthLimits="TRUE"</p></td><td><p>Enforce minimum and maximum lengths for received values.</p></td></tr><tr><td><p>batchTruncateExceedingMaxLength="false"</p></td><td><p>Truncate to the maximum lengths for received values.</p></td></tr><tr><td><p>enforceCodeSetValidationsBatch="false"</p></td><td><p>Enforce code set validations on the <strong>Write Batch</strong> operation.</p></td></tr></tbody></table>
+
+## Next Step
+
+After you complete configuring the connector, you can try the
+[Examples](x12-edi-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 Control Numbers
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Using the Write operation in the Anypoint Connector for X12 EDI Connector (X12 EDI Connector), you
+can generate control numbers on the generated X12 payload by:
+
+- Managing global control numbers through control number keys
+- Managing identifier combination control numbers
+- Using your own control number
+
+## Manage Global Control Numbers Through Control Number Keys
+
+If your organization or your trading partner have must maintain unique interchange, group, or
+transaction set control numbers across different identifier combinations and document types:
+
+- Set the configuration `Use supplied values` to `false`.
+- Leverage the control number key configurations (at the configuration level or operation level) to
+  set a key unique to the partner.
+
+  By default, the control number key configurations pass dynamically at the operation level. You can
+  then use this group control number key across different identifiers and transaction types for the
+  same partner.
+
+![X12 EDI Connector Control Numbers](_images/X12-edi-control-number.jpg)
+
+## Manage Identifier Combination Control Numbers
+
+If you want the connector to automatically maintain control number sequencing based on the
+sender/receiver identifiers and you do not require global control numbers at a partner level, then
+set the Write configuration `Use supplied values` to `false`. When no value passes into the optional
+interchange, group, or transaction number key configurations, the sender/receiver identifier
+combination is the default.
+
+## Use Your Own Control Number
+
+If you must generate the control numbers and use them on the EDI payload, you can set the parameter
+`Use supplied values` to `true`, and map the control number on the payload in the DataWeave map.
+---
+
+# X12 EDI Connector 2.18 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use this example to view the use case for Business-to-Business (B2B) EDI integration leveraging
+Anypoint X12 Connector. This example:
+
+- Transforms XML messages into outbound EDI X12 850 purchase order transactions
+
+An HTTPS Listener source receives the enterprise purchase order XML messages from a backend system.
+DataWeave and X12 Writes translate the XML message into an X12 v4010 850 purchase order EDI message.
+
+- Transforms Inbound EDI X12 850 purchase orders into JSON
+
+An HTTP Listener source receives the raw EDI X12 850 purchase order message. X12 Read and DataWeave
+components pare and translate the EDI data into the JSON format.
+
+- Generates a Functional Acknowledgment (997)
+
+## Prerequisites
+
+1.  Open the
+    [Transform XML to EDI X12 850 purchase orders and X12 850 to JSON](https://www.mulesoft.com/exchange/org.mule.examples/b2b-demo-x12-transform/)
+    example in Anypoint Studio from
+    [Anypoint Exchange Examples](https://www.mulesoft.com/exchange/org.mule.examples/).
+2.  Install the latest version of Anypoint X12 Connector.
+
+## Run and Test the Outbound XML to EDI X12 850
+
+1.  Run the application in Anypoint Studio.
+2.  Test the outbound flow by using a REST Client to post a request (POST) to a JSON message to the
+    URL:
+
+`[http://localhost:8081/x12/send/enterprise-ob-purchaseorder](http://localhost:8081/x12/send/enterprise-ob-purchaseorder)`
+
+You see the payload location under the following directory:
+
+`src/main/resources/outbound/Enterprise-Outbound-PO.xml`
+
+The Mule app returns the generated EDI X12 850 transaction.
+
+## Run and Test the Inbound EDI X12 850 to JSON
+
+1.  Test the inbound flow using a REST Client to post a request (POST) to a raw EDI X12 850 message
+    to the URL:
+
+    `[http://localhost:8081/x12/receive/4010-850](http://localhost:8081/x12/receive/4010-850)`
+
+    You see the payload location under the following directory:
+
+    `src/main/resources/inbound/EDI-4010-850-NTO-to-Mythical.edi`
+
+    The app returns the translated JSON purchase order message.
+
+    A Functional Acknowledgement (997) is generated and sent to the log.
+
+2.  Send the message back to the trading partner via any standard protocol, such as FTP, SFTP, or
+    AS2.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 HIPAA
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for X12 EDI Connector 2.9 - HIPAA provides support for the Health Insurance
+Portability and Accountability Act (HIPAA) standards based on X12 EDI Connector standards and
+version `005010` document type. This information explains how to use X12 EDI Connector for HIPAA
+transaction sets, and for how they differ from the standard X12. For complete information about X12
+standards, refer to [X12 EDI Connector Overview](./) and
+[EDI Schema Language Reference](x12-edi-schema-language-reference).
+
+X12 EDI Connector - HIPAA support includes:
+
+- X12 HIPAA EDI message reading, message validation, and message writing
+- Integration with DataSense and DataWeave
+- The ability to customize the base X12 HIPAA schemas
+
+Most aspects of using HIPAA with X12 EDI Connector are the same as using standard X12. The main
+differences are:
+
+- The form of the schemas
+- The extent and type of validation performed
+- The data structure representation
+
+The supplied HIPAA schemas use different structures from the base X12 schemas. The structure used
+for HIPAA reflects the way that the same segments are used in different locations in a transaction
+set for different purposes, and often with different requirements for code sets and field usages. To
+help distinguish between the different uses, the HIPAA schemas use full names as segment keys. This
+differs from the approach used with basic X12 standards, in which the segment keys normally use a
+numeric prefix along with the segment tag.
+
+HIPAA schemas also include details of code sets defined for elements. Data is validated against
+these code sets both when parsing and writing transaction sets.
+
+## Configuring for HIPAA Usage
+
+To use X12 EDI Connector for HIPAA transaction sets you must:
+
+- Select one or more HIPAA schemas to be used.
+- Set the Form and Validation configuration parameter (`formValidation`) to `HIPAA_SNIP1` or
+  `HIPAA_SNIP2`, depending on the type of desired SNIP validation.
+
+### Determining HIPAA Schema Locations
+
+To use the connector, you need to know the locations of the schemas in your project. If youâre using
+the out-of-the-box HIPAA schemas and not customizing anything, the schema location follows the
+`/hipaa/{version}/{transaction-set}.esl` convention. For example, if youâre using the `005010X222A2`
+version and the `837` transaction set, your schema location is `/hipaa/005010X222A2/837.esl`.
+
+If youâre using one or more custom schemas, place these under `src/main/resources` and refer to the
+location relative to this directory. For example, if youâve put your HIPAA `837` schema under
+`src/main/app/mypartner/837.esl`, your schema location is `/mypartner/837.esl`.
+
+## Differences in HIPAA Schema Definitions
+
+X12 EDI Connector uses a YAML format called EDI Schema Language (ESL) to represent both standard X12
+and HIPAA schemas. The HIPAA standards are based on X12 but modify the corresponding X12 base
+standards in several aspects, including:
+
+- Multiple specialized definitions of Hierarchical Level (HL) loops. Where a basic loop structure
+  defined in the X12 structure is expanded into several variations. These loops are often nested.
+- Modular loop definitions that can be reused at different points in the definition.
+- Distinguishing between different uses of a repeated segment by code values in a particular element
+- Changing usage requirements for segments and segment components
+
+These features of the HIPAA ESL schema definitions are very different from standard X12 schemas
+
+This partial example illustrates the differences. It is from the schema for the `005010X222A2` `837`
+transaction set:
+
+```yaml
+form: HIPAA
+version: "005010X222A2"
+structures:
+  - id: "837"
+    name: "Health Care Claim"
+    class: "HC"
+    areas:
+      - code: "1"
+        items:
+          - { idRef: "ST_TransactionSetHeader", position: "0050", usage: M }
+          - { idRef: "BHT_BeginningOfHierarchicalTransaction", position: "0100", usage: M }
+          - groupId: "1000A_Loop"
+            usage: O
+            items:
+              - { idRef: "NM1_SubmitterName", position: "0200", usage: M }
+              - {
+                  idRef: "PER_SubmitterEDIContactInformation",
+                  position: "0450",
+                  usage: M,
+                  count: 2,
+                }
+          - groupId: "1000B_Loop"
+            usage: O
+            items:
+              - { idRef: "NM1_ReceiverName", position: "0500", usage: M }
+      - code: "2"
+        items:
+          - groupId: "2000A_Loop"
+            count: ">1"
+            usage: M
+            items:
+              - { idRef: "HL_BillingProviderHierarchicalLevel", position: "0010", usage: I }
+              - { idRef: "PRV_BillingProviderSpecialtyInformation", position: "0030", usage: O }
+              - { idRef: "CUR_ForeignCurrencyInformation", position: "0100", usage: O }
+              - groupId: "2010AA_Loop"
+                usage: O
+                items:
+                  - { idRef: "NM1_BillingProviderName", position: "0150", usage: M }
+                  - { idRef: "N3_BillingProviderAddress", position: "0250", usage: M }
+                  - { idRef: "N4_BillingProviderCityStateZIPCode", position: "0300", usage: M }
+                  - { idRef: "REF_BillingProviderTaxIdentification", position: "0350", usage: M }
+                  - {
+                      idRef: "REF_BillingProviderUPINLicenseInformation",
+                      position: "0360",
+                      usage: O,
+                      count: 2,
+                    }
+                  - {
+                      idRef: "PER_BillingProviderContactInformation",
+                      position: "0400",
+                      usage: O,
+                      count: 2,
+                    }
+              - { area: "3", usage: O }
+              - { area: "4", count: ">1", usage: O }
+      - code: "3"
+        items:
+          - groupId: "2010AB_Loop"
+            usage: O
+            items:
+              - { idRef: "NM1_PayToAddressName", position: "0150", usage: O }
+              - { idRef: "N3_PayToAddressADDRESS", position: "0250", usage: M }
+              - { idRef: "N4_PayToAddressCityStateZIPCode", position: "0300", usage: M }
+          - groupId: "2010AC_Loop"
+            usage: O
+            items:
+              - { idRef: "NM1_PayToPlanName", position: "0450", usage: O }
+              - { idRef: "N3_PayToPlanAddress", position: "0550", usage: M }
+              - { idRef: "N4_PayToPlanCityStateZIPCode", position: "0600", usage: M }
+              - { idRef: "REF_PayToPlanSecondaryIdentification", position: "0650", usage: O }
+              - { idRef: "REF_PayToPlanTaxIdentificationNumber", position: "0655", usage: M }
+```
+
+## Using the Areas Key
+
+In the previous schema example, the areas key has a value array of individual area definitions.
+Areas are similar to the breakdown of normal X12 transaction sets, for example into header, detail,
+and summary sections, but provide much finer granularity. Instead of the three fixed portions of a
+transaction set "as defined in X12" there may be twenty or more areas defined in a HIPAA transaction
+set.
+
+Each area is a reusable component of the definition, and is identified by a code character value,
+which by convention can be a single digit or single alpha character.
+
+Areas are referenced for inclusion in the definition with an area item in the component list. In an
+X12 schema definition, the list of components of a group or area can contain only segments, groups,
+and a group variation called wrapped (used for LS/LE loops, in X12 terms). In a HIPAA schema
+definition, the list of components can also contain area references. The effect of referencing an
+area is the same as if all the components of the area were inserted in the definition at the point
+of the reference.
+
+Referring back to the example schema piece, the end of the components list for area code `2` are
+references to areas `3` and `4`, with area `4` optionally repeating.
+
+The data structure for HIPAA messages maintains the X12 division into Heading, Detail, and Summary
+sections. The Heading is always the area with the lowest sort order code, the Detail is next
+(including all referenced areas), and the Summary is the highest sort order code.
+
+## Using Code Sets
+
+The following is another portion of the same `005010X222A2` `837` transaction set schema example,
+but this portion shows the `BHT_BeginningOfHierarchicalTransaction` segment definition:
+
+```yaml
+- id: "BHT_BeginningOfHierarchicalTransaction"
+  name: "Beginning of Hierarchical Transaction"
+  varTag: "BHT"
+  values:
+    - {
+        id: "1005",
+        name: "Hierarchical Structure Code",
+        usage: M,
+        codeSet: { "0019": "Information Source, Subscriber, Dependent" },
+        type: ID,
+        length: 4,
+      }
+    - {
+        id: "353",
+        name: "Transaction Set Purpose Code",
+        usage: M,
+        codeSet: { "00": "Original", "18": "Reissue" },
+        type: ID,
+        length: 2,
+      }
+    - {
+        id: "127",
+        name: "Originator Application Transaction Identifier",
+        usage: M,
+        type: AN,
+        minLength: 1,
+        maxLength: 50,
+      }
+    - { id: "373", name: "Transaction Set Creation Date", usage: M, type: DT, length: 8 }
+    - {
+        id: "337",
+        name: "Transaction Set Creation Time",
+        usage: M,
+        type: TM,
+        minLength: 4,
+        maxLength: 8,
+      }
+    - {
+        id: "640",
+        name: "Claim or Encounter Identifier",
+        usage: M,
+        codeSet: { "RP": "Reporting", "CH": "Chargeable", "31": "Subrogation Demand" },
+        type: ID,
+        length: 2,
+      }
+```
+
+The first, second, and last elements in this segment define `codeSet` values, in the form of an
+array of key-value pairs. The key in each pair is a particular value for the field that is allowed
+by the HIPAA standard, while the value in the pair is the text description of that value (from the
+standard).
+
+X12 EDI Connector enforces these code sets for HIPAA documents, signaling an error if a transaction
+set uses an undefined value for a field. For example, a value not listed as a key in the `codeSet`
+either when parsing or writing. In some cases, such as the first element of the `BHT` definition,
+only a single value is allowed. In other cases there can be many potential values.
+
+## Specifying Segment Variants
+
+The following is a third portion of the same `005010X222A2` `837` transaction set schema example.
+This example shows two different DTP segment definitions:
+
+```yaml
+- id: "DTP_DateAccident"
+  name: "Date - Accident"
+  varTag: "DTP"
+  values:
+    - {
+        id: "374",
+        name: "Date Time Qualifier",
+        usage: M,
+        varValue: true,
+        codeSet: { "439": "Accident" },
+        type: ID,
+        length: 3,
+      }
+    - {
+        id: "1250",
+        name: "Date Time Period Format Qualifier",
+        usage: M,
+        codeSet: { "D8": "Date Expressed in Format CCYYMMDD" },
+        type: ID,
+        minLength: 2,
+        maxLength: 3,
+      }
+    - { id: "1251", name: "Accident Date", usage: M, type: AN, minLength: 1, maxLength: 35 }
+- id: "DTP_DateAcuteManifestation"
+  name: "Date - Acute Manifestation"
+  varTag: "DTP"
+  values:
+    - {
+        id: "374",
+        name: "Date Time Qualifier",
+        usage: M,
+        varValue: true,
+        codeSet: { "453": "Acute Manifestation of a Chronic Condition" },
+        type: ID,
+        length: 3,
+      }
+    - {
+        id: "1250",
+        name: "Date Time Period Format Qualifier",
+        usage: M,
+        codeSet: { "D8": "Date Expressed in Format CCYYMMDD" },
+        type: ID,
+        minLength: 2,
+        maxLength: 3,
+      }
+    - {
+        id: "1251",
+        name: "Acute Manifestation Date",
+        usage: M,
+        type: AN,
+        minLength: 1,
+        maxLength: 35,
+      }
+```
+
+These two definitions apply to different instances of the `DTP` segment, as part of the 2300 Claim
+Information loop. In the transaction set structure, these uses of the `DTP` segment occur
+essentially in the same position, matching two possible occurrences of a repeating DTP segment in
+the base X12 standard. Because the two uses of the segment supply different information, the HIPAA
+standard gives them different names and interprets the `DTP03` field in different ways.
+
+In this case, the data value in the first field of the segment, the `Date Time Qualifier` field,
+identifies which variation of the segment is actually being used. Since the code set for this field
+has different values for each of these uses, the value present in the field tells whether the DTP
+segment in a parsed document is a `DTP_DateAccident` or a `DTP_DateAcuteManifestation` (or any of
+several other uses of the DTP segment in the same position). The `varValue: true` flag in the schema
+definition indicates that this first field is used in this manner to distinguish between variations.
+
+Even though the value of this field is effectively fixed for each use of the segment, you must
+specify it when writing data. If you supply a different value for this field, or donât supply a
+value, youâll see an error when writing.
+
+## Using Syntax Rules
+
+The following is a final example from the `005010X222A2` `837` transaction set schema, illustrating
+how syntax rules are represented:
+
+```yaml
+- id: "N4_PayerCityStateZIPCode"
+  name: "Payer City, State, ZIP Code"
+  varTag: "N4"
+  values:
+    - { id: "19", name: "Payer City Name", usage: M, type: AN, minLength: 2, maxLength: 30 }
+    - { id: "156", name: "Payer State or Province Code", usage: O, type: ID, length: 2 }
+    - {
+        id: "116",
+        name: "Payer Postal Zone or ZIP Code",
+        usage: O,
+        type: ID,
+        minLength: 3,
+        maxLength: 15,
+      }
+    - { id: "26", name: "Country Code", usage: O, type: ID, minLength: 2, maxLength: 3 }
+    - { id: "309", name: "Location Qualifier", usage: U, type: ID, minLength: 1, maxLength: 2 }
+    - { id: "310", name: "Location Identifier", usage: U, type: AN, minLength: 1, maxLength: 30 }
+    - {
+        id: "1715",
+        name: "Country Subdivision Code",
+        usage: O,
+        type: ID,
+        minLength: 1,
+        maxLength: 3,
+      }
+  rules:
+    - { type: E, items: [2, 7] }
+    - { type: C, items: [6, 5] }
+    - { type: C, items: [7, 4] }
+```
+
+Syntax rules are used in X12 and HIPAA to define relationships between values within a segment or
+composite. The rules are included in the schema at the same level as the list of values. The code
+for the type of rule is the same as used by X12 and HIPAA specifications, and the list of items
+gives the numbers of the values governed by the rule.
+
+In the case of the previous example, the three rules say that:
+
+- Only one of `N402` or `N407` can be present (`{ type: E, items: [2, 7] }`)
+- If `N406` is present, then `N405` is required (`{ type: C, items: [6, 5] }`)
+- If `N407` is present, then `N404` is required (`{ type: C, items: [7, 4] }`)
+
+## Modifying Schemas
+
+Due to the differences between standard X12 and HIPAA schemas the use of overlay schemas to modify a
+base definition is not supported for HIPAA. Instead, for modifications, extract the supplied HIPAA
+schema from inside the `x12-schemas-2.0.0.jar` file. This is found in the standard MuleSoft
+enterprise Maven repositories, under group ID com.mulesoft.connectors. You can copy a message
+structure schema from this JAR file (it contains both standard X12 and HIPAA schemas) and modify the
+extracted schema to use it directly. Unlike X12 schemas that use a base set of segment, composite,
+and element definitions, the HIPAA schemas are self-contained. This makes it easy to make changes to
+the schema without working with multiple files.
+
+## Recommended Types of Validations from WEDI
+
+There are two types of validations to use for integrity testing.
+
+- Type 1: EDI syntax integrity testing
+
+Testing of the EDI file for valid segments, segment order, element attributes, testing for numeric
+values in numeric data elements, validation of X12 or NCPDP syntax, and compliance with X12 and
+NCPDP rules. This validates the basic syntactical integrity of the EDI submission.
+
+- Type 2: HIPAA syntactical requirement testing
+
+Testing for HIPAA Implementation Guide-specific syntax requirements, such as limits on repeat
+counts, used and not used qualifiers, codes, elements, and segments. Also included in this type is
+testing for HIPAA required or intra-segment situational data elements, testing for non-medical code
+sets as laid out in the WEDI SNIP implementation guide, and values and codes noted in the WEDI SNIP
+implementation guide using an X12 code list or table.
+
+Because the connector cannot determine a course of action for intrasegment situational data
+elements, intrasegment situational data elements are not part of X12 EDI Connector and must be set
+in validation logic outside of the connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Default Configuration
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p>ExpirationPolicy</p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances when appropriate.</p></td><td></td><td></td></tr><tr><td><p>Mule ID qualifier</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID qualifier for Mule in the exchange (ISA) segment. This value is used in combination with the Self Identification Interchange ID value, and if one is set, the other must also be set.<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the ISA Interchange Receiver ID Qualifier must match this value.</p></li><li><p>On the send side, this value is used as the default ISA Interchange Sender ID Qualifier when it is not set in the message data.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Mule interchange ID</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID for Mule in the exchange (ISA) segment. This value is used in combination with the Self Identification Interchange ID qualifier value, and if one is set the other must also be set.<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the ISA Interchange Receiver ID must match this value.</p></li><li><p>On the send side, this value is used as the default ISA Interchange Sender ID when it is not set in the message data.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Mule application code</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application Code for Mule in the group (GS segment).<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the GS Application Receiverâs Code must match this value.</p></li><li><p>On the send side, this value is used as the default GS Application Senderâs Code when it is not set in the message data.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner ID qualifier</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID qualifier for the partner in the exchange (ISA segment). This value is used in combination with the Partner Identification Interchange ID value, and if one is set the other must also be set.<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the ISA Interchange Sender ID Qualifier must match this value.</p></li><li><p>On the send side, this value is used as the default ISA Interchange Receiver ID Qualifier when it is not set in the message data.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner interchange ID</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID for the partner in the exchange (ISA segment). This value is used in combination with the Partner Identification Interchange ID qualifier value, and if one is set the other must also be set.<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the ISA Interchange Sender ID must match this value.</p></li><li><p>On the send side, this value is used as the default ISA Interchange Receiver ID when it is not set in the message data.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner application code</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application Code for the partner in the group (GS segment).<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the GS Application Senderâs Code must match this value.</p></li><li><p>On the send side, this value is used as the default GS Application Receiverâs Code when it is not set in the message data.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Form and validation</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>X12</p></li><li><p>HIPAA_SNIP1</p></li><li><p>HIPAA_SNIP2</p></li></ul></div></div></td><td><p>Schema form and validation level. Schemas used in the configuration must match the selected form. SNIP Type 1 and SNIP Type 2 validation applies to HIPAA schemas only.</p></td><td><p>X12</p></td><td></td></tr><tr><td><p>Schema definitions</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of paths for the schemas that the connector uses. The paths can be file systems or classpaths.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Character encoding</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASCII</p></li><li><p>IBM1047</p></li><li><p>ISO8859_1</p></li><li><p>PLATFORM</p></li><li><p>UTF8</p></li></ul></div></div></td><td><p>Character encoding for messages. This character encoding is always used for both send and receive messages.</p></td><td><p>PLATFORM</p></td><td></td></tr><tr><td><p>Character set</p></td><td><div><div><p>Enumeration, one of:<br><br><strong>BASIC </strong>EXTENDED ** UNRESTRICTED</p></div></div></td><td><p>Characters allowed in string data. Invalid characters are replaced by the substitution character, if specified, or rejected as errors if no substitution character is set or enabled for receive messages in parser options. Either way, the invalid characters are logged.</p><p>For receive messages, the invalid characters are reported in 997 functional acknowledgments.</p></td><td><p>UNRESTRICTED</p></td><td></td></tr><tr><td><p>Substitution character</p></td><td><div><div><p>String</p></div></div></td><td><p>Substitution character used to replace invalid characters in string values.</p></td><td></td><td></td></tr><tr><td><p>Version identifier suffix</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Version identifier code suffix for the group (GS segment).<br><br>If this value is set, it affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the GS Version, Release, and Industry Identifier Code must consist of the X12 schema version (004010, 005010, and so forth) followed by this suffix. If this value is not set, the receive only verifies that the GS version identifier code starts with the configured schema version.</p></li><li><p>On the send side, the combination of the X12 schema version and this suffix is used as the GS version identifier code.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Timezone offset</p></td><td><p>String</p></td><td><p>Timezone offset from the UTC to apply to the date and time elements in the Interchange Header (ISA) segment. This field accepts only values compliant with ISO 8601, which are UTC-based; for example, <code>-01:00</code>, <code>+0100</code>, <code>-0130</code>, and so on.<br><br>If you donât specify a value for this field, the ISA segment date and time is set to the local date and time of Mule runtime.</p></td><td></td><td></td></tr><tr><td><p>Enforce length limits</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce minimum and maximum lengths for parser and writer values:<br><br>For parser values:</p></div><div><ul><li><p>If <code>true</code>, the connector rejects transactions with values that are too long or too short.</p></li><li><p>If <code>false</code>, the connector uses the values and does not reject the transactions.</p></li></ul></div><div><p>In either case the error is logged and reported in 997/999 acknowledgments.<br><br>For writer values:</p></div><div><ul><li><p>If <code>true</code>, the connector rejects a transaction that has values that are too long or too short.</p></li><li><p>If <code>false</code>, the connector uses the values and does not reject the transaction.</p></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Enforce character set</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce the allowed character sets:</p></div><div><ul><li><p>If <code>true</code>, the connector rejects transactions that have invalid characters.</p></li><li><p>If <code>false</code>, the characters are either passed through or substituted, and the connector does not reject the transactions.</p></li></ul></div><div><p>In either case, the error is reported in 997/999 acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Enforce value repeats</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce repetition count limits for receive values:</p></div><div><ul><li><p>If <code>true</code>, the connector rejects transactions that have values repeated too many or too few times.</p></li><li><p>If <code>false</code>, the connector accepts the values and does not reject the transactions.</p></li></ul></div><div><p>In either case the error is reported in 997/999 acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Allows unknown segments</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to allow unknown segments in a transaction set:</p></div><div><ul><li><p>If <code>true</code>, the connector ignores the unknown segments and does not reject the transaction.</p></li><li><p>If <code>false</code>, the connector rejects a transaction that contains unknown segments.</p></li></ul></div><div><p>In either case, the error is reported in 997/999 acknowledgments.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Enforce segment order</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce the segment order in a transaction set:</p></div><div><ul><li><p>If <code>true</code>, the connector rejects transactions that have out-of-order segments.</p></li><li><p>If <code>false</code>, and the connector reorders the segments and does not reject the transactions.</p></li></ul></div><div><p>In either case the error is reported in 997/999 acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Allow unused segments</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to allow segments marked as <code>Unused</code> in a transaction set:</p></div><div><ul><li><p>If <code>true</code>, the connector ignores the unused segments and does not reject the transactions.</p></li><li><p>If <code>false</code>, the connector rejects transactions that contain segments marked as unused in the schema.</p></li></ul></div><div><p>In either case, the error is reported in 997/999 acknowledgments.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Enforce segment repeats</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce segment repetition count limits in transaction sets.</p></div><div><ul><li><p>If <code>true</code>, the connector rejects transactions that repeat the segment too many times.</p></li><li><p>If <code>false</code>, the connector ignores the repeated segments and does not reject the transactions.</p></li></ul></div><div><p>In either case the error is reported in 997/999 acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Require unique interchanges</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to require unique Interchange Control Numbers (ISA13) for received interchanges:</p></div><div><ul><li><p>If <code>true</code>, the connector records the previously processed interchange numbers and rejects duplicate interchange numbers from the same partner (as determined by the interchange sender and receiver identification).</p></li><li><p>If <code>false</code>, the connector continues processing the received interchange numbers and leaves it to the application flow to track interchange numbers and handle them appropriately.</p></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Require unique groups</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce globally unique Group Control Numbers (GS06) for received functional groups:</p></div><div><ul><li><p>If <code>true</code>, group numbers must be unique across all interchanges received from the same partner and application (as determined by the interchange sender and receiver identification, combined with the functional group sender and receiver application codes).</p></li><li><p>If <code>false</code>, group numbers must be unique within an interchange.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Require unique transactions</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce globally unique Transaction Set Control Numbers (ST02) for received transaction sets:</p></div><div><ul><li><p>If <code>true</code>, transaction set numbers must be unique across all functional groups received from the same partner and application (as determined by the interchange sender and receiver identification, combined with the functional group sender and receiver application codes).</p></li><li><p>If <code>false</code>, transaction set control numbers must be unique within a particular functional group.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Require unique transactions in group</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to enforce globally unique transaction set control numbers (ST02) for received transaction sets that are scoped within the functional group:</p></div><div><ul><li><p>If <code>true</code>, transaction set control numbers must be unique within the functional groups that are received from the same partner and application. For partners, the uniqueness is determined by the interchange sender and receiver identification. For the application, the uniqueness is determined by the application codes of the functional group sender and receiver.</p></li><li><p>If <code>false</code>, a functional group can have duplicate transaction set control numbers, and each instance is treated as a separate transaction set.</p></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Store time-to-live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum number of days to store interchange, group, and transaction set numbers for checking uniqueness. This value is used only when the configuration requires unique interchange, group, or transaction set numbers.<br><br>The default persistent object store from the Mule configuration is always used for storing the received identifier numbers. This parameter sets the entry time-to-live for these stored values.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Acknowledge every transaction</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to include a separate AK2/AK5 (997) or AK2/IK5 (999) acknowledgment for every received transaction set:</p></div><div><ul><li><p>If <code>true</code>, the connector explicitly acknowledges each received transaction set.</p></li><li><p>If <code>false</code>, the connector includes in the acknowledgement only transaction sets that contains errors. Nonincluded transaction sets are implicitly acknowledged.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Generate 999 acknowledgments</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to generate 999 Implementation Acknowledgments rather than 997 Functional Acknowledgments:</p></div><div><ul><li><p>If <code>true</code>, The connector generates 999 Implementation Acknowledgments for each received interchange instead of 997 Functional Acknowledgement transaction sets. Support for 999 Implementation Acknowledgments does not include CTX segment generation.</p></li><li><p>If <code>false</code>, the connector generates 997 Functional Acknowledgment transaction sets for each received interchange.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Report segment details</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether Report segment error details to the sender in 997/999 Functional Acknowledgements:</p></div><div><ul><li><p>If <code>true</code>, the details of segment errors are included in a generated 997/999.</p></li><li><p>If <code>false</code>, the details are not included.</p></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Include Acknowledgment schema</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to expect 997 or 999 Functional Acknowledgments and to include the 997 or 999 schema:</p></div><div><ul><li><p>If <code>true</code>, the connector automatically includes the schema for 997 or 999 acknowledgment transaction sets in the set of schemas used by X12 Connector.</p></li><li><p>If <code>false</code>, you must directly specify the 997 schema, 999 schema, or both if you want these to be processed as input. The schemas used for generating 997 or 999 Functional Acknowledgments are hardcoded and cannot be modified.</p></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Data element separator</p></td><td><div><div><p>String</p></div></div></td><td><p>Data element separator character. The configured value is used by default for all output messages, but can be overridden at the message level.</p></td><td><p>*</p></td><td></td></tr><tr><td><p>Component element separator</p></td><td><div><div><p>String</p></div></div></td><td><p>Component element separator character. The configured value is used by default for all output messages, but can be overridden at the message level.</p></td><td><p>&gt;</p></td><td></td></tr><tr><td><p>Repetition separator</p></td><td><div><div><p>String</p></div></div></td><td><p>Repetition separator character (if used). The configured value is used by default for all output messages, but can be overridden at the message level. The value <code>U</code> means repetitions are not used.</p></td><td><p>U</p></td><td></td></tr><tr><td><p>Segment terminator</p></td><td><div><div><p>String</p></div></div></td><td><p>Segment terminator character. The configured value is used by default for all output messages, but can be overridden at the message level.</p></td><td><p>~</p></td><td></td></tr><tr><td><p>Segment line ending</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>LF</p></li><li><p>CRLF</p></li><li><p>CR</p></li></ul></div></div></td><td><p>Line ending to add between segments to improve the readability of the output message text.</p></td><td><p>NONE</p></td><td></td></tr><tr><td><p>Unique group numbers</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to send globally unique Group Control Numbers (GS06):</p></div><div><ul><li><p>If <code>true</code>, the connector assigns unique group numbers across all interchanges sent to the same partner and application (as determined by the interchange sender and receiver identification, combined with the functional group sender and receiver application codes).</p></li><li><p>If <code>false</code>, the connector assigns functional group control numbers sequentially within each interchange and reuses the numbers in different interchanges.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Unique transaction numbers</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to send globally unique Transaction Set Control Numbers (ST02):</p></div><div><ul><li><p>If <code>true</code>, the connector assigns unique transaction set numbers across all interchanges sent to the same partner and application (as determined by the interchange sender and receiver identification, combined with the functional group sender and receiver application codes).</p></li><li><p>If <code>false</code>, the connector assigns transaction set control numbers sequentially within each functional group and reuses the control numbers in different groups.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Implementation reference</p></td><td><div><div><p>String</p></div></div></td><td><p>Implementation convention reference for transactions (ST03). If this value is set, it is used as the ST03 Implementation Convention Reference unless it is overridden in the message parameters.</p></td><td></td><td></td></tr><tr><td><p>Initial interchange number</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial Interchange Control Number used for outgoing messages.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Initial group number</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial Group Control Number used for outgoing messages.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Initial transaction number</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial Transaction Set Control Number used for outgoing messages.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Requests acknowledgments</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to request acknowledgments such as TA1 for the sent transactions flag (ISA14):</p></div><div><ul><li><p>If <code>true</code>, TA1 acknowledgments are requested for all sent transactions.</p></li><li><p>If <code>false</code>, TA1 acknowledgements are not requested.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Default usage indicator</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Default interchange usage indicator (ISA15):</p></div><div><ul><li><p><code>I</code>: Information</p></li><li><p><code>P</code>: Production data</p></li><li><p><code>T</code>: Test data</p></li></ul></div></div></td><td><p>P</p></td><td></td></tr><tr><td><p>Set acknowledgement schema by inbound message</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If the <strong>acknowledgmentSchemaPath</strong> is <code>EMPTY</code> and this property is <code>true</code> it will use the <strong>Version / Release / Industry Identifier Code (GS08)</strong> field value from the inbound message to set the Functional/Implementation Acknowledgment structure. When <code>false</code> it uses a hardcoded Functional/Implementation Acknowledgment structure of the 005010 version.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Acknowledgement schema path</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path from the file system or the <code>classpath</code>. If the path is specified, it overwrites the default acknowledgment path.</p></div></div></td><td></td><td></td></tr><tr><td><p>Enforce conditional rules</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to apply conditional rules in transactions:</p></div><div><ul><li><p>If <code>true</code>, the connector rejects transactions with values that donât meet conditional rules.</p></li><li><p>If <code>false</code>, the values are used and the transaction is not rejected.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Truncate values exceeding the length limits</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to truncate values that exceed the length limits when the <strong>Enforce length limits</strong> field is <code>true</code>:</p></div><div><ul><li><p>If <code>true</code>, the connector trims the values that exceed the maximum length limit.</p></li><li><p>If <code>false</code>, the connector writes the values as-is.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Enforce code set validations</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to enforce code set validations:</p></div><div><ul><li><p>If <code>true</code>, the connector enforces code set validations, as defined in the X12 schemas.</p></li><li><p>If <code>false</code>, the connector does not enforce code set validations.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Use segment line ending in last line</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to use the configured line ending in the last line of the IEA segment:</p></div><div><ul><li><p>If <code>true</code>, adds the configured <strong>Segment line ending</strong> field value to the end of the IEA segment.</p></li><li><p>If <code>false</code>, does not add the configured <strong>Segment line ending</strong> value to the IEA segment.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Report non-fatal errors in acknowledgments</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to report non-fatal errors in acknowledgements:</p></div><div><ul><li><p>If <code>true</code>, non-fatal errors are displayed at segments IK3/AK3 in acknowledgments.</p></li><li><p>If <code>false</code>, non-fatal errors are not displayed at segments IK3/AK3 in acknowledgments.</p></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Include trailer segment details</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to include interchange and group trailer details in the map:</p></div><div><ul><li><p>If <code>true</code>, interchange trailer, group trailer, and set trailer details are included in each transaction.</p></li><li><p>If <code>false</code>, only set trailer details are included in each transaction.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Lock Mechanism</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>RUNTIME_LOCK_MANAGER</p></li><li><p>OBJECT_STORE</p></li></ul></div></div></td><td><div><div><p>Determines the mechanism used to manage locks for control number sequencing:</p></div><div><ul><li><p><code>AUTO</code></p><div><p>The connector chooses between <code>OBJECT_STORE</code> and <code>RUNTIME_LOCK_MANAGER</code> based on the environment in which the Mule app is running.</p></div><div><ul><li><p>When the app is deployed to CloudHub 1.0, the connector uses the <code>OBJECT_STORE</code> mechanism for lock management.</p></li><li><p>When the app is deployed to stand-alone Mule runtime, Runtime Fabric, or CloudHub 2.0, the connector uses the <a href="../../mule-runtime/latest/distributed-locking">runtimeâs distributed locking</a>.</p></li></ul></div><div><p>You can use this option with:</p></div><div><ul><li><p>CloudHub 1.0 deployments, including multiple workers or replicas</p></li><li><p>CloudHub 2.0 and Runtime Fabric deployments with one worker or replica</p></li><li><p>Hybrid standalone deployments, including clustered Mule runtimes</p></li></ul></div></li><li><p><code>RUNTIME_LOCK_MANAGER</code></p><div><p>The connector always uses the runtimeâs distributed locking mechanism. (Recommended when the environment has only one worker.)</p></div><div><p>You can use this option with:</p></div><div><ul><li><p>CloudHub 1.0, CloudHub 2.0, and Runtime Fabric deployments with one worker or replica</p></li><li><p>Hybrid standalone deployments, including clustered Mule runtimes</p></li></ul></div></li><li><p><code>OBJECT_STORE</code></p><div><p>The connector always uses an alternative mechanism in environments in which the runtimeâs distributed locking mechanism doesnât work. (Recommended when the environment has more than one worker.)</p></div><div><p>You can use this option with:</p></div><div><ul><li><p>CloudHub 1.0, CloudHub 2.0, and Runtime Fabric deployments, including multiple workers or replicas</p></li><li><p>Hybrid standalone deployments, including clustered Mule runtimes</p></li></ul></div></li></ul></div></div></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Include ignored segments</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to include data elements from segments with <code>Ignore</code> as the usage type in the output map and metadata.</p></div><div><ul><li><p>If <code>true</code>, all segments with <code>Ignore</code> as the usage type are included in both the output map and metadata.</p></li><li><p>If <code>false</code>, all segments with <code>Ignore</code> as the usage type are ignored in both the output map and metadata.</p></li></ul></div></div></td><td><p>false</p></td><td></td></tr></tbody></table>
+
+### Associated Operations
+
+- Read
+- Write
+- Write batch
+
+## Read
+
+`<x12:read>`
+
+Transforms an input stream of EDI text into the maps and lists structure of the EDI data.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Read Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>Input payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- X12:UNKNOWN
+- X12:WRITE
+- X12:SCHEMA
+- X12:PARSE
+
+## Write
+
+`<x12:write>`
+
+Transforms the maps and lists structure of EDI data into an EDI text stream.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Write Content</p></td><td><div><div><p>Object</p></div></div></td><td><p>Output payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable in memory stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable file store stream</a></p></li><li><p>Non repeatable stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams.</p></td><td><p>Repeatable file store stream</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- X12:UNKNOWN
+- X12:WRITE
+- X12:SCHEMA
+- X12:PARSE
+
+## Write batch
+
+`<x12:write-batch>`
+
+Merges individual X12 messages created and accumulated over a period of time into a single
+interchange (UNB).
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Write Content</p></td><td><div><div><p>Object</p></div></div></td><td><p>Output payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- X12:UNKNOWN
+- X12:WRITE
+- X12:SCHEMA
+- X12:PARSE
+
+## Expiration Policy Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit that qualifies the <strong>Max Idle Time</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+## Repeatable In Memory Stream Type
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the **Max
+Buffer Size** field value. Always run performance tests to find the optimal buffer size for your
+specific use case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max Buffer Size</strong>.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></td><td></td><td></td></tr></tbody></table>
+
+## Repeatable File Store Stream Type
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum memory size. If more memory is consumed, then the connector buffers the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Max In Memory Size</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+## System Properties
+
+You can configure the following system property for the connector:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Property</th><th>Description</th><th>Default Value</th></tr></thead><tbody><tr><td><p><code>strictValidationOfYear</code></p></td><td><p>Enables strict validation for the year <code>0000</code>. If <code>true</code>, the year <code>0000</code> is invalid.</p></td><td><p>false</p></td></tr></tbody></table>
+
+For more information about system properties, refer to
+[System Properties](../../mule-runtime/latest/mule-app-properties-system).
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Use Anypoint Studio to Configure X12 EDI Connector 2.18
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+You must change the default Anypoint configuration to use X12 Connector 2.x.
+
+## Increasing Anypoint Studio 7.x Memory
+
+If more than the standard memory configuration is required to use Anypoint Studio 7.x with X12
+Connector 2.x, then youâll need to change the memory setting for Studio.
+
+Set the Anypoint Studio memory to 4 GB, as this is sufficient for the most common uses of this
+connector.
+
+1.  Edit the `Anypoint.ini` file in the Anypoint Studio installation directory and change the two
+    lines starting with `-Xms` and `-Xmx` to:
+
+```text
+-Xms4096m
+-Xmx4096m
+```
+
+If you are new to configuring connectors in Studio, see
+[Use Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio). If,
+after reading this topic, you need additional information about the connector fields, see the
+[X12 EDI Reference](x12-edi-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add X12 EDI (X12 Connector) to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `X12 EDI` in the search field.
+3.  Click X12 Connector in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure this source to use
+with X12 EDI Connector:
+
+- HTTP Listener  
+  Initiates a flow each time it receives a request on the configured host and port.
+
+For example, to configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for X12 EDI Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **X12 EDI** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target X12 EDI system.
+
+To configure the global element for X12 EDI (X12 EDI Connector), follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+
+You can reference a configuration file that contains ANT-style property placeholders (recommended),
+or you can enter your authorization credentials in the global configuration properties.
+
+For information about the benefits of using property placeholders and how to configure them, see
+[Anypoint Connector Configuration](../../connectors/introduction/introduction-to-anypoint-connectors).
+
+1.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+2.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+3.  Click **OK**.
+
+## Configure Additional Connector Fields
+
+After you configure a global element for X12 EDI (X12 EDI Connector), configure the other required
+fields for the connector.
+
+### General Tab
+
+Use the **General** tab to configure settings for reading and writing X12 messages.
+
+> [!NOTE] To use the Functional Acknowledgment schema type (997 or 999) it must match the **Generate
+> 999 Functional Acknowledgments** setting on the **Parser** tab (`false` for 997, `true` for 999).
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p>Form and validation</p></td><td><p>X12 form and validation (standard X12, HIPAA SNIP Type 1, or HIPAA SNIP Type 2)</p></td></tr><tr><td><p>Schema definitions</p></td><td><p>Manually create or edit the list of schema definitions for the message structures to use. They all need to use the same form (either X12 or HIPAA).</p></td></tr><tr><td><p>Character encoding</p></td><td><p>X12 character encoding, used for both send and receive messages</p></td></tr><tr><td><p>Character set</p></td><td><p>X12 character set allowed in string data (BASIC, EXTENDED, or UNRESTRICTED)</p></td></tr><tr><td><p>Substitution character</p></td><td><p>String substitution character, used to replace invalid characters in string data</p></td></tr><tr><td><p>Version identifier suffix</p></td><td><p>Version identifier code suffix, specifying a value appended to the base schema version in the GS08 Version / Release / Industry Identifier Code field</p></td></tr></tbody></table>
+
+### Identity Tab
+
+Use the **Identity** tab to configure the Interchange Control Header (ISA) and Functional Group
+Header (GS) identifier values for you and your trading partner in X12 Connector configuration. If
+configured, then the values are verified when reading an input message and used as the defaults when
+writing an output message (if no value output data is specified).
+
+You can set the values for the:
+
+- Interchange ID qualifier and Interchange ID for your Mule application and partner
+- Application Code for Mule and partner
+
+The Mule values specify the Receiver fields (ISA07/ISA08, GS03) in a receive message and populate
+the Sender fields (ISA05/ISA06, GS02) fields in a send message.
+
+### Parser Tab
+
+You can set the following options to control parser validation of receive messages if needed.
+Changing these options from the default setting of true interferes with HIPAA SNIP Type 1 and Type 2
+validation of messages. Use these options with standard X12 data, not with HIPAA.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p>Enforce length limits</p></td><td><p>Enforce minimum and maximum lengths for receive values</p></td></tr><tr><td><p>Enforce character set</p></td><td><p>Enforce allowed character set</p></td></tr><tr><td><p>Enforce value repeats</p></td><td><p>Enforce repetition count limits for receive values</p></td></tr><tr><td><p>Allow unknown segments</p></td><td><p>Allow unknown segments in a transaction set</p></td></tr><tr><td><p>Enforce segment order</p></td><td><p>Enforce segment order in a transaction set</p></td></tr><tr><td><p>Allow unused segments</p></td><td><p>Allow segments marked as Unused in a transaction set</p></td></tr><tr><td><p>Enforce segment repeats</p></td><td><p>Enforce segment repetition count limits in a transaction set</p></td></tr><tr><td><p>Require unique interchanges</p></td><td><p>Require unique ISA Interchange Control Numbers (ISA13)</p></td></tr><tr><td><p>Require unique groups</p></td><td><p>Enforce globally unique Group Control Numbers (GS06) for received functional groups</p></td></tr><tr><td><p>Require unique transactions</p></td><td><p>Enforce globally unique Transaction Set Control Numbers (ST02) for received transaction sets</p></td></tr><tr><td><p>Store time-to-live</p></td><td><p>Set the minimum number of days to store interchange, group, and transaction set numbers for checking uniqueness</p></td></tr><tr><td><p>Acknowledge every transaction</p></td><td><p>Include a separate AK2/AK5 (997) or AK2/IK5 (999) acknowledgment for every received transaction set. Instead of using implicit acknowledgments for transaction sets without errors</p></td></tr><tr><td><p>Generate 999 acknowledgments</p></td><td><p>Generate 999 Implementation Acknowledgments, rather than the 997 Functional Acknowledgments default. The support for 999 Implementation Acknowledgments does not include CTX segment generation.</p></td></tr><tr><td><p>Report segment details</p></td><td><p>Report segment error details to sender in the generated 997 or 999 acknowledgments</p></td></tr><tr><td><p>Include Acknowledgement schema</p></td><td><p>Automatically include a standard 997 or 999 schema that matches the generated acknowledgment in the configuration for received messages</p></td></tr><tr><td><p>Acknowledgment schema path</p></td><td><p>Set the path to a Functional Acknowledgment schema to be used for generated acknowledgments such as <code>/hipaa/005010X231A1/999.esl</code>, that uses the standard HIPAA 005010X231A1 acknowledgment. The schema type included in the path must match the Generate 999 Functional Acknowledgments setting (<code>false</code> for 997, <code>true</code> for 999). If you do not set the path, the parser uses a hardcoded X12 997 or 999 schema, as appropriate.</p></td></tr><tr><td><p>Enforce conditional rules</p></td><td><p>Enforce conditional rules for receive values</p></td></tr></tbody></table>
+
+### Writer Tab
+
+Writer options let you specify the separator characters used when writing messages.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p>Data element separator</p></td><td><p>Specify characters when writing messages</p></td></tr><tr><td><p>Component element separator</p></td><td><p>Specify characters when writing messages</p></td></tr><tr><td><p>Repetition separator</p></td><td><p>Specify characters when writing messages</p></td></tr><tr><td><p>Segment terminator</p></td><td><p>Specify characters when writing messages</p></td></tr><tr><td><p>Segment line ending</p></td><td><p>Line ending written between segments, used to make the output more readable</p></td></tr><tr><td><p>Unique group numbers</p></td><td><p>Whether to generate unique GS group control numbers across interchanges</p></td></tr><tr><td><p>Unique transaction numbers</p></td><td><p>Whether to generate unique ST transaction set control numbers across groups and interchanges</p></td></tr><tr><td><p>Implementation reference</p></td><td><p>An implementation convention reference (ST03) value</p></td></tr><tr><td><p>Initial interchange number</p></td><td><p>The starting interchange control number. Only used when no current value is found in the object store</p></td></tr><tr><td><p>Initial group number</p></td><td><p>The starting group control number. Only used when no current value is found in the object store</p></td></tr><tr><td><p>Initial transaction number</p></td><td><p>The starting transaction set control number. Only used when no current value is found in the object store</p></td></tr><tr><td><p>Request acknowledgments</p></td><td><p>Whether to request interchange acknowledgments (ISA14)</p></td></tr><tr><td><p>Default usage indicator</p></td><td><p>The default interchange usage indicator (ISA15). Used when no value is present in the message data</p></td></tr><tr><td><p>Use supplied values</p></td><td><p>Whether to use supplied values for control segment information (control numbers, in particular). The default behavior is always generate control numbers when writing. This allows you to use chosen values</p></td></tr><tr><td><p>Output mime type</p></td><td><p>Whether to use the default output MIME type <code>application/plain</code>, or the X12-specific alternative <code>application/edi-x12</code>.</p></td></tr><tr><td><p>Enforce length limits</p></td><td><p>Whether to enforce length limits on input data</p></td></tr><tr><td><p>Enforce conditional rules</p></td><td><p>Whether to enforce conditional rules on input data. The default is to ignore conditional rules</p></td></tr><tr><td><p>Interchange number key</p></td><td><p>The key-value pair of the interchange control key and interchange control number</p></td></tr><tr><td><p>Group number key</p></td><td><p>The key-value pair of group control key and group control number</p></td></tr><tr><td><p>Transaction number key</p></td><td><p>The key-value pair of the transaction control key and transaction control number</p></td></tr></tbody></table>
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector. See [Additional Configuration Information](x12-edi-connector-config-topics) for more
+configuration steps.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 - Understanding the EDI Schema Language
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+X12 EDI Connector uses a YAML format called EDI Schema Language (ESL) to represent EDI schemas.
+Basic ESLs define the structure of Electronic Data Interchange (EDI) messages in terms of:
+
+- structures, known as _transaction sets_ in X12 terminology
+- groups, known as loops, in X12
+- segments, composites, and elements
+
+ESLs for the all [supported X12 versions](x12-edi-versions-x12) are included. If you are using
+HIPAA, then a set of [HIPAA variations](x12-edi-versions-hipaa) of base X12 transaction sets are
+included.
+
+You can customize X12 schema definitions to suit your data by defining an overlay schema. An overlay
+schema is a type of ESL that enables you to modify a base schema, such as an X12 4010 850 schema,
+with your specific conventions. You donât need an overlay schema if youâre using the structure
+defined by the standard, but most EDI exchanges modify the base definitions in an implementation
+convention.
+
+You can define your own custom schemas, or copy and edit a base X12 schema definition to suit your
+data as shown in the [EDI Schema Language Reference](x12-edi-schema-language-reference).
+
+## Finding Schema Locations
+
+To use the connector, you need to know the locations of the schemas in your project. If youâre using
+out-of-the-box X12 schemas and not customizing anything, the schema location follows the
+`/x12/{version}/{transaction set}.esl` convention.
+
+For example, using the `005010` version and the 850 transaction set, the schema location is
+`/x12/005010/850.esl`.
+
+If youâre using one or more custom schemas, refer to
+[XML Schema and Trading Partner Configuration](x12-edi-connector-config-topics) for complete
+information about setting your schema locations.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 - Message Structure Hierarchy
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use this connector to read or write X12 documents into (or from) the canonical EDI message
+structure. This structure is a hierarchy of Java Maps and Lists. You use either DataWeave or code to
+manipulate them. Each transaction structure is defined in the schemas.
+
+The message itself contains the following keys, some of which apply only to either the read
+operation or the write operation, as indicated:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key Name</th><th>Description</th></tr></thead><tbody><tr><td><p>Delimiters</p></td><td><p>An optional set of delimiters used in the message. If used in a read operation, the delimiters are based on the most recent interchange processed by a read operation. If used for a write operation, the delimiters override the values in the module configuration. The characters in the string of delimiters are interpreted based on their position in string, in the following order: data separator, subelement separator, repetition separator, and segment terminator, with a value of <code>U</code> indicating no value in that position.</p></td></tr><tr><td><p>Errors (read only)</p></td><td><p>A list of errors that are associated either with the input as a whole or with interchanges that have no valid transaction sets.</p></td></tr><tr><td><p>FunctionalAcksGenerated (read only)</p></td><td><p>A list of <code>997</code> or <code>999</code> configured acknowledgments that are generated by the module during the read operation.</p></td></tr><tr><td><p>Group (write only)</p></td><td><p>A map of GS group header segment values used as defaults when writing groups</p></td></tr><tr><td><p>Interchange (write only)</p></td><td><p>A map of ISA interchange header segment values used as defaults during an interchange write operation.</p></td></tr><tr><td><p>InterchangeAcksGenerated (read only)</p></td><td><p>A list of TA1 acknowledgments that were generated by the module during the read operation.</p></td></tr><tr><td><p>InterchangeAcksReceived (read only)</p></td><td><p>A list of TA1 acknowledgments that were received by the module during the read operation.</p></td></tr><tr><td><p>InterchangeAcksToSend (write only)</p></td><td><p>A list of TA1 acknowledgments that are sent by the module during the write operation.</p></td></tr><tr><td><p>Transactions</p></td><td><p>A hierarchy of the transaction sets that are either read by the module during a read operation or sent by the module during a write operation. The value of this top-level key is a map with standard versions as keys, in the form of <code>v005010</code>. For example, if you are using version <code>005010</code> with <code>850</code> and <code>855</code> transaction sets, the transactions contain a map with one key, <code>v005010</code>. The value of this key is another map, one with two keys, <code>850</code> and <code>855</code>. Each of these contain a list of individual <code>850</code> and <code>855</code> transaction sets that are processed. If youâre using <code>997</code> functional acknowledgments, then <code>997</code> is the key for a list of 997 transaction sets.</p></td></tr></tbody></table>
+
+Individual transaction sets have their own maps, with the following keys:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><p>Detail</p></td><td><p>A map of segments or loops from the detail section of the transaction set. Values are maps for segments or loops that occur once. Lists of maps exist for segments or loops that occur more than once.</p></td></tr><tr><td><p>Errors (read only)</p></td><td><p>A list of errors that are associated either with the input as a whole or with interchanges that have no valid transaction sets.</p></td></tr><tr><td><p>Group</p></td><td><p>A map containing GS group header segment values. For a read message, the map is the actual data from the enclosing group. It is a single map linked from all transaction sets in the group. For a write message, the map value creates the enclosing group. If there are no values for this map, then the default is the value(s) taken from the Group map at the message level.</p></td></tr><tr><td><p>Heading</p></td><td><p>A map of segments or loops from the heading section of the transaction set. Values are maps for segments or loops that occur once. Lists of maps exist for values that occur more than once.</p></td></tr><tr><td><p>Id</p></td><td><p>The Transaction ID must match the key of the containing transaction list.</p></td></tr><tr><td><p>Interchange</p></td><td><p>A map of ISA interchange header segment values. For a read message, the map is the actual data from the enclosing interchange. It is a single map linked from all transaction sets in the interchange. For a write message, the map value creates the enclosing interchange. For example, gathering transactions with the same interchange values into a single interchange, regardless of whether the actual maps are the same. If there are no values for this map, then the default is the value(s) taken from the Interchange map at the message level.</p></td></tr><tr><td><p>Name</p></td><td><p>Transaction set name</p></td></tr><tr><td><p>SetHeader</p></td><td><p>A map of ST transaction set header segment values. This provides the actual header data for a Read operation, and enables you to provide overrides for Write operation configuration settings.</p></td></tr><tr><td><p>Summary</p></td><td><p>A map of segments or loops from the summary section of the transaction set. These values are maps for segments or loops that occur once. The list of maps are for values that are repeated.</p></td></tr></tbody></table>
+
+Generated `997` or `999` functional acknowledgment transactions differ from received messages in
+their handling of interchange information:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key name</th><th>Description</th></tr></thead><tbody><tr><td><p>Interchange</p></td><td><p>A map of ISA interchange header segment values. For functional acknowledgments generated by receive processing, this map is a copy of the data for the containing interchange with sender and receiver identification components (ISA05/ISA06 and ISA07/ISA08) interchanged. When writing a message, these values are used for creating the enclosing interchange. For example, gathering transactions with the same interchange values into a single interchange, regardless of whether the actual maps are the same. If there are no values for this map, then the default is the value(s) taken from the Interchange map at the message level.</p></td></tr></tbody></table>
+
+TA1 interchange acknowledgments are in the form of maps representing the TA1 segment data and linked
+to data on the corresponding interchange:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key name</th><th>Description</th></tr></thead><tbody><tr><td><p>Interchange</p></td><td><p>A map of ISA interchange header segment values. For TA1 acknowledgments generated by receive processing, this map is a copy of the data for the interchange matching the TA1 with sender and receiver identification components (ISA05/ISA06 and ISA07/ISA08) interchanged. When writing a message, these values are used for creating the enclosing interchange. It gathers transactions with the same interchange values into a single interchange, regardless of whether the actual maps are the same. If there are no values for this map, then the default is the value(s) are taken from the Interchange map at the message level.</p></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+editor or from a text editor, you can access the connector from your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/x12-edi
+http://www.mulesoft.org/schema/mule/x12-edi/current/mule-x12-edi.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:x12-edi="http://www.mulesoft.org/schema/mule/x12-edi"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/x12-edi
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-x12-connector</artifactId>
+  <version>2.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace the <version> with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `X12 Connector`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](x12-edi-connector-examples).
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# X12 EDI Connector 2.18 - EDI Schema Language Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Anypoint B2B Connectors use a YAML format called EDI Schema Language (ESL) to represent EDI
+schemas. Basic ESLs define the composition of EDI messages with structures, segments, composites,
+and elements. ESL supports the following Connectors:
+
+- Anypoint Connector for X12 EDI (X12 EDI Connector)
+- Anypoint Connector for EDIFACT (EDIFACT Connector)
+- Anypoint Connector for TRADACOMS (TRADACOMS Connector)
+- Anypoint Connector for HL7 (HL7 Connector)
+
+## Components of an ESL Document
+
+The top-level definitions in an ESL document show:
+
+- the EDI standard
+- the version of that standard
+- an optional list of import ESLs
+- any combination structures, segments, composites, and element definitions.
+
+The following example shows what these top-level definitions look like from an `/x12/005010/850.esl`
+schema:
+
+```yaml
+form: X12
+version: '005010'
+imports: [ '/x12/005010/basedefs.esl' ]
+structures:
+- id: '850'
+  name: Purchase Order
+  class: PO
+  ...
+```
+
+There is an ESL for each X12 and EDIFACT version named `basedefs.esl`, providing the standard
+segment, composite, and element definitions. This example shows an 850 purchase order that imports
+these to reuse the definitions representing the purchase order structure.
+
+### Readability
+
+YAML uses a combination of lists and sets of key-value pairs. The order of values is not important,
+as long as the required items are present. Quotes (such as single or double) are used around values
+that consist of digits but are meant to be interpreted as strings (otherwise the YAML parser treats
+the values as numbers). Indentation is used to show the nesting of lists.
+
+The ESL structures shown here define all simple key-value pairs before any lists that are part of
+the same definition.
+
+## Structure Definitions
+
+These represent X12 transaction sets or EDIFACT messages and are composed of key-value pairs for
+standard characteristics with lists of segments that comprise the actual structure. Segment lists
+are organized into heading, detail, and summary sections. These can be further refined into groups
+consisting of a potentially repeated sequence of segments.
+
+This example shows a sample structure definition from the `/x12/005010/850.esl` schema:
+
+```yaml
+- id: '850'
+  name: Purchase Order
+  class: PO
+  heading:
+  - { idRef: 'ST', position: '0100', usage: M }
+  - { idRef: 'BEG', position: '0200', usage: M }
+  - { idRef: 'CUR', position: '0400', usage: O }
+  - { idRef: 'REF', position: '0500', usage: O, count: '>1' }
+  - { idRef: 'PER', position: '0600', usage: O, count: 3 }
+  - { idRef: 'TAX', position: '0700', usage: O, count: '>1' }
+  - { idRef: 'FOB', position: '0800', usage: O, count: '>1' }
+  - { idRef: 'CTP', position: '0900', usage: O, count: '>1' }
+  - { idRef: 'PAM', position: '0950', usage: O, count: 10 }
+  - { idRef: 'CSH', position: '1100', usage: O, count: 5 }
+  - { idRef: 'TC2', position: '1150', usage: O, count: '>1' }
+  - groupId: 'SAC'
+    usage: O
+    count: 25
+    items:
+    - { idRef: 'SAC', position: '1200', usage: O }
+    - { idRef: 'CUR', position: '1250', usage: O }
+  - { idRef: 'ITD', position: '1300', usage: O, count: '>1' }
+  - { idRef: 'DIS', position: '1400', usage: O, count: 20 }
+  ...
+```
+
+The basic structure values are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Structure Key/Section</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>id</p></div></div></td><td><div><div><p>Structure identifier</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>Structure name</p></div></div></td></tr><tr><td><div><div><p>class</p></div></div></td><td><div><div><p>A class of structure that is equivalent to an X12 functional group identifier. This is ignored in EDIFACT structure definitions.</p></div></div></td></tr><tr><td><div><div><p>heading</p></div></div></td><td><div><div><p>List of segments and groups within the heading section of the structure.</p></div></div></td></tr><tr><td><div><div><p>detail</p></div></div></td><td><div><div><p>List of segments and groups within the detail section of the structure.</p></div></div></td></tr><tr><td><div><div><p>summary</p></div></div></td><td><div><div><p>List of segments and groups within the heading section of the structure.</p></div></div></td></tr></tbody></table>
+
+The lists of segments for each section of the structure use the same form. Each item in the list is
+either a segment reference or a group definition. Segment references use a compact YAML syntax: the
+values for each are shown as comma-separated key-value pairs enclosed in curly braces.
+
+The values are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Segment Property</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The referenced segment ID.</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The segment position within the section. With the EDI convention these are numeric values that can include leading zeros, so these are quoted and handled as strings.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code definition:</p></div><div><ul><li><p><code>C</code> for Conditional</p></li><li><p><code>M</code> for Mandatory</p></li><li><p><code>O</code> for Optional</p></li><li><p><code>U</code> for Unused, the item should not appear at all in the data.</p></li><li><p><code>I</code> for Ignored, this can be present in data, as in the case of the HL segments it must be present, but is not visible for the user in metadata.</p></li></ul></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value that can be a number or the special value &gt;1 . This means any number of repeats. A count value of 1 is used if not specified.</p></div></div></td></tr></tbody></table>
+
+Group definitions are shown in expanded form, with key-value pairs on separate lines. The values in
+a group definition are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>groupId</p></div></div></td><td><div><div><p>The group identifier</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code definition:</p></div><div><ul><li><p><code>C</code> for Conditional</p></li><li><p><code>M</code> for Mandatory</p></li><li><p><code>O</code> for Optional</p></li><li><p><code>U</code> for Unused, the item should not appear at all in the data.</p></li><li><p><code>I</code> for Ignored, this can be present in data, as in the case of the HL segments it must be present, but is not visible for the user in metadata.</p></li></ul></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value that can be a number or the special value &gt;1 . This means any number of repeats. A count value of 1 is used if not specified.</p></div></div></td></tr><tr><td><div><div><p>items</p></div></div></td><td><div><div><p>List of segments and potentially nested groups that comprise the group.</p></div></div></td></tr></tbody></table>
+
+## Segment Definitions
+
+Segment definitions are comprised of certain key-value pairs for standard characteristics along with
+lists of values such as elements and composites that make up the actual segment. The following
+example shows a portion of a sample segment definition, from the `/x12/005010/basedefs.esl` schema
+
+`M` is mandatory `O` is Optional
+
+```yaml
+- id: "BAK"
+  name: Beginning Segment for Purchase Order Acknowledgment
+  values:
+    - { idRef: "353", usage: M }
+    - { idRef: "587", usage: M }
+    - { idRef: "324", usage: M }
+    - { idRef: "373", usage: M }
+    - { idRef: "328", usage: O }
+    - { idRef: "326", usage: O }
+```
+
+Segment definition values are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>id</p></div></div></td><td><div><div><p>segment identifier</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>segment name</p></div></div></td></tr><tr><td><div><div><p>values</p></div></div></td><td><div><div><p>list of elements and composites within the segment</p></div></div></td></tr></tbody></table>
+
+The values list references elements and composites by ID, and use a compact YAML syntax: the values
+for each are shown as comma-separated key-value pairs enclosed in curly braces.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The referenced element or composite ID.</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The value position within the segment starts at 1 and increases by 1 for each successive value. Generally not used.</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>The name of the value in the segment, by default the element or composite name is used.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code definition:</p></div><div><ul><li><p><code>C</code> for Conditional</p></li><li><p><code>M</code> for Mandatory</p></li><li><p><code>O</code> for Optional</p></li><li><p><code>U</code> for Unused, the item should not appear at all in the data.</p></li><li><p><code>I</code> for Ignored, this can be present in data, as in the case of the HL segments it must be present, but is not visible for the user in metadata.</p></li></ul></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value that can be a number or the special value &gt;1 . This means any number of repeats. A count value of 1 is used if not specified.</p></div></div></td></tr></tbody></table>
+
+## Composite Definitions
+
+Composite definitions are very similar to segment definitions. They are composed of certain
+key-value pairs for standard characteristics along with lists of values such as elements and
+composites that make up the actual composite. This example shows a portion of a composite
+definition, from the `/x12/005010/basedefs.esl schema`.
+
+```yaml
+- id: "C022"
+  name: "Health Care Code Information"
+  values:
+    - { idRef: "1270", usage: M }
+    - { idRef: "1271", usage: M }
+    - { idRef: "1250", usage: C }
+    - { idRef: "1251", usage: C }
+    - { idRef: "782", usage: O }
+```
+
+Composite definition values are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>id</p></div></div></td><td><div><div><p>composite identifier</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>composite name</p></div></div></td></tr><tr><td><div><div><p>values</p></div></div></td><td><div><div><p>list of elements and composites within the composite</p></div></div></td></tr></tbody></table>
+
+The values list references elements and composites by ID, and use a compact YAML syntax: the values
+for each are shown as comma-separated key-value pairs enclosed in curly braces.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The referenced element or composite ID</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The value position within the segment, starts at 1 and increases by 1 for each successive value. Generally not used.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code definition:</p></div><div><ul><li><p><code>C</code> for Conditional</p></li><li><p><code>M</code> for Mandatory</p></li><li><p><code>O</code> for Optional</p></li><li><p><code>U</code> for Unused, the item should not appear at all in the data.</p></li><li><p><code>I</code> for Ignored, this can be present in data, as in the case of the HL segments it must be present, but is not visible for the user in metadata.</p></li></ul></div></div></td></tr></tbody></table>
+
+## Element Definitions
+
+Element definitions are simple with only basic key-value pairs for standard characteristics.
+
+This example shows this from the `/x12/005010/basedefs.esl` schema:
+
+```yaml
+elements:
+  - { id: "1", name: "Route Code", type: AN, minLength: 1, maxLength: 13 }
+  - { id: "100", name: "Currency Code", type: ID, minLength: 3, maxLength: 3 }
+  - { id: "1000", name: "Service Characteristics Qualifier", type: AN, minLength: 2, maxLength: 3 }
+```
+
+Element definition values are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>id</p></div></div></td><td><div><div><p>Element identifier</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>Element name</p></div></div></td></tr><tr><td><div><div><p>type</p></div></div></td><td><div><div><p>Value type code (Binary data type is not currently supported):</p></div><div><ul><li><p><code>N</code> for an integer number</p></li><li><p><code>N0-N9</code> for a number with an implied decimal point at the indicated position (N0 is equivalent to N)</p></li><li><p><code>R</code> for a decimal number</p></li><li><p><code>ID</code> for an identifier</p></li><li><p><code>AN</code> for an alphanumeric string</p></li><li><p><code>DT</code> for a date</p></li><li><p><code>TM</code> for a time</p></li></ul></div></div></td></tr><tr><td><div><div><p>minLength</p></div></div></td><td><div><div><p>Minimum number of significant characters in the value.</p></div></div></td></tr><tr><td><div><div><p>maxLength</p></div></div></td><td><div><div><p>Maximum number of significant characters in the value.</p></div></div></td></tr></tbody></table>
+
+## Specify a Schema According to Your Implementation Convention
+
+You can define your implementation convention with an Overlay Schema. Overlay schemas specify how to
+use implementation conventions with a particular trading partner to extend and customizes the
+standard. These are very similar in structure to complete schemas but instead of providing all the
+details of the schema structure they only list changes.
+
+You create an overlay schema with the following process:
+
+1.  Create an overlay schema that imports the base schema you want to customize, for example,
+    `X12 005010 850`.
+2.  Customize the overall structure for segment usage, positions, groups, and counts.
+3.  Customize segments, including usage and counts.
+
+The following example shows a portion of a sample overlay schema that modifies the basic
+`X12 005010 850` transaction set definition. This example customizes the `CUR` segment and specifies
+that it is unused, thereby ensuring it is hidden from the mapping structures in Anypoint Studio.
+
+```yaml
+form: X12
+version: "005010"
+imports: ["/x12/005010/850.esl"]
+structures:
+  - idRef: "850"
+    name: Purchase Order
+    class: PO
+    heading:
+      - { idRef: "CUR", position: "0400", usage: U }
+```
+
+### Structure Overlay
+
+A structure overlay details modifications to the base schema definition of an X12 transaction set.
+Most often these modifications take the form of marking segments or groups in the base definition as
+unused, but any usage or repetition count change is allowed.
+
+The modifications in this example specify that the `CUR` and `PER` segments of the standard `850`
+heading are not being used, along with the segments in the `N9` loop.
+
+```yaml
+- idRef: "850"
+  heading:
+    - { idRef: "CUR", position: "0400", usage: U }
+    - { idRef: "PER", position: "0600", usage: U }
+    - groupIdRef: "N9_Loop"
+      position: "2950"
+      items:
+        - { idRef: "DTM", position: "2970", usage: U }
+        - { idRef: "PWK", position: "3050", usage: U }
+        - { idRef: "EFI", position: "3080", usage: U }
+```
+
+The key-value pairs at the structure level are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The ID for the transaction set being modified.</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>The transaction set name, if used.</p></div></div></td></tr><tr><td><div><div><p>heading, detail, summary</p></div></div></td><td><div><div><p>List of segment and group modifications within each section of the structure. If used, each is only used when there are modifications to that section.</p></div></div></td></tr></tbody></table>
+
+The lists of segment modifications for the different sections of the structure such as heading,
+detail, summary all use the same structure. Each item in the list is either a segment reference or a
+group definition. Segment references are shown using a compact YAML syntax where the values for each
+reference are given as comma-separated key-value pairs enclosed in curly braces.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The referenced segment ID. Verified if provided, but otherwise ignored. The position value is used to uniquely identify segments within the section.</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The segment position within the transaction set section.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code, <code>M</code> for Mandatory, <code>O</code> for Optional, <code>C</code> for Conditional, or <code>U</code> for Unused.</p></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value, which may be a number or the special value <code>&gt;1</code> meaning any number of repeats. The count value, if specified. Uses a base definition value if not specified.</p></div></div></td></tr></tbody></table>
+
+Group overlays are shown in expanded form, with key-value pairs on separate lines.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>groupIdRef</p></div></div></td><td><div><div><p>The referenced group ID. Verified if provided, but otherwise ignored. The position value is used to uniquely identify a group within a section.</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The segment position within the transaction set section.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code, <code>M</code> for Mandatory, <code>O</code> for Optional, <code>C</code> for Conditional, or <code>U</code> for Unused.</p></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value that can be a number or the special value &gt;1 . This means any number of repeats. The count value and a base definition value is used if a value is not specified.</p></div></div></td></tr><tr><td><div><div><p>items</p></div></div></td><td><div><div><p>List of segments and potentially nested loops making up the loop.</p></div></div></td></tr></tbody></table>
+
+### Segment Overlays
+
+A segment overlay delineates modifications to the base schema definition. These modifications can
+take the form of marking elements or composites in the base definition as unused. Any usage or
+repetition count change is allowed. The following example uses the compact form for segment
+modifications that only involve a truncation, while modifications that make changes to individual
+values are expressed in expanded form. As with all the other YAML examples, the two forms are
+actually equivalent and are used interchangeably.
+
+```yaml
+segments:
+  - { idRef: AMT, trim: 3 }
+  - idRef: BEG
+    values:
+      - { position: 4, usage: U }
+  - { idRef: DTM, trim: 3 }
+  - idRef: ITD
+    values:
+      - { position: 4, usage: U }
+      - { position: 6, usage: U }
+```
+
+> [!NOTE] Segment overlays do not automatically apply to all uses of a segment, they are only
+> effective for segments referenced within a structure overlay. The structure overlay doesnât need
+> to make any changes to the usage of the segment, but must reference the segment at the appropriate
+> position(s) so that the segment overlay is used to modify the base definition.
+
+The key-value pairs in a segment overlay.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>Segment identifier.</p></div></div></td></tr><tr><td><div><div><p>trim</p></div></div></td><td><div><div><p>Trim position in segment, if used, all values from this point on are marked as unused.</p></div></div></td></tr><tr><td><div><div><p>values</p></div></div></td><td><div><div><p>List of individual value modifications.</p></div></div></td></tr></tbody></table>
+
+The values list references values in the segment by position. The key-value pairs for these
+references.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The value position within the segment.</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>The name of the value in the segment, if used. The base definition value used if not specified.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code, <code>M</code> for Mandatory, <code>O</code> for Optional, <code>C</code> for Conditional, or <code>U</code> for Unused.</p></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value, which may be any number or the special value <code>&gt;1</code> meaning any number of repeats. The count value and a base definition value is used if a value is not specified.</p></div></div></td></tr></tbody></table>
+---
+
+# X12 EDI Connector 2.18 - X12 EDI HIPAA Versions
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following lists the transaction sets supported by the Mule X12 EDI HIPAA connector for each
+version of the X12 standard.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>X12 Version</th><th>Supported Transaction Sets</th></tr></thead><tbody><tr><td><p>005010X210</p></td><td><p>275</p></td></tr><tr><td><p>005010X212</p></td><td><p>276 277</p></td></tr><tr><td><p>005010X214</p></td><td><p>277</p></td></tr><tr><td><p>005010X215</p></td><td><p>278RQ, 278RS</p></td></tr><tr><td><p>005010X216</p></td><td><p>278RQ, 278RS</p></td></tr><tr><td><p>005010X217</p></td><td><p>278RQ, 278RS</p></td></tr><tr><td><p>005010X218</p></td><td><p>820</p></td></tr><tr><td><p>005010X220A1</p></td><td><p>834</p></td></tr><tr><td><p>005010X221A1</p></td><td><p>835</p></td></tr><tr><td><p>005010X222A1</p></td><td><p>837</p></td></tr><tr><td><p>005010X222A2</p></td><td><p>837</p></td></tr><tr><td><p>005010X223A2</p></td><td><p>837</p></td></tr><tr><td><p>005010X223A3</p></td><td><p>837</p></td></tr><tr><td><p>005010X224A2</p></td><td><p>837</p></td></tr><tr><td><p>005010X224A3</p></td><td><p>837</p></td></tr><tr><td><p>005010X228</p></td><td><p>277</p></td></tr><tr><td><p>005010X231A1</p></td><td><p>999</p></td></tr><tr><td><p>005010X279A1</p></td><td><p>270 271</p></td></tr><tr><td><p>005010X298</p></td><td><p>837</p></td></tr><tr><td><p>005010X299</p></td><td><p>837</p></td></tr><tr><td><p>005010X300</p></td><td><p>837</p></td></tr><tr><td><p>005010X306</p></td><td><p>820</p></td></tr></tbody></table>
+---
+
+# X12 EDI Connector 2.18 - X12 EDI Connector Versions
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following topics lists the transaction sets (document types) supported by the X12 connector for
+each version of the X12 standard.
+
+## Version 002001
+
+810 820 830 832 840 843 846 850 855 856 860 861 865 867 997
+
+## Version 002002
+
+810 820 823 830 832 840 843 846 850 855 856 860 861 862 865 867 869 870 997
+
+## Version 002003
+
+810 819 820 822 823 830 832 840 843 844 845 846 849 850 855 856 860 861 862 863 865 867 869 870 997
+
+## Version 002040
+
+810 819 820 821 822 823 830 832 840 843 844 845 846 849 850 855 856 858 860 861 862 863 864 865 866
+867 869 870 997
+
+## Version 003010
+
+810 819 820 821 822 823 824 826 827 829 830 832 836 840 841 842 843 844 845 846 849 850 852 855 856
+858 859 860 861 862 863 864 865 866 867 868 869 870 997
+
+## Version 003010 UCS
+
+812 820 852 855 856 997
+
+## Version 003010 VICS
+
+810 820 830 832 840 843 846 850 852 855 856 860 864 867 869 870 997
+
+## Version 003020
+
+104 110 114 170 204 210 213 214 217 218 300 301 303 304 309 310 312 313 315 322 323 324 350 353 354
+361 414 418 426 429 431 466 468 485 490 492 494 810 811 812 815 819 820 821 822 823 824 826 827 828
+829 830 832 835 836 838 840 841 842 843 844 845 846 848 849 850 851 852 855 856 857 858 859 860 861
+862 863 864 865 866 867 868 869 870 872 878 879 888 889 894 895 896 940 943 944 945 947 980 990 996
+997
+
+## Version 003020 UCS
+
+812 820 846 852 855 856 867 875 876 878 879 880 882 888 889 893 894 895 896 940 943 944 945 947 997
+
+## Version 003020 VICS
+
+810 812 820 824 830 832 840 843 846 850 852 855 856 857 860 861 864 869 870 980 990 997
+
+## Version 003030
+
+104 110 114 130 131 135 139 140 141 142 143 144 146 147 151 152 161 170 180 190 204 210 213 214 217
+218 263 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356
+361 404 410 414 417 418 419 420 421 422 425 426 429 431 440 466 468 485 490 492 494 511 517 527 536
+561 567 601 602 622 805 806 810 811 812 813 815 818 819 820 821 822 823 824 826 827 828 829 830 832
+833 834 835 836 837 838 839 840 841 842 843 844 845 846 848 849 850 851 852 853 854 855 856 857 858
+859 860 861 862 863 864 865 866 867 868 869 870 872 878 879 882 888 889 893 894 895 896 924 925 926
+928 940 943 944 945 947 980 990 996 997 998
+
+## Version 003030 UCS
+
+812 820 830 846 852 855 856 864 867 875 876 878 879 880 882 888 889 893 894 895 896 940 943 944 945
+947 997
+
+## Version 003030 VICS
+
+180 810 812 818 820 824 830 832 840 843 846 850 852 853 855 856 857 860 861 864 869 870 879 889 980
+990 997
+
+## Version 003040
+
+104 110 125 126 127 128 129 130 131 135 139 140 141 142 143 144 146 147 148 151 152 154 161 170 180
+186 190 196 204 210 213 214 217 218 250 251 260 263 264 270 271 272 276 277 290 300 301 303 304 309
+310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356 361 404 410 414 417 418 419
+420 421 422 425 426 429 431 440 466 468 485 490 492 494 511 517 527 536 561 567 568 601 602 622 805
+806 810 811 812 813 815 816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836
+837 838 839 840 841 842 843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861
+862 863 864 865 866 867 868 869 870 872 875 876 878 879 880 882 888 889 893 894 895 896 920 924 925
+926 928 940 943 944 945 947 980 990 996 997 998
+
+## Version 003040 UCS
+
+180 812 820 830 831 846 852 855 856 864 867 875 876 878 879 880 882 883 884 885 886 888 889 891 893
+894 895 896 940 943 944 945 947 997
+
+## Version 003040 VICS
+
+180 810 812 816 818 820 824 830 831 832 840 843 846 850 852 853 855 856 857 860 861 864 869 870 879
+889 980 990 997
+
+## Version 003050
+
+104 110 120 121 124 125 126 127 128 129 130 131 135 139 140 141 142 143 144 146 147 148 150 151 152
+154 161 170 175 176 180 185 186 190 191 195 196 200 201 203 204 210 213 214 217 218 242 250 251 260
+262 263 264 265 266 270 271 272 276 277 278 290 300 301 303 304 309 310 311 312 313 315 317 319 322
+323 324 325 326 350 352 353 354 355 356 357 358 361 362 404 410 414 417 418 419 420 421 422 423 425
+426 429 431 432 433 435 440 451 452 453 455 456 466 468 475 485 490 492 494 501 503 504 511 517 527
+536 561 567 568 601 602 622 805 806 810 811 812 813 815 816 818 819 820 821 822 823 824 826 827 828
+829 830 831 832 833 834 835 836 837 838 839 840 841 842 843 844 845 846 847 848 849 850 851 852 853
+854 855 856 857 858 859 860 861 862 863 864 865 866 867 868 869 870 872 875 876 878 879 880 882 883
+884 885 886 888 889 891 893 894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 996 997 998
+
+## Version 003050 UCS
+
+180 812 820 830 831 846 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883 884 885 886 887
+888 889 891 893 894 895 896 940 943 944 945 947 997
+
+## Version 003050 VICS
+
+180 810 812 816 818 820 824 830 831 832 840 843 846 850 852 853 855 856 857 860 861 864 869 870 879
+889 980 990 997
+
+## Version 003060
+
+104 110 120 121 124 125 126 127 128 129 130 131 135 139 140 141 142 143 144 146 147 148 149 150 151
+152 154 159 161 163 170 175 176 180 185 186 188 189 190 191 194 195 196 197 199 200 201 203 204 206
+210 213 214 217 218 242 250 251 255 256 260 261 262 263 264 265 266 270 271 272 273 275 276 277 278
+288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356
+357 358 361 362 404 410 414 417 418 419 420 421 422 423 425 426 429 431 432 433 435 436 440 451 452
+453 455 456 466 468 475 485 490 492 494 501 503 504 511 517 527 536 561 567 568 601 602 715 805 806
+810 811 812 813 815 816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837
+838 839 840 841 842 843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862
+863 864 865 866 867 868 869 870 871 872 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889
+891 893 894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 996 997 998
+
+## Version 003060 UCS
+
+180 812 820 824 830 831 846 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883 884 885 886
+887 888 889 891 893 894 895 896 940 943 944 945 947 997
+
+## Version 003060 VICS
+
+163 180 810 812 816 818 820 824 830 831 832 840 843 846 850 852 853 855 856 857 860 861 864 869 870
+889 980 990 997
+
+## Version 003070
+
+101 104 110 120 121 124 125 126 127 128 129 130 131 135 139 140 141 142 143 144 146 147 148 149 150
+151 152 153 154 155 159 160 161 163 170 175 176 180 185 186 188 189 190 191 194 195 196 197 198 199
+200 201 203 204 205 206 210 211 212 213 214 215 216 217 218 242 244 248 249 250 251 252 255 256 260
+261 262 263 264 265 266 268 270 271 272 273 275 276 277 278 280 285 288 290 300 301 303 304 309 310
+311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356 357 358 361 362 404 410 414 417
+418 419 420 421 422 423 425 426 429 431 432 433 434 435 436 437 440 451 452 453 455 456 460 463 466
+468 470 475 485 486 490 492 494 500 501 503 504 511 517 521 527 536 540 561 567 568 601 602 650 715
+805 806 810 811 812 813 814 815 816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834
+835 836 837 838 839 840 841 842 843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859
+860 861 862 863 864 865 866 867 868 869 870 871 872 875 876 877 878 879 880 881 882 883 884 885 886
+887 888 889 891 893 894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 996 997 998
+
+## Version 003070 UCS
+
+180 812 820 824 830 831 846 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883 884 885 886
+887 888 889 891 893 894 895 896 940 943 944 945 947 997
+
+## Version 003070 VICS
+
+163 180 810 812 816 818 820 824 830 831 832 840 843 846 850 852 853 855 856 857 860 861 864 869 870
+889 980 990 997
+
+## Version 004010
+
+100 101 104 105 106 107 108 109 110 112 120 121 124 125 126 127 128 129 130 131 135 138 139 140 141
+142 143 144 146 147 148 149 150 151 152 153 154 155 157 159 160 161 163 170 175 176 180 185 186 188
+189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206 210 211 212 213 214 215 216 217 218
+219 220 222 223 224 225 242 244 248 249 250 251 252 255 256 260 261 262 263 264 265 266 267 268 270
+271 272 273 275 276 277 278 280 285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322
+323 324 325 326 350 352 353 354 355 356 357 358 361 362 404 410 414 417 418 419 420 421 422 423 425
+426 429 431 432 433 434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492
+494 500 501 503 504 511 517 521 527 536 540 561 567 568 601 602 620 625 650 715 805 806 810 811 812
+813 814 815 816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839
+840 841 842 843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864
+865 866 867 868 869 870 871 872 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893
+894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 996 997 998
+
+## Version 004010 UCS
+
+180 810 812 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883
+884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 004010 VICS
+
+180 810 812 816 818 820 824 830 831 832 840 843 846 850 852 853 855 856 857 860 861 864 869 870 889
+940 997
+
+## Version 004020
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 120 121 124 125 126 127 128 129 130 131 135 138
+139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 159 160 161 163 170 175 176 180
+185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206 210 211 212 213 214
+215 216 217 218 219 220 222 223 224 225 240 242 244 248 249 250 251 252 255 256 260 261 262 263 264
+265 266 267 268 270 271 272 273 274 275 276 277 278 280 283 284 285 286 288 290 300 301 303 304 309
+310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356 357 358 361 362 404 410 414
+417 418 419 420 421 422 423 425 426 429 431 432 433 434 435 436 437 440 451 452 453 455 456 460 463
+466 468 470 475 485 486 490 492 494 500 501 503 504 511 517 521 527 536 540 561 567 568 601 602 620
+625 650 715 805 806 810 811 812 813 814 815 816 818 819 820 821 822 823 824 826 827 828 829 830 831
+832 833 834 835 836 837 838 839 840 841 842 843 844 845 846 847 848 849 850 851 852 853 854 855 856
+857 858 859 860 861 862 863 864 865 866 867 868 869 870 871 872 875 876 877 878 879 880 881 882 883
+884 885 886 887 888 889 891 893 894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996
+997 998
+
+## Version 004020 UCS
+
+180 810 812 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883
+884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 004020 VICS
+
+180 810 812 816 818 820 824 830 831 832 840 843 846 850 852 853 855 856 860 861 864 869 870 882 889
+893 940 947 997
+
+## Version 004030
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 135
+138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 159 160 161 163 170 175 176
+180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206 210 211 212 213
+214 215 216 217 218 219 220 222 223 224 225 227 240 242 244 245 248 249 250 251 252 255 256 260 261
+262 263 264 265 266 267 268 270 271 272 273 274 275 276 277 278 280 283 284 285 286 288 290 300 301
+303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356 357 358 361 362
+404 410 412 414 417 418 419 420 421 422 423 425 426 429 431 432 433 434 435 436 437 440 451 452 453
+455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511 517 521 527 536 540 561 567
+568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816 818 819 820 821 822 823 824
+826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843 844 845 846 847 848 849 850
+851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868 869 870 871 872 873 875 876
+877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895 896 920 924 925 926 928 940 943
+944 945 947 980 990 993 996 997 998
+
+## Version 004030 UCS
+
+180 810 812 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883
+884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 004030 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 846 850 852 853 855 856 860 861 864 869 870 882 889
+893 940 947 997
+
+## Version 004040
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 159 160 161 163 170
+175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206 210
+211 212 213 214 215 216 217 218 219 220 222 223 224 225 227 240 242 244 245 248 249 250 251 252 255
+256 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284 285 286
+288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356
+357 358 361 362 404 410 412 414 417 418 419 420 421 422 423 425 426 429 431 432 433 434 435 436 437
+440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511 517 521 527
+536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816 818 819 820
+821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843 844 845 846
+847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868 869 870 871
+872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895 896 920 924
+925 926 928 940 943 944 945 947 980 990 993 996 997 998
+
+## Version 004040 UCS
+
+180 810 812 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882 883
+884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 004040 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 846 850 852 853 855 856 860 861 864 869 870 882 889
+893 940 947 997
+
+## Version 004050
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 159 160 161 163 170
+175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206 210
+211 212 213 214 215 216 217 219 220 222 223 224 225 227 240 242 244 245 248 249 250 251 252 255 256
+260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284 285 286 288
+290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355 356 357
+358 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433 434 435 436 437
+440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511 517 521 527
+536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816 818 819 820
+821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843 844 845 846
+847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868 869 870 871
+872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895 896 920 924
+925 926 928 940 943 944 945 947 980 990 993 996 997 998
+
+## Version 004050 UCS
+
+180 810 812 814 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882
+883 884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 004050 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 846 850 852 853 855 856 860 861 864 869 870 882 889
+893 940 947 997
+
+## Version 004060
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 240 242 244 245 248 249 250 251 252 255
+256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284 285
+286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354 355
+356 357 358 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433 434 435
+436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511 517
+521 527 536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816 818
+819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843 844
+845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868 869
+870 871 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895 896
+920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998
+
+## Version 004060 UCS
+
+180 810 812 814 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882
+883 884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 004060 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 846 850 852 853 855 856 860 861 864 867 869 870 882
+889 893 940 947 997
+
+## Version 005010
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433 434
+435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511
+517 521 527 536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816
+818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843
+844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868
+869 870 871 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895
+896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 005010 UCS
+
+180 810 812 814 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882
+883 884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 005010 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 846 850 852 853 855 856 860 861 862 864 867 869 870
+882 889 893 894 895 940 947 997
+
+## Version 005020
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433 434
+435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511
+517 521 527 536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816
+818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843
+844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868
+869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895 896
+920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 005020 UCS
+
+180 810 812 814 816 820 824 830 831 846 850 852 855 856 857 864 867 875 876 877 878 879 880 881 882
+883 884 885 886 887 888 889 891 893 894 895 896 940 944 945 947 997
+
+## Version 005020 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 845 846 850 852 853 855 856 860 861 862 864 867 869
+870 882 889 893 894 895 940 947 997
+
+## Version 005030
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433 434
+435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504 511
+517 521 527 536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816
+818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843
+844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868
+869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895 896
+920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 005030 UCS
+
+180 810 812 814 816 820 824 830 831 846 850 852 855 856 857 860 864 865 867 875 876 877 878 879 880
+881 882 883 884 885 886 887 888 889 891 893 894 895 896 940 943 944 945 947 997
+
+## Version 005030 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 845 846 850 852 853 855 856 860 861 862 864 867 869
+870 882 889 893 894 895 940 943 944 945 947 997
+
+## Version 005040
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895
+896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 005040 UCS
+
+180 810 812 814 816 820 824 830 831 846 850 852 855 856 857 860 864 865 867 875 876 877 878 879 880
+881 882 883 884 885 886 887 888 889 891 893 894 895 896 940 943 944 945 947 997
+
+## Version 005040 VICS
+
+180 753 754 810 812 816 818 820 824 830 831 832 845 846 850 852 853 855 856 860 861 862 864 867 869
+870 882 889 893 894 895 940 943 944 945 947 997
+
+## Version 005050
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 602 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 891 893 894 895
+896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 006010
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816
+818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843
+844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868
+869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 893 894 895
+896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 006020
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 620 625 650 715 753 754 805 806 810 811 812 813 814 815 816
+818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842 843
+844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867 868
+869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 893 894 895
+896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 006030
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 893 894
+895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 006040
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 893 894
+895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 006050
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 893 894
+895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 007010
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 893 894
+895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 007020
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 007030
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 007040
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 007050
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 007060
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 897 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 008010
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 897 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 008020
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 897 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 008030
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 897 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 008040
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 897 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+
+## Version 008050
+
+100 101 102 103 104 105 106 107 108 109 110 111 112 113 120 121 124 125 126 127 128 129 130 131 132
+133 135 138 139 140 141 142 143 144 146 147 148 149 150 151 152 153 154 155 157 158 159 160 161 163
+170 175 176 179 180 185 186 187 188 189 190 191 194 195 196 197 198 199 200 201 202 203 204 205 206
+210 211 212 213 214 215 216 217 219 220 222 223 224 225 227 228 240 242 244 245 248 249 250 251 252
+255 256 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 280 283 284
+285 286 288 290 300 301 303 304 309 310 311 312 313 315 317 319 322 323 324 325 326 350 352 353 354
+355 356 357 358 359 361 362 404 410 412 414 417 418 419 420 421 422 423 424 425 426 429 431 432 433
+434 435 436 437 440 451 452 453 455 456 460 463 466 468 470 475 485 486 490 492 494 500 501 503 504
+511 517 521 527 536 540 561 567 568 601 603 620 625 650 715 753 754 805 806 810 811 812 813 814 815
+816 818 819 820 821 822 823 824 826 827 828 829 830 831 832 833 834 835 836 837 838 839 840 841 842
+843 844 845 846 847 848 849 850 851 852 853 854 855 856 857 858 859 860 861 862 863 864 865 866 867
+868 869 870 872 873 874 875 876 877 878 879 880 881 882 883 884 885 886 887 888 889 890 891 892 893
+894 895 896 897 920 924 925 926 928 940 943 944 945 947 980 990 993 996 997 998 999
+

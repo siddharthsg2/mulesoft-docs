@@ -1,0 +1,521 @@
+﻿# HL7 MLLP Connector - Full Documentation
+
+# HL7 MLLP Connector 2.2 - Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use these examples to read and write HL7 messages over the Minimum Lower-Layer Protocol (MLLP).
+
+## Set Global Properties
+
+Set these global properties before using the examples:
+
+- Delimiter
+
+The standard HL7 delimiter value that separates MLLP messages. It is a hexadecimal 0x1C character
+also known as FS. Applications in some clinics use a different delimiter value in this field. The
+standard value in the HL7 MLLP connector is shown as `001C`.
+
+- Host
+
+Sets the socket host address
+
+- Port
+
+Sets the socket port
+
+For an advanced connection, complete these fields:
+
+- Reuse address
+
+Whether to reuse the configured socket or fail when trying to bind to the socket
+
+- Send TCP With No Delay
+
+Whether or not to transmit data immediately, or collect data for greater efficiency before sending
+
+- Linger
+
+How long (in milliseconds) the socket takes to correctly close so any remaining data transmits.
+
+- Keep alive
+
+Whether to close open socket connections that are unused for a long period with an unavailable
+connection.
+
+- Fail on unresolved host
+
+Whether the socket fails during its creation if the host (set on the endpoint) cannot be resolved.
+
+- TLS tab
+
+Configure a new TLS configuration. Its presence implies the use of SSLServerSocket instead of plain
+TCP.
+
+- Set the send or receive buffer size.
+
+## Example - Read and Write Message
+
+This example workflow sequentially invokes read and write HL7 messages over MLLP:
+
+- writer-flow
+
+Sends the given message through the socket to be received by the reader-flow
+
+- reader-flow
+
+Receive a MLLP message, and log the message
+
+- The app, index, styles, app-config, rest-service, order-controller, and write-order are used to
+  load static resources related to the user interface.
+
+## Read and Write HL7 Messages Over MLLP
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns:mllp="http://www.mulesoft.org/schema/mule/mllp"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mllp
+http://www.mulesoft.org/schema/mule/mllp/current/mule-mllp.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<mllp:mllp-listener-config name="Mule_HL7_MLLP_Listener_config"
+	doc:name="Mule HL7 MLLP Listener config">
+		<mllp:mllp-listener-connection host="localhost" port="40000" />
+	</mllp:mllp-listener-config>
+	<mllp:request-config name="Mule_HL7_MLLP_Request_config"
+	doc:name="Mule HL7 MLLP Request config">
+		<mllp:mllp-requester-connection host="localhost" port="40000" >
+			<mllp:local-address-settings port="49999" host="localhost" />
+		</mllp:mllp-requester-connection>
+	</mllp:request-config>
+	<http:listener-config name="HTTP_Listener_config"
+	doc:name="HTTP Listener config">
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<flow name="reader-flow">
+		<mllp:mllp-listener doc:name="Mllp listener"
+		config-ref="Mule_HL7_MLLP_Mllp_listener_config"/>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+	<flow name="writer-flow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/send"/>
+		<mllp:send doc:name="Send" config-ref="Mule_HL7_MLLP_Request_config">
+		</mllp:send>
+	</flow>
+	<flow name="index">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/"/>
+		<parse-template doc:name="Parse Template"
+		 location="ui-demo/index.html"/>
+	</flow>
+	<flow name="styles">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/styles"/>
+		<parse-template doc:name="Parse Template"
+		location="ui-demo/styles/styles.css"/>
+	</flow>
+	<flow name="app-config">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/app-config"/>
+		<parse-template doc:name="Parse Template"
+		location="ui-demo/app-config.js"/>
+	</flow>
+	<flow name="app">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/app"/>
+		<parse-template doc:name="Parse Template"
+		location="ui-demo/app.js"/>
+	</flow>
+	<flow name="rest-service">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="services/restService"/>
+		<parse-template doc:name="Parse Template"
+		location="ui-demo/services/restService.js"/>
+	</flow>
+	<flow name="order-controller">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="order/order.controller"/>
+		<parse-template doc:name="Parse Template"
+		location="ui-demo/order/order.controller.js"/>
+	</flow>
+	<flow name="write-order">
+		<http:listener doc:name="Listener"
+		config-ref="HTTP_Listener_config"
+		path="/order/writeOrder"/>
+		<parse-template doc:name="Parse Template"
+		location="ui-demo/order/writeOrder.html"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# HL7 MLLP Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## MLLP Listener Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#mllp-listener-config_mllp-listener">MLLP Listener</a></p></div></div></td><td><p>Connection types that can be provided to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances when appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+### MLLP Listener Connection Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Delimiter</p></td><td><div><div><p>String</p></div></div></td><td><p>Character code that separates MLLP messages. By default, MLLP uses <code>001C</code>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Uses SSLServerSocket instead of plain TCPServerSocket for accepting new SSL connections.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connectionâs port number.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Connectionâs host name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr><tr><td><p>Send Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer used when sending data, in bytes. This is set on the socket.</p></td><td></td><td></td></tr><tr><td><p>Receive Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer used when receiving data, in bytes. This is set on the socket.</p></td><td></td><td></td></tr><tr><td><p>Client Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_TIMEOUT value on the socket, which indicates the amount of time, in milliseconds, that the socket waits in a blocking operation before it fails. A value of <code>0</code> means that the socket waits indefinitely.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Reuse Address</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, SO_REUSEADDRESS is set on the socket before binding. This helps reduce <code>address already in use</code> errors when a socket is reused.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Send TCP With No Delay</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, transmitted data is sent immediately instead of collected together for greater efficiency. This value defaults to <code>true</code> even though the socket default is false because reducing the amount of network traffic over latency is not usually a concern today.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Linger</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_LINGER value, in milliseconds, which indicates how long the socket takes to close so that remaining data is transmitted correctly.</p></td><td></td><td></td></tr><tr><td><p>Keep Alive</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, enables SO_KEEPALIVE behavior on open sockets. This automatically checks socket connections that are open, but unused, for long periods and closes them if the connection becomes unavailable. This is set on the socket. It is used by a server socket to control whether connections to the server are kept alive before they are recycled.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail On Unresolved Host</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether the socket fails during its creation if the host set on the endpoint canât be resolved. Set this value to <code>false</code> to allow unresolved hosts (useful when connecting through a proxy).</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Connection Count</p></td><td><p>Number</p></td><td><p>Number of connections accepted at one time. This value can be an integer or DataWeave expression. An empty value, negative value, or value of <code>0</code> indicates that the connector can accept an unlimited number of connections.</p></td><td></td><td></td></tr><tr><td><p>Server Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_TIMEOUT value when the socket is used as a server. This is the timeout that applies to the accept operation. A value of <code>0</code> (the ServerSocket default) causes the accept to wait indefinitely if no connection arrives.</p></td><td></td><td></td></tr><tr><td><p>Receive Backlog</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum queue length for incoming connections.</p></td><td><p>50</p></td><td></td></tr></tbody></table>
+
+## Request Configuration
+
+Configuration for requester sockets.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#request-config_mllp-requester">MLLP Requester</a></p></div></div></td><td><p>Connection types that can be provided to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances when appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+### MLLP Requester Connection Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Local Address Settings</p></td><td><div><div><p><a href="#SocketConnectionSettings">Socket Connection Settings</a></p></div></div></td><td><p>Address that a socket should bind to.</p></td><td></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Configuration for TLS, which can be used from both the client and server sides.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connectionâs port number.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Connectionâs host name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Characteristics of the connection pool.</p></td><td></td><td></td></tr><tr><td><p>Send Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer used when sending data, in bytes. This is set on the socket.</p></td><td></td><td></td></tr><tr><td><p>Receive Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer used when receiving data, in bytes. This is set on the socket.</p></td><td></td><td></td></tr><tr><td><p>Client Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_TIMEOUT value on sockets. This indicates the amount of time, in milliseconds, that the socket waits in a blocking operation before failing. A value of <code>0</code> means waiting indefinitely.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Reuse Address</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, SO_REUSEADDRESS is set on the socket before binding. This helps reduce <code>address already in use</code> errors when a socket is reused.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Send TCP With No Delay</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, transmitted data is sent immediately instead of collected together for greater efficiency. This value defaults to <code>true</code> even though the socket default is false because reducing the amount of network traffic over latency is not usually a concern today.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Linger</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_LINGER value, which indicates how long, in milliseconds, the socket takes to close so that any remaining data is transmitted correctly.</p></td><td></td><td></td></tr><tr><td><p>Keep Alive</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, enables SO_KEEPALIVE behavior on open sockets. This automatically checks socket connections that are open, but unused, for long periods and closes them if the connection becomes unavailable. This is set on the socket and is used by a server socket to control whether connections to the server are kept alive before they are recycled.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail On Unresolved Host</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, the socket fails during its creation if the host set on the endpoint canât be resolved. Set this value to <code>false</code> to allow unresolved hosts (useful when connecting through a proxy).</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of milliseconds to wait until an outbound connection to a remote server is successfully created. Defaults to 30 seconds.</p></td><td><p>30000</p></td><td></td></tr></tbody></table>
+
+## Sources
+
+- [MLLP Listener](#mllp-listener)
+
+### MLLP Listener
+
+`<mllp:mllp-listener>`
+
+Listens for the socket connections of the given protocol in the configured host and port. When a new
+connection is received, this source schedules a socket worker to handle the communication for that
+connection.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>MIME type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding for the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source executes only on the primary node when running in a cluster.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Configures the redelivery policy for executing requests that generate errors. You can add a redelivery policy to any source in a flow.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ImmutableSocketAttributes">Immutable Socket Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [MLLP Listener Configuration](#mllp-listener-config)
+
+## Operations
+
+- [Send](#send)
+
+### Send
+
+`<mllp:send>`
+
+Sends the data using the client associated with the MLLP Requester connection.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>Data to serialize and send through the socket.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Request Configuration](#request-config)
+
+#### Throws
+
+- MLLP:CONNECTIVITY
+- MLLP:LISTENING_ERROR
+- MLLP:RETRY_EXHAUSTED
+- MLLP:SECURITY
+- MLLP:SENDING_ERROR
+- MLLP:UNKNOWN
+
+## Object Types
+
+- [CRL File](#crl-file)
+- [Custom OCSP Responder](#custom-ocsp-responder)
+- [Expiration Policy](#ExpirationPolicy)
+- [Immutable Socket Attributes](#ImmutableSocketAttributes)
+- [Keystore](#KeyStore)
+- [Pooling Profile](#PoolingProfile)
+- [Reconnect](#reconnect)
+- [Reconnect Forever](#reconnect-forever)
+- [Reconnection](#Reconnection)
+- [Redelivery Policy](#RedeliveryPolicy)
+- [Repeatable File Store Stream](#repeatable-file-store-stream)
+- [Repeatable In Memory Stream](#repeatable-in-memory-stream)
+- [Socket Connection Settings](#SocketConnectionSettings)
+- [Standard Revocation Check](#standard-revocation-check)
+- [TLS](#Tls)
+- [Truststore](#TrustStore)
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Max Idle Time</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Immutable Socket Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host Address</p></td><td><div><div><p>String</p></div></div></td><td><p>Address of the host where the requests are sent.</p></td><td></td><td></td></tr><tr><td><p>Host Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the host where the requests are sent.</p></td><td></td><td></td></tr><tr><td><p>Local Certificates</p></td><td><div><div><p>Array of Any</p></div></div></td><td><p>SSL local certificates. If the socket is not an SSL socket, this value is null.</p></td><td></td><td></td></tr><tr><td><p>Peer Certificates</p></td><td><div><div><p>Array of Any</p></div></div></td><td><p>SSL peer certificates. If the socket is not an SSL socket, this value is null.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port to which the requests are sent.</p></td><td></td><td></td></tr></tbody></table>
+
+### Keystore
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of keystore.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the keystore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Algorithm used by the keystore.</p></td><td></td><td></td></tr></tbody></table>
+
+### Pooling Profile
+
+Configures the pooling profile characteristics.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Active</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of Mule components that are active in a session at one time. When set to a negative value, there is no limit to the number of Mule components that are active at one time. When this value is exceeded, the pool is considered exhausted.</p></td><td></td><td></td></tr><tr><td><p>Max Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of Mule components that can sit idle in the pool at any time. When set to a negative value, there is no limit.</p></td><td></td><td></td></tr><tr><td><p>Max Wait</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of milliseconds to wait for a pooled component to become available when the pool is exhausted and the <strong>Exhausted Action</strong> is set to <code>WHEN_EXHAUSTED_WAIT</code>.</p></td><td></td><td></td></tr><tr><td><p>Min Eviction Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum amount of time that an object can sit idle in the pool before itâs eligible for eviction. When set to a negative value, no objects are evicted from the pool due to idle time alone.</p></td><td></td><td></td></tr><tr><td><p>Eviction Check Interval Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of milliseconds between runs of the object evictor. When set to a negative value, no object evictor is executed.</p></td><td></td><td></td></tr><tr><td><p>Exhausted Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WHEN_EXHAUSTED_GROW</p></li><li><p>WHEN_EXHAUSTED_WAIT</p></li><li><p>WHEN_EXHAUSTED_FAIL</p></li></ul></div></div></td><td><div><div><p>Behavior of the Mule component pool when the pool is exhausted. Possible values are:</p></div><div><ul><li><p><code>WHEN_EXHAUSTED_FAIL</code></p><div><p>Throws a <code>NoSuchElementException</code>.</p></div></li><li><p><code>WHEN_EXHAUSTED_WAIT</code></p><div><p>Blocks by invoking <code>Object.wait(long)</code> until a new or idle object is available.<br></p></div></li><li><p><code>WHEN_EXHAUSTED_GROW</code></p><div><p>Creates a new Mule instance and returns it, which makes the <strong>Max Active</strong> value ineffective.</p></div><div><p>If <strong>Max Wait</strong> is positive, Mule blocks for at most that many milliseconds, after which it throws a <code>NoSuchElementException</code>. If <strong>Max Wait</strong> is a negative, Mule blocks indefinitely.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Initialization Policy</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIALISE_NONE</p></li><li><p>INITIALISE_ONE</p></li><li><p>INITIALISE_ALL</p></li></ul></div></div></td><td><div><div><p>Determines how components in a pool should be initialized. Possible values are:</p></div><div><ul><li><p>INITIALISE_NONE</p><div><p>Doesnât load any components into the pool on startup.</p></div></li><li><p>INITIALISE_ONE</p><div><p>Loads one initial component into the pool on startup.</p></div></li><li><p>INITIALISE_ALL</p><div><p>Loads all components into the pool on startup.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Disabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, pooling is disabled.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often to reconnect, in milliseconds.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><p>Boolean</p></td><td><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often to reconnect, in milliseconds.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><p>Boolean</p></td><td><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p><code>true</code></p><div><p>Allow the deployment to fail.</p></div></li><li><p><code>false</code></p><div><p>Ignore the results of the connectivity test.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a <code>REDELIVERY_EXHAUSTED</code> error.</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>One or more expressions that determine when a message was redelivered. This field can be set only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>ObjectStore</p></div></div></td><td><p>Configures the object store that stores the redelivery counter for each message.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule runtime keeps a portion of the
+stream content in memory. If the stream content is larger than the configured buffer size, Mule
+backs up the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Max In Memory Size</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the
+maximum buffer size. Always run performance tests to find the optimal buffer size for your specific
+use case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of the <strong>Max In Memory Size</strong> value.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></td><td></td><td></td></tr></tbody></table>
+
+### Socket Connection Settings
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connectionâs port number.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Connectionâs host name.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p><div><p>Verify only the last element in the certificate chain.</p></div></li><li><p><code>false</code></p><div><p>Verify all elements in the certificate chain.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div></li><li><p><code>false</code></p><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p><div><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p></div></li><li><p><code>false</code></p><div><p>Do not use the secondary method to check certificate validity.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p><div><p>Avoid verification failure.</p></div></li><li><p><code>false</code></p><div><p>Allow the verification to fail.</p></div></li></ul></div></div></td><td></td><td></td></tr></tbody></table>
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><p>Configures the TLS truststore.</p></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><p>Configures the TLS keystore.</p></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td><p>Configures a revocation checking mechanism.</p></td><td></td><td></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the truststore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of truststore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the truststore uses.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure HL7 MLLP Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[HL7 MLLP Reference](hl7-mllp-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add HL7 EDI Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `HL7 MLLP` in the search field.
+3.  Click **HL7 MLLP** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure HTTP Listener as the
+source for the HL7 EDI Connector to initiate a flow each time the listener receives a request on the
+configured host and port.
+
+To configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for HL7 EDI Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **HL7 MLLP** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target HL7 MLLP system.
+
+To configure the global element for HL7 MLLP Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties.
+
+3.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+4.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+5.  Click **OK**.
+
+You also can create a TLS configuration, and you can set the timeout configuration and the buffer
+configuration.
+
+The Send operation the procedure is identical, except that you can set the Local Address Settings
+tab within the connector config with a different host, port, and delimiter that specifies the
+character used to separate messages.
+
+You can also set the send or receive buffer size.
+
+> [!NOTE] If your app is running at `mllp-rnnf.us-e1.cloudhub.io`, you can send HL7 messages over
+> MLLP to your Mule app to `mule-worker-mllp-rnnf.us-e1.cloudhub.io`.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## Next Step
+
+You can try the [Examples](hl7-mllp-connector-examples).
+
+## See Also
+
+- [HL7 MLLP Connector Reference](hl7-mllp-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# HL7 MLLP Connector 2.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector HL7 Minimal Lower-Layer Protocol (MLLP) Connector (HL7 MLLP Connector) provides
+connectivity and parsing functionality for HL7 MLLP messages.
+
+For compatibility information and fixed issues, see the HL7 MLLP Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+- HL7 MLLP Connector
+
+To use HL7 MLLP Connector, you must have:
+
+- Purchased a MuleSoft license for HL7. Contact your Account Representative about purchasing a
+  license.
+- Anypoint Studio or Anypoint Code Builder
+
+## See Also
+
+- [HL7 MLLP Connector Release Notes](../../release-notes/connector/hl7-mllp-connector-release-notes-mule-4)
+- [HL7 MLLP Connector in Anypoint Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-hl7-mllp-connector/)
+

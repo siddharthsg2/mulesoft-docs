@@ -1,0 +1,1470 @@
+﻿# AMQP Connector - Full Documentation
+
+# Handle Message Acknowledgment
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for AMQP provides different acknowledgment configurations.
+
+## Automatic Acknowledgment On Success
+
+The `AUTO` `ackMode` can be used in the `amqp:listener` component, causing the automatic ACK of the
+received message **if and only if the flow execution completes successfully**. In case that an error
+occurs during the flow execution that causes it to terminate prematurely, then the message will not
+be ACKed and redelivery will occur.
+
+## Immediate Acknowledgment
+
+Setting the `ackMode` to `IMMEDIATE` either in `amqp:listener` or `amqp:consume` operations will
+cause the Message to be automatically ACKed once it is consumed, and prior to any processing of the
+Message by the application. Having the Message automatically acknowledged once it is received means
+that the Message won\`t be redelivered if any error occurs during the processing of the Message, so
+application logic like a dead letter queue has to be created to handle errors without losing
+Messages.
+
+## Manual Acknowledgment
+
+As you may expect, the `MANUAL` `ackMode` delegates all the responsibility of performing the ACK on
+the Message to the application logic.
+
+With this configuration, every Message received by either the `listener` or `consume` operations
+will have an `ackId` available in the MuleMessage `attributes` which identifies this Message
+uniquely for a given channel.
+
+The `ackId` that identifies the Message will then be passed on to the `amqp:ack` operation:
+
+```xml
+<flow name="consumerWithManualAck">
+    <amqp:consume config-ref="config" queueName="${queueName}" ackMode="MANUAL" />
+
+    <!--Do message processing-->
+    <logger message="#[payload]">
+
+    <amqp:ack ackId="#[attributes.ackId]" />
+</flow>
+```
+
+## See Also
+
+- [Listen For New Messages](amqp-listener)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting AMQP Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for AMQP (AMQP Connector), become familiar with the information
+about enabling verbose logging and interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+To get a better understanding of why an applicationâs interaction with the AMQP Connector is
+failing, temporarily enable verbose logging for AMQP connector.
+
+Remember to always disable the enhanced verbosity after troubleshooting because it affects your Mule
+application performance.
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="com.mule.extensions.amqp" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them:
+
+- AMQP:CONNECTIVITY
+
+  The connection is no longer valid. It is disposed of, but you can apply a reconnection policy if
+  defined in the application setup.
+
+- AMQP:CONSUMING
+
+  An error occurred while consuming messages and could not be identified.
+
+- AMQP:CREATION_NOT_ALLOWED
+
+  The queue or exchange does not exist, and the disableCreationOfFallbackQueues or
+  disableCreationOfFallbackExchanges parameters is set.
+
+- AMQP:QUEUE_NOT_FOUND
+
+  The queue defined does not exist, and no fallbackQueueDefinition is provided.
+
+- AMQP:RETRY_EXHAUSTED
+
+  The maximum number of retries for the operation is reached.
+
+- AMQP:TIMEOUT
+
+  The timeout for the requested operation is exceeded.
+
+- AMQP:ILLEGAL_BODY
+
+  The message body is invalid, for example, a null body.
+
+- AMQP:UNROUTABLE_MESSAGE
+
+  The message could not be routed, either because it could not be immediately delivered or because
+  there are no queue bounds to the exchange depending on the exchange configuration in the broker.
+
+- AMQP:PUBLISHING
+
+  An error occurred while publishing messages and could not be identified.
+
+- AMQP:PUBLISHING_CONSUMING
+
+  A generic error for publishing-consuming, which could not be identified.
+
+- AMQP:EXCHANGE_NOT_FOUND
+
+  The exchange defined does not exist, and no fallbackExchangeDefinition exists.
+
+- AMQP:EXCHANGE_DECLARATION
+
+  An exception occurred during an exchange declaration.
+
+- AMQP:BLOCKED_BROKER
+
+  An error occurred while sending a message because the broker is blocked as it ran out of
+  resources.
+
+- AMQP:ACKNOWLEDGING
+
+  A generic error for acknowledging, which could not be identified.
+
+- AMQP:DELIVER_TAG_NOT_FOUND
+
+  The deliver tag to acknowledge was not found by the broker.
+
+- AMQP:REJECTING
+
+  A generic error for rejecting, which could not be identified.
+
+- AMQP:REQUEUE
+
+  A generic error on requeue process.
+
+- AMQP:NO_CHANNEL_AVAILABLE
+
+  A generic error when the channel is not available.
+
+## See Also
+
+- [AMQP Connector Reference](amqp-documentation)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Consume AMQP Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The `consume` operation in AMQP Connector provides the ability to consume a message at any given
+time in the flow, from any given AMQP queue.
+
+## Consume a Message
+
+The syntax to consume a message from a queue is:
+
+```xml
+<amqp:consume config-ref="AMQP_config" queueName="#[vars.queue]"/>
+```
+
+This operation consumes the first available message in the queue identified by the `queueName`
+value, and converts it to an `AmqpMessage`, which results in the following structure:
+
+- The messageâs content as payload
+- The messageâs metadata in the message attributes
+
+After it is received, the message is immediately acknowledged by default. If you want to control the
+ACK of the message after some processing, then set `ackMode` to `MANUAL`. For more information about
+message ACK operations, see [How to Handle Acknowledgment](amqp-ack).
+
+## Wait for a Message
+
+By default, the maximum wait time is configured to 10 seconds. If no message is available during the
+specified wait time, an `AMQP:TIMEOUT` error is thrown. You can customize the wait time by
+configuring the `maximumWait` and `maximumWaitUnit` parameters.
+
+To create an indefinite wait time for a message to arrive, set the `maximumWait` value to `-1`. In
+this case, no `TIMEOUT` error is thrown.
+
+## MIME Types and Encoding
+
+AMQP Connector is designed to auto-determine a messageâs MIME type (`contentType`) based on the
+`contentType` property of the message. However, there are cases in which it cannot make this
+determination, and you need firsthand knowledge of the messageâs content.
+
+In such cases, you can force the content type to a particular value by using the `contentType`
+parameter.
+
+The same process works for encoding. By default, the connector assumes that the default encoding of
+Mule runtime engine matches that of the message, if no other information is provided. You can set
+this by using the `encoding` parameter.
+
+## Declare a Queue in the Consume Operation
+
+By default, the `consume` operation fails with an `AMQP:QUEUE_NOT_FOUND` error if the defined queue
+does not exist.
+
+If a queue must be declared, a definition for the entity should be referenced or defined inline:
+
+```xml
+<amqp:consume config-ref="Amqp_Config" queueName="testQueue">
+	<amqp:fallback-queue-definition removalStrategy="SHUTDOWN" exchangeToBind="exchangeToBindToQueue" />
+</amqp:consume>
+```
+
+Notice that in the definition of the queue a binding can be created using the parameter
+`exchangeToBind`.
+
+The queue can also be defined as a high level element:
+
+```xml
+<amqp:queue-definition
+	name="targetQueueDefinition"
+	exchangeToBind="testExchange" />
+
+<amqp:consume
+	config-ref="AMQP_Config"
+	queueName="testQueue"
+	fallbackQueueDefinition="targetQueueDefinition">
+```
+
+## Avoid Changing the AMQP Topography
+
+You can set the `createFallbackQueue` global config to prevent changes to the AMQP topography
+resulting from the definition of fallback queues, see
+[How to Avoid Changing the AMQP Topography](amqp-topography).
+
+## Incoming Message Metadata
+
+As stated earlier, each message received consists of two parts:
+
+- The payload, containing the content of the message
+- The attributes, containing metadata regarding the message
+
+This metadata has four parts that map all the information available in a AMQP Message:
+
+- Envelope
+- AckId
+- Headers
+- Properties
+
+See the [AMQP Reference](amqp-documentation) for information on the structure for attributes.
+
+## See Also
+
+- [To Listen For New Messages](amqp-listener)
+---
+
+# AMQP Connector 1.9 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Release Notes: [AMQP Connector Release Notes](../../release-notes/connector/connector-amqp)
+
+Anypoint Connector for AMQP is an AMQP 0.9.1 compliant MuleSoft extension, and is used to consume
+and produce AMQP messages. The extension supports AMQP functionality including exchanges and queues,
+consumers, acknowledgment modes, and local transactions.
+
+## Configurations
+
+---
+
+### Config
+
+These are the base configuration parameters for AMQP Connector.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The default encoding of the Message body to use if the message doesnât communicate it.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The default contentType of the Message body to use if the message doesnât communicate it</p></div></div></td><td><div><div><p><strong>/</strong></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Fallback Queue</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to create non-existing queues according to the fallback definition if they are defined.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Fallback Exchange</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to create non-existing exchanges according to the fallback definition if they are defined.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Send Correlation Id</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>Whether to specify a correlationId when publishing messages. This applies both for custom correlation IDs specifies at the operation level and for default correlation IDs taken from the current event</p></div></div></td><td><div><div><p>AUTO</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The identifier of this element used to reference it in other components.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Ack Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><div><div><p>The acknowledgment mode to use when consuming from the AMQP broker. If a transaction is opened in the channel, message acknowledgment is handled automatically by commit, and recovery is handled automatically by rollback.</p></div></div></td><td><div><div><p>IMMEDIATE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>No Local</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If set to true, the server does not send messages to the connection that published them.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Exclusive Consumers</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Set to true if the connector should only create exclusive consumers. Only the consumer created can access the queue.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Number Of Consumers</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>It is the number of consumers spawned by message source to receive AMQP messages. Each consumer will create a channel.</p></div></div></td><td><div><div><p>4</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRANSIENT</p></li><li><p>PERSISTENT</p></li></ul></div></div></td><td><div><div><p>The delivery mode to use when publishing to the AMQP broker.</p></div></div></td><td><div><div><p>PERSISTENT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Priority</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The priority to use when publishing to the AMQP broker. The priority has possible values from 0 to 9 - default is 0.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Broker Confirms</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether it must fail in case no confirmation is provided.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Mandatory</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether the operation must fail if it cannot be routed to a queue.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Immediate</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether the operation must fail if it cannot be routed to a queue consumer immediately.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Returned Message Exchange</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The exchange to publish returned messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefetch Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This field defines a prefetch size window. The broker will send as much messages as possible without exceeding the prefetchSize window in octets (bytes). 0 is used for no specific limit.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefetch Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a global prefetch window in terms of whole messages. This field may be used in combination with the prefetch-size field; a message will only be sent in advance if both prefetch windows allow it. 0 is used for no specific limit.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+Generic implementation of a AMQP ConnectionProvider.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Socket Configuration</strong></p></td><td><div><div><p><a href="#SocketConfiguration">Socket Configuration</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div><div><p>Reference to a TLS config element. This will enable secure connection to the AMQP broker.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Host of the broker to connect to.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the AMQP broker to connect to.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Virtual Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Virtual host to use in the AMQP broker.</p></div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use when providing credentials for authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use when providing credentials for authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Tls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether TLS is needed to use. In case it is not provided, the default for AMQP connection will be used.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Sni</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether Server Name Indication is needed to use in the ClientHello Message</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Sasl</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether SASL (EXTERNAL) Auth mechanism is used (No username or password required).</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Heartbeat Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The heartbeat timeout. Heartbeat frames is sent at about 1/2 the timeout interval.</p></div></div></td><td><div><div><p>60</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Handshake Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>AMQP 0.9.1 timeout to set to the underlying AMQP connector.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Handshake Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Timeunit for the handshake timeout AMQP connection socket configuration.</p></div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Fallback Addresses</strong></p></td><td><div><div><p>Array of <a href="#fallback-address">Fallback Address</a></p></div></div></td><td><div><div><p>The addresses of the broker nodes to attempt connection to, should the connection to main broker fail.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Inbound Message Body Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum inbound message body size to set to the underlying AMQP Connector in bytes.</p></div></div></td><td><div><div><p>67108864 (64 MB)</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Consume](#consume)
+- [Publish](#publish)
+- [Publish Consume](#publishConsume)
+
+## Associated Sources
+
+- [Listener](#listener)
+
+## Operations
+
+### Consume
+
+`<amqp:consume>`
+
+Enables you to consume a single AMQP message from a given queue.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the queue from where the Message should be consumed</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The content type of the message body</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the message body</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Fallback Queue Definition</strong></p></td><td><div><div><p><a href="#queue-definition">Queue Definition</a></p></div></div></td><td><div><div><p>The queue definition to use for queue declaration in case there is no queue with the queueName</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Ack Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><div><div><p>The ACK mode to use when consuming a message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Tag</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The consumer tag to use for the consumer involved in the operation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Wait</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum time to wait for a message to arrive before timeout</p></div></div></td><td><div><div><p>10000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Wait Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use in the maximumWaitTime configuration</p></div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Fallback Queue</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Transactional Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><div><div><p>information of the current transaction in case it exists</p></div></div></td><td><div><div><p>JOIN_IF_POSSIBLE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that storesoperationâs output will be placed</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AmqpAttributes">AMQP Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- AMQP:QUEUE_NOT_FOUND
+- AMQP:CONNECTIVITY
+- AMQP:CONSUMING
+- AMQP:NO_CHANNEL_AVAILABLE
+- AMQP:RETRY_EXHAUSTED
+- AMQP:CREATION_NOT_ALLOWED
+- AMQP:TIMEOUT
+
+### Publish
+
+`<amqp:publish>`
+
+Enables you to publish a single AMQP message to a given exchange.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Exchange Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the exchange to publish the message to</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Routing Keys</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>List of routing keys to use when publishing messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRANSIENT</p></li><li><p>PERSISTENT</p></li></ul></div></div></td><td><div><div><p>The delivery mode to use when publishing to the AMQP broker</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Transactional Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><div><div><p>information of the current transaction in case it exists</p></div></div></td><td><div><div><p>JOIN_IF_POSSIBLE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Send Correlation Id</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>options on whether to include an outbound correlation ID or not</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Fallback Exchange</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Skip Exchange Validation</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>YES</p></li></ul></div></div></td><td><div><div><p>Skips the exchange validation.<br>By default, the <strong>Publish</strong> operation validates the exchange if you do not configure the Skip Exchange Validation field. While skipping validation can enhance performance, this approach also risks message loss if the exchange does not exist, depending on the brokerâs configuration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Fallback Exchange Definition</strong></p></td><td><div><div><p><a href="#exchange-defintiion">Exchange Defintiion</a></p></div></div></td><td><div><div><p>The exchange to use for exchange declaration in case there is no exchange with the exchangeName</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>The body of the Message</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>AMQP Properties</strong></p></td><td><div><div><p><a href="#AmqpProperties">AMQP Properties</a></p></div></div></td><td><div><div><p>Properties of the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The custom user properties that should be set to this AmqpMessage</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Broker Confirms</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Expects a confirmation from a message published. An exception is raised in case no confirmation is provided in case this attribute is set to true.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Mandatory</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Tells the server how to react if the message cannot be routed to a queue. If set to true, the server throws an exception (UNROUTABLE_MESSAGE, see below in the operation spec) for any message that cannot be routed. If set to false, the server silently drops the message.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Immediate</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Tells the server how to react if the message cannot be routed to a queue consumer immediately. If set to true, the server throws an exception (UNROUTABLE_MESSAGE, see below in the operation spec) for any undeliverable message. If set to false, the server queues the message, but with no guarantee that the message will ever be consumed.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Returned Message Exchange</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The exchange to publish returned messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- AMQP:PUBLISHING
+- AMQP:ILLEGAL_BODY
+- AMQP:CONNECTIVITY
+- AMQP:UNROUTABLE_MESSAGE
+- AMQP:EXCHANGE_NOT_FOUND
+- AMQP:NO_CHANNEL_AVAILABLE
+- AMQP:RETRY_EXHAUSTED
+- AMQP:CREATION_NOT_ALLOWED
+
+### Publish Consume
+
+`<amqp:publish-consume>`
+
+Enables you to send a message to a AMQP exchange and waits for a response either to the provided
+replyTo destination or to a temporary destination created dynamically.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Exchange Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the exchange to publish the message to</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The content type of the message body</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the message body</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Routing Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The routing key to publish to in publish-consume operations.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRANSIENT</p></li><li><p>PERSISTENT</p></li></ul></div></div></td><td><div><div><p>The delivery mode to use when publishing to the AMQP broker</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Wait</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum time to wait for a message to arrive before timeout</p></div></div></td><td><div><div><p>10000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Wait Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>The time unit to use in the maximumWaitTime configuration</p></div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Transactional Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><div><div><p>information of the current transaction in case it exists</p></div></div></td><td><div><div><p>JOIN_IF_POSSIBLE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Send Correlation Id</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>options on whether to include an outbound correlation ID or not</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Fallback Exchange</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Skip Exchange Validation</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>YES</p></li></ul></div></div></td><td><div><div><p>This field is intended to skip exchange validation by default the operation will do the validation if the parameter is not configured. If you decide to skip the exchange validation it will improve the performance but if the exchange does not exist you can incur in messaging losing depending on the broker configuration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Fallback Exchange Definition</strong></p></td><td><div><div><p><a href="#exchange-defintiion">Exchange Defintiion</a></p></div></div></td><td><div><div><p>The exchange to use for exchange declaration in case there is no exchange with the exchangeName</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>The body of the Message</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>AMQP Properties</strong></p></td><td><div><div><p><a href="#AmqpProperties">AMQP Properties</a></p></div></div></td><td><div><div><p>Properties of the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The custom user properties that should be set to this AmqpMessage</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Broker Confirms</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Expects a confirmation from a message published. An exception is raised in case no confirmation is provided in case this attribute is set to true.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Mandatory</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Tells the server how to react if the message cannot be routed to a queue. If set to true, the server throws an exception (UNROUTABLE_MESSAGE, see below in the operation spec) for any message that cannot be routed. If set to false, the server silently drops the message.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Immediate</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Tells the server how to react if the message cannot be routed to a queue consumer immediately. If set to true, the server throws an exception (UNROUTABLE_MESSAGE, see below in the operation spec) for any undeliverable message. If set to false, the server queues the message, but with no guarantee that the message will ever be consumed.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Returned Message Exchange</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The exchange to publish returned messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that storesoperationâs output will be placed</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AmqpAttributes">AMQP Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- AMQP:PUBLISHING
+- AMQP:PUBLISHING_CONSUMING
+- AMQP:CONNECTIVITY
+- AMQP:CONSUMING
+- AMQP:NO_CHANNEL_AVAILABLE
+- AMQP:RETRY_EXHAUSTED
+- AMQP:CREATION_NOT_ALLOWED
+- AMQP:TIMEOUT
+
+### Ack
+
+`<amqp:ack>`
+
+Enables to ack a message with the delivery tag.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Ack Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>delivery tag of the message to be ackâed</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+#### Throws
+
+- AMQP:ACKNOWLEDGING
+- AMQP:NO_CHANNEL_AVAILABLE
+- AMQP:DELIVER_TAG_NOT_FOUND
+- AMQP:TIMEOUT
+
+### Reject
+
+`<amqp:reject>`
+
+Enables you to reject a delivered AMQP message.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Ack Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>delivery tag of the message to be rejected</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Requeue</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether the rejected message has to be requeued</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Throws
+
+- AMQP:REQUEUE
+- AMQP:ACKNOWLEDGING
+- AMQP:REJECTING
+- AMQP:DELIVER_TAG_NOT_FOUND
+- AMQP:TIMEOUT
+
+## Sources
+
+### Listener
+
+`<amqp:listener>`
+
+AMQP listener for queues, enables you to listen for incoming messages.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the queue to consume from.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Fallback Queue Definition</strong></p></td><td><div><div><p><a href="#queue-definition">Queue Definition</a></p></div></div></td><td><div><div><p>Declaration of a queue definition to use in case no queue with the queueName provided exists in the broker. In case the queue with provided queueName exists, it will be used as is, ignoring the fallback. In case the queue does not exist, a new queue shall be created according to the referenced definition.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Ack Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><div><div><p>The acknowledgment mode to use when consuming from the AMQP broker.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Number Of Consumers</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of channels that are spawned per inbound endpoint to receive AMQP messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Tag</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A client-generated consumer tag to establish context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Recover Strategy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>NO_REQUEUE</p></li><li><p>REQUEUE</p></li></ul></div></div></td><td><div><div><p>Valid values for the recoverStrategy option are: NONE, NO_REQUEUE and REQUEUE.</p></div></div></td><td><div><div><p>REQUEUE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Inbound Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The default encoding of the message body to use if the message doesnât communicate it</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Inbound Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The default contentType of the Message body to use if the message doesnât communicate it</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Fallback Queue</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether non existing queues will be created according to the fallback definition or an error is raised if they do not exist. This can be disabled in the mule app is not intended to change the AMQP topography.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Transactional Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_BEGIN</p></li><li><p>NONE</p></li></ul></div></div></td><td><div><div><p>The type of beginning action that sources can take regarding transactions.</p></div></div></td><td><div><div><p>NONE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Transaction Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LOCAL</p></li><li><p>XA</p></li></ul></div></div></td><td><div><div><p>The type of transaction to create. Availability depends on Mule version.</p></div></div></td><td><div><div><p>LOCAL</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefetch Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This field defines a prefetch size window. The broker will send as much messages as possible without exceeding the prefetchSize window in octets (bytes). 0 is used for no specific limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefetch Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a global prefetch window in terms of whole messages. This field may be used in combination with the prefetch-size field; a message will only be sent in advance if both prefetch windows allow it. 0 is used for no specific limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>The body of the Message</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>AMQP Properties</strong></p></td><td><div><div><p><a href="#AmqpProperties">AMQP Properties</a></p></div></div></td><td><div><div><p>Properties of the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The custom user properties that should be set to this AmqpMessage</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRANSIENT</p></li><li><p>PERSISTENT</p></li></ul></div></div></td><td><div><div><p>The delivery mode to use when publishing to the AMQP broker.</p></div></div></td><td><div><div><p>PERSISTENT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Priority</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The priority to use when publishing to the AMQP broker. The priority has possible values from 0 to 9 - default is 0.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Broker Confirms</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether it must fail in case no confirmation is provided in case this attribute is set to true."</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Mandatory</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether the operation must fail if it cannot be routed to a queue.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Immediate</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether the operation must fail if it cannot be routed to a queue consumer immediately.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Returned Message Exchange</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The exchange to publish returned messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AmqpAttributes">AMQP Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+## Types
+
+### Socket Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Keep Alive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Keep alive to set to the underlying AMQP connector</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>So Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Timeunit for the SO_TIMEOUT AMQP connection socket configuration.</p></div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>So Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>SO_TIMEOUT to set to the underlying AMQP connector.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Receive Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Receive buffer size to set to the underlying AMQP connector</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Send Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Send buffer size to set to the underlying AMQP connector</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><div><div><p>Configures the TLS truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><div><div><p>Configures the TLS keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the truststore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Keystore
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the keystore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Verify only the last element in the certificate chain.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Verify all elements in the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Do not use the secondary method to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Avoid verification failure.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Allow the verification to fail.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Fallback Address
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Host of the broker to connect to.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Port of the AMQP broker to connect to.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### AMQP Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Envelope</strong></p></td><td><div><div><p><a href="#Envelope">Envelope</a></p></div></div></td><td><div><div><p>Encapsulates a group of parameters used for AMQPâs Basic methods</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p><a href="#Properties">Properties</a></p></div></div></td><td><div><div><p>AMQP Message Properties</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>AMQP Message parameters</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Ack Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The channel ACK ID required to ACK a the current Message if one is available, or null otherwise.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Envelope
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Delivery Tag</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redeliver</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Exchange</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Routing Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRANSIENT</p></li><li><p>PERSISTENT</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>PERSISTENT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Priority</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Timestamp</strong></p></td><td><div><div><p>Date</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>User Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>App Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cluster Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Queue Definition
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Removal Strategy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>EXPLICIT</p></li><li><p>SHUTDOWN</p></li><li><p>UNUSED</p></li></ul></div></div></td><td><div><div><p>Defines when the declared queue must be removed from the broker.</p></div></div></td><td><div><div><p>EXPLICIT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Exchange To Bind</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the exchange to bind the queue to.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Binding Routing Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines the routing key to use in the binding of the exchange.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use. If not set, the default is SHA-256. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Identifier</strong></p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><div><div><p>Defines which strategy is used to identify the messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Configures the object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+Configures the message identifier strategy for the redelivery policy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions that determine when a message was redelivered. You can set this property only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### AMQP Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The content type of the body</p></div></div></td><td><div><div><p><strong>/</strong></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Content Encoding of the published Message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Priority</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The priority to use when publishing to the AMQP broker. The priority has possible values from 0 to 9 - default is 0.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Used in case of implementation of RPC pattern to distinguish among messages in a request-reply.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Destination set in case of RPC.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Expiration in miliseconds for the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>User Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>App Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cluster Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Timestamp</strong></p></td><td><div><div><p>Date</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of the consumed message</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Exchange Defintiion
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Removal Strategy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>EXPLICIT</p></li><li><p>SHUTDOWN</p></li><li><p>UNUSED</p></li></ul></div></div></td><td><div><div><p>Defines when the declared exchange must be removed from the broker.</p></div></div></td><td><div><div><p>EXPLICIT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DIRECT</p></li><li><p>TOPIC</p></li><li><p>FANOUT</p></li><li><p>HEADERS</p></li></ul></div></div></td><td><div><div><p>The type of exchange to be declared.</p></div></div></td><td><div><div><p>FANOUT</p></div></div></td><td><div></div></td></tr></tbody></table>
+---
+
+# AMQP Connector Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To fully benefit from using Anypoint Connector for AMQP (AMQP Connector), see the following examples
+of configuring the connector operations:
+
+- [Manage Message Acknowledgments](amqp-ack)  
+  Configure AMQP Connector to manage different acknowledgment configurations, such as automatic
+  acknowledgment on success, immediate acknowledgment, and manual acknowledgment.
+- [Listen for New Messages](amqp-listener)  
+  Configure the Listener source to listen for new messages as they arrive into an AMQP queue.
+- [Publish New Messages](amqp-publish)  
+  Configure the Publish operation to create a new AMQP message and send it to the specified
+  exchange.
+- [Consume Messages](amqp-consume)  
+  Configure the Consume operation to consume a message at any given time in the flow, from any given
+  AMQP queue.
+- [Publish Messages and Listen for Replies](amqp-publish-consume)  
+  Configure the Publish Consume operation to publish a message to any exchange, and then wait for a
+  reply on a different destination.
+- [Manage Transactions](amqp-transactions)  
+  Configure AMQP Connector to manage transactional connections to execute a series of operations.
+- [Avoid Changing the AMQP Topography](amqp-topography)  
+  Configure AMQP Connector global config properties so that the declaration of AMQP exchanges and
+  queues is disabled.
+- [Connect to mTLS](amqp-mtls)  
+  Configure AMQP Connector to connect to an AMQP broker with mutual TLS (mTLS) authentication.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Listen For New Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Listener source in Anypoint Connector for AMQP (AMQP Connector) provides the ability to consume
+messages as they arrive into an AMQP queue.
+
+## Listen for New Messages
+
+The syntax to listen for new messages from a queue is:
+
+```xml
+<amqp:listener config-ref="config" queueName="targetQueue"/>
+```
+
+The source listens for new messages in the queue identified by the `queueName` parameter, returning
+a `AmqpMessage` each time a AMQP message is available in the queue.
+
+The `AmqpMessage` has:
+
+- The messageâs content as its payload.
+- The messageâs metadata in the message attributes.
+
+By default, the message consumed is ACKed only when the execution of the flow receiving the message
+completes successfully. If instead, an error occurs during the execution of the flow, the session is
+recovered and the message is redelivered according to the recoverStrategy.
+
+For more information regarding a Message ACK, see [How To Handle Message Acknowledgement](amqp-ack).
+
+## Configure Message Throughput
+
+When extra processing power is needed, the AMQP Listener allows you to configure the
+`numberOfConsumers` that a given listener uses to consume messages concurrently. By default, each
+listener uses four consumers that produce the messages concurrently, each using a separate channel.
+Since each consumer waits for a message to be processed, that means that you can have a maximum of
+four messages in-flight at the same time. If you need to increase the concurrent message processing,
+just increase the `numberOfConsumers` in the Listener. Each consumer uses a different channel.
+
+## MIME Types and Encoding
+
+The AMQP connector automatically determines a messageâs MIME type (`contentType`) based on the
+`contentType` property of the message. However, there are cases where this process is not enough,
+and you need first-hand knowledge of a messageâs content.
+
+In such cases, you can force that content type to a particular value by using the `contentType`
+parameter.
+
+The same process works for encoding. By default, the connector assumes that the runtimeâs default
+encoding matches the one in the message if no other information is provided. You can set this by
+using the `inboundEncoding` parameter.
+
+## Declare a Queue in the AMQP Listener
+
+By default, the `consume` operation fails when the defined queue does not exist with an
+`AMQP:QUEUE_NOT_FOUND` error.
+
+For cases where the queue has to be declared, a definition for the entity should be referenced or
+defined inline so that the queue is declared.
+
+```xml
+<amqp:listener config-ref="Amqp_Config"
+	queueName="testQueue">
+	<amqp:fallback-queue-definition
+	  removalStrategy="SHUTDOWN"
+	  exchangeToBind="echangeToBind" />
+</amqp:listener>
+```
+
+Notice that in the definition of the queue, a binding can be created using the parameter
+`exchangeToBind`.
+
+The queue can also be defined as a high level element:
+
+```xml
+<amqp:queue-definition
+  name="targetQueueDefinition"
+  exchangeToBind="testExchange" />
+
+<amqp:listener config-ref="Amqp_Config"
+  queueName="testQueue"
+  fallbackQueueDefinition="targetQueueDefinition">
+```
+
+## How to Avoid Changing the AMQP Topography
+
+You can set the `createFallbackQueue` global config to prevent changes to the AMQP topography
+resulting from the definition of fallback queues.
+
+## Reply to Incoming Messages
+
+When an incoming AMQP message declares a REPLY_TO property, the AMQP Listener automatically produces
+a response when the message is processed successfully, meaning that no error occurs during the flow
+execution. In that case, when the flow is completed, a response is published to the exchange
+specified in the processed message property. In case of error, the recover strategy is applied and a
+response is not sent to the REPLY_TO property until the message is successfully processed.
+
+## Recover Strategy in Case of Error
+
+In case an error occurs, the `recoverStrategy` is applied. By default, the `recoverStrategy` is set
+to `REQUEUE`, which means that the message is sent to the `queue` where it was consumed from, and
+another AMQP consumer can potentially retrieve it.
+
+In case `NO_REQUEUE` is set, for example:
+
+```xml
+<amqp:listener config-ref="Amqp_Config"
+		queueName="testQueue"
+		recoverStrategy="NO_REQUEUE">
+	<amqp:fallback-queue-definition
+		removalStrategy="SHUTDOWN"
+		exchangeToBind="exchangeToBindToQueue" />
+</amqp:listener>
+```
+
+The message is directly sent to the same consumer that retrieved it. `NONE` as in the defined
+`recoverStrategy` does not perform any action.
+
+## Cluster Environment
+
+By default, the AMQP listener receives messages from every node in a clustered environment. As in
+other sources, this can be modified using the `primaryNodeOnly` attribute.
+
+```xml
+<amqp:listener config-ref="Amqp_Config"
+	queueName="testQueue"
+	recoverStrategy="NO_REQUEUE"
+	primaryNodeOnly="true" />
+```
+
+## See Also
+
+- [Consume Messages](amqp-consume)
+---
+
+# Configure the Mutual TLS Authentication
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example shows how to configure Anypoint Connector for AMQP (AMQP Connector) to connect
+to an AMQP broker with mutual TLS (mTLS) authentication. To configure the global configuration
+connection you need:
+
+- A client truststore that includes the Certificate Authorityâs certificates that are required for
+  the server validation.
+- A client keystore that provides the client private key and certificate that are required for the
+  authentication.
+- To enable the parameters **Use TLS** and **Use SNI** on the AQMP global configuration in Anypoint
+  Studio.
+
+## Configure the Connection
+
+To configure the Mutual TLS authentication connection in Studio, follow these steps:
+
+1.  Navigate to the **Global Elements** tab and click **Create**.
+2.  In the filter box, type `AMQP`.
+3.  Select **AQMP Config**.
+4.  Click **OK**.
+5.  In the **General** tab, for the **Connection** section, set the following parameters:
+    - **Host**: `localhost`
+    - **Port**: `${rabbitmq.tls.port}`
+
+6.  Select the **Use tls** and **Use sni** parameters boxes.
+7.  Click the **TLS** tab.
+8.  For **TLS Configuration** select **Edit inline**.
+9.  In the **Trust Store Configuration** section, set the following parameters:
+    - **Path**: `mtls/truststore.jks`
+    - **Password**: `test`
+    - **Type**: `JKS`
+
+10. In the **Key Store Configuration** section, set the following parameters:
+    - **Type**: `JKS`
+    - **Path**: `mtls/test.jks`
+    - **Alias**: `test`
+    - **Key Password**: `test`
+    - **keyPassword**: `test`
+
+11. Click **OK**.
+
+In Studio, the AMQP global configuration with TLS authentication looks like this:
+
+![Configure AMQP Mutual TLS Authentication in global configuration element window](_images/amqp-tls-configuration.png)
+
+Figure 1. AMQP Mutual TLS Authentication configuration
+
+## XML for Configuring Mutual TLS Authentication
+
+In the XML editor, the configuration looks like this:
+
+```xml
+<amqp:connection host="localhost" port="${rabbitmq.tls.port}" useTls="true" useSasl="true" >
+            <tls:context >
+                <tls:trust-store path="mtls/truststore.jks" password="test" type="jks" />
+                <tls:key-store type="jks" path="mtls/test.jks" alias="test" keyPassword="test" password="test" />
+            </tls:context>
+</amqp:connection>
+```
+
+## See Also
+
+- [TLS Configuration](https://docs.mulesoft.com/mule-runtime/4.3/tls-configuration)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Listen For A Reply
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Request and Reply is a very common pattern between applications. AMQP Connector provides an
+operation specially designed for this, called `publish-consume`. The `publish-consume` operation
+enables you to publish a message to any exchange, and then wait for a reply on a different
+destination.
+
+When using this operation, the `replyTo` property of the outgoing message will contain the ID of the
+queue at which your app will be waiting for a response. This destination may be a well-known
+destination, or it may be a temporary queue created on the fly with the only purpose of receiving a
+single response message.
+
+Finally, the result of the operation will be the message received as a response, with exactly the
+same structure as if a `consume` operation was invoked.
+
+## Wait For A Reply On A Temporary Queue
+
+Using a temporary Queue to wait for a response is very simple, just configure the message being sent
+and the operation will automatically wait for a response in a temporary queue:
+
+```xml
+<amqp:publish-consume
+	config-ref="config"
+	exchangeName="targetExchange"
+	maximumWait="20"
+	maximumWaitUnit="SECONDS"/>
+```
+
+In this example, the operation will `publish` a message with the current `payload` as its **body**
+and the **replyTo property** of the message configured to a temporary destination, to the
+`targetExchange`. Then, it will automatically try to consume the response from that temporary queue
+until a message is consumed or the `maximumWait` is reached (in which case it will fail with a
+`AMQP:TIMEOUT` error).
+
+## Receive The Reply On A Known Queue
+
+In many cases you donât want reply queues to be created per-request basis, but instead a well-known
+queue is used for replies. For this cases, all you have to do is configure the `reply-to` parameter
+on the outgoing Message:
+
+```xml
+<amqp:publish-consume config-ref="config" exchangeName="targetExchange">
+    <amqp:message>
+    		<amqp:properties reply-to="replyToQueue" />
+    </amqp:message>
+</amqp:publish-consume>
+```
+
+Now the operation will `publish` a message to the `targetExchange` with the current `payload` as its
+**body** and the `replyTo` **property** configured with the `replyToQueue`. Then, it will
+automatically try to consume the response from the `replyToQueue` queue until a message is consumed
+or the `maximumWait` is reached (in which case it will fail with a `AMQP:TIMEOUT` error).
+
+## See Also
+
+- [Publish Messages](amqp-publish)
+---
+
+# Publish Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The `publish` operation enables you to create a new AMQP message and send it to the specified
+exchange. You can then configure not only the content of the message, but also all the headers, the
+properties, and the envelope in the AMQP message.
+
+## Send a Message to an Exchange
+
+When used in its default form, the connector will publish whatever is in the message payload:
+
+```xml
+<amqp:publish config-ref="AMQP_Config" exchangeName="targetExchange"/>
+```
+
+But what happens if the payload is not in the correct format, and you actually need to make a
+transformation? You could place a DataWeave transformation before the `publish` operation, but that
+would cause the message payload to change and impact the operation placed after the `publish`
+operation.
+
+To avoid this undesired impact, you can now place the transformation inside the `publish` operation:
+
+```xml
+<amqp:publish config-ref="Amqp_Config" exchangeName="targetExchange">
+	<amqp:message>
+		<amqp:body>
+		<![CDATA[#[%dw 2.0
+			output application/json
+			---
+			payload.payments
+		]]]></amqp:body>
+	</amqp:message>
+</amqp:publish>
+```
+
+Now, the transformation can be used for generating the content that will be published, without
+producing a side effect on the message in transit.
+
+## Override or Set the Routing Keys of the Message
+
+You may need to set or override the routing key of the property. The routing key is represented by a
+property of an AMQP message:
+
+```xml
+<amqp:publish config-ref="Amqp_Config" exchangeName="targetExchange">
+	<amqp:message>
+		<amqp:body>
+		<![CDATA[#[%dw 2.0
+			output application/json
+			---
+			payload.payments
+		]]]></amqp:body>
+	</amqp:message>
+	<amqp:routing-keys >
+		<amqp:routing-key value="routingKey1" />
+		<amqp:routing-key value="routingKey*" />
+	</amqp:routing-keys>
+</amqp:publish>
+```
+
+## Declare a Reply Destination
+
+For the cases where you need an asynchronous reply to the message being sent, the AMQP `publish`
+operation allows us to declare any `reply-to` destination. This destination will be communicated as
+an AMQP message Property to the consumer of the Message. It represents the destination where we
+should expect a reply to be sent.
+
+To declare the `reply-to` destination, we add it to the message properties:
+
+```xml
+<amqp:publish config-ref="AMQP_config" exchangeName="#[vars.targetExchange]">
+	<amqp:message>
+		<amqp:properties replyTo="replyToQueue" />
+	</amqp:message>
+</amqp:publish>
+```
+
+## Request Confirms from the Broker
+
+If you need that the broker confirms a publish operation, you can set the `requestBrokerConfirms`
+parameter. Setting this parameter, the channel in the publish operation is set in confirm mode and
+the connector will expect a `basic.ack` from the broker. The parameter can be set in the global
+publisher configuration or at the operation level.
+
+```xml
+<amqp:publish
+	config-ref="AMQP_config"
+	exchangeName="#[vars.targetExchange]"
+	requestBrokerConfirms="true">
+	<amqp:message>
+		<amqp:properties replyTo="replyToQueue" />
+	</amqp:message>
+</amqp:publish>
+```
+
+In case no confirmation arrives, an `AMQP:PUBLISHING` error will be raised indicating that the
+broker failed to agree on confirming messages.
+
+## Returned Messages Handling
+
+The connector supports the mandatory and immediate publication flags.
+
+If a message sent with this connector cannot be delivered, the AMQP broker returns it
+asynchronously.
+
+The AMQP connector offers the possibility of dispatching these returned messages to an exchange for
+custom processing.
+
+You can define the endpoint in charge of handling returned messages at the connector level. Here is
+an example:
+
+```xml
+<amqp:publish config-ref="AMQP_config" exchangeName="#[vars.targetExchange]" returnedMessageExchange="exchange" mandatory="true" immediate="true" />
+```
+
+## Declare an Exchange in the Publish Operation
+
+By default, the `publish` operation will fail in case the defined exchange does not exist with an
+`AMQP:EXCHANGE_NOT_FOUND` error.
+
+For cases where the exchange has to be declared, a definition for the entity should be referenced or
+inline defined so that the exchange is declared.
+
+```xml
+<amqp:publish
+	config-ref="Amqp_Config"
+	exchangeName="targetExchange">
+	<amqp:fallback-exchange-definition
+		removalStrategy="SHUTDOWN"
+		type="DIRECT"/>
+</amqp:publish>
+```
+
+The exchange can also be defined as a high level element:
+
+```xml
+<amqp:exchange-defintiion
+	name="targetExchangeDefinition"
+	removalStrategy="SHUTDOWN"
+	type="DIRECT" />
+
+<amqp:publish
+	config-ref="Amqp_Config"
+	exchangeName="targetExchange"
+	fallbackExchangeDefinition="targetExchangeDefinition" />
+```
+
+## Avoid Changing the AMQP Topography
+
+You can set the `createFallbackExchange` global config to prevent changes to the AMQP topography
+resulting from the definition of fallback exchanges, see
+[Avoid Changing the AMQP Topography](amqp-topography).
+
+## Propagate the Correlation ID
+
+The `publish` operation allows you to configure the `correlationId` for the outgoing Message.
+
+First you need to configure whether or not you want to send the `correlationId` when publishing the
+Message using the `sendCorrelationId` parameter. This parameter can be set to `ALWAYS` (always send
+the header), `NEVER` (never send the header) or `AUTO` (the default, use the application
+configuration). Then, you can either use the `correlationId` of the Event that is sending the
+Message, or you can configure your own custom `correlationId` in the message builder:
+
+```xml
+<amqp:publish
+	config-ref="AMQP_config"
+	sendCorrelationId="ALWAYS"
+	exchangeName="#[vars.targetExchange]">
+	<amqp:properties
+		correlationId="#[attributes.properties.correlationId]" />
+</amqp:publish>
+```
+
+## See Also
+
+[Listen For A Reply](amqp-publish-consume)
+---
+
+# Avoid Changing the AMQP Topography
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can set the `createFallbackExchange` and `createFallbackQueue` global config properties so that
+the declaration of AMQP exchanges and queues is disabled. These parameters have been added for those
+scenarios where it must be guaranteed that no changes to the AMQP topography will be attempted. In
+those cases, both the declaration of queues and exchanges which do not previously exist will result
+in an `AMQP:CREATION_NOT_ALLOWED` error.
+
+For example, in the following flow:
+
+```xml
+<amqp:config name="Amqp_Config" createFallbackExchange="false" >
+	<amqp:connection host="localhost" username="guest" password="guest" />
+</amqp:config>
+
+
+<flow name="mule-no-create-fallback-queue">
+	<http:listener
+		doc:name="Listener"
+		config-ref="HTTP_Listener_config"
+		path="/"/>
+	<amqp:publish
+		doc:name="Publish"
+		config-ref="Amqp_Config"
+		exchangeName="newExchange">
+		<amqp:fallback-exchange-definition />
+	</amqp:publish>
+</flow>
+```
+
+If the `newExchange` exchange does not exist and the `createFallbackExchange` is set to `false`, an
+invocation of the publish operation causes an `AMQP:CREATION_NOT_ALLOWED` error. Notice that the
+`createFallbackExchange` can be overridden at the operation level and it can get an expression as a
+value. For example:
+
+<flow name="mule-no-create-fallback-queue">
+	<http:listener doc:name="Listener"config-ref="HTTP\_Listener\_config" path="/"/>
+	<amqp:publish
+		doc:name="Publish"
+		config-ref="Amqp\_Config"
+		exchangeName="newExchange"
+		createFallbackExchange="false">
+		<amqp:fallback-exchange-definition />
+	</amqp:publish>
+</flow>
+
+The use of `createFallbackQueue` parameter in a consume operation is analogous:
+
+```xml
+<amqp:config
+	name="Amqp_Config"
+	createFallbackQueue="false" >
+	<amqp:connection
+		host="localhost"
+		username="guest"
+		password="guest" />
+</amqp:config>
+
+
+<flow name="mule-no-create-fallback-queue">
+	<http:listener
+		doc:name="Listener"
+		config-ref="HTTP_Listener_config"
+		path="/"/>
+	<amqp:consume
+		config-ref="Amqp_Config"
+		queueName="testQueue">
+		<amqp:fallback-queue-definition
+			removalStrategy="SHUTDOWN"
+			exchangeToBind="exchangeToBindToQueue" />
+	</amqp:consume>
+</flow>
+```
+
+You can also use this parameter in the listener:
+
+```xml
+<amqp:config
+	name="Amqp_Config"
+	createFallbackQueue="false" >
+	<amqp:connection
+		host="localhost"
+		username="guest"
+		password="guest" />
+</amqp:config>
+
+
+<flow name="mule-no-create-fallback-queue">
+	<amqp:listener
+		config-ref="Amqp_Config"
+		queueName="testQueue">
+		<amqp:fallback-queue-definition
+			removalStrategy="SHUTDOWN"
+			exchangeToBind="exchangeToBindToQueue" />
+	</amqp:listener>
+	<amqp:consume
+		config-ref="Amqp_Config"
+		queueName="testQueue">
+		<amqp:fallback-queue-definition
+			removalStrategy="SHUTDOWN"
+			exchangeToBind="exchangeToBindToQueue" />
+	</amqp:consume>
+</flow>
+```
+---
+
+# Handle Transactions in AMQP
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Transactional connections in AMQP allow you to execute a series of operations that are actually
+performed only when the transaction is committed. This has two main scenarios:
+
+- Publishing a message as part of a transaction: When performing a `publish`, the message will be
+  effectively sent to the destination once the transaction is **committed**. If for some reason the
+  transaction fails and a **rollback** occurs, then the Message will never be sent.
+- Consuming a message as part of a transaction: In case of consuming a AMQP Message, either with the
+  `listener` or `consume`, the message will be acknowledged **only after the transacion is
+  committed**, and instead it will be returned to the destination for redelivery if the transaction
+  is **rolledback**.
+
+The AMQP Connector provides support for executing its operations in a transactional way out of the
+box using Muleâs `transactionalAction` configuration.
+
+In order to execute an operation as part of the transaction, we have the following two options.
+
+## Process New Messages With a Transactional Session
+
+If you want a AMQP `listener` to use a transactional session when dispatching the messages, you
+should set the `transactionalAction` to 'ALWAYS_BEGIN':
+
+```xml
+<amqp:listener
+    config-ref="AMQP_Config"
+    queueName="${originQueue}"
+    transactionalAction="ALWAYS_BEGIN"/>
+```
+
+With this configuration, each new message will be processed in a transaction that is propagated to
+all the flowâs components and is committed once the flow execution is completed successfully. The
+transaction will be rolledback if the flow execution completes with an error.
+
+By default, **other components** in the flow will not join the transaction created by the listener.
+In order to execute other operations using the listenerâs transaction, you must declare them either
+with 'ALWAYS_JOIN', or 'JOIN_IF_POSSIBLE'.
+
+## Execute Operations As Part Of A Transaction
+
+To execute an operation like `publish` or `consume` as part of a transaction, set the
+`transactionalAction` to `ALWAYS_JOIN`, or `JOIN_IF_POSSIBLE`:
+
+These operations can join a transaction initiated by the listener:
+
+```xml
+<flow name="joiningToListenerTransaction">
+    <amqp:listener
+        config-ref="AMQP_Config"
+        queueName="${originQueue}"
+        transactionalAction="ALWAYS_BEGIN"/>
+    <amqp:publish
+        config-ref="AMQP_Config"
+        exchangeName="#[attributes.properties.userProperties.redirectDestination]"
+        transactionalAction="JOIN_IF_POSSIBLE"/>
+    <amqp:consume
+        config-ref="AMQP_Config"
+        queueName="#[attributes.properties.userProperties.callbackDestination]"
+        transactionalAction="JOIN_IF_POSSIBLE"/>
+</flow>
+```
+
+Or they can join a scoped transaction:
+
+```xml
+<flow name="nonTxPublishMustNotJoinCurrentTx">
+    <http:listener config-ref="HTTP_Config" path="/orders"/>
+    <try transactionalAction="ALWAYS_BEGIN">
+        <amqp:publish
+            config-ref="config"
+            exchangeName="${billingService}"
+            transactionalAction="ALWAYS_JOIN"/>
+        <amqp:publish
+            config-ref="config"
+            exchangeName="${shipmentService}"
+            transactionalAction="ALWAYS_JOIN"/>
+        <amqp:publish-consume
+            config-ref="AMQP_Config"
+            exchangeName="${invoicesVerificationService}"/>
+        <validation:is-true expression="#[payload]"/>
+    </try>
+</flow>
+```
+---
+
+# AMQP Connector XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/amqp>
+http://www.mulesoft.org/schema/mule/amqp/current/mule-amqp.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:amqp="http://www.mulesoft.org/schema/mule/amqp"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/amqp
+	http://www.mulesoft.org/schema/mule/amqp/current/mule-amqp.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-amqp-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `amqp`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# AMQP Connector 1.9
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for AMQP (AMQP Connector) enables your application to publish and consume
+messages using an AMQP 0.9.1-compliant broker. The connectorâs main features include:
+
+- RPC Pattern through request-reply consumption using private temporal queues
+- SDK transaction management with optional channel self-recovery
+- Synchronous message requesting with timeout
+- Management operations for exchange and queue declarations
+- All AMQP message properties, including custom headers
+- Reply to (publishing replies to the default exchange)
+- Automatic, Mule-driven and manual message acknowledgement
+- Manual message rejection
+- Mandatory and immediate publishing parameters and handling of returned (undelivered) messages
+  through error handling
+- Prefetch size and count "quality of service" settings
+- noLocal and exclusive consumers
+- TLS/SSL connectivity
+- Message builder functionality similar to that provided by JMS Connector
+
+## Configure the Connector
+
+AMQP Connector comes out of the box with a fine-tuned set of default values for both publishing and
+consuming messages. This means that the only requirement is for you to configure which connection to
+use.
+
+This example sets a minimal connection to a broker in `localhost`:
+
+```example
+<amqp:config name="AMQP_Config">
+  <amqp:connection
+    host="localhost"
+    username="guest"
+    password="guest" />
+</amqp:config>
+```
+
+### Define Global Defaults
+
+You can define a set of default parameters to use while consuming or publishing messages. This way,
+you can define a global default behavior for all the operations associated with the configuration
+and then override each parameter only in the operations that require a custom behavior.
+
+For example, you can define a prefetch size window in terms of size and in terms of whole messages:
+
+```example
+<amqp:config name="AMQP_Config">
+   <amqp:connection host="localhost" username="guest" password="guest" />
+   <amqp:quality-of-service-config prefetchSize="4" prefetchCount="4" />
+   <amqp:consumer-config ackMode="IMMEDIATE" />
+   <amqp:publisher-config requestBrokerConfirms="true"/>
+</amqp:config>
+```
+
+In the previous example, every `consume` operation or listener associated with this configuration
+uses an acknowledgement mode of the type `IMMEDIATE`, while for every `publish` or `publish-consume`
+operation, the outgoing message requests a confirmation from the broker.
+
+You can override all of these properties at the operation level when required. For example, if you
+need to publish a message that does not require confirmation from the broker:
+
+```example
+<amqp:publish config-ref="AMQP_Config" requestBrokerConfirms="false"/>
+```
+
+## Connect to a Broker
+
+An AMQP connection is defined by a set of general parameters that apply for any connection.
+
+### Provide Credentials For Authentication
+
+To establish an authenticated connection, you have to set the `username`, `password`, and the
+`virtualhost` in the `connection` element:
+
+```example
+<amqp:config name="AMQP_Config">
+  <amqp:connection host="localhost" virtualhost="/" username="guest" password="guest" />
+</amqp:config>
+```
+
+### Set TLS/SSL Connectivity to the Broker
+
+You can use the parameter `useTls` to create a secure connection to the broker using the default TLS
+context. You can also provide a custom TLS context as a child element in the connection, or as
+global element in the following way:
+
+```example
+<tls:context name="globalTlsContext">
+  <tls:trust-store path="tls/tlstest-cacerts.jks"
+    password="changeit" />
+  <tls:key-store path="tls/tlstest-keystore.jks"
+    keyPassword="changeit" password="changeit" />
+</tls:context>
+
+<amqp:config name="config">
+  <amqp:connection host="localhost" port="5671"
+    virtualHost="/" username="guest" password="guest" useTls="true"
+    tlsContext="globalTlsContext" />
+ </amqp:config>
+```
+
+### Server Name Indication
+
+AMQP Connector v1.1.0 and later supports Server Name Indication (SNI). If the broker supports SNI,
+itâs available to verify the hostname and present different certificates for the same IP address.
+
+Use the parameter `useSNI` to indicate that the AMQP client should add the hostname as an extension
+in the `ClientHello` message during the SSL handshake:
+
+```example
+<tls:context name="globalTlsContext">
+  <tls:trust-store path="tls/tlstest-cacerts.jks"
+    password="changeit" />
+  <tls:key-store path="tls/tlstest-keystore.jks"
+    keyPassword="changeit" password="changeit" />
+</tls:context>
+
+<amqp:config name="config">
+  <amqp:connection host="localhost" port="5671"
+    virtualHost="/" username="guest" password="guest" useTls="true" useSni="true"
+    tlsContext="globalTlsContext" />
+ </amqp:config>
+```
+
+## See Also
+
+- [Consume Messages](amqp-consume)
+- [Publish Messages](amqp-publish)
+- [Listen For New Messages](amqp-listener)
+- [Listen For A Reply](amqp-publish-consume)
+- [Message Acknowledgement](amqp-ack)
+- [Transactions in AMQP](amqp-transactions)
+- [AMQP Connector Reference](amqp-documentation)
+- [Salesforce Help](https://help.salesforce.com)
+

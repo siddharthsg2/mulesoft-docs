@@ -1,0 +1,940 @@
+﻿# FTPS Connector - Full Documentation
+
+# Configuring a Proxy for FTPS Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for FTPS (FTPS Connector) enables you to configure an HTTP or HTTPS tunnel proxy.
+The following example shows how to configure the **Proxy** field:
+
+1.  In Studio, select your FTP Connector operation from the canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to **Connector
+    configuration** to access the global element configuration fields.
+3.  On the **General** tab, specify the connection information for the connector.
+4.  Set **Proxy** to **Https tunnel proxy**.
+5.  Set **TLS Configuration** to **Edit inline**.
+6.  For **Trust Store Configuration**, select **Insecure**.
+7.  Set the following fields:
+    - **Proxy host**: `localhost`
+    - **Proxy port**: `3129`
+    - **Proxy username**: `userprox`
+    - **Proxy host**: `passprox`
+
+8.  Click **OK**.
+
+![FTPS Connector Global Element Configuration window with Proxy field set to HTTPS tunnel proxy](_images/ftps-proxy-configuration.png)
+
+In the **Configuration XML** tab, the configuration `ftp:https-tunnel-proxy` looks like this:
+
+```xml
+<ftps:config name="FTPS_Config">
+		<ftps:connection >
+			<ftps:proxy >
+				<ftps:https-tunnel-proxy host="localhost" port="3129" username="proxuserftps" password="passproxftps" >
+					<tls:context >
+						<tls:trust-store insecure="true" />
+					</tls:context>
+				</ftps:https-tunnel-proxy>
+			</ftps:proxy>
+		</ftps:connection>
+	</ftps:config>
+```
+
+## See Also
+
+- [MuleSoft Help Center](https://help.mulesoft.com)
+---
+
+# Upgrading and Migrating FTPS Connector to Version 2.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for FTPS (FTPS Connector) to version 2.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>1.8.x</p></div></div></td><td><div><div><p>2.1.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+This release contains the following changes:
+
+- This connector is now compatible with Java 17.
+- This connector is now FIPS 140-2 compliant.
+- This connector no longer uses reflection to reuse the SSL session from the command channel to data
+  channels. Instead, it now supports SSL session resumption between the client and host by using
+  externally provided Bouncy Castle libraries which are to be set as top security providers. You can
+  add these libraries with the new **Required Libraries** field in the connection type. For more
+  information, refer to
+  [Configure Java JDK for Session Reuse](ftps-studio-configuration#configure-java) and
+  [Configure Bouncy Castle Libraries and Security Provider](ftps-studio-configuration#bouncycastle).
+  Because Bouncy Castle security providers are required for running FTPS on Java 17, all Mule
+  applications within the same JVM must adhere to its stricter cryptographic policies. This includes
+  enforcing modern key sizes, secure algorithms, and updated TLS configurationsâaffecting keystores,
+  truststores, and all TLS-based connectors.
+- The `mule-file-commons` module dependency is removed.
+- The **List** operation now returns the file path instead of the file content.
+
+## Requirements
+
+Ensure that you meet these requirements before you perform the upgrade:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Application/Service</th><th>Version</th></tr></thead><tbody><tr><td><div><div><p>Mule</p></div></div></td><td><div><div><p>4.3.0 and later</p></div></div></td></tr></tbody></table>
+
+## Limitations
+
+Before you perform the upgrade, be aware of these known limitations:
+
+- Session reuse doesnât work well with TLS 1.3 in CloudHub (same as with previous versions of FTPS
+  Connector).
+- The security providers are hardcoded, which means all Mule applications running on the same Java
+  Virtual Machine (JVM) will share these security settings.
+
+  Bouncy Castle security providers enforce stricter cryptographic policies and reject weak
+  keystores, including those using weak algorithms (such as `SHA1withRSA`) or self-signed
+  certificates. This affects all keystores in the JVM, even those not directly used by FTPS
+  Connector. Ensure all keystores in your Mule applications meet modern security standards before
+  upgrading.
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, complete these tasks:
+
+- Create a backup of your files, data, and configurations in case you need to restore them.
+- Validate all keystores across Mule applications on the same JVM. Replace any keystores using weak
+  algorithms, such as `SHA1withRSA`, because Bouncy Castle rejects them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In **Mule Palette**, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `FTPS` in the search field.
+4.  In **Available modules**, select **FTPS Connector** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the FTPS Connector `mule-ftps-connector` dependency version is the one you are
+    upgrading to in the `pom.xml` file in the Mule project.
+
+Studio upgrades the connector automatically.
+
+### Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+### Reverting the Upgrade
+
+If it is necessary to revert to the previous version of FTPS Connector, change the
+`mule-ftps-connector` dependency version in the projectâs `pom.xml` file to the previous version.
+You must update the projectâs `pom.xml` file in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [MuleSoft Help Center](https://help.mulesoft.com)
+---
+
+# FTPS Connector 2.1 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for FTPS (FTPS Connector) enables you to manipulate files in an FTPS server.
+
+## Configurations
+
+---
+
+### Default Configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#config_connection">FTPS Connection</a></p></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Default write encoding(DEPRECATED)</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>This parameter is deprecated and not taken into account.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This value specifies the wait time between size checks to determine if a file is ready to be read.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Specify the time unit to use in the wait time between size checks.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances when appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### FTPS Connection
+
+This configuration corresponds to a specialization of FTP connection provider that supports SSL.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Working Directory</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The directory to consider the root of every relative path used with this connector</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Proxy</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#HttpTunnelProxy">HTTP Tunnel Proxy</a></p></li><li><p><a href="#HttpsTunnelProxy">HTTPS Tunnel Proxy</a></p></li></ul></div></div></td><td><div><div><p>Enables you to set HTTP or HTTPS tunnel proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Transfer Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BINARY</p></li><li><p>ASCII</p></li></ul></div></div></td><td><div><div><p>Transfer mode to use</p></div></div></td><td><div><div><p>BINARY</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Passive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Specifies whether to use passive mode. Set to <code>false</code> to switch to active mode.</p></div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Required Libraries</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p>Add recommended libraries</p></li><li><p>Use local file</p></li><li><p>Add Maven dependency</p></li></ul></div></div></td><td><div><div><p>Ways to add the required Bouncy Castle libraries.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Remote Verification</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Specifies whether or not to verify if the remote host taking part of a data connection is the same as the host to which the control connection is attached.</p></div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Control Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Set the control encoding (for example UTF-8) to use in the control channel with the remote server. This does NOT set the encoding for the content of the files to transfer.</p></div></div></td><td><div><div><p><code>ISO-8859-1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Ftps Mode</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p>FtpsExplicitMode</p></li><li><p>FtpsImplicitMode</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">Tls</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Connection timeout value</p></div></div></td><td><div><div><p><code>10</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use in the Connection Timeout</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Response timeout value</p></div></div></td><td><div><div><p><code>10</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use in the Response Timeout</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>21</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Pooling Profile</strong></p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><div><div><p>Characteristics of the connection pool</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Copy](#copy)
+- [Create Directory](#createDirectory)
+- [Delete](#delete)
+- [List](#list)
+- [Move](#move)
+- [Read](#read)
+- [Rename](#rename)
+- [Write](#write)
+
+## Associated Sources
+
+- [On New or Updated File](#listener)
+
+## Operations
+
+### Copy
+
+`<ftps:copy>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Source Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Create Parent Directories</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Overwrite</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Rename To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:RETRY_EXHAUSTED
+- FTPS:FILE_ALREADY_EXISTS
+- FTPS:CONNECTIVITY
+
+### Create Directory
+
+`<ftps:create-directory>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Directory Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:RETRY_EXHAUSTED
+- FTPS:FILE_ALREADY_EXISTS
+- FTPS:CONNECTIVITY
+- FTPS:ACCESS_DENIED
+
+### Delete
+
+`<ftps:delete>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:RETRY_EXHAUSTED
+- FTPS:CONNECTIVITY
+- FTPS:ACCESS_DENIED
+
+### List
+
+`<ftps:list>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Directory Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Recursive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>File Matching Rules</strong></p></td><td><div><div><p><a href="#matcher">Matcher</a></p></div></div></td><td><div><div><p>Matcher to filter the listed files</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Message of [Any] payload and [<a href="#FtpFileAttributes">Ftp File Attributes</a>] attributes</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:ACCESS_DENIED
+
+### Move
+
+`<ftps:move>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Source Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Create Parent Directories</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Overwrite</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Rename To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:RETRY_EXHAUSTED
+- FTPS:FILE_ALREADY_EXISTS
+- FTPS:CONNECTIVITY
+
+### Read
+
+`<ftps:read>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Lock</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#FtpFileAttributes">Ftp File Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:FILE_LOCK
+- FTPS:RETRY_EXHAUSTED
+- FTPS:CONNECTIVITY
+- FTPS:ACCESS_DENIED
+
+### Rename
+
+`<ftps:rename>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>New Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Overwrite</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:RETRY_EXHAUSTED
+- FTPS:FILE_ALREADY_EXISTS
+- FTPS:CONNECTIVITY
+- FTPS:ACCESS_DENIED
+
+### Write
+
+`<ftps:write>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Content to be written into the file</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Encoding (DEPRECATED)</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>This parameter is deprecated and not taken into account for the operation execution.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Create Parent Directories</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Lock</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>OVERWRITE</p></li><li><p>APPEND</p></li><li><p>CREATE_NEW</p></li></ul></div></div></td><td><div><div><p>How to write the file</p></div></div></td><td><div><div><p><code>OVERWRITE</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- FTPS:ILLEGAL_PATH
+- FTPS:FILE_LOCK
+- FTPS:RETRY_EXHAUSTED
+- FTPS:FILE_ALREADY_EXISTS
+- FTPS:CONNECTIVITY
+- FTPS:ACCESS_DENIED
+- FTPS:ILLEGAL_CONTENT
+
+## Sources
+
+### On New or Updated File
+
+`<ftps:listener>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Directory</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Recursive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether or not to also catch files created on sub directories</p></div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Matcher</strong></p></td><td><div><div><p><a href="#matcher">Matcher</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Watermark Enabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Wait time, in milliseconds, between size checks to determine if a file is ready to be read.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Between Size Check Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit to use in the wait time between size checks</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to execute this source only on the primary node when running in a cluster</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Auto Delete</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Move To Directory</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Rename To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Apply Post Action When Failed</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#FtpFileAttributes">Ftp File Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+## Types
+
+### Tls
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom Ocsp Responder</a></p></li><li><p><a href="#crl-file">Crl File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Truststore
+
+Configures the TLS truststore.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the truststore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of truststore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the truststore uses.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of keystore used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the key store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the keystore uses.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Verify the last element of the certificate chain only.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method, which is the method not specified in the Prefer Crls field.</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server cannot be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom Ocsp Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certicate for the OCSP response. If specified, the alias must be in the truststore.</p></td><td></td><td></td></tr></tbody></table>
+
+### Crl File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Pooling Profile
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Active</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Controls the maximum number of connections that can be borrowed from a session at one time. When set to a negative value, there is no limit to the number of components that may be active at one time. When maxActive is exceeded, the pool is said to be exhausted.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Idle</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Controls the maximum number of connections that can sit idle in the pool at any time. When set to a negative value, there is no limit to the number of connections that may be idle at one time.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the number of milliseconds to wait for a pooled component to become available when the pool is exhausted and the exhaustedAction is set to <code>WHEN_EXHAUSTED_WAIT</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Min Eviction Millis</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Determines the minimum amount of time an object may sit idle in the pool before it is eligible for eviction. When non-positive, no objects will be evicted from the pool due to idle time alone.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Eviction Check Interval Millis</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the number of milliseconds between runs of the object evictor. When non-positive, no object evictor is executed.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Exhausted Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WHEN_EXHAUSTED_GROW</p></li><li><p>WHEN_EXHAUSTED_WAIT</p></li><li><p>WHEN_EXHAUSTED_FAIL</p></li></ul></div></div></td><td><div><div><p>Specifies the behavior of the Mule component pool when the pool is exhausted. Possible values are:</p></div><div><ul><li><p><code>WHEN_EXHAUSTED_FAIL</code> Will throw a NoSuchElementException</p></li><li><p><code>WHEN_EXHAUSTED_WAIT</code> Will block by invoking Object.wait(long) until a new or idle object is available</p></li><li><p><code>WHEN_EXHAUSTED_GROW</code> Will create a new Mule instance and return it, essentially making maxActive meaningless. If a positive maxWait value is supplied, it will block for, at most, that many milliseconds, after which a <code>NoSuchElementException</code> is thrown. If maxThreadWait is a negative value, it is blocked indefinitely.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Initialisation Policy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIALISE_NONE</p></li><li><p>INITIALISE_ONE</p></li><li><p>INITIALISE_ALL</p></li></ul></div></div></td><td><div><div><p>Determines how components in a pool should be initialized. The possible values are:</p></div><div><ul><li><p><code>INITIALISE_NONE</code> Will not load any components into the pool on startup</p></li><li><p><code>INITIALISE_ONE</code> Will load one initial component into the pool on startup</p></li><li><p><code>INITIALISE_ALL</code> Will load all components in the pool on startup</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Disabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether pooling should be disabled</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Ftp File Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Timestamp</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Regular File</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Directory</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Symbolic Link</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Matcher
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Timestamp Since</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Timestamp Until</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Not Updated In The Last</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Updated In The Last</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Case Sensitive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Enables you to configure an external file system matcher as case sensitive or insensitive</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Filename Pattern</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Path Pattern</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Directories</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>REQUIRE</p></li><li><p>INCLUDE</p></li><li><p>EXCLUDE</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>INCLUDE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Regular Files</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>REQUIRE</p></li><li><p>INCLUDE</p></li><li><p>EXCLUDE</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>INCLUDE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Sym Links</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>REQUIRE</p></li><li><p>INCLUDE</p></li><li><p>EXCLUDE</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>INCLUDE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Min Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory that will be allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which all these attributes are expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Defines the maximum memory the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use. If not set, the default is <code>SHA-256</code>.</p></div></div></td><td><div><div><p><code>SHA-256</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property can be set only if useSecureHash is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of instances that is initially be allowed to be kept in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize. Default value is 100 instances.</p></div></div></td><td><div><div><p><code>100</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised when the buffer gets full. Default value is 100 instances.</p></div></div></td><td><div><div><p><code>100</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of instances to keep in memory. If more than this is required, then content starts to buffer on the disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### FTPS Explicit Mode
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Prot Setting</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CLEAR</p></li><li><p>PRIVATE</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Prot Setting Exporter Sub Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Prot Setting</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CLEAR</p></li><li><p>PRIVATE</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### HTTP Tunnel Proxy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>The FTP proxy server host, such as www.mulesoft.com, localhost, or 192.168.0.1, etc.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port number of the FTP proxy server to connect.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username for the FTP proxy server. Required if the proxy server is authenticated.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password for the FTP proxy server. Required if the proxy server is authenticated.</p></td><td></td><td></td></tr></tbody></table>
+
+### HTTPS Tunnel Proxy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Tls Context Factory</p></td><td><div><div><p><a href="#Tls">Tls</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>The FTP proxy server host, such as www.mulesoft.com, localhost, or 192.168.0.1, etc.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port number of the FTP proxy server to connect.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username for the FTP proxy server. Required if the proxy server is authenticated.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password for the FTP proxy server. Required if the Proxy server is authenticated.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [FTPS Connector Release Notes](../../release-notes/connector/connector-ftps)
+- [MuleSoft Help Center](https://help.mulesoft.com)
+---
+
+# Using Anypoint Studio to Configure FTPS Connector 2.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure FTPS Mode for FTPS Connector](#configure-ftps-mode).
+7.  [Configure TLS with Keystores and Truststores](#configure-tls).
+8.  [Configure Java JDK for Session Reuse](#configure-java).
+9.  [Configure Bouncy Castle Libraries and Security Provider](#bouncycastle).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Use Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio). If,
+after reading this topic, you need additional information about the connector fields, see the
+[FTPS Connector Reference Reference](ftps-documentation).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add FTPS Connector to your Mule project to automatically populate the XML code with the connectorâs
+namespace and schema location and to add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `ftps` in the search field.
+3.  Click **FTPS Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with FTPS Connector:
+
+- **On New or Updated File**  
+  Initiates a flow by polling a directory for files that have been created or updated and generates
+  a message for each file found.
+- **HTTP Listener**  
+  Initiates a flow each time it receives a request on the configured host and port.
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met.
+
+For example, to configure the On New or Updated File source, follow these steps:
+
+1.  In the **Mule Palette** view, select **On New or Updated File**.
+2.  Drag **On New or Updated File** to the Studio canvas.
+3.  On the **On New or Updated File** configuration screen, optionally change the value of the
+    **Display Name** field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of **On New or Updated File** in the app.
+6.  On the **General** tab, specify the connection information for the connector.
+7.  Set **Host** to specify the FTPS server host, for example, `localhost` or `192.168.0.1`.
+8.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+9.  Click **OK**.
+10. On the **On New or Updated File** configuration screen, specify a **Scheduling Strategy** value
+    and optionally complete other fields.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for FTPS Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **FTPS** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas and to the right of the source.
+
+![FTP Connector Operations in Mule palette](_images/ftps-operations.png)
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to configure the FTP server
+connection.
+
+To configure the global element for FTPS Connector, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  Select the operation in the Studio canvas.
+3.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+4.  On the **General** tab, specify the connection information for the connector:
+5.  Set the **Working Directory** as the root of every relative path used with this connector.  
+    If itâs not provided, the value defaults to the remote server.
+6.  Set **Host** to specify the FTPS server host, for example, `localhost` or `0.0.0.0`.
+7.  Set **Username** and **Password**.
+8.  Configure Bouncy Castle libraries in the **Required Libraries** field.
+9.  On the **Advanced** tab, optionally specify a timeout configuration and reconnection strategy.
+10. On the **TLS** tab, specify TLS configuration.
+11. Click **Test Connection** to confirm that Mule can connect with the specified server.
+12. Click **OK**.
+
+![FTPS Connector Global Element Configuration](_images/ftps-proxy-configuration.png)
+
+In the **Configuration XML** editor, the configuration `ftps:config` looks like this:
+
+```xml
+<ftps:config name="FTPS_Config">
+  <ftps:connection username="anonymous" password="password"
+   host="0.0.0.0" port="21" workingDir="${workingDir}">
+    <tls:context>
+        <tls:trust-store path="path/to/keystore" password="mulepassword" />
+    </tls:context>
+  </ftps:connection>
+</ftps:config>
+```
+
+## Configure FTPS Mode for FTPS Connector
+
+In the global element configuration, you can configure the **Ftps mode** field to either the
+following options:
+
+- **Ftps explicit mode (Default)** The explicit mode connects in an unprotected way to the FTP
+  server. The client can negotiate TLS for either the command or data channel.
+- **Ftps implicit mode** The implicit mode assumes that a secure connection through an SSL/TLS
+  handshake must take place before any FTP command is sent. This ensures that the entire FTP session
+  is encrypted.
+
+When you configure the **Ftps explicit mode (Default)**, you can also configure the data channel
+protection level through the **PROT Settings** field to either one of these options:
+
+- **CLEAR** The clear protection level indicates that the data channel carries the raw data of the
+  file transfer, with no security applied. This is the default value.
+- **PRIVATE** The private protection level indicates that the integrity of the data and
+  confidentiality are protected.
+
+![FTPS Connector explicit mode configuration in Studio](_images/ftps-explicit-mode.png)
+
+In the **Configuration XML** editor, the `ftps=mode`, `ftps-explicit-mode`, and `protSetting`
+configurations look like this:
+
+```xml
+ <ftps:config name="FTPS_Config">
+   <ftps:connection username="anonymous" password="password"
+    host="0.0.0.0" port="21" workingDir="${workingDir}">
+     <tls:context>
+         <tls:trust-store path="path/to/keystore" password="mulepassword" />
+     </tls:context>
+     <ftps:ftps-mode >
+         <ftps:ftps-explicit-mode protSetting="PRIVATE" />
+     </ftps:ftps-mode>
+   </ftps:connection>
+ </ftps:config>
+```
+
+![FTPS Connector implicit mode configuration in Studio](_images/ftps-implicit-mode.png)
+
+In the **Configuration XML** editor, the `ftps=mode` and `ftps-implicit-mode` configurations look
+like this:
+
+```xml
+<ftps:config name="FTPS_Config">
+  <ftps:connection username="anonymous" password="password"
+   host="0.0.0.0" port="21" workingDir="${workingDir}">
+    <tls:context>
+        <tls:trust-store path="path/to/keystore" password="mulepassword" />
+    </tls:context>
+    <ftps:ftps-mode >
+        <ftps:ftps-implicit-mode />
+    </ftps:ftps-mode>
+  </ftps:connection>
+</ftps:config>
+```
+
+## Configure TLS with Keystores and Truststores
+
+You can use Transport Layer Security (TLS) and configure FTPS by providing a key store with your
+certificate. You can also enable 2-way authentication by providing a trust store. For more
+information about TLS configuration, refer to the
+[configure TLS with Keystores and Truststores](../../mule-runtime/latest/tls-configuration)
+documentation.
+
+## Configure Java JDK for Session Reuse
+
+To reuse sessions using FTPS, you must disable the Extended Main Secret extension for compatibility
+(JDK-8192045), which by default is set to `true`. The extension protects users from vulnerabilities
+by using the same session on different groups of clients and servers, which contradicts the demand
+to use the same session for control and data connections. With the Extended Main Secret extension
+activated, session reuse is possible only by endpoint verification, which is implemented for HTTPS
+and LDAP only.
+
+To disable the extension when working in Anypoint Studio, follow these steps:
+
+1.  In Studio, click **Run > Run Configurationsâ¦â**.
+2.  In the **Run Configurations** screen, click the **(x)=Arguments** tab.
+3.  In the **VM arguments** box, add the following argument to the JVM execution:
+
+    `-M-Djdk.tls.useExtendedMasterSecret=false`
+
+![JVM argument to disable Extended Main Secret in Run Configurations window](_images/ftps-jvm-configuration.png)
+
+4.  Click **Apply**.
+5.  Click **Run**.
+
+To disable the Extended Main Secret extension when working in a standalone Mule environment, add the
+following argument to the JVM execution:
+
+`./bin/mule -Djdk.tls.useExtendedMasterSecret=false`
+
+## Configure Bouncy Castle Libraries and Security Provider
+
+This connector no longer uses reflection to reuse the SSL session from the command channel to data
+channels. Instead, it now supports SSL session resumption between the client and host by using
+externally provided Bouncy Castle libraries which are forcefully set as top security providers. You
+must add Bouncy Castle libraries to prevent MITM attacks.
+
+To reuse sessions using FTPS Connector, you must configure Bouncy Castle libraries in the **Required
+Libraries** field while configuring the global element for the connector. You can choose one of the
+three available options to add these libraries.
+
+![Global element properties window showing the options of how to add Bouncy Castle libraries](_images/ftps-bc-providers.png)
+
+You can also add these libraries to the `JAVA_VM_FOLDER/jre/lib/ext` folder and set up the Bouncy
+Castle security provider:
+
+1.  Open the `AnypointStudio.ini` file and identify where Java VM is stored, for example,
+    `/Applications/AnypointStudio.app/Contents/Eclipse/plugins/org.mule.tooling.jdk.v8.macosx.x86_64_1.3.3/Contents/Home/jre/lib/ext`.
+    The path to Java VM is set up by the `-vm` command. In the following steps, assume the path
+    where Java VM is stored is `JAVA_VM_FOLDER`.
+2.  Download the `bcprov-jdk18on.jar`, `bctls-jdk18on.jar`, `bcpkix-jdk18on.jar`, and
+    `bcutil-jdk18on.jar` files from https://www.bouncycastle.org/download/bouncy-castle-java/.
+3.  Copy the files to the `JAVA_VM_FOLDER/jre/lib/ext` folder.
+4.  Open the `JAVA_VM_FOLDER/jre/lib/security/java.security` file.
+5.  Set the Bouncy Castle security providers at the beginning of the file, as shown in the following
+    section:
+
+    <table><colgroup><col></colgroup><tbody><tr><td><p>security.provider.1=org.bouncycastle.jce.provider.BouncyCastleProvider security.provider.2=org.bouncycastle.jsse.provider.BouncyCastleJsseProvider security.provider.3=sun.security.provider.Sun security.provider.4=sun.security.rsa.SunRsaSign security.provider.5=sun.security.ec.SunEC security.provider.6=com.sun.net.ssl.internal.ssl.Provider security.provider.7=com.sun.crypto.provider.SunJCE security.provider.8=sun.security.jgss.SunProvider security.provider.9=com.sun.security.sasl.Provider security.provider.10=org.jcp.xml.dsig.internal.dom.XMLDSigRI security.provider.11=sun.security.smartcardio.SunPCSC security.provider.12=apple.security.AppleProvider</p></td></tr></tbody></table>
+
+6.  Click **Apply**.
+7.  Click **Run**.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [FTPS Connector Reference](ftps-documentation)
+- [MuleSoft Help Center](https://help.mulesoft.com)
+---
+
+# Troubleshoot FTPS Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for FTPs (FTPS Connector), become familiar with the information
+about troubleshooting Mule application issues.
+
+## Troubleshoot Mule Application Issues
+
+Sometimes you are not sure why the application is failing and you require a better understanding of
+what is going on in the appâs interaction with the FTPS server.
+
+To resolve this error:
+
+- Use the configuration file to increase the logging level on the server side.
+- Try to replicate the issue using an FTPS client, for example, Cyberduck or Filezilla. If the issue
+  also occurs with these clients, then it is likely that the issue is not related to the Mule app.
+- Get better and more detailed logs on the Mule app side by enabling verbose logging for FTPS
+  Connector and for the JSCH driver:
+  1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+  2.  Open your applicationâs project name.
+  3.  Open the `src/main/resources` path folder.
+  4.  Open the `log4j2.xml` file inside the folder.
+  5.  If the following line is already in the `log4j2.xml` file, uncomment it to enable it;
+      otherwise, add it:
+
+      ```xml
+        <AsyncLogger name=âorg.mule.extension.ftpâ level=âTRACEâ/>
+        <AsyncLogger name=âorg.apache.commons.netâ level=âDEBUGâ/>
+      ```
+
+  6.  Add the following argument to your run configuration:
+
+      \`-M-Djavax.net.debug=ssl,handshake\`
+
+- Try to minimize or remove unnecessary DataWeave data transformations (you could even use hard
+  coded data) to minimize the appâs complexity and determine whether the issue is with the
+  interaction between the app and the FTPS server.
+
+For additional information about enabling verbose logging for SDK components in your Mule
+application, see the [troubleshoot SDK components](../../mule-sdk/latest/troubleshooting)
+documentation.
+
+## Handle FTPS Session Reuse Errors
+
+When you use FTPS Connector, connection issues can occur during session reuse, such as a
+`SocketTimeoutException` error during data connection. To resolve this, include this JVM system
+property in your runtime configuration:
+
+`-Dorg.apache.commons.net.ftp.ipAddressFromPasvResponse=true`
+
+> [!NOTE] This setting ensures the IP address from the PASV response is used during data transfer.
+> However, enabling this flag exposes your application to potential security vulnerabilities if the
+> PASV response is spoofed or manipulated. Use this setting with caution, especially in untrusted
+> network environments.
+
+## Understand Common Throws
+
+Here is a list of common throws messages and how to interpret them.
+
+- FTPS:ACCESS_DENIED
+
+An FTPS Connector operation attempted to access an FTPS server path and performed an action for
+which the user has not been granted permission.
+
+- FTPS:CONNECTIVITY
+
+The connection to the FTPS server was interrupted.
+
+- FTPS:FILE_ALREADY_EXISTS
+
+An attempt was made to create a file with the same location and name as an existing file.
+
+- FTPS:FILE_LOCK
+
+An operation made an unsuccessful attempt to acquire a lock over a file.
+
+- FTPS:ILLEGAL_CONTENT
+
+The **Write** operation received invalid content to write.
+
+- FTPS:ILLEGAL_PATH
+
+The specified path is invalid because, for example, it does not exist.
+
+- FTPS:RETRY_EXHAUSTED
+
+Retries of a certain execution block are exhausted.
+
+## See Also
+
+- [MuleSoft Help Center](https://help.mulesoft.com)
+- [FTPS Connector Reference](ftps-documentation)
+---
+
+# FTPS Connector XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/ftps
+http://www.mulesoft.org/schema/mule/ftps/current/mule-ftps.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:ftps="http://www.mulesoft.org/schema/mule/ftps"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/ftps
+	http://www.mulesoft.org/schema/mule/ftps/current/mule-ftps.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-ftps-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `ftps`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [MuleSoft Help Center](https://help.mulesoft.com)
+---
+
+# FTPS Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Support Category:
+[Premium](https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/versioning-back-support-policy.pdf)
+
+Anypoint Connector for FTPS (FTPS Connector) connects to FTP servers the same way as the
+[FTP Connector](../../ftp-connector/latest/) but adds support for
+[Transport Layer Security (TLS)](../../mule-runtime/latest/tls-configuration).
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have access to Anypoint Platform and Anypoint Studio.
+
+## See Also
+
+- [FTPS Connector Reference](ftps-documentation)
+- [MuleSoft Help Center](https://help.mulesoft.com)
+

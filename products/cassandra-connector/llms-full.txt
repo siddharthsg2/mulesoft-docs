@@ -1,0 +1,2929 @@
+﻿# Apache Cassandra Connector - Full Documentation
+
+# Apache Cassandra Connector 4.1 Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Configure Anypoint Connector for Apache Cassandra (Apache Cassandra Connector) to work in your
+environment with basic authentication and DataSense functionality.
+
+## Enable Apache Cassandra Authentication
+
+By default, accessing the Apache Cassandra database does not require credentials. You need to
+configure Apache Cassandra to enable authentication. The Apache Cassandra Connector configuration
+must match the Apache Cassandra configuration for basic authentication.
+
+After enabling authentication, run the `cqlsh` command from the Apache Cassandra installation home
+directory as shown in this example, which uses default credentials with username `cassandra` and
+password `cassandra`:
+
+```text
+bin/cqlsh localhost -u cassandra -p cassandra
+Connected to Test Cluster at localhost:9042.
+[cqlsh 5.0.1 | Cassandra 3.10 | CQL spec 3.4.4 | Native protocol v4]
+Use HELP for help.
+```
+
+1.  After installing Apache Cassandra, open the `conf\cassandra.yaml` file for editing.
+2.  Optionally, change the value of `AllowAllAuthenticator` to `PasswordAuthenticator`.
+3.  Restart Apache Cassandra.
+4.  In a separate terminal tab, verify that Apache Cassandra is running:
+
+    `bin/nodetool status`
+
+## POJO Configuration
+
+The connector exposes multiple operations in the Apache Cassandra Connector Reference. The following
+operations accept some POJOs as input parameters, which are needed for the DataSense functionality:
+
+- `addNewColumn`
+- `changeColumnType`
+- `createKeyspace`
+- `createTable`
+- `deleteColumnsValue`
+- `deleteRows`
+- `dropColumn`
+- `dropKeyspace`
+- `dropTable`
+- `executeCQLQuery`
+- `getTableNamesFromKeyspace`
+- `renameColumn`
+- `select`
+- `update`
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Apache Cassandra Connector 4.1 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show how to configure Apache Cassandra Connector:
+
+- [Create a New Apache Cassandra Table](#create-table)
+
+  Creates a template for an HTML form to use to enter data for the new table, creates a keyspace for
+  the new table, and then creates the table
+
+- [Manipulate Data in an Apache Cassandra Database](#manipulate-data)
+
+  Gets table names from a keyspace, performs operations on tables and table columns, executes
+  Cassandra Query Language (CQL) queries, and so on.
+
+## Create a New Apache Cassandra Table
+
+This example contains the following flows:
+
+- The first flow configures a template for the HTML input form used to convey data for the new
+  table.
+- The second flow creates the keyspace for the new table.
+- The third flow creates the new table.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see Configuring Property Placeholders.
+
+### Configure a Template for the HTML Input Form
+
+This flow configures an HTML template to use for providing HTML input to create the new table:
+
+![Parse Template Flow](_images/cassandra-parse-template.png)
+
+Figure 1. Flow for configuring an HTML template
+
+#### Configure HTTP Listener
+
+Configure HTTP Listener to initiate a Mule flow when a call is made to the `/` path on port 8081:
+
+1.  Create a new Mule Project in Anypoint Studio.
+2.  In Studio, click **HTTP** and drag the **Listener** operation to the canvas.
+3.  On the **Listener** properties window, click the plus sign (**+**) next to the **Connector
+    configuration** field to add a global element.
+4.  Accept the defaults.
+5.  On the **Listener** properties window, set the **Path** field value to `/`.
+
+#### Add a Parse Template Component
+
+Add a **Parse Template** component to create a template for an HTML form (`form.html`), which is
+located in the main resources folder. The example uses this form to convey information for creating
+the table.
+
+1.  From the Mule Palette view, search for `parse` and drag **Core** > **Parse Template** to the
+    right of **Listener**.
+2.  In the **Location** field, enter `form.html`.
+
+### Create the Keyspace
+
+This flow creates the keyspace for the new table:
+
+![Create keyspace flow](_images/cassandra-create-keyspace.png)
+
+Figure 2. Flow for creating a keyspace
+
+#### Configure HTTP listener
+
+Configure HTTP Listener to initiate a Mule flow when a call is made to the `/test/createKeyspace`
+path on port `8081`:
+
+1.  Create a new Mule Project in Anypoint Studio.
+2.  In Studio, click **HTTP** and drag the **Listener** operation to the canvas.
+3.  On the Listener properties window, click the plus sign **+** next to the **Connector
+    configuration** field to add a global element.
+4.  Accept the defaults.
+5.  In **Listener** configuration window, set the **Path** field value to `/test/createKeyspace`.
+
+#### Add a Transform Message Component
+
+Add a **Transform Message** component to set Java variables based on the payload received from
+**HTTP Listener**:
+
+1.  From the Mule Palette view, drag a **Transform Message** component to the right of **Listener**.
+2.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+     "keyspaceName": payload.keyspaceName,
+     "replicationFactor": payload.replicationFactor,
+     "replicationStrategyClass": payload.replicationStrategyClass
+    }
+    as Object {
+     class: "org.mule.modules.cassandradb.api.CreateKeyspaceInput"
+    }
+    ```
+
+#### Add the Create Keyspace Operation
+
+Add the **Create keyspace** operation to create the keyspace where the new table will reside:
+
+1.  From the **Mule Palette** view, select **CassandDB** and drag the **Create keyspace** operation
+    to the right of the **Transform Message** component.
+2.  In the **Create keyspace** configuration, click the plus sign (**+**) next to the **Connector
+    configuration** field to add a global element.
+3.  Configure the fields in the global element:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p>Host</p></td><td><p><code>${cassandra.Host}</code></p></td></tr><tr><td><p>Port</p></td><td><p><code>${cassandra.Port}</code></p></td></tr><tr><td><p>Keyspace</p></td><td><p><code>${cassandra.keySpace}</code></p></td></tr><tr><td><p>Username</p></td><td><p><code>${cassandra.userName}</code></p></td></tr><tr><td><p>Password</p></td><td><p><code>${cassandra.password}</code></p></td></tr></tbody></table>
+
+4.  Click **Test Connection** to confirm that Mule can connect with the target Apache Cassandra
+    instance.
+
+    If the connection is successful, click **OK** to save the configuration. Otherwise, review and
+    correct any invalid parameters and retest.
+
+5.  Save the project.
+6.  Test the app by sending a REST request to the `test/createKeyspace` path on port `8081`.
+
+### Create a New Table
+
+This flow creates a new table in the target Apache Cassandra database:
+
+![Create table flow](_images/cassandra-create-table.png)
+
+Figure 3. Flow for creating a new table
+
+#### Configure HTTP Listener
+
+Configure HTTP Listener to initiate a Mule flow when a call is made to the `/test/createTable` path
+on port `8081`:
+
+1.  Create a new Mule Project in Studio.
+2.  In Studio, click **HTTP** and drag the **Listener** operation to the canvas.
+3.  In the **Listener** configuration, click the plus sign **+** next to the **Connector
+    configuration** field to add a global element.
+4.  Accept the defaults.
+5.  In the **Listener** configuration, set the **Path** field value to `/test/createTable`.
+
+### Add a Transform Message Component
+
+Add a **Transform Component** to set Java variables based on the payload received from **HTTP
+Listener**:
+
+1.  From the Mule Palette view, drag a **Transform Message** component to the right of **Listener**.
+2.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "columns": payload.columns,
+      "tableName": payload.tableName,
+      "keyspaceName": payload.keyspaceName
+    } as Object {
+      class : "org.mule.modules.cassandradb.api.CreateTableInput"
+    }
+    ```
+
+#### Add the Create Table Operation
+
+Add a **Create Table** operation to create a new table in the keyspace you created in the previous
+flow:
+
+1.  From the **Mule Palette** view, select **CassandDB** and drag the **Create Table** operation to
+    the right of the **Transform Message** component.
+2.  In the **Create Table** configuration, click the plus sign (**+**) next to the **Connector
+    configuration** field.
+3.  Select the global element that you configured for the **Create keyspace** operation.
+4.  Click **OK**.
+5.  Click **Test Connection** to confirm that Mule can connect with the Cassandra instance.
+
+    If the client test is successful, click **OK** to save the configuration. Otherwise, review and
+    correct any invalid parameters and retest.
+
+6.  Save and run the Mule app.
+7.  Test the app by sending a **POST** command to the `/test/createTable` path on port `8081`. Use
+    the `application/json` MIME type and enter the table description in the command body, using
+    uppercase for the data types:
+
+    ```text
+    {
+      "tableName": "users",
+      "keyspaceName": "Excelsior",
+      "columns":
+      [
+        {
+          "name": "id",
+          "type": "INT",
+          "primaryKey": "true"
+        },
+        {
+          "name": "username",
+          "type": "TEXT",
+          "primaryKey": "true"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "primaryKey": "false"
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "primaryKey": "false"
+        }
+      ]
+    }
+    ```
+
+### XML for the Create an Apache Cassandra Keyspace and Table Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cassandra-db="http://www.mulesoft.org/schema/mule/cassandra-db"
+xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/cassandra-db
+http://www.mulesoft.org/schema/mule/cassandra-db/current/mule-cassandra-db.xsd">
+
+  <configuration-properties file="mule-app.properties" />
+  <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+    <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+  <cassandra-db:config name="CassandraDB_Config" doc:name="CassandraDB Config">
+    <cassandra-db:connection
+      host="${config.host}"
+      port="${config.port}"
+      keyspace="${config.keyspace}"
+      username="${config.username}"
+      password="${config.password}"/>
+	</cassandra-db:config>
+  <flow name="HTMLForm">
+    <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/"/>
+    <parse-template doc:name="Parse Template" location="form.html"/>
+  </flow>
+  <flow name="CreateKeyspace">
+    <http:listener
+      doc:name="Listener"
+      config-ref="HTTP_Listener_config"
+      path="/createKeyspace"/>
+    <ee:transform doc:name="Transform Message">
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "keyspaceName": payload.keyspaceName,
+  "replicationFactor": payload.replicationFactor,
+  "replicationStrategyClass": payload.replicationStrategyClass
+} as Object {
+  class : "org.mule.modules.cassandradb.api.CreateKeyspaceInput"
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:create-keyspace doc:name="Create keyspace" config-ref="CassandraDB_Config"/>
+    <ee:transform doc:name="Transform Message">
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="CreateTable">
+    <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/createTable"/>
+    <ee:transform doc:name="Transform Message">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "columns": payload.columns,
+  "tableName": payload.tableName,
+  "keyspaceName": payload.keyspaceName
+} as Object {
+  class : "org.mule.modules.cassandradb.api.CreateTableInput"
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:create-table doc:name="Create table" config-ref="CassandraDB_Config"/>
+    <ee:transform doc:name="Transform Message">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+</mule>
+```
+
+## Manipulate Data in an Apache Cassandra Database
+
+This example shows the following ways to manipulate data in an Apache Cassandra database:
+
+- [Get table names from a keyspace.](#get-table-names)
+- Perform the following CRUD operations on data in an Apache Cassandra table:
+  - [Insert](#insert)
+  - [Select](#select)
+  - [Update](#update)
+  - [Delete](#delete)
+
+- Perform the following operations on an Apache Cassandra table column:
+  - [Delete the columnâs value.](#delete-columns)
+  - [Rename a column.](#rename-columns)
+  - [Add a new column.](#add-new-column)
+  - [Drop a column.](#drop-columns)
+
+- [Execute a Cassandra Query Language (CQL) query.](#execute-cql)
+- Drop data from the Apache Cassandra database table:
+  - [Drop a table from a keyspace.](#drop-table)
+  - [Drop a keyspace.](#drop-keyspace)
+
+### Get Table Names from a Keyspace
+
+This Mule flow returns all table names from the specified keyspace.
+
+![Studio flow for the Get table names from keyspace operation](_images/get-table-names.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Get table names from keyspace** operation
+- A **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/getTablesFromKeyspace`.
+
+#### Add the Get Table Names from Keyspace Operation
+
+The **Get table names from keyspace** operation returns all table names from the specified keyspace.
+
+1.  Drag the **Get table names from keyspace** operation onto the canvas, next to **HTTP Listener**.
+2.  In the **Get table names from keyspace** configuration, click the **Connector configuration**
+    dropdown and select **CassandraDB_Config**.
+3.  Configure the following fields in the **Get table names from keyspace** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Keyspace name</p></td><td><p><code>#[payload.keyspaceName]</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Get table names from
+    keyspace**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Insert
+
+This Mule flow inserts entities in a table in a keyspace.
+
+![Studio flow for the Insert Entity operation](_images/insert-entity.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Transform Message** component
+- An **Insert Entity** operation
+- A second **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/insert`.
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace to Java.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **HTTP Listener**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "id": payload.id,
+      "name": payload.name,
+      "event": payload.event
+    }
+    ```
+
+#### Add the Insert Entity Operation
+
+The **Insert Entity** operation inserts entities into a table in a keyspace.
+
+1.  Drag the **Insert Entity** operation onto the canvas, next to **Transform Message**.
+2.  In the **Insert Entity** configuration, click the **Connector configuration** dropdown and
+    select **CassandraDB_Config**.
+3.  Configure the following fields in the **Insert Entity** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>example_table</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>example_keyspace</code></p></td></tr><tr><td><p>Entity to insert</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+#### Add the Second Transform Message Component
+
+The second **Transform Message** component converts the data from the keyspace from Java to XML.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Insert Entity**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Select
+
+This Mule flow executes a **Select** query.
+
+![Studio flow for the Select operation](_images/select.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Select** operation
+- A **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/insert`.
+
+#### Add the Select Operation
+
+The **Select** operation executes a **Select** query on the keyspace.
+
+1.  Drag the **Select** operation onto the canvas, next to **HTTP Listener**.
+2.  In the **Select** configuration, click the **Connector configuration** dropdown and select
+    **CassandraDB_Config**.
+3.  Configure the following fields in the **Select** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Query</p></td><td><p><code>SELECT id, name, event FROM example_keyspace.example_table</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Select**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Update
+
+This Mule flow updates entities in a table in a keyspace.
+
+![Studio flow for the Update Entity operation](_images/update-entity.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Transform Message** component
+- An **Update Entity** operation
+- A second **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/update`.
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace to Java.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **HTTP Listener**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "where":{
+        id: payload.where
+      },
+      "columns":payload.columns
+    }
+    ```
+
+#### Add the Update Entity Operation
+
+The **Update Entity** operation inserts entities into a table in a keyspace.
+
+1.  Drag the **Update Entity** operation onto the canvas, next to **Transform Message**.
+2.  In the **Update Entity** configuration, click the **Connector configuration** dropdown and
+    select **CassandraDB_Config**.
+3.  Configure the following fields in the **Update Entity** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>example_table</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>example_keyspace</code></p></td></tr><tr><td><p>Entity to insert</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+#### Add the Second Transform Message Component
+
+The second **Transform Message** component converts the data from the keyspace from Java to XML.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Update Entity**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Delete
+
+This Mule flow deletes a record from a table in a keyspace.
+
+![Studio flow for the Delete Rows operation](_images/delete-row.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Transform Message** component
+- A **Delete Rows** operation
+- A second **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/deleteRows`.
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **HTTP Listener**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "where": {
+        id: payload.ids
+      }
+    }
+    ```
+
+#### Add the Delete Rows Operation
+
+The **Delete Rows** operation deletes a record.
+
+1.  Drag the **Delete Rows** operation onto the canvas, next to **Transform Message**.
+2.  In the **Delete Rows** configuration, click the **Connector configuration** dropdown and select
+    **CassandraDB_Config**.
+3.  Configure the following fields in the **Delete Rows** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>example_table</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>example_keyspace</code></p></td></tr><tr><td><p>Entity to insert</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+#### Add the Second Transform Message Component
+
+The second **Transform Message** component converts the data from the keyspace from Java to XML.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Delete Rows**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Delete Columns
+
+This Mule flow deletes a columnâs value from a table in a keyspace.
+
+![Studio flow for the Delete Columns Value operation](_images/delete-column.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Transform Message** component
+- An **Delete Columns Value** operation
+- A second **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/deleteColumns`.
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace to Java.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **HTTP Listener**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "columns": payload.columns,
+      "where": {
+        id:payload.where
+      }
+    }
+    ```
+
+#### Add the Delete Columns Value Operation
+
+The **Delete Columns Value** operation deletes values from an object specified by the **Where
+clause** field.
+
+1.  Drag the **Delete Columns Value** operation onto the canvas, next to **Transform Message**.
+2.  In the **Delete Columns Value** configuration, click the **Connector configuration** dropdown
+    and select **CassandraDB_Config**.
+3.  Configure the following fields in the **Delete Columns Value** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>example_table</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>example_keyspace</code></p></td></tr><tr><td><p>Entities</p></td><td><p><code>Edit inline</code></p></td></tr><tr><td><p>Value</p></td><td><p><code>#[payload.entities]</code></p></td></tr><tr><td><p>Where clause</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+#### Add the Second Transform Message Component
+
+The second **Transform Message** component converts the data from the keyspace from Java to XML.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Delete Columns Value**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Rename Columns
+
+This Mule flow renames a column in a table in the specified keyspace.
+
+![Studio flow for the Rename Column operation](_images/rename-columns.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Rename Column** operation
+- A **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/renameColumn`.
+
+#### Add the Rename Column Operation
+
+The **Rename Column** operation renames a column in a table in a keyspace.
+
+1.  Drag the **Rename Column** operation onto the canvas, next to **HTTP Listener**.
+2.  In the **Rename Column** configuration, click the **Connector configuration** dropdown and
+    select **CassandraDB_Config**.
+3.  Configure the following fields in the **Rename Column** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>#[payload.tableName]</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>#[payload.keyspaceName]</code></p></td></tr><tr><td><p>Old column name</p></td><td><p><code>payload.oldName</code></p></td></tr><tr><td><p>New column name</p></td><td><p><code>#[payload.newName]</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Rename Column**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Add New Columns
+
+This Mule flow adds a new column to a table in a keyspace.
+
+![Studio flow for the Add New Table Column operation](_images/add-new-column.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Set Variable** component
+- A second **Set Variable** component
+- A **Transform Message** component
+- An **Add New Table Column** operation
+- A second **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/addNewColumn`.
+
+#### Add the Set Variable Component
+
+The first **Set Variable** component stores a value for the table name.
+
+1.  In the **Mule Palette** view, search for `set variable`.
+2.  Drag the **Set Variable** component onto the canvas, next to **HTTP Listener**.
+3.  Configure the following fields in the **Set Variable** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p><code>tableName</code></p></td></tr><tr><td><p>Value</p></td><td><p><code>#[payload.tableName]</code></p></td></tr></tbody></table>
+
+#### Add the Second Set Variable Component
+
+The second **Set Variable** component stores a value for the keyspace name.
+
+1.  In the **Mule Palette** view, search for `set variable`.
+2.  Drag the **Set Variable** component onto the canvas, next to **HTTP Listener**.
+3.  Configure the following fields in the **Set Variable** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p><code>keyspaceName</code></p></td></tr><tr><td><p>Value</p></td><td><p><code>#[payload.keyspaceName]</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Set Variable**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "column": payload.column,
+      "type": payload.'type'
+    } as Object {
+      class : "org.mule.modules.cassandradb.api.AlterColumnInput"
+    }
+    ```
+
+#### Add the Add New Table Column Operation
+
+The **Add New Table Column** operation adds a new column.
+
+1.  Drag the **Add New Table Column** operation onto the canvas, next to **Transform Message**.
+2.  In the **Add New Table Column** configuration, click the **Connector configuration** dropdown
+    and select **CassandraDB_Config**.
+3.  Configure the following fields in the **Add New Table Column** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>#[vars['tableName']]</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>#[vars['keyspaceName']]</code></p></td></tr><tr><td><p>Alter column input</p></td><td><p><code>payload</code></p></td></tr></tbody></table>
+
+#### Add the Second Transform Message Component
+
+The second **Transform Message** component converts the data from the keyspace from Java to XML.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Add New Table Column**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Drop Columns
+
+This Mule flow removes a column from a table in a keyspace.
+
+![Studio flow for the Drop Column operation](_images/drop-columns.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Drop Column** operation
+- A **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/dropColumn`.
+
+#### Add the Drop Column Operation
+
+The **Drop Column** operation removes a column.
+
+1.  Drag the **Drop Column** operation onto the canvas, next to **HTTP Listener**.
+2.  In the **Drop Column** configuration, click the **Connector configuration** dropdown and select
+    **CassandraDB_Config**.
+3.  Configure the following fields in the **Drop Column** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table</p></td><td><p><code>#[payload.tableName]</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>#[payload.keyspaceName]</code></p></td></tr><tr><td><p>Column name</p></td><td><p><code>payload.columnName</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Drop Column**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Execute a Cassandra Query Language (CQL) Query
+
+This Mule flow executes the specified raw input query.
+
+![Studio flow for the Execute CQL Query operation](_images/execute-cql.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Transform Message** component
+- An **Execute CQL Query** operation
+- A second **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/executeCqlQuery`.
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace to Java.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **HTTP Listener**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/java
+    ---
+    {
+      "cqlQuery": payload.cqlQuery,
+      "parameters": payload.parameters
+    } as Object {
+      class : "org.mule.modules.cassandradb.api.CQLQueryInput"
+    }
+    ```
+
+#### Add the Execute CQL Query Operation
+
+The **Execute CQL Query** operation executes the raw input query.
+
+1.  Drag the **Execute CQL Query** operation onto the canvas, next to **Transform Message**.
+2.  In the **Execute CQL Query** configuration, click the **Connector configuration** dropdown and
+    select **CassandraDB_Config**.
+
+#### Add the Second Transform Message Component
+
+The second **Transform Message** component converts the data from the keyspace from Java to XML.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Execute CQL Query**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Drop Table
+
+This Mule flow drops a table from the specified keyspace.
+
+![Studio flow for the Drop Table operation](_images/drop-table.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Drop Table** operation
+- A **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/dropTable`.
+
+#### Add the Drop Table Operation
+
+The **Drop Table** operation drops a table from the specified keyspace. If no keyspace is specified
+for the **Drop Table** operation, the table is created in the keyspace in the connection parameters.
+
+1.  Drag the **Drop Table** operation onto the canvas, next to **HTTP Listener**.
+2.  In the **Drop Table** configuration, click the **Connector configuration** dropdown and select
+    **CassandraDB_Config**.
+3.  Configure the following fields in the **Drop Table** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Table name</p></td><td><p><code>payload.tableName</code></p></td></tr><tr><td><p>Keyspace name</p></td><td><p><code>#[payload.keyspaceName]</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Drop Table**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### Drop Keyspace
+
+This Mule flow drops the specified keyspace and its values.
+
+![Studio flow for the Drop Keyspace operation](_images/drop-keyspace.png)
+
+In this flow, you configure:
+
+- An **HTTP Listener** component
+- A **Drop Keyspace** operation
+- A **Transform Message** component
+
+#### Configure HTTP Listener
+
+Configure **HTTP Listener** to initiate a Mule flow when a call is made to the `/` account path on
+`localhost`, port `8081`.
+
+This example uses variables for some field values. You can either:
+
+- Replace the variables with their values in the code.
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration.
+
+If you donât know how to use a properties file, see
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+To configure **HTTP Listener**:
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click the **Add** icon next to the **Connector
+    configuration** field to add a global element.
+5.  Click **OK** to accept the defaults.
+6.  Set the **Path** field to `/dropKeyspace`.
+
+#### Add the Drop Keyspace Operation
+
+The **Drop Keyspace** operation drops the keyspace and its values.
+
+1.  Drag the **Drop Keyspace** operation onto the canvas, next to **HTTP Listener**.
+2.  In the **Drop Keyspace** configuration, click the **Connector configuration** dropdown and
+    select **CassandraDB_Config**.
+3.  Configure the following fields in the **Drop Keyspace** properties window:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Keyspace name</p></td><td><p><code>payload.keyspaceName</code></p></td></tr></tbody></table>
+
+#### Add the Transform Message Component
+
+The **Transform Message** component converts the data from the keyspace.
+
+1.  In the **Mule Palette** view, search for `transform message`.
+2.  Drag the **Transform Message** component onto the canvas, next to **Drop Keyspace**.
+3.  In the **Transform Message** configuration, overlay the brackets in the **Output** section with
+    this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### XML for the Manipulate Data in an Apache Cassandra Database Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cassandra-db="http://www.mulesoft.org/schema/mule/cassandra-db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/cassandra-db http://www.mulesoft.org/schema/mule/cassandra-db/current/mule-cassandra-db.xsd">
+
+  <configuration-properties file="mule-app.properties" />
+  <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="7b4310b7-4a49-4b37-8649-9247ae910399" >
+    <http:listener-connection host="0.0.0.0" port="8081" />
+  </http:listener-config>
+  <cassandra-db:config name="CassandraDB_Config" doc:name="CassandraDB Config" doc:id="1ab180db-597d-455a-99fb-e006842cd052" >
+    <cassandra-db:connection host="${config.host}" port="${config.port}" keyspace="${config.keyspace}" username="${config.username}" password="${config.password}" clusterName="${config.clusterName}" clusterNodes="${config.clusterNodes}"/>
+  </cassandra-db:config>
+  <flow name="GetTablesFromKeyspace" doc:id="e7d35ea3-58ed-4713-bbce-4ff6cbb41189" >
+    <http:listener doc:name="Listener" doc:id="24838bde-79ae-4601-ac2b-00945831d7df" config-ref="HTTP_Listener_config" path="/getTablesFromKeyspace" />
+    <cassandra-db:get-table-names-from-keyspace doc:name="Get table names from keyspace" doc:id="96e12e7b-8e90-4117-8ba6-5225d4af530a" config-ref="CassandraDB_Config" keyspaceName="#[payload.keyspaceName]"/>
+    <ee:transform doc:name="Transform Message" doc:id="f3be8d87-27bd-470f-beb5-dbd2b81c24be" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="Insert" doc:id="ea181924-0b06-48ea-b007-c1b297db2cbd" >
+    <http:listener doc:name="Listener" doc:id="5eceb9c9-bbad-4022-92a3-932e399bb4d6" config-ref="HTTP_Listener_config" path="/insert" />
+    <ee:transform doc:name="Transform Message" doc:id="76763f2a-3860-4d73-84ad-33c0a7c485ed" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "id": payload.id,
+  "name": payload.name,
+  "event": payload.event
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:insert table="example_table" doc:name="Insert" doc:id="13224cf4-25d8-4f35-84e7-d211d4a3bdc5" config-ref="CassandraDB_Config" keyspaceName="example_keyspace"/>
+    <ee:transform doc:name="Transform Message" doc:id="8888f973-3c80-4f56-b83c-792b40ba8cc4" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="Select" doc:id="2b70dea4-aadf-44a2-8c08-fee5a06cf8f5" >
+    <http:listener doc:name="Listener" doc:id="ce7fb340-0292-45b5-a62e-29069d4f03ee" config-ref="HTTP_Listener_config" path="/select" />
+    <cassandra-db:select doc:name="Select" doc:id="6a698c61-30eb-49e4-839a-c6412644c41f" config-ref="CassandraDB_Config">
+      <cassandra-db:query >SELECT id, name, event FROM example_keyspace.example_table</cassandra-db:query>
+    </cassandra-db:select>
+    <ee:transform doc:name="Transform Message" doc:id="2782805e-1cf0-4808-96f1-99bd145759d0" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="Update" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/update" />
+    <ee:transform doc:name="Transform Message" doc:id="c38ebb52-d614-4780-bae9-95d710f539d3" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "where":{
+    id: payload.where
+  },
+  "columns":payload.columns
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:update table="example_table" doc:name="Update" doc:id="5edef28b-c636-4ce5-b59e-5843511c89c7" config-ref="CassandraDB_Config" keyspaceName="example_keyspace"/>
+    <ee:transform doc:name="Transform Message" doc:id="beb77d6c-571b-4187-922e-afc7e89c8415" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="DeleteRows" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Copy_of_Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/deleteRows" />
+    <ee:transform doc:name="Transform Message" doc:id="fdf8f121-8be3-4c73-8c5b-23df7c679c89" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "where": {
+    id: payload.ids
+  }
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:delete-rows table="example_table" doc:name="Delete rows" doc:id="3f9532e2-2fc6-4381-a2f6-90172994b2a7" config-ref="CassandraDB_Config" keyspaceName="example_keyspace"/>
+    <ee:transform doc:name="Transform Message" doc:id="99fc2458-7548-44e1-9e31-ae29e04cd3c0" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="DeleteColumns" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/deleteColumns" />
+    <ee:transform doc:name="Transform Message" doc:id="0d8fb61b-4afc-490b-be8c-d7f008efa1cf" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "columns": payload.columns,
+  "where": {
+    id:payload.where
+  }
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:delete-columns-value table="example_table" doc:name="Delete columns value" doc:id="8ed01b4f-2cd4-4fcf-9d70-f560a6501f8e" config-ref="CassandraDB_Config" keyspaceName="example_keyspace">
+      <cassandra-db:entities >
+        <cassandra-db:entity value="#[payload.entities]" />
+      </cassandra-db:entities>
+    </cassandra-db:delete-columns-value>
+    <ee:transform doc:name="Transform Message" doc:id="1f4f7f5d-7cfc-48fc-983c-a74a69576f8c" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="RenameColumn" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/renameColumn" />
+    <cassandra-db:rename-column doc:name="Rename column" doc:id="f61c5f48-1f4f-46e6-9ab7-3021bb3eb4f5" config-ref="CassandraDB_Config" table="#[payload.tableName]" keyspaceName="#[payload.keyspaceName]" newColumnName="#[payload.newName]">
+      <cassandra-db:old-column-name ><![CDATA[#[payload.oldName]]]></cassandra-db:old-column-name>
+    </cassandra-db:rename-column>
+    <ee:transform doc:name="Transform Message" doc:id="92b94afa-c0eb-4eb8-a05c-8d9ffcce000e" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="AddNewColumn" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/addNewColumn" />
+    <set-variable value="#[payload.tableName]" doc:name="Set Variable" doc:id="40a2950e-58d2-4488-8b8d-6132ebcacfe8" variableName="tableName"/>
+    <set-variable value="#[payload.keyspaceName]" doc:name="Set Variable" doc:id="29fe33b5-da79-4c42-97f1-a0f699cc532a" variableName="keyspaceName"/>
+    <ee:transform doc:name="Transform Message" doc:id="af633bfc-5dbf-4849-a58a-2cb446d32920" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "column": payload.column,
+  "type": payload.'type'
+} as Object {
+  class : "org.mule.modules.cassandradb.api.AlterColumnInput"
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:add-new-column doc:name="Add new column" doc:id="1ece4157-c45b-4298-9726-dec11c87fbf0" config-ref="CassandraDB_Config" table="#[vars['tableName']]" keyspaceName="#[vars['keyspaceName']]"/>
+    <ee:transform doc:name="Transform Message" doc:id="335c584c-a1ae-4b69-bc24-1a0b7d1fe940" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="DropColumn" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="5b388d2a-886e-4d32-ba77-2ae3d388c766" config-ref="HTTP_Listener_config" path="/dropColumn"/>
+    <cassandra-db:drop-column doc:name="Drop column" doc:id="cd602e74-3d04-4fa9-b96b-40351135268b" config-ref="CassandraDB_Config" table="#[payload.tableName]" keyspaceName="#[payload.keyspaceName]">
+      <cassandra-db:column-name ><![CDATA[#[payload.columnName]]]></cassandra-db:column-name>
+    </cassandra-db:drop-column>
+    <ee:transform doc:name="Transform Message" doc:id="399e221f-9f0c-4767-828f-aa35575dce04" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="ExecuteCQLQuery" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/executeCqlQuery" />
+    <ee:transform doc:name="Transform Message" doc:id="0eda8e3a-3f61-4461-b963-c0930eec9c1a" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+  "cqlQuery": payload.cqlQuery,
+  "parameters": payload.parameters
+} as Object {
+  class : "org.mule.modules.cassandradb.api.CQLQueryInput"
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <cassandra-db:execute-cql-query doc:name="Execute cql query" doc:id="23531836-b75d-47a3-b88e-bfcca6e3c43d" config-ref="CassandraDB_Config"/>
+    <ee:transform doc:name="Transform Message" doc:id="f6017333-6a54-4e7d-9a0a-37e75bb99e95" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="DropTable" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/dropTable" />
+    <cassandra-db:drop-table doc:name="Drop table" doc:id="2b814d18-ea46-49ee-a7d5-f5663bdb64e7" config-ref="CassandraDB_Config" keyspaceName="#[payload.keyspaceName]">
+      <cassandra-db:table-name ><![CDATA[#[payload.tableName]]]></cassandra-db:table-name>
+    </cassandra-db:drop-table>
+    <ee:transform doc:name="Transform Message" doc:id="ef72ee47-8ff0-40cc-8e94-2a33d867cde7" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="DropKeyspace" doc:id="81fa1da3-8a3d-460d-80d7-2499faacf3c3" >
+    <http:listener doc:name="Listener" doc:id="51053b82-fa99-456b-bde4-36c87af4b633" config-ref="HTTP_Listener_config" path="/dropKeyspace" />
+    <cassandra-db:drop-keyspace doc:name="Drop keyspace" doc:id="4dd3b152-bef6-474e-ac47-dfa476e8eafc" config-ref="CassandraDB_Config">
+      <cassandra-db:keyspace-name ><![CDATA[#[payload.keyspaceName]]]></cassandra-db:keyspace-name>
+    </cassandra-db:drop-keyspace>
+    <ee:transform doc:name="Transform Message" doc:id="6b5c7894-5f53-41e5-9ae7-364fdbfc427b" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+  </flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Apache Cassandra Connector 4.1 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Cassandra (Cassandra Connector) implements the DataStax Java Driver for
+Apache Cassandra 3.1.
+
+## Configurations
+
+---
+
+### Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><div><div><p>Connection authentication types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Host name or IP address</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Endpoint identification algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTPS</p></li><li><p>LDAPS</p></li></ul></div></div></td><td><div><div><p>The endpoint identification algorithm used by clients to validate the server host name. The default value is an empty string, which means that the algorithm is disabled. Clients, including client connections created by the broker for inter-broker communication, verify that the broker host name matches the host name in the brokerâs certificate.</p></div></div></td><td><div><div><p>HTTPS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Port</p></div></div></td><td><div><div><p>9042</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Cassandra Keyspace</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Cassandra keyspace</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cassandra Cluster Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Cassandra cluster name</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cassandra Cluster Nodes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Cassandra cluster nodes (IP or host address and port separated by commas, for example, <code>host1:port1</code>, <code>host2:port2</code>). If the port is not specified, the connector uses the default port, <code>9042</code>. When you specify this parameter, the host and port from the general settings are ignored.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username for authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password for authentication. If the password is null or all white spaces, the connector wonât use authentication. In this case, the username must also be empty.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Protocol Version</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>V1</p></li><li><p>V2</p></li><li><p>V3</p></li><li><p>V4</p></li></ul></div></div></td><td><div><div><p>Version of the native protocol supported by the driver.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Schema Agreement Wait Seconds</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum time to wait for a schema agreement before returning from a DDL query.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Compression</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LZ4</p></li><li><p>NONE</p></li><li><p>SNAPPY</p></li></ul></div></div></td><td><div><div><p>The compression to use for the transport.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prepared Statements Cache Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Cache size for prepared statements. Set a value with at least the number of different statements that you handle in your Mule application.</p></div></div></td><td><div><div><p>10</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Add New Table Column](#addNewColumn)
+- [Change Column Type](#changeColumnType)
+- [Create Keyspace](#createKeyspace)
+- [Create Table](#createTable)
+- [Delete Columns Value](#deleteColumnsValue)
+- [Delete Rows](#deleteRows)
+- [Drop Column](#dropColumn)
+- [Drop Keyspace](#dropKeyspace)
+- [Drop Table](#dropTable)
+- [Execute CQL Query](#executeCQLQuery)
+- [Get All Table Names From Keyspace](#getTableNamesFromKeyspace)
+- [Insert Entity](#insert)
+- [Rename Column](#renameColumn)
+- [Select](#select)
+- [Update Entity](#update)
+
+### Limitation
+
+Cassandra operations do not support frozen column types or other custom column types. When using
+these column types, use the **Execute CQL Query** operation with a raw CQL query.
+
+### Add New Table Column
+
+`<cassandra-db:add-new-column>`
+
+Adds a new column
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table to use for the operation</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alter Column Input</strong></p></td><td><div><div><p><a href="#AlterColumnInput">Alter Column Input</a></p></div></div></td><td><div><div><p>POJO defining the name of the new column and its data type</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Change Column Type
+
+`<cassandra-db:change-column-type>`
+
+Changes the type of a column. To check compatibility, see
+[CQL type compatibility](https://docs.datastax.com/en/archived/cql/3.1/cql/cql_reference/cql_data_types_c.html).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table to use for the operation</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(optional) The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alter Column Input</strong></p></td><td><div><div><p><a href="#AlterColumnInput">Alter Column Input</a></p></div></div></td><td><div><div><p>POJO defining the name of the column to change and the new data type</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Create Keyspace
+
+`<cassandra-db:create-keyspace>`
+
+Creates a new keyspace
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p><a href="#CreateKeyspaceInput">Create Keyspace Input</a></p></div></div></td><td><div><div><p>Operation input containing the keyspace name and the replication details</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Create Table
+
+`<cassandra-db:create-table>`
+
+Creates a table (column family) in a specific keyspace. If you donât specify a keyspace, the
+connector uses the keyspace used for login.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Create Table Input</strong></p></td><td><div><div><p><a href="#CreateTableInput">Create Table Input</a></p></div></div></td><td><div><div><p>The <strong>Create Table Input</strong> operation, which specifies the table name, keyspace name, and list of columns.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Delete Columns Value
+
+`<cassandra-db:delete-columns-value>`
+
+Deletes values from an object specified by the Where clause
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Entities</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>The columns to delete</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Where Clause</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Delete Rows
+
+`<cassandra-db:delete-rows>`
+
+Deletes an entire record
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Where Clause</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The Where clause for the <strong>Delete</strong> operation</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Drop Column
+
+`<cassandra-db:drop-column>`
+
+Removes a column
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table to use for the operation</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Column Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the column to remove</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Drop Keyspace
+
+`<cassandra-db:drop-keyspace>`
+
+Drops the entire keyspace
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the keyspace to drop</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Drop Table
+
+`<cassandra-db:drop-table>`
+
+Drops an entire table form the specified keyspace or from the keyspace used for login if no keyspace
+is specified as an operation parameter.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table to drop</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to drop</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Execute CQL Query
+
+`<cassandra-db:execute-cql-query>`
+
+Executes the specified raw input query
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Cql Input</strong></p></td><td><div><div><p><a href="#CQLQueryInput">CQL Query Input</a></p></div></div></td><td><div><div><p>CQL query input that describes the parametrized query to execute along with the query parameters</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Get All Table Names From Keyspace
+
+`<cassandra-db:get-table-names-from-keyspace>`
+
+Returns all table names from the specified keyspace
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the keyspace to use on the operation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Insert Entity
+
+`<cassandra-db:insert>`
+
+Executes the Insert Entity operation
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table in which to insert the entity</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Entity To Insert</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The entity to insert</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Rename Column
+
+`<cassandra-db:rename-column>`
+
+Renames a column
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table to use for the operation</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to use</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Old Column Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the column to change</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>New Column Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The new name of the column</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Select
+
+`<cassandra-db:select>`
+
+Executes a select query
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The query to execute</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Parameters</strong></p></td><td><div><div><p>Array of Any</p></div></div></td><td><div><div><p>The query parameters</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+### Update Entity
+
+`<cassandra-db:update>`
+
+Executes the update entity operation
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the table in which to update the entity</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The keyspace that contains the table to drop</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Entity To Update</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The entity to update</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- CASSANDRA-DB:ALREADY_EXISTS
+- CASSANDRA-DB:AUTHENTICATION
+- CASSANDRA-DB:BOOTSTRAPPING
+- CASSANDRA-DB:BUSY_CONNECTION
+- CASSANDRA-DB:BUSY_POOL
+- CASSANDRA-DB:CASSANDRA_EXECUTION
+- CASSANDRA-DB:CODEC_NOT_FOUND
+- CASSANDRA-DB:CONNECTION
+- CASSANDRA-DB:CONNECTIVITY
+- CASSANDRA-DB:DRIVER_INTERNAL_ERROR
+- CASSANDRA-DB:FRAME_TOO_LONG
+- CASSANDRA-DB:FUNCTION_EXECUTION
+- CASSANDRA-DB:INVALID_CONFIGURATION_IN_QUERY
+- CASSANDRA-DB:INVALID_QUERY
+- CASSANDRA-DB:INVALID_TLS_CONFIGURATION
+- CASSANDRA-DB:INVALID_TYPE
+- CASSANDRA-DB:NO_HOST_AVAILABLE
+- CASSANDRA-DB:OPERATION_TIMED_OUT
+- CASSANDRA-DB:OVERLOADED
+- CASSANDRA-DB:PAGING_STATE
+- CASSANDRA-DB:PROTOCOL_ERROR
+- CASSANDRA-DB:QUERY_CONSISTENCY
+- CASSANDRA-DB:QUERY_ERROR
+- CASSANDRA-DB:READ_FAILURE
+- CASSANDRA-DB:READ_TIMEOUT
+- CASSANDRA-DB:RETRY_EXHAUSTED
+- CASSANDRA-DB:SERVER_ERROR
+- CASSANDRA-DB:SYNTAX_ERROR
+- CASSANDRA-DB:TRACE_RETRIEVAL
+- CASSANDRA-DB:TRANSPORT
+- CASSANDRA-DB:TRUNCATE
+- CASSANDRA-DB:UNAUTHORIZED
+- CASSANDRA-DB:UNAVAILABLE
+- CASSANDRA-DB:UNPREPARED
+- CASSANDRA-DB:UNRESOLVED_USER_TYPE
+- CASSANDRA-DB:UNSUPPORTED_FEATURE
+- CASSANDRA-DB:UNSUPPORTED_PROTOCOL_VERSION
+- CASSANDRA-DB:WRITE_FAILURE
+- CASSANDRA-DB:WRITE_TIMEOUT
+
+## Types
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom Ocsp Responder</a></p></li><li><p><a href="#crl-file">Crl File</a></p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (which is resolved relative to the current classpath and file system, if possible) of the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If true, no certificate validations are performed, rendering connections vulnerable to attacks. Use at your own risk.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (which is resolved relative to the current classpath and file system, if possible) of the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>When the keystore contains many private keys, this attribute indicates the alias of the key to use. If not defined, the first key in the file is used by default.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Only verify the last element of the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Try CRL instead of OCSP first.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Do not use the secondary checking method (the one not selected before).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Avoid verification failure when the revocation server cannot be reached or is busy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom Ocsp Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Crl File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often, in milliseconds, to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Max Idle Time attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Alter Column Input
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Column</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASCII</p></li><li><p>BIGINT</p></li><li><p>BLOB</p></li><li><p>BOOLEAN</p></li><li><p>COUNTER</p></li><li><p>DATE</p></li><li><p>DECIMAL</p></li><li><p>DOUBLE</p></li><li><p>FLOAT</p></li><li><p>INET</p></li><li><p>INT</p></li><li><p>SMALLINT</p></li><li><p>TEXT</p></li><li><p>TIME</p></li><li><p>TIMESTAMP</p></li><li><p>TIMEUUID</p></li><li><p>TINYINT</p></li><li><p>UUID</p></li><li><p>VARCHAR</p></li><li><p>VARINT</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Create Keyspace Input
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>First Data Center</strong></p></td><td><div><div><p><a href="#DataCenter">Data Center</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Next Data Center</strong></p></td><td><div><div><p><a href="#DataCenter">Data Center</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Replication Factor</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Replication Strategy Class</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SimpleStrategy</p></li><li><p>NetworkTopologyStrategy</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Data Center
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Value</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Create Table Input
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Columns</strong></p></td><td><div><div><p>Array of <a href="#ColumnInput">Column Input</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Keyspace Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Table Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Column Input
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Key</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASCII</p></li><li><p>BIGINT</p></li><li><p>BLOB</p></li><li><p>BOOLEAN</p></li><li><p>COUNTER</p></li><li><p>DATE</p></li><li><p>DECIMAL</p></li><li><p>DOUBLE</p></li><li><p>FLOAT</p></li><li><p>INET</p></li><li><p>INT</p></li><li><p>SMALLINT</p></li><li><p>TEXT</p></li><li><p>TIME</p></li><li><p>TIMESTAMP</p></li><li><p>TIMEUUID</p></li><li><p>TINYINT</p></li><li><p>UUID</p></li><li><p>VARCHAR</p></li><li><p>VARINT</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CQL Query Input
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Cql Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Parameters</strong></p></td><td><div><div><p>Array of Any</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Apache Cassandra Connector 4.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+- [Create a Mule project](#create-mule-project).
+- [Add the connector to your Mule project](#add-connector-to-project).
+- [Configure a source for the connectorâs flow](#configure-input-source).
+- [Add a connector operation to the flow](#add-connector-operation).
+- [Configure a global element for the connector](#configure-global-element).
+- [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Reference](cassandra-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Apache Cassandra Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and to add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `cassandra` in the search field.
+3.  Click **CassandraDB** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Apache Cassandra Connector:
+
+- **HTTP Listener**
+
+  Initiates a flow each time it receives a request on the configured host and port
+
+- **Scheduler**
+
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP listener in the app.
+6.  On the **General** tab, specify the connection information for the listener.
+7.  On the **TLS** tab, optionally specify the TLS information for the listener.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for Apache Cassandra Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **CassandraDB** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas and to the right of the source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. If an Apache Cassandra database has authentication enabled, you must
+provide credentials when accessing it from the connector. Apache Cassandra supports basic
+authentication only. To provide credentials to an Apache Cassandra database, enter the corresponding
+values in the Apache Cassandra Connector global element.
+
+To configure the global element for Apache Cassandra Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, complete the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>Host name, or IP address of an Apache Cassandra node</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Port number. The default port is <code>9042</code>.</p></div></div></td></tr></tbody></table>
+
+    If the target database has authentication enabled, you must also complete these fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Keyspace</strong></p></td><td><div><div><p>Apache Cassandra keyspace</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>Apache Cassandra user name</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>Apache Cassandra password</p></div></div></td></tr></tbody></table>
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Optionally, configure a connection that uses Mutual TLS by completing these fields on the
+    Security tab:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Endpoint Identification Algorithm</strong></p></td><td><div><div><p>The endpoint identification algorithm used by clients to validate server host name. The default value is an empty string, which means it is disabled. Clients, including client connections created by the broker for inter-broker communication, verify that the broker host name matches the host name in the brokers certificate.</p></div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then, at a minimum, the user must configure the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></div></div></td></tr></tbody></table>
+
+6.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+7.  Click **OK**.
+
+## Configure Additional Connector Fields
+
+After you configure a global element for Apache Cassandra Connector, configure the other required
+fields for the connector. The required fields vary depending on which connector operation you use.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting Cassandra Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Apache Cassandra (Apache Cassandra Connector), become familiar with the information
+about enabling verbose logging and interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+To get a better understanding of why an applicationâs interaction with Cassandra Connector is
+failing, temporarily enable verbose logging for the module.
+
+Remember to always disable the enhanced verbosity after troubleshooting, because it affects your
+Mule application performance.
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="org.mule.extension.cassandradb" level="DEBUG"/>
+    				<AsyncLogger name="org.apache.commons.cassandradb" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Troubleshoot Prepared Statement Cache Size
+
+If you receive the following warning message when running your Mule application:
+
+---
+
+WARN com.datastax.driver.core.Cluster \[Test-Cluster-worker-23\] Re-preparing already prepared query
+is generally an anti-pattern and will likely affect performance. Consider preparing the statement
+only once. ---
+
+To avoid the previous message, increase the value of the **Prepared Statement Cache Size**
+parameter, which enables you to set the cache size for prepared statements. Set a value with at
+least the number of different statements that you handle in your Mule application.
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Upgrading and Migrating Cassandra Connector to Version 4.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Cassandra Connector to version 4.x to use mutual TLS authentication.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>3.x</p></div></div></td><td><div><div><p>4.x</p></div></div></td></tr></tbody></table>
+
+## New Features in This Release
+
+This release supports Mutual TLS authentication.
+
+## Changes in This Release
+
+This release contains the following changes:
+
+- Removed the **SSL** field from the configuration and replaced it with **TLS**
+- Refactored error handling and error types
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, create a backup of your files, data, and configurations in case you
+need to restore to them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `cassandra` in the search field.
+4.  In **Available modules**, select **Cassandra** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the Cassandra Connector dependency version is `<4.0.0>` in the `pom.xml` file in the
+    Mule project.
+
+Studio upgrades the connector automatically.
+
+### Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+## Revert the upgrade
+
+If it is necessary to revert to the previous version of Cassandra Connector, change the
+`cassandra-connector` dependency version in the projectâs `pom.xml` file to the previous version.
+
+You must update the projectâs `pom.xml` file in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Apache Cassandra Connector 4.1 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can access the connector from your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+If you add the connector in Studio, Studio automatically populates the XML code with the connectorâs
+namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/cassandra-db
+http://www.mulesoft.org/schema/mule/cassandra-db/current/mule-cassandra-db.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+---
+<mule xmlns:cassandra-db="http://www.mulesoft.org/schema/mule/cassandra-db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+  http://www.mulesoft.org/schema/mule/cassandra-db
+  http://www.mulesoft.org/schema/mule/cassandra-db/current/mule-cassandra-db.xsd>
+---
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-cassandradb-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `cassandra`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](cassandra-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Apache Cassandra Connector 4.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Apache Cassandra (Apache Cassandra Connector) creates connectivity between
+Apache Cassandra databases and third-party applications, systems, services such as SAP, PeopleSoft,
+or Workday, as well as other databases across the enterprise.
+
+Apache Cassandra is an open source distributed NoSQL database intended to manage large amounts of
+product, customer, and employee data, which implements the DataStax Java Driver for Apache Cassandra
+3.10.1.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Apache Cassandra API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Credentials to access the Apache Cassandra target resource
+- Mule Enterprise Edition and the entitlements necessary to use this software
+
+## Next
+
+Now that youâve started, try using [Anypoint Studio](cassandra-connector-studio) to configure the
+Cassandra connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+

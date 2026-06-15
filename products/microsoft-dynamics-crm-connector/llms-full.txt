@@ -1,0 +1,1200 @@
+﻿# Microsoft Dynamics CRM Connector - Full Documentation
+
+# Microsoft Dynamics CRM Connector 3.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Dynamics CRM enables Mule apps to interact with Microsoft Dynamics
+CRMâs SOAP Organization Service.
+
+For compatibility information and fixed issues, see the release notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Microsoft Dynamics CRM API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio (Studio)
+
+Before creating an app, you must have login credentials for Microsoft Dynamics CRM SOAP Organization
+Service to test your connection to your target resource.
+
+Any created or expired date in the Web service header created by the Microsoft CRM instance must
+conform to the constraints specified in the Basic Security Profile validation for Web services,
+`[http://www.ws-i.org/Profiles/BasicSecurityProfile-1.0.html](http://www.ws-i.org/Profiles/BasicSecurityProfile-1.0.html)`,
+as summarized below:
+
+- A created or expired date must not contain a seconds value with more than three digits to the
+  right of the decimal (milliseconds).
+- A created or expired date that contains a seconds value must specify a seconds value less than 60.
+- A created or expired date must not include the ValueType attribute.
+- A created or expired date must contain time values in UTC format, as specified by the XML Schema
+  type (dateTime).
+
+## Add a POM File Depedency
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-microsoft-dynamics-crm-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `<connector-name>`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+1.  In Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type `crm` in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure the Connector in Studio
+
+1.  Drag the connector to the Studio Canvas.
+2.  To create a global element for the connector, set these fields:
+
+    Online Authentication (Default):
+    - Username: Enter the Dynamics CRM username.
+    - Password: Enter the corresponding password.
+    - Organization Service URL: Enter the corresponding organization service URL.
+    - Authentication retries: Enter the desired number of retries for authentication.
+    - Disable cn check: Choose if you want to bypass SSL Certificates.
+
+      ![Credentials configuration](_images/ms-dynamics-crm-online-config.png)
+
+## Use Case - Microsoft Dynamics CRM Operations Demo
+
+This demo includes the following options:
+
+- Return all accounts: `http://localhost:8081/accounts`
+- Query accounts by name containing a substring: `http://localhost:8081/query-accounts?name=li`
+- Create a new account with the specified name:
+  `http://localhost:8081/create-account?name=your-account-name`
+- Retrieve account by ID: `http://localhost:8081/retrieve-account?accountid={account-guid}`
+- Delete an account: `http://localhost:8081/delete-account?accountid={account-guid}`
+- Return all contacts: `http://localhost:8081/contacts`
+- Return all contacts for an account:
+  `http://localhost:8081/contacts-by-account?accountid={account-guid}`
+- Associate a contact to an account:
+  `http://localhost:8081/associate?accountid={account-guid}&contactid={contact-guid}`
+- Disassociate a contact from an account:
+  `http://localhost:8081/disassociate?accountid={account-guid}&contactid={contact-guid}`
+- Create an opportunity:
+  `http://localhost:8081/create-opportunity?accountid={account-guid}&contactid={contact-guid}`
+- Query opportunities by parent account:
+  `http://localhost:8081/opportunities-by-account?accountid={account-guid}`
+- Activate an account by executing the `SetState` operation:
+  `http://localhost:8081/activate-account?accountid={account-guid}`
+- Deactivate an account by executing the `SetState` operation:
+  `http://localhost:8081/deactivate-account?accountid={account-guid}`
+- Create multiple entities in a single request: `http://localhost:8081/create-multiple`
+- Update the property 'Description' of multiple contacts in a single request:
+  `http://localhost:8081/update-multiple`
+- Retrieve updated contacts: `http://localhost:8081/updated-contacts`
+- Delete multiple contacts in a single request: `http://localhost:8081/delete-multiple`
+
+### Use Case Studio Visual Flow
+
+![Studio app flows for all accounts, query account by name, and create account](_images/ms-dynamics-crm-demo-01.png)
+
+![Studio app flows for deleting account, retrieving account, all contacts, and getting associated contacts](_images/ms-dynamics-crm-demo-02.png)
+
+![Studio app flows for associate contact to account, disassociate contact to account, get opportunities, and create opportunity](_images/ms-dynamics-crm-demo-03.png)
+
+![Studio app flows for execute and activate account, execute and deactivate account, create multiple contacts, and delete multiple contacts](_images/ms-dynamics-crm-demo-04.png)
+
+![Studio app flows for updating multiple contacts and retrieving and updating contacts](_images/ms-dynamics-crm-demo-05.png)
+
+### Use Case XML Flow
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    xmlns:microsoft-dynamics-crm="http://www.mulesoft.org/schema/mule/microsoft-dynamics-crm"
+    xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    xmlns="http://www.mulesoft.org/schema/mule/core"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+    http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/http
+    http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+    http://www.mulesoft.org/schema/mule/microsoft-dynamics-crm
+    http://www.mulesoft.org/schema/mule/microsoft-dynamics-crm/current/mule-microsoft-dynamics-crm.xsd
+    http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <configuration-properties file="mule-app.properties"/>
+
+    <http:listener-config
+        name="HTTP_Listener_config"
+        doc:name="HTTP Listener config" >
+        <http:listener-connection
+        host="localhost"
+        port="8081" />
+    </http:listener-config>
+    <microsoft-dynamics-crm:dynamics-crm-config
+        name="Microsoft_Dynamics_CRM_Dynamics_CRM"
+        doc:name="Microsoft Dynamics CRM Dynamics CRM" >
+        <microsoft-dynamics-crm:online-connection
+            username="${username}"
+            password="${password}"
+            organizationServiceUrl="${organizationServiceUrl}"
+            authenticationRetries="${authenticationRetries}" />
+    </microsoft-dynamics-crm:dynamics-crm-config>
+    <flow name="crm-all-accounts"  >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/accounts"/>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[dsql:SELECT accountid,name,statecode,statuscode FROM account]]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-query-account-by-name"  >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/query-accounts"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "query" : "dsql:SELECT accountid,name,statecode,statuscode FROM account WHERE name LIKE '%" ++ attributes.queryParams.name ++ "%'"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[#[payload.query]]]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-create-account" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/create-account"/>
+        <ee:transform doc:name="Transform Message"  >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "name": attributes.queryParams.name
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:create
+            logicalName="account"
+            doc:name="Create"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-delete-account"
+        config-ref="HTTP_Listener_config"
+        path="/delete-account"/>
+        <microsoft-dynamics-crm:delete
+            logicalName="account"
+            id="#[attributes.queryParams.accountid]"
+            doc:name="Delete"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM" />
+    </flow>
+    <flow name="crm-retrieve-account" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/retrieve-account"/>
+        <microsoft-dynamics-crm:retrieve
+            logicalName="account"
+            id="#[attributes.queryParams.accountid]"
+            doc:name="Retrieve"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM" />
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-all-contacts" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/contacts"/>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[dsql:SELECT accountid,contactid,firstname,lastname FROM contact]]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-get-associated-contacts" >
+        <http:listener doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/contacts-by-account"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "query" : "dsql:SELECT contactid, accountidname, parentcustomerid_referenceto_account FROM contact WHERE parentcustomerid_referenceto_account = '" ++ attributes.queryParams.accountid ++ "'"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[#[payload.query]]]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-associate-contact-to-account" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/associate"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+    attributes.queryParams.contactid
+]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:associate
+            logicalName="account"
+            relatedEntitiesIds="#[payload]"
+            doc:name="Associate"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"
+            relationshipSchemaName="contact_customer_accounts"
+            id="#[attributes.queryParams.accountid]"
+            relationshipEntityRoleIsReferenced="true"/>
+    </flow>
+    <flow name="crm-disassociate-contact-to-account" >
+        <http:listener doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/disassociate"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+    attributes.queryParams.contactid
+]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:disassociate
+            doc:name="Disassociate"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"
+            logicalName="account"
+            id="#[attributes.queryParams.accountid]"
+            relationshipEntityRoleIsReferenced="true"
+            relationshipSchemaName="contact_customer_accounts"
+            relatedEntitiesIds="#[payload]"/>
+    </flow>
+    <flow name="crm-get-opportunities" >
+        <http:listener doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/opportunities-by-account"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "query" : "dsql:SELECT accountid_referenceto_account,accountidname,customerid_referenceto_contact,name,parentaccountid_referenceto_account FROM opportunity WHERE parentaccountid_referenceto_account = '" ++ attributes.queryParams.accountid ++ "'"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[#[payload.query]]]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-create-opportunity" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/create-opportunity"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "parentaccountid_referenceto_account": attributes.queryParams.accountid,
+    "contactid_referenceto_contact": attributes.queryParams.contactid,
+    "name": "unique opportunity",
+    "timeline": 2
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:create
+            logicalName="opportunity"
+            doc:name="Create"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-execute-activate-account" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/activate-account"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "entityMoniker": {
+        "id": {
+            "value": attributes.queryParams.accountid,
+        },
+        "logicalName": "account"
+    },
+    "state": {
+        "value": 0
+    },
+    "status": {
+        "value": 1
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:execute
+            requestName="SetState" doc:name="Execute"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-execute-deactivate-account" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/deactivate-account"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "entityMoniker": {
+        "id": {
+            "value": attributes.queryParams.accountid,
+        },
+        "logicalName": "account"
+    },
+    "state": {
+        "value": 1
+    },
+    "status": {
+        "value": 2
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:execute
+            doc:name="Execute"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"
+            requestName="SetState"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-create-multiple-contacts" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/create-multiple"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+[
+    {
+      "fullname":"Contact1",
+      "address1_city":"DemoCity",
+      "description":"Demo contact 1"
+    },
+    {
+      "fullname":"Contact2",
+      "address1_city":"DemoCity",
+      "description":"Demo contact 2"
+    },
+    {
+      "fullname":"Contact3",
+      "address1_city":"DemoCity",
+      "description":"Demo contact 3"
+    }
+]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:create-multiple
+            logicalName="contact"
+            doc:name="Create multiple"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-delete-multiple" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/delete-multiple"/>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[dsql:SELECT contactid FROM contact WHERE address1_city = 'DemoCity']]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.*contactid
+]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:delete-multiple
+            logicalName="contact"
+            ids="#[payload]"
+            doc:name="Delete multiple"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-update-multiple-contacts" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/update-multiple"/>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[dsql:SELECT contactid,description FROM contact WHERE address1_city = 'DemoCity']]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+updates: payload map (item, index) -> {
+      "contactid" : item.contactid,
+      "description" : "Updated Description"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <microsoft-dynamics-crm:update-multiple
+            logicalName="contact"
+            doc:name="Update multiple"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:list-of-attributes ><![CDATA[#[payload.updates]]]></microsoft-dynamics-crm:list-of-attributes>
+        </microsoft-dynamics-crm:update-multiple>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="crm-retrieve-update-contacts" >
+        <http:listener
+            doc:name="Listener"
+            config-ref="HTTP_Listener_config"
+            path="/updated-contacts"/>
+        <microsoft-dynamics-crm:retrieve-multiple-by-query
+            doc:name="Retrieve multiple by query"
+            config-ref="Microsoft_Dynamics_CRM_Dynamics_CRM">
+            <microsoft-dynamics-crm:query ><![CDATA[dsql:SELECT contactid,description FROM contact WHERE address1_city = 'DemoCity']]></microsoft-dynamics-crm:query>
+        </microsoft-dynamics-crm:retrieve-multiple-by-query>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Microsoft Dynamics CRM Connector Reference](ms-dynamics-crm-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Dynamics CRM Connector 3.2 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Dynamics CRM (Microsoft Dynamics CRM Connector) enables the
+integration of data to and from Microsoft Dynamics CRM systems.
+
+> [!NOTE] Microsoft Dynamics CRM Connector 3.2.15 and later supports Java 17, but with some
+> environment setup restrictions for the Kerberos connection type. Specifically, the CRM instance
+> must be configured to support more secure encryption types (`aes128-cts-hmac-sha1-96` or
+> `aes128-cts-hmac-sha256-128`), as Java 17 enforces these by default. Alternatively, you can set
+> the `allow_weak_crypto` flag to `true` in the `krb5.conf` file as a workaround.
+
+## Dynamics CRM Configurations
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#dynamics-crm-config_claims">Claims</a></p></li><li><p><a href="#dynamics-crm-config_kerberos">Kerberos</a></p></li><li><p><a href="#dynamics-crm-config_ntlm">Ntlm</a></p></li><li><p><a href="#dynamics-crm-config_online">Online</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Connection Types
+
+### Claims
+
+This authentication method includes directory sources that contain additional information (claims)
+about users to verify their identity.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to connect to Dynamics CRM.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Microsoft Windows password to connect to Dynamics NAV.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Organization Service Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Base URL where the SOAP services are exposed in the form <code>https://&lt;Server&gt;:&lt;WebServicePort&gt;/&lt;ServerInstance&gt;/WS</code>, for example: <code>https://hostname:7047/DynamicsNAV90/WS</code></p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable Cn Check</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disable SSL certificate validation.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer waits for a response before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer attempts to establish a connection before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Logging</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If this is <code>true</code>, requests and responses display in console log.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. If this property is not set, then no proxy is used, otherwise a proxy is used, but a proxy host must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If host is set, then this property must be set and cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is going to be uses for the proxy, otherwise this value must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Pooling Profile</strong></p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><div><div><p>Characteristics of the connection pool.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Kerberos
+
+Clients obtain tickets from the Kerberos Key Distribution Center (KDC) and present the tickets to
+the server when the connection is established.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username that you want to login with. Domain should not be included.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password for the user that you are going to login.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Organization Service Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the SharePoint instance that the connector is going to interact with.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>SPN</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Service Principal Names (SPN) for the SharePoint web service.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Realm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The case-sensitive default realm (domain name) that the user belongs to.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>KDC</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Key Distribution Center (KDC), usually the domain controller name, to authenticate the user.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Login Properties File Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to a customized login properties file. When not specified, default values which usually work for most cases are set up.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Kerberos Properties File Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to a customized Kerberos properties file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When dealing with HTTPS certificates, if the certificate is not signed by a trusted partner, the server might respond with an exception. To prevent this, you can disable the Common Name (CN) check. <strong>Note:</strong> This is not recommended for production environments.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. If this property is not set, then no proxy is used, otherwise a proxy is used, but a proxy host must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If a <strong>Host</strong> value is set, then this property must be set and cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is used with the proxy, otherwise this value must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer waits for a response before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer attempts to establish a connection before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Logging</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If this is <code>true</code>, requests and responses display in the console log.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Pooling Profile</strong></p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><div><div><p>Characteristics of the connection pool</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### NTLM
+
+This authentication type is used on networks that include systems running on both Windows and
+stand-alone systems and uses an encrypted challenge-response protocol to authenticate the user.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to connect to Dynamics CRM.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Windows password to connect to Dynamics NAV.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Organization Service Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Base URL where the SOAP services are exposed in the form <code>https://&lt;Server&gt;:&lt;WebServicePort&gt;/&lt;ServerInstance&gt;/WS</code>. Example: <code>https://hostname:7047/DynamicsNAV90/WS</code></p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable Cn Check</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disable SSL certificate validation.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Gateway Router Service Address</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Gateway router service address.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer waits for a response before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer attempts to establish a connection before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Logging</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If this is true, requests and responses display in the console log.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. If this property is not set, then no proxy is used, otherwise a proxy is used, but a proxy host must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If a <strong>Host</strong> value is set, then this property must be set and cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is going to use against the proxy, otherwise this value must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Pooling Profile</strong></p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><div><div><p>Characteristics of the connection pool.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Online
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to connect to Dynamics CRM</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Windows password to connect to Dynamics NAV</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Organization Service Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Base URL where the SOAP services are exposed in the form <code>https://&lt;Server&gt;:&lt;WebServicePort&gt;/&lt;ServerInstance&gt;/WS</code>. Example: <code>https://hostname:7047/DynamicsNAV90/WS</code></p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable Cn Check</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disable SSL certificate validation.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Authentication Retries</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>If the authentication process to Microsoft fails the first time, the connector attempts to re-authenticate this many times.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer waits for a response before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the amount of time in milliseconds that the consumer attempts to establish a connection before it times out. Default value is 0, which means infinite.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Logging</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If this is <code>true</code>, requests and responses display in the console log.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname of the proxy. If this property is not set, then no proxy is used, otherwise a proxy is used, but a proxy host must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy. If a <strong>Host</strong> value is set, this property must be set and cannot be a negative number.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username used to authenticate against the proxy. If this property is not set, then no authentication is going to use against the proxy, otherwise this value must be specified.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sts Metadata Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The security token serviceâs metadata exchange URL. For Active Directory federation services (ADFS), this is usually <code>https://mycompany-sts.com/adfs/services/trust/mex</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sts Username Port Qname</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of port that accepts username and password credentials as described in the STSâs metadata exchange URL. This value has to be specified as a QName in the format <code>{http://schemas.microsoft.com/ws/2008/06/identity/securitytokenservice}UserNameWSTrustBinding_IWSTrust13Async</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Pooling Profile</strong></p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><div><div><p>Characteristics of the connection pool</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Sources
+
+- [Deleted Object](#deleted-object)
+- [Modified Object](#modified-object)
+- [New Object](#new-object)
+
+> [!NOTE] Microsoft Dynamics CRM Connector sources (listeners) use Object Store to save watermarks.
+> You might experience limitations that are specific to the Object Store implementation you are
+> using (Object Store for CloudHub deployments or Object Store for on-premises deployments), so
+> configure Object Store to suit your needs.  
+> For more information, see
+> [The Different Types of Object Stores Explained](https://help.salesforce.com/s/articleView?id=001123185&type=1).
+
+### Deleted Object
+
+`<microsoft-dynamics-crm:deleted-object>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Since</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Required date format is <code>'yyyy-MM-ddâTâHH:mm:ssâZ'</code></p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Field Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should only be executed on the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+### Modified Object
+
+`<microsoft-dynamics-crm:modified-object>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Since</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Required date format is <code>'yyyy-MM-ddâTâHH:mm:ssâZ'</code></p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Field Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should only be executed on the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+### New Object
+
+`<microsoft-dynamics-crm:new-object>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Since</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Required date format is <code>'yyyy-MM-ddâTâHH:mm:ssâZ'</code></p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Field Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should only be executed on the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+## Operations
+
+Supported operations:
+
+- [Associate](#associate)
+- [Create](#create)
+- [Create Multiple](#createMultiple)
+- [Delete](#delete)
+- [Delete Multiple](#deleteMultiple)
+- [Disassociate](#disassociate)
+- [Execute](#execute)
+- [Execute Multiple](#executeMultiple)
+- [Retrieve](#retrieve)
+- [Retrieve Multiple By Query](#retrieveMultipleByQuery)
+- [Update](#update)
+- [Update Multiple](#updateMultiple)
+
+### Associate
+
+`<microsoft-dynamics-crm:associate>`
+
+Create links between records.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the record to which the related records are associated.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Relationship Entity Role Is Referenced</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><ul><li><p><code>false</code>: When the primary entity record is referencing the record to associate.</p></li><li><p><code>true</code>: When the primary entity record is referenced by the record to associate.</p></li></ul></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Relationship Schema Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the relationship to create the link.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Related Entities IDs</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>A List&lt;String&gt; with the related entity records IDs to associate.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Create
+
+`<microsoft-dynamics-crm:create>`
+
+Create a new record.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The attributes of the record as a <code>Map&lt;String, Object&gt;</code>.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Create Multiple
+
+`<microsoft-dynamics-crm:create-multiple>`
+
+Create multiple new records.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Of Attributes</strong></p></td><td><div><div><p>Array of Object</p></div></div></td><td><div><div><p>The list of attributes of the record as a <code>List&lt;Map&lt;String, Object&gt;&gt;</code>.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Single Transaction</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If supported (CRM 2016 and above), use a single transaction to create all items, if anyone fails then rollback all.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BulkOperationResult">Bulk Operation Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Delete
+
+`<microsoft-dynamics-crm:delete>`
+
+Delete a record.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the record to delete.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Delete Multiple
+
+`<microsoft-dynamics-crm:delete-multiple>`
+
+Delete multiple records.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>IDs</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>The IDs of the records to delete.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Use Single Transaction</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If supported (CRM 2016 and above) use a single transaction to delete all items, if anyone fails then rollback all.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BulkOperationResult">Bulk Operation Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Disassociate
+
+`<microsoft-dynamics-crm:disassociate>`
+
+Delete a link between records.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the record from which the related records are disassociated.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Relationship Entity Role Is Referenced</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>false: when the primary entity record is Referencing the record to associate; true: when the primary entity record is Referenced by the record to associate.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Relationship Schema Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the relationship to delete the link.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Related Entities IDs</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>A List&lt;String&gt; with the related entity records IDs to disassociate.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Execute
+
+`<microsoft-dynamics-crm:execute>`
+
+Executes a message in the form of a request, and returns a response.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of request make.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Parameters</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>[DEPRECATED] This parameter will be removed from the configuration in the near future. Set the <code>#[payload]</code> correctly before calling the connector.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the request to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Execute Multiple
+
+`<microsoft-dynamics-crm:execute-multiple>`
+
+Executes multiple messages in the form of a request, and returns their respective responses.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Requests</strong></p></td><td><div><div><p>Array of Any</p></div></div></td><td><div><div><p>This parameter is a list of the requests (<code>OrganizationRequest</code> or <code>Map</code>). Set the <code>#[payload]</code> correctly before calling the connector.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Single Transaction</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If supported (CRM 2016 and above) use a single transaction to execute all requests, if anyone fails then rollback all.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BulkOperationResult">Bulk Operation Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Retrieve
+
+`<microsoft-dynamics-crm:retrieve>`
+
+Retrieve a record.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the record to retrieve.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Retrieve Multiple By Query
+
+`<microsoft-dynamics-crm:retrieve-multiple-by-query>`
+
+Use a query to retrieve multiple records. You can find the definition of the Microsoft XML query
+language in the schema definition in `http://msdn.microsoft.com/en-us/library/gg328332.aspx`.
+
+You can find the aggregation examples here `http://msdn.microsoft.com/en-us/library/gg328122.aspx`.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>For DataSense Query Language, the DSQL query. For native query language, the Fetch XML query.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Items Per Page</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of items returned per page.</p></div></div></td><td><div><div><p>50</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Single Page Number</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>If greater than 0, returns only that specific page.</p></div></div></td><td><div><div><p>-1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Update
+
+`<microsoft-dynamics-crm:update>`
+
+Update a recordâs attributes.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the record to update.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The attributes to update as a <code>Map&lt;String, Object&gt;</code>.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+### Update Multiple
+
+`<microsoft-dynamics-crm:update-multiple>`
+
+Update a recordâs attributes.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Logical Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The logical name of the entity.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Of Attributes</strong></p></td><td><div><div><p>Array of Object</p></div></div></td><td><div><div><p>The list of attributes of the record as a <code>List&lt;Map&lt;String, Object&gt;&gt;</code>.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Single Transaction</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If supported (CRM 2016 and above) use a single transaction to update all items, if anyone fails then rollback all.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable to store the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BulkOperationResult">Bulk Operation Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Dynamics CRM Configurations](#dynamics-crm-config)
+
+#### Throws
+
+- MICROSOFT-DYNAMICS-CRM:CONNECTIVITY
+- MICROSOFT-DYNAMICS-CRM:INCOMPLETE_WSDL
+- MICROSOFT-DYNAMICS-CRM:INVALID_CERTIFICATE
+- MICROSOFT-DYNAMICS-CRM:INVALID_CREDENTIALS
+- MICROSOFT-DYNAMICS-CRM:INVALID_CRYPTOGRAPHIC_ALGORITHM
+- MICROSOFT-DYNAMICS-CRM:INVALID_JDK_VERSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_SESSION
+- MICROSOFT-DYNAMICS-CRM:INVALID_URL
+- MICROSOFT-DYNAMICS-CRM:RETRY_EXHAUSTED
+- MICROSOFT-DYNAMICS-CRM:TRANSACTION
+- MICROSOFT-DYNAMICS-CRM:TRANSFORMATION
+- MICROSOFT-DYNAMICS-CRM:UNKNOWN
+- MICROSOFT-DYNAMICS-CRM:VALIDATION
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Pooling Profile
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Active</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Controls the maximum number of Mule components that can be borrowed from a session at one time. When set to a negative value, there is no limit to the number of components that may be active at one time. When maxActive is exceeded, the pool is said to be exhausted.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Idle</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Controls the maximum number of Mule components that can sit idle in the pool at any time. When set to a negative value, there is no limit to the number of Mule components that may be idle at one time.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the number of milliseconds to wait for a pooled component to become available when the pool is exhausted and the exhaustedAction is set to WHEN_EXHAUSTED_WAIT.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Min Eviction Millis</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Determines the minimum amount of time an object may sit idle in the pool before it is eligible for eviction. When non-positive, no objects will be evicted from the pool due to idle time alone.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Eviction Check Interval Millis</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the number of milliseconds between runs of the object evictor. When non-positive, no object evictor is executed.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Exhausted Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WHEN_EXHAUSTED_GROW</p></li><li><p>WHEN_EXHAUSTED_WAIT</p></li><li><p>WHEN_EXHAUSTED_FAIL</p></li></ul></div></div></td><td><div><div><p>Specifies the behavior of the Mule component pool when the pool is exhausted. Possible values are:</p></div><div><ul><li><p>WHEN_EXHAUSTED_FAIL - Throws a NoSuchElementException.</p></li><li><p>WHEN_EXHAUSTED_WAIT - Blocks by invoking <code>Object.wait(long)</code> until a new or idle object is available.</p></li><li><p>WHEN_EXHAUSTED_GROW - Creates a new Mule instance and returns it, essentially making the <strong>Max Active</strong> value meaningless. If a positive <strong>Max Wait</strong> value is supplied, it blocks for at most that many milliseconds, after which a NoSuchElementException is thrown. If <code>maxThreadWait</code> is a negative value, it blocks indefinitely.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Initialisation Policy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIALISE_NONE</p></li><li><p>INITIALISE_ONE</p></li><li><p>INITIALISE_ALL</p></li></ul></div></div></td><td><div><div><p>Determines how components in a pool should be initialized. The possible values are:</p></div><div><ul><li><p>INITIALISE_NONE - Does not load any components into the pool on startup.</p></li><li><p>INITIALISE_ONE - Loads one initial component into the pool on startup.</p></li><li><p>INITIALISE_ALL - Loads all components in the pool on startup.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Disabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether pooling should be disabled.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use. If not set, the default is SHA-256.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property may only be set if <strong>Use Secure Hash</strong> is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Bulk Operation Result
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Items</strong></p></td><td><div><div><p>Array of <a href="#BulkItem">Bulk Item</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Successful</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Bulk Item
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Exception</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Payload</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Status Code</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Successful</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of instances to initially keep in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the <strong>Buffer Size Increment</strong> attribute, with an upper limit of <strong>Max Buffer Size</strong>. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of instances to keep in memory. If more than that is required, then it starts to buffer the content on disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

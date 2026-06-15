@@ -1,0 +1,1275 @@
+﻿# IBM CTG Connector - Full Documentation
+
+# IBM CTG Connector 3.0 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show several Mule flows for IBM CTG Connector:
+
+- [Invoke a COMMAREA Program](#invoke-a-commarea-program)
+- [Invoke a Channel Program](#invoke-a-channel-program)
+- [Invoke a COMMAREA or Channel Program Inside a Transactional Scope](#invoke-a-commarea-or-channel-program-inside-a-transactional-scope)
+- [Use Multiple Containers](#use-multiple-containers)
+
+## Configure a Connection
+
+To secure connections, you must specify the connection field values. To do this:
+
+- [Create a configuration file for a connection.](#create-config-file)
+- [Configure the connection global elements.](#configure-conn)
+- [Configure a global element for the properties file.](#configure-global)
+
+### Create a Configuration File for a Connection
+
+Create a configuration file that includes properties for a connection:
+
+1.  Create a file named `mule-app.properties` in the `/src/main/resources/` folder.
+2.  In the `mule-app.properties` file, create a set of properties for the connection, similar to the
+    ones that follow, replacing the bracketed text (including the brackets) with the correct values
+    for your configuration:
+
+    ibm.host=<hostname> ibm.port=<port number> ibm.serverName=<server name> ibm.username=<username>
+    (optional) ibm.password=<password> (optional)
+    ibm.keystoreLocation=<location of the keystore containing the certificates required for an SSL connection>
+    (optional) ibm.keystorePassword=<password required to access the keystore for an SSL connection>
+    (optional)
+
+    This may vary depending on the selected connection configuration.
+
+For more information about creating a properties file, refer to
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+### Configure the Connection Global Elements
+
+Configure global elements for connection:
+
+1.  Create a new Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange** and enter `ibm ctg`.
+3.  Add **IBM CICS Transaction Gateway Connector** to the **Selected modules** section and click
+    **Finish**.
+4.  Click the **Global Elements** tab and click **Create**.
+5.  Select **Connector Configuration > IBM CTG Config** and click **OK**.
+6.  Enter the values to configure **Connection**.
+7.  Click the **Test Connection** button to ensure there is connectivity with the IBM CTG API. A
+    successful message should pop up.
+8.  Click **OK**.
+
+### Configure a Global Element for the Properties File
+
+Configure a global element for the `mule-app.properties` file so that Mule knows where to find it:
+
+1.  Click the **Global Elements** tab and click **Create**.
+2.  In the **Choose Global Type** dialog, select **Configuration properties** and click **OK**.
+3.  In the **File** field, enter `mule.app.properties`.
+4.  Click **OK**.
+
+## Invoke a COMMAREA Program
+
+This application calls EC01, a COMMAREA-based program that outputs the current datetime in a
+formatted EBCDIC string.
+
+![CTG COMMAREA flow](_images/ibm-ctg-commarea-program.png)
+
+1.  Create a new Mule Project in Anypoint Studio and fill in the IBM CTG credentials in
+    `src/main/resources/mule-app.properties`.
+
+    ```text
+    ctg.host=<HOST>
+    ctg.port=<PORT>
+    ctg.serverName=<SERVER_NAME>
+    ctg.username=<USERNAME>
+    ctg.password=<PASSWORD>
+    ```
+
+2.  Drag an HTTP Listener operation onto the canvas, leave the default values for Host and Port, and
+    set the Path to `/test/ec01`.
+3.  Drag an IBM CTG operation onto the canvas and add a new Global Element to configure a standard
+    (non-SSL) client.
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p><code>${ctg.host}</code></p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p><code>${ctg.port}</code></p></div></div></td></tr><tr><td><p><strong>Server Name</strong></p></td><td><div><div><p><code>${ctg.serverName}</code></p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p><code>${ctg.username}</code></p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p><code>${ctg.password}</code></p></div></div></td></tr></tbody></table>
+
+    > [!NOTE] Click **Test Connection** to confirm that Mule can connect with the IBM CTG instance.
+    > If the client is successful, click OK to save the configuration. Otherwise, review or correct
+    > any invalid parameters and test again.
+
+4.  Double-click the IBM CTG component, select the **Execute** operation and configure the following
+    parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Content Reference</strong></p></td><td><div><div><p><code>#[payload]</code></p></div></div></td></tr><tr><td><p><strong>Request Reference</strong></p></td><td><div><div><p><code>#[flowVars.commareaRequest]</code></p></div></div></td></tr></tbody></table>
+
+5.  Add a Transform Message between the HTTP and the IBM CTG operation.
+
+    The connector does not provide dynamic or static metadata, but allows users to define custom
+    types using the Metadata Type tool.
+    1.  Define the input metadata for Add Custom Metadata using the ec01-type.ffd schema file:
+
+        ```dataweave
+        form: COPYBOOK
+        id: 'DFHCOMMAREA'
+        values:
+        - { name: 'LK-DATE-OUT', type: String, length: 8 }
+        - { name: 'LK-SPACE-OUT', type: String, length: 1 }
+        - { name: 'LK-TIME-OUT', type: String, length: 8 }
+        - { name: 'LK-LOWVAL-OUT', type: String, length: 1 }
+        ```
+
+    2.  Map the fields in the DataWeave transformer.
+
+        ```dataweave
+        %dw 2.0
+        output text/plain schemaPath = "ec01-type.ffd", segmentIdent = "DFHCOMMAREA"
+        ---
+        [{
+            LK-DATE-OUT: "",
+            LK-SPACE-OUT: "",
+            LK-TIME-OUT: "",
+            LK-LOWVAL-OUT: ""
+        }]
+        ```
+
+    3.  Create a flow variable named `commareaRequest` and configure the following fields, as
+        described in [Load Java Metadata](#loadjavametadata):
+
+        ```dataweave
+        %dw 2.0
+        output application/java
+        ---
+
+        {
+        	channel: "EC03",
+        	encoding: "US-ASCII",
+        	errorContainer: "OUTPUTMESSAGE",
+        	programName: "EC03",
+        	requestContainer: "INPUTDATA",
+        	responseContainer: "CICSDATETIME",
+        	tpnName: "CSMI"
+        } as Object {
+        	class : "org.mule.modules.ibmctg.internal.model.ChannelRequest"
+        }
+        ```
+
+        See [Load Java Metadata](#loadjavametadata) for how to obtain metadata for the
+        CommareaRequest.
+
+6.  Add a Transform Message after the IBM CTG to extract the results in a JSON format.
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    {
+    	date: payload
+    }
+    ```
+
+7.  Add a Logger at the end of the flow.
+8.  Save the changes and deploy the Mule Application. Open a browser and make a request to
+    `http://localhost:8081/ec01`. The result should be similar to:
+
+    ```json
+    {
+      "date": "08/01/2019 13:41:17"
+    }
+    ```
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
+	xmlns:ibmctg="http://www.mulesoft.org/schema/mule/ibmctg"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/bti
+http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ibmctg
+http://www.mulesoft.org/schema/mule/ibmctg/current/mule-ibmctg.xsd">
+	<configuration-properties file="automation-credentials.properties"/>
+	<http:listener-config
+		name="HTTP_Listener_config"
+		doc:name="HTTP Listener config"
+		basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<bti:transaction-manager />
+	<ibmctg:config name="IBMCTG_Config" doc:name="IBMCTG Config">
+		<ibmctg:connection host="${config.host}"
+		port="${config.port}"
+		serverName="${config.serverName}"
+		username="${config.username}"
+		password="${config.password}" />
+	</ibmctg:config>
+	<flow name="ibmdemoFlow">
+		<http:listener doc:name="/ec01"
+			config-ref="HTTP_Listener_config"
+			path="/ec01"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/flatfile schemaPath = "ec01-type.ffd", segmentIdent = "DFHCOMMAREA"
+---
+[{
+	"LK-DATE-OUT": "",
+	"LK-SPACE-OUT": "",
+	"LK-TIME-OUT": "",
+	"LK-LOWVAL-OUT": ""
+}]]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="request" ><![CDATA[%dw 2.0
+
+output application/java
+---
+{
+	commareaLength: 18,
+	encoding: "IBM037",
+	programName: "EC01",
+	replyLength: 18,
+	tpnName: "CSMI"
+} as Object {
+	class : "org.mule.modules.ibmctg.internal.model.CommareaRequest"
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ibmctg:execute-using-commarea doc:name="Execute using commarea"
+		commareaRequestType="#[vars.request]" config-ref="IBMCTG_Config"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	date:payload
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## Invoke a Channel Program
+
+This application calls EC03, a channel-based program that takes an input data container and returns
+three containers:
+
+- A data and time container
+- The length of the input data, use channels, and containers in a CICS program
+- An output container that contains a copy of the input data, or an error message
+
+![Channel Program](_images/ibm-ctg-invoke-channel-program.png)
+
+1.  Perform steps 1 to 3 from the previous example and set the HTTP path to `/ec03`.
+2.  Double-click the IBM CTG operation, select the Execute operation, and configure the following
+    parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Content Reference</strong></p></td><td><div><div><p><code>#[payload]</code></p></div></div></td></tr><tr><td><p><strong>Request Reference</strong></p></td><td><div><div><p><code>#[flowVars.request]</code></p></div></div></td></tr></tbody></table>
+
+3.  Add a Transform Message between the HTTP and the IBM CTG operation.
+4.  Define the input metadata according to [Add Custom Metadata](#addcustommetadata) using the
+    schema file ec03-type.ffd:
+
+    ```dataweave
+    form: COPYBOOK
+    id: 'DFHCOMMAREA'
+    values:
+    - { name: 'CICS-DATE-TM', type: String, length: 8 }
+    ```
+
+5.  Map the fields in the DataWeave transformer.
+
+    ```dataweave
+    %dw 2.0
+    output text/plain schemaPath = "ec03-type.ffd", segmentIdent = "DFHCOMMAREA"
+    ---
+    [{
+    	CICS-DATE-TM: ""
+    }]
+    ```
+
+6.  Create a flowVar variable named `request` and configure the following fields, as described in
+    [Load Java Metadata](#loadjavametadata):
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	channel: "EC03",
+    	encoding: "US-ASCII",
+    	errorContainer: "OUTPUTMESSAGE",
+    	programName: "EC03",
+    	requestContainer: "INPUTDATA",
+    	responseContainer: "CICSDATETIME",
+    	tpnName: "CSMI"
+    } as Object {
+    	class : "org.mule.modules.ibmctg.internal.model.ChannelRequest"
+    }
+    ```
+
+7.  Add a Transform Messager after the IBM CTG operation to convert the result into a readable
+    format.
+8.  Add a Logger at the end of the flow.
+9.  Save the changes and deploy the Mule app.
+10. Open a browser and make a request to `http://localhost:8081/ec03`.
+
+    The result should be similar to:
+
+    ```json
+    {
+       cics-date-time: "08/01/2019 13:57:25"
+    }
+    ```
+
+### Add Custom Metadata
+
+The IBM CTG Connector does not provide dynamic or static metadata out of the box, but it enables
+users to define custom types using the Metadata Type tool. Define input and output metadata as
+follows:
+
+1.  Place a schema file under `src/main/resources` directory, normally in `.ffd` format.
+
+    Note: These schema files must be supplied by the user. They can be obtained from COBOL
+    copybooks, which are included in the CICS installation.
+
+2.  Go to the Metadata tab of the connector operation and click **Add metadata**.
+    - Select Input:Payload and click **Edit** to open the Metadata Editor:
+
+      ![Metadata Editor](_images/ibm-ctg-add-metadata.png)
+
+3.  Click **Add** to create a new type and provide and ID for it, that is, ec03-in-type for the
+    program EC03 input data.
+4.  Select type Copybook, select Schema, and provide the location of the schema file.
+5.  From the list of available data segments drop-down menu that appears, choose the one you need
+    and click **Select** to save the configuration.
+6.  Drag a DataWeave transformer in front of the IBM CTG component in the flow.
+
+    Metadata fields become available to build the mapping.
+
+    ![Metadata fields](_images/ibm-ctg-transform-metadata.png)
+
+    Having a metadata definition is not required to use IBM CTG Connector, but it is essential to
+    improve the usability of the connector. See
+    [Create Metadata](../../studio/create-metadata-class-task).
+
+#### Load Java Metadata
+
+In DataWeave, click **Define Metadata** to open the Metadata window.
+
+1.  Click **Add** and provide an ID, such as `CommareaRequest`.
+2.  Select type Java and then select a Java object in the Data Structure table.
+3.  Search the class CommareaRequest or the fully qualified name
+    `org.mule.modules.ibmctg.internal.model.CommareaRequest`, and click **OK**.
+4.  Click **Select** to save the configuration.
+5.  Perform the same steps to load metadata for the ChannelRequest type.
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
+	xmlns:ibmctg="http://www.mulesoft.org/schema/mule/ibmctg"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/bti
+http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ibmctg
+http://www.mulesoft.org/schema/mule/ibmctg/current/mule-ibmctg.xsd">
+	<configuration-properties file="automation-credentials.properties"/>
+	<http:listener-config
+		name="HTTP_Listener_config"
+		doc:name="HTTP Listener config"
+		basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<bti:transaction-manager />
+	<ibmctg:config name="IBMCTG_Config" doc:name="IBMCTG Config">
+		<ibmctg:connection host="${config.host}"
+		port="${config.port}"
+		serverName="${config.serverName}"
+		username="${config.username}"
+		password="${config.password}" />
+	</ibmctg:config>
+  <flow name="ibmdemoFlow2">
+		<http:listener doc:name="/ec02" config-ref="HTTP_Listener_config" path="/ec02"/>
+		<try doc:name="Try" transactionalAction="ALWAYS_BEGIN" transactionType="XA">
+			<ee:transform doc:name="Transform Message">
+				<ee:message>
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/flatfile schemaPath = "ec02-type.ffd" , segmentIdent = "DFHCOMMAREA"
+---
+[{
+	"LK-COUNT": "000001234TH RUN OF EC02"
+}]]]></ee:set-payload>
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="request" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	commareaLength: 40,
+	encoding: "IBM037",
+	programName: "EC02",
+	replyLength: 40,
+	tpnName: "CSMI"
+} as Object {
+	class : "org.mule.modules.ibmctg.internal.model.CommareaRequest"
+}]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<ibmctg:execute-using-commarea doc:name="Execute using commarea"
+			config-ref="IBMCTG_Config" commareaRequestType="#[vars.request]"/>
+			<ee:transform doc:name="Transform Message">
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	count:payload
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</try>
+	</flow>
+</mule>
+```
+
+## Invoke a COMMAREA or Channel Program Inside a Transactional Scope
+
+This application calls EC02, a COMMAREA-based program that returns a simple run counter.
+
+![Use case flow in Studio](_images/ibm-ctg-use-case-2.png)
+
+1.  Perform steps 1 to 3 from the previous example and set the HTTP path to `/test/ec02`.
+2.  In the Global Elements tab, add a new Bitronix Transaction Manager without further
+    configurations.
+3.  Drag a Transactional element next to the HTTP and configure according to the table below:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p>Type</p></td><td><p><code>XA Transaction</code></p></td></tr><tr><td><p>Action</p></td><td><p><code>BEGIN_OR_JOIN</code></p></td></tr></tbody></table>
+
+4.  Double-click the IBM CTG component, select the operation Execute using COMMAREA and configure
+    the following parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p>Content Reference</p></td><td><p><code>#[payload]</code></p></td></tr><tr><td><p>Request Reference</p></td><td><p><code>#[flowVars.request]</code></p></td></tr></tbody></table>
+
+5.  Add a Transform Message between the HTTP and the IBM CTG components. The connector does not
+    provide dynamic/static metadata but allows users to define custom types using the Metadata Type
+    tool.
+6.  Define the input metadata according to [Add Custom Metadata](#addcustommetadata) using the
+    schema file ec02-type.ffd:
+
+    ```dataweave
+    form: COPYBOOK
+    id: 'DFHCOMMAREA'
+    values:
+    - { name: 'LK-COUNT', type: String, length: 40 }
+    ```
+
+7.  Map the fields in the DataWeave transformer.
+
+    ```dataweave
+    %dw 2.0
+    %output text/plain schemaPath = "ec02-type.ffd" , segmentIdent = "DFHCOMMAREA"
+    ---
+    [{
+    	LK-COUNT: "000001234TH RUN OF EC02"
+    }]
+    ```
+
+8.  Create a flowVar named `request` and configure the following fields, as described in
+    [Load Java Metadata](#loadjavametadata):
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	commareaLength: 40,
+    	encoding: "IBM037",
+    	programName: "EC02",
+    	replyLength: 40,
+    	tpnName: "CSMI"
+    } as Object {
+    	class : "org.mule.modules.ibmctg.internal.model.CommareaRequest"
+    }
+    ```
+
+9.  Add a Transform Message after the IBM CTG to extract the results in a JSON format.
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    {
+    	count: payload
+    }
+    ```
+
+10. Add a Logger at the end of the flow.
+11. Save the changes and deploy the Mule app.
+12. Open a browser and make a request to `http://localhost:8081/ec02`. The result should be similar
+    to:
+
+    ```json
+    {
+      "count": "1st RUN OF EC02"
+    }
+    ```
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
+	xmlns:ibmctg="http://www.mulesoft.org/schema/mule/ibmctg"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/bti
+http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ibmctg
+http://www.mulesoft.org/schema/mule/ibmctg/current/mule-ibmctg.xsd">
+	<configuration-properties file="automation-credentials.properties"/>
+	<http:listener-config
+		name="HTTP_Listener_config"
+		doc:name="HTTP Listener config"
+		basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<bti:transaction-manager />
+	<ibmctg:config name="IBMCTG_Config" doc:name="IBMCTG Config">
+		<ibmctg:connection host="${config.host}"
+		port="${config.port}"
+		serverName="${config.serverName}"
+		username="${config.username}"
+		password="${config.password}" />
+	</ibmctg:config>
+  <flow name="ibmdemoFlow1">
+		<http:listener doc:name="/ec03" config-ref="HTTP_Listener_config" path="/ec03"/>
+		<try doc:name="Try" transactionalAction="ALWAYS_BEGIN" transactionType="XA">
+			<ee:transform doc:name="Transform Message">
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/flatfile
+schemaPath = "ec03-type.ffd" , segmentIdent = "DFHCOMMAREA"
+---
+[{
+	"CICS-DATE-TM": null
+}]]]></ee:set-payload>
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="request" ><![CDATA[%dw 2.0
+
+output application/java
+---
+{
+	channel: "EC03",
+	encoding: "US-ASCII",
+	errorContainer: "OUTPUTMESSAGE",
+	programName: "EC03",
+	requestContainer: "INPUTDATA",
+	responseContainer: "CICSDATETIME",
+	tpnName: "CSMI"
+} as Object {
+	class : "org.mule.modules.ibmctg.internal.model.ChannelRequest"
+}]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<ibmctg:execute doc:name="Execute" channelRequest="#[vars.request]"
+			config-ref="IBMCTG_Config"/>
+			<ee:transform doc:name="Transform Message">
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"cics-date-time":payload
+}
+]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</try>
+	</flow>
+</mule>
+```
+
+## Use Multiple Containers
+
+This Mule flow shows how to use multiple containers. This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Transform Message**  
+  Sets the first content request and outputs the data as a flat file
+
+  %dw 2.0 output application/flatfile schemaPath = "ec03-type.ffd", segmentIdent = "DFHCOMMAREA",
+  encoding="cp037"
+
+  ***
+
+  \[{ "CICS-DATE-TM": "" }\]
+
+- **Transform Message**  
+  Sets the second content request and outputs the data as a flat file
+
+  %dw 2.0 output application/flatfile schemaPath = "ec03-type.ffd", segmentIdent = "DFHCOMMAREA",
+  encoding="cp037"
+
+  ***
+
+  \[{ "CICS-DATE-TM": "" }\]
+
+- **Transform Message**  
+  Sets multiple channels and content requests and outputs the data in JSON
+
+  %dw 2.0 output application/json
+
+  ***
+
+  \[ { channelRequest : { channel: "EC03", encoding: "US-ASCII", errorContainer: "OUTPUTMESSAGE",
+  programName: "EC03", requestContainer: "INPUTDATA", responseContainer: "CICSDATETIME", tpnName:
+  "CSMI" }, content : vars.request1.^raw }, { channelRequest : { channel: "EC03", encoding:
+  "US-ASCII", errorContainer: "OUTPUTMESSAGE", programName: "EC03", requestContainer: "INPUTDATA",
+  responseContainer: "CICSDATETIME", tpnName: "CSMI" }, content : vars.request2.^raw } \]
+
+- **Execute with multiple channels**  
+  Calls a remote CICS program sending data encapsulated in channels and containers, enabling users
+  to transfer more than 32 KB in a single request
+
+  Enter the following values:
+
+  <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Object type</strong></p></td><td><div><div><p><code>List</code></p></div></div></td></tr><tr><td><p><strong>Connector Configuration</strong></p></td><td><div><div><p><code>IBMCTG_Config</code></p></div></div></td></tr><tr><td><p><strong>Channel and contents</strong></p></td><td><div><div><p><code>payload</code></p></div></div></td></tr></tbody></table>
+
+- **Transform Message**  
+  Outputs the data in JSON
+
+  %dw 2.0 output application/json
+
+  ***
+
+  { "cics-date-time":payload }
+
+- **Logger**  
+  Performs logging
+
+![Studio Flow for using multiple containers in IBM CTG Connector](_images/ibm-ctg-multiple-container.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
+	xmlns:ibmctg="http://www.mulesoft.org/schema/mule/ibmctg" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/bti http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ibmctg http://www.mulesoft.org/schema/mule/ibmctg/current/mule-ibmctg.xsd">
+	<configuration-properties file="mule-app.properties"/>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="de838cd2-71c3-41b3-9fbd-be6f671921dc" basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<bti:transaction-manager />
+	<ibmctg:config name="IBMCTG_Config" doc:name="IBMCTG Config" doc:id="1435fcc3-4b97-496e-8552-58a339dce96f" >
+		<ibmctg:connection host="${config.host}" port="${config.port}" serverName="${config.serverName}" username="${config.username}" password="${config.password}" />
+	</ibmctg:config>
+	<flow name="multi_channel_testFlow" doc:id="a79bd0f2-e659-4778-96b1-fdcbf86166eb" >
+		<http:listener doc:name="Listener" doc:id="594a7d30-b82f-4899-a212-0fc8897b414a" config-ref="HTTP_Listener_config" path="/multi"/>
+		<ee:transform doc:name="Set Content Request I" doc:id="f3ebec71-8cb5-41f0-a993-bd68a963ac63" >
+			<ee:variables >
+				<ee:set-variable variableName="request1" ><![CDATA[%dw 2.0
+output application/flatfile schemaPath = "ec03-type.ffd", segmentIdent = "DFHCOMMAREA", encoding="cp037"
+---
+[{
+	"CICS-DATE-TM": ""
+}]]]></ee:set-variable>
+			</ee:variables>
+
+		</ee:transform>
+		<ee:transform doc:name="Set Content Request II" doc:id="1362b85a-a36c-4fa1-bc28-96266bc416c5">
+			<ee:variables>
+				<ee:set-variable variableName="request2" ><![CDATA[%dw 2.0
+output application/flatfile schemaPath = "ec03-type.ffd", segmentIdent = "DFHCOMMAREA", encoding="cp037"
+---
+[{
+	"CICS-DATE-TM": ""
+}]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Set Multiple Channels And Contents Request" doc:id="4157b44c-ac57-40a6-8ced-c5e165a1035c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+[
+	{
+		channelRequest : 	{
+			channel: "EC03",
+			encoding: "US-ASCII",
+			errorContainer: "OUTPUTMESSAGE",
+			programName: "EC03",
+			requestContainer: "INPUTDATA",
+			responseContainer: "CICSDATETIME",
+			tpnName: "CSMI"
+		},
+		content : vars.request1.^raw
+	},
+	{
+		channelRequest : 	{
+			channel: "EC03",
+			encoding: "US-ASCII",
+			errorContainer: "OUTPUTMESSAGE",
+			programName: "EC03",
+			requestContainer: "INPUTDATA",
+			responseContainer: "CICSDATETIME",
+			tpnName: "CSMI"
+		},
+		content : vars.request2.^raw
+	}
+]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ibmctg:execute-with-multiple-channels doc:name="Execute with multiple channels" doc:id="1913f9b3-95b2-4e83-8028-ea934d1a59ae" config-ref="IBMCTG_Config" />
+		<ee:transform doc:name="Transform Message" doc:id="31f774bb-a848-42c6-a1ea-efb44612ca03" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"cics-date-time":payload
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="dff20a20-43a0-401f-8c20-7d480062fe64" message="#[payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# IBM CTG Connector 3.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for IBM CICS Transaction Gateway (IBM CTG Connector) provides integration with
+back-end CICS apps using the CICS Transaction Gateway.
+
+Release Notes:
+[IBM CICS Transaction Gateway Connector Release Notes](../../release-notes/connector/ibm-ctg-connector-release-notes-mule-4)
+
+## Configurations
+
+---
+
+### Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances when it sees fit.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td></td><td><p>localhost</p></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>String</p></div></div></td><td></td><td><p>2006</p></td><td></td></tr><tr><td><p>Servers name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Keystore location</p></td><td><div><div><p>String</p></div></div></td><td><p>The location of the keystore containing the certificates required for an SSL connection.</p></td><td></td><td></td></tr><tr><td><p>Keystore Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password required to access the keystore for an SSL connection.</p></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Sets the socket connection timeout value for a connection to CICS TG. This timeout represents the maximum amount of time in milliseconds that a managed connection attempts to open a socket connection successfully to a remote Gateway daemon. The timeout is ignored for attempted connections to a local Gateway instance. A value of 0 represents no timeout.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Set the response timeout value for a connection to CICS TG. This timeout represents the maximum amount of time in milliseconds that a managed connection attempts to wait for a response to a request. A value of 0 represents no timeout.</p></td><td><p>30000</p></td><td></td></tr><tr><td><p>CTG Trace</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Turns all levels of CTG tracing on or off.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Characteristics of the connection pool.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Create Channel And Content Instance](#createChannelAndContentInstance)
+- [Execute](#execute)
+- [Execute Using Commarea](#executeUsingCommarea)
+- [Execute With Multiple Channels](#executeWithMultipleChannels)
+
+## Operations
+
+### Create Channel And Content Instance
+
+`<ibmctg:create-channel-and-content-instance>`
+
+Create an instance of ChannelAndContent to use in the input list of the **Execute with Multiple
+channels** operation.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>The input data to be passed to the CICS program.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Request</p></td><td><div><div><p><a href="#ChannelRequest">Channel Request</a></p></div></div></td><td><p>A ChannelRequest that contains the details for request to CTG, such as: program name, TPN, encoding, channel name and its containers (request, response and error).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ChannelAndContent">Channel And Content</a></p></td></tr></tbody></table>
+
+#### Throws
+
+- IBMCTG:AEI0
+- IBMCTG:CONNECTION_ERROR
+- IBMCTG:CONNECTIVITY
+- IBMCTG:ECI_ERR_INVALID_CALL_TYPE
+- IBMCTG:ECI_ERR_NO_CICS
+- IBMCTG:ECI_ERR_SECURITY_ERROR
+- IBMCTG:ECOM
+- IBMCTG:ERR_GATEWAY
+- IBMCTG:IBMCCExecution
+- IBMCTG:REQUEST_ERROR
+- IBMCTG:RESOURCE
+- IBMCTG:SERVER_ERROR
+- IBMCTG:TRANSACTION
+- IBMCTG:UNKNOWN
+
+### Execute
+
+`<ibmctg:execute>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><div><div><p>Any</p></div></div></td><td></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Channel Request</p></td><td><div><div><p><a href="#ChannelRequest">Channel Request</a></p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to be used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take regarding transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- IBMCTG:AEI0
+- IBMCTG:CONNECTION_ERROR
+- IBMCTG:CONNECTIVITY
+- IBMCTG:ECI_ERR_INVALID_CALL_TYPE
+- IBMCTG:ECI_ERR_NO_CICS
+- IBMCTG:ECI_ERR_SECURITY_ERROR
+- IBMCTG:ECOM
+- IBMCTG:ERR_GATEWAY
+- IBMCTG:IBMCCExecution
+- IBMCTG:REQUEST_ERROR
+- IBMCTG:RESOURCE
+- IBMCTG:RETRY_EXHAUSTED
+- IBMCTG:SERVER_ERROR
+- IBMCTG:TRANSACTION
+- IBMCTG:UNKNOWN
+
+### Execute Using Commarea
+
+`<ibmctg:execute-using-commarea>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><div><div><p>Any</p></div></div></td><td></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Commarea Request Type</p></td><td><div><div><p><a href="#CommareaRequest">Commarea Request</a></p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to be used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take regarding transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- IBMCTG:AEI0
+- IBMCTG:CONNECTION_ERROR
+- IBMCTG:CONNECTIVITY
+- IBMCTG:ECI_ERR_INVALID_CALL_TYPE
+- IBMCTG:ECI_ERR_NO_CICS
+- IBMCTG:ECI_ERR_SECURITY_ERROR
+- IBMCTG:ECOM
+- IBMCTG:ERR_GATEWAY
+- IBMCTG:IBMCCExecution
+- IBMCTG:REQUEST_ERROR
+- IBMCTG:RESOURCE
+- IBMCTG:RETRY_EXHAUSTED
+- IBMCTG:SERVER_ERROR
+- IBMCTG:TRANSACTION
+- IBMCTG:UNKNOWN
+
+### Execute With Multiple Channels
+
+`<ibmctg:execute-with-multiple-channels>`
+
+Calls a remote CICS program sending data encapsulated in channels and containers, allowing users to
+transfer more than 32 KB in a single request.
+
+A container is a named reference to a storage area managed by CICS that can hold any form of
+application data. A container can hold data in any format that the application requires and is
+limited only by the amount of storage available. An application can reference any number of
+containers.
+
+A channel is a uniquely named reference to a collection of containers. It is analogous to a
+COMMAREA, but it is not subject to its constraints. Programs can pass a single channel between them.
+You can think of a channel as a parameter list. The same channel can be passed from one program to
+another.
+
+Channels and containers are visible only to the program that creates them, and to the programs that
+they are passed to. When these programs end, CICS automatically deletes the containers and their
+storage. They are not recoverable. If you require to use recoverable containers, use CICS BTS
+containers.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Channel And Contents</p></td><td><div><div><p>Array of <a href="#ChannelAndContent">Channel And Content</a></p></div></div></td><td><p>A java.util.List of ChannelAndContent containing one or more pairs with channel and the details for request to CTG, such as: program name, TPN, encoding, channel name, and its containers (request, response and error); with this respective content.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The MIME type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to be used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take regarding transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Binary</p></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- IBMCTG:AEI0
+- IBMCTG:CONNECTION_ERROR
+- IBMCTG:CONNECTIVITY
+- IBMCTG:ECI_ERR_INVALID_CALL_TYPE
+- IBMCTG:ECI_ERR_NO_CICS
+- IBMCTG:ECI_ERR_SECURITY_ERROR
+- IBMCTG:ECOM
+- IBMCTG:ERR_GATEWAY
+- IBMCTG:IBMCCExecution
+- IBMCTG:REQUEST_ERROR
+- IBMCTG:RESOURCE
+- IBMCTG:RETRY_EXHAUSTED
+- IBMCTG:SERVER_ERROR
+- IBMCTG:TRANSACTION
+- IBMCTG:UNKNOWN
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Pooling Profile
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Active</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls the maximum number of Mule components that can be borrowed from a session at one time. When set to a negative value, there is no limit to the number of components that may be active at one time. When maxActive is exceeded, the pool is said to be exhausted.</p></td><td></td><td></td></tr><tr><td><p>Max Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls the maximum number of Mule components that can sit idle in the pool at any time. When set to a negative value, there is no limit to the number of Mule components that may be idle at one time.</p></td><td></td><td></td></tr><tr><td><p>Max Wait</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the number of milliseconds to wait for a pooled component to become available when the pool is exhausted and the exhaustedAction is set to WHEN_EXHAUSTED_WAIT.</p></td><td></td><td></td></tr><tr><td><p>Min Eviction Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Determines the minimum amount of time an object may sit idle in the pool before it is eligible for eviction. When non-positive, no objects will be evicted from the pool due to idle time alone.</p></td><td></td><td></td></tr><tr><td><p>Eviction Check Interval Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the number of milliseconds between runs of the object evictor. When non-positive, no object evictor is executed.</p></td><td></td><td></td></tr><tr><td><p>Exhausted Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WHEN_EXHAUSTED_GROW</p></li><li><p>WHEN_EXHAUSTED_WAIT</p></li><li><p>WHEN_EXHAUSTED_FAIL</p></li></ul></div></div></td><td><p>Specifies the behavior of the Mule component pool when the pool is exhausted. Possible values are: "WHEN_EXHAUSTED_FAIL", which will throw a NoSuchElementException, "WHEN_EXHAUSTED_WAIT", which will block by invoking Object.wait(long) until a new or idle object is available, or WHEN_EXHAUSTED_GROW, which will create a new Mule instance and return it, essentially making maxActive meaningless. If a positive maxWait value is supplied, it will block for at most that many milliseconds, after which a NoSuchElementException will be thrown. If maxThreadWait is a negative value, it will block indefinitely.</p></td><td></td><td></td></tr><tr><td><p>Initialisation Policy</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIALISE_NONE</p></li><li><p>INITIALISE_ONE</p></li><li><p>INITIALISE_ALL</p></li></ul></div></div></td><td><p>Determines how components in a pool should be initialized. The possible values are: INITIALISE_NONE (will not load any components into the pool on startup), INITIALISE_ONE (will load one initial component into the pool on startup), or INITIALISE_ALL (will load all components in the pool on startup)</p></td><td></td><td></td></tr><tr><td><p>Disabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether pooling should be disabled</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Channel Request
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Channel</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the channel. Value is case-sensitive.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Request Container</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the container used to send the request data to the CICS program. Value is case-sensitive.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Response Container</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the container used to return the data obtained from the CICS program. Value is case-sensitive.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Error Container</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the container used to return error information if something goes wrong in the CICS program. Value is case-sensitive.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Program Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the CICS program to call. It is case-sensitive.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Tpn Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The transaction identifier of the CICS mirror transaction. Optional.</p></td><td></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The data encoding. Default value is IBM037.</p></td><td><p>IBM037</p></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of memory that will be allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Source</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td><p>Source of the error.</p></td><td></td><td></td></tr><tr><td><p>Target</p></td><td><div><div><p>String</p></div></div></td><td><p>Target of the error.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Commarea Request
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Commarea Length</p></td><td><div><div><p>Number</p></div></div></td><td><p>The length of COMMAREA. Default value is -1. This should be set to less than or equal to the length of the byte array passed in the payload. The maximum advised size is 32500 bytes, as this is guaranteed to be flowed successfully across all protocols. COMMAREA sizes greater than this may generate an ECI_ERR_INVALID_DATA_LENGTH return code.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Reply Length</p></td><td><div><div><p>Number</p></div></div></td><td><p>The length of the data stream to be returned back from the Gateway daemon to the Mule (JCA) application. Default value is -1. Setting this property can reduce the data transmitted over the network if the data returned by CICS is less than the full COMMAREA size, and you know the size of the data in advance.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Program Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the CICS program to call. It is case-sensitive.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Tpn Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The transaction identifier of the CICS mirror transaction. Optional.</p></td><td></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The data encoding. Default value is IBM037.</p></td><td><p>IBM037</p></td><td></td></tr></tbody></table>
+
+### Channel And Content
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Channel Request</p></td><td><div><div><p><a href="#ChannelRequest">Channel Request</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating IBM CTG Connector to Version 3.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for IBM CICS Transaction Gateway (IBM CTG Connector) to version 3.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>2.x</p></div></div></td><td><div><div><p>3.0.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+This release contains the following changes:
+
+- The IBM CTG connection no longer fails on the first request.
+- The `.isPresent()` check is added to the optional data field to prevent potential null pointer
+  exceptions.
+- The `org.apache.commons:commons-lang3` dependency is upgraded to version 3.18.0 to address
+  security vulnerabilities.
+
+## Requirements
+
+Ensure that you meet these requirements before you perform the upgrade:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Application/Service</th><th>Version</th></tr></thead><tbody><tr><td><p>Mule</p></td><td><p>4.4.0 and later</p></td></tr></tbody></table>
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, create a backup of your files, data, and configuration in case you
+need to restore to the previous version.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In **Mule Palette**, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `ibm ctg` in the search field.
+4.  In **Available modules**, select **IBM CTG** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the IBM CTG Connector dependency version is 3.0 in the `pom.xml` file in the Mule
+    project.
+
+Studio upgrades the connector automatically.
+
+## Post-Upgrade Steps
+
+After you install the latest version of the connector, verify that your error handling is updated to
+work with the minor changes in error codes in this version of the connector.
+
+## Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+## Revert the Upgrade
+
+If it is necessary to revert to the previous version of IBM CTG Connector, change the
+`mule-ibm-ctg-connector` dependency version in the projectâs `pom.xml` file to the previous version.
+
+You must update the projectâs `pom.xml` file in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# IBM CICS Transaction Gateway Connector 3.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for IBM CICS Transaction Gateway (IBM CTG Connector) provides integration with
+back-end CICS apps using the CICS Transaction Gateway. For Java platforms, CTG implements the Java
+Cryptography Architecture (JCA) resource adapter to connect Java applications to the Customer
+Information Control System (CICS) system. The connector serves as a link between Mule apps and the
+IBM CTG.
+
+Release Notes:
+[IBM CICS Transaction Gateway Connector Release Notes](../../release-notes/connector/ibm-ctg-connector-release-notes-mule-4)  
+Exchange:
+[IBM CICS Transaction Gateway Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-ibm-ctg-connector/)
+
+## Before You Begin
+
+To use this information, you must be familiar with IBM CTG, Mule runtime engine (Mule), Anypoint
+Connectors, Anypoint Studio, Mule concepts, elements in a Mule flow, and Global Elements.
+
+You need login credentials to test your connection to your target resource.
+
+To use this connector with Apache Maven, view the pom.xml file dependency information from the
+**Dependency Snippets** link in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-ibm-ctg-connector/).
+
+## Terminology
+
+CICS (Customer Information Control System)
+
+Set of enterprise application servers with support for high-transaction workloads in a secure,
+scalable, cost efficient environment. CICS applications are written in a variety of languages, from
+Java to COBOL.
+
+CICS Region
+
+Named collection of resources that are controlled by CICS as a unit. A CICS resource is any facility
+or component of a CICS system that is required to perform a task.
+
+CICS TG (CICS Transaction Gateway)
+
+Set of client and server software components that allow a remote client application to invoke
+services in a CICS region. The client application can be either a Java application or a non-Java
+application. The CICS TG is available through the following two products: CICS TG on z/OS and CICS
+TG for Multiplatforms.
+
+COMMAREA
+
+Block of contiguous memory used to pass data between programs. It is the binary equivalent of a
+COBOL structure and it is character-based.
+
+ECI (External Call Interface)
+
+Simple remote procedural call style interface, used for linking to CICS applications. The COMMAREA
+or channel is the data interface used for the exchange of data between the client application and
+the CICS.
+
+JCA
+
+Standard architecture for connecting the J2EE platform to heterogeneous Enterprise Information
+Systems (EIS), such as CICS. The JCA enables an EIS vendor to provide a standard resource adapter
+for its EIS. A resource adapter is the middle tier between a Java application and an EIS and
+connects the Java application to the EIS.
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "ctg".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "ctg" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+## Configure a Studio Project
+
+1.  Drag a connectorâs operation to the Studio canvas.
+2.  Configure the Global Element for the connector:
+
+    ![config connector](_images/ibm-ctg-config-studio-1.png)
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Required Libraries</strong></p></td><td><div><div><ul><li><p>ctgserver.jar (CTG Server Library)</p></li><li><p>cicsjee.jar (CICS JEE)</p></li><li><p>ccf2.jar (CICS Common Connector Framework)</p></li><li><p>ctgclient.jar (CTG Client Library)</p></li><li><p>geronimo-j2ee-connector_1.6_spec.jar</p></li></ul></div><div><p>Note: Use the JAR files that come bundled within the installation of the CTG server instead of downloading the SDK ZIP from IBMâs web site to ensure the compatibility between the connector and the CTG system.</p></div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>Enter the host name of the CICS TG.</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Enter the port on which the CICS TG is running. Default value is 2006.</p></div></div></td></tr><tr><td><p><strong>Server name</strong></p></td><td><div><div><p>Enter the name of the target CICS server as defined in the CICS TG configuration file. Optional.</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>Enter the CICS user ID. Optional, if security is not enabled in the CICS region.</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>Enter the password for the CICS user ID. Optional, if security is not enabled in the CICS region.</p></div></div></td></tr></tbody></table>
+
+3.  To add the dependencies, select **Add dependency** and complete the fields.
+
+    ![dependency connector](_images/ibm-ctg-config-studio-2.png)
+
+4.  Go to the **Additional Settings** tab and complete the configuration:
+
+    ![config connector](_images/ibm-ctg-config-advanced-studio.png)
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Keystore location</strong></p></td><td><div><div><p>Enter the location of the keystore containing the certificates required for an SSL client. Optional.</p></div></div></td></tr><tr><td><p><strong>Keystore Password</strong></p></td><td><div><div><p>Enter the password required to access the keystore for an SSL client. Optional.</p></div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Enter the socket timeout for the client to CTG. Default value is 0 (no timeout).</p></div></div></td></tr><tr><td><p><strong>Response Timeout</strong></p></td><td><div><div><p>Enter the response timeout for the client to CTG. Default value is 30000 milliseconds (30 seconds). <strong>â </strong></p></div></div></td></tr><tr><td><p><strong>CTG Trace</strong></p></td><td><div><div><p>If set to <code>True</code>, enables all debug levels of CTG tracing. Default value is <code>False</code>.</p></div></div></td></tr></tbody></table>
+
+    **â ** **Response Timeout** is overridden by the `ecitimeout` parameter if configured on the
+    server side. See [IBM ECI Timeout](https://www.ibm.com/docs/en/cics-tg-multi/9.0.0).
+
+5.  Choose the operation.
+
+    ![operations connector](_images/ibm-ctg-operations.png)
+
+    The IBM CTG connector supports the following two outbound operations:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Execute</strong></p></td><td><div><div><p>Invokes a CICS program with data encapsulated as channels and containers.</p></div></div></td></tr><tr><td><p><strong>Execute using COMMAREA</strong></p></td><td><div><div><p>Invokes a CICS program with data encapsulated as a COMMAREA. Requests are limited to a maximum of 32 KB.</p></div></div></td></tr></tbody></table>
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-ibm-ctg-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Enable Logging for Requests and Responses
+
+To enable logging of the interactions of the connector with IBM CTG, a logger must be configured in
+the log4j2.xml file of the Mule app as follows. Put the AsyncLogger statement in the `Loggers` block
+in the log4j2.xml file:
+
+```xml
+<AsyncLogger
+	name="org.mule.modules.ibmctg.internal.service.CTGServiceImpl"
+	level="DEBUG"/>
+```
+
+## Common Use Cases
+
+- Invoke a COMMAREA program
+- Invoke a channel program
+- Invoke a COMMAREA or channel program inside a Transactional Scope
+- Add custom metadata
+
+> [!NOTE] To successfully run the first three use cases, the target CICS system must have the
+> specified programs.
+
+## See Also
+
+- IBMâs
+  [Developing Java applications for CICS](https://www.ibm.com/docs/en/cics-ts/5.3.0?topic=applications-developing-java-cics)
+- High-level tutorial of JCA in
+  [Introduction to the J2EE Connector Architecture](https://developer.ibm.com/languages/java/)
+- [Redbooks for the IBM Mainframe](https://www.redbooks.ibm.com/domains/zsoftware)
+- [Create Metadata](../../studio/create-metadata-class-task)
+- [IBM ECI Timeout](https://www.ibm.com/docs/en/cics-tg-multi/9.0.0)
+- [Salesforce Help](https://help.salesforce.com)
+

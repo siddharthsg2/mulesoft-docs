@@ -1,0 +1,878 @@
+﻿# Neo4j Connector - Full Documentation
+
+# Neo4j Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Neo4j Connector v4.0
+
+Anypoint Connector for Neo4j provides the capability to execute CQL statements and run basic
+operations, such as create, update, delete, and select nodes against a Neo4j Graph database
+instance.
+
+Release Notes:
+[Neo4j Connector Release Notes](../../release-notes/connector/neo4j-connector-release-notes-mule-4)  
+Exchange:
+[Neo4j Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-neo4j-connector/)
+
+## Before You Begin
+
+To use this information, you need to be familiar with Neo4j, Mule, Anypoint Connectors, Anypoint
+Studio, Mule concepts, elements in a Mule flow, and Global Elements.
+
+You need login credentials to test your connection to your target resource.
+
+For software requirements and compatibility information, see the Connector Release Notes.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-neo4j-connector</artifactId>
+  <version>4.0.0</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `4.0.0` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Metadata
+
+**Version 4.0.0 Enhancement**: The Neo4j connector now provides comprehensive metadata resolution
+for improved Anypoint Studio experience.
+
+Neo4j connector metadata is based on the following premises:
+
+- **Dynamic Label Discovery**: Labels are automatically discovered from the database using native
+  Cypher queries
+- **Sample-Based Field Resolution**: Metadata fields are generated from actual node properties in
+  the database
+- **Comprehensive Type Mapping**: All node properties are included in metadata, not just constraint
+  fields
+- **BOLT-Only Operation**: All metadata resolution uses the BOLT connection (no REST API required)
+
+For optimal metadata experience: \* Ensure sample data exists in your Neo4j database for the labels
+you plan to use \* The connector will display all properties found in sample nodes for comprehensive
+field suggestions \* Metadata is generated dynamically and reflects the actual data structure in
+your database
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "neo4j".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "neo4j" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure in Studio
+
+1.  Drag a Neo4j operation to the Studio Canvas.
+2.  Select the operation.
+
+    ![List of available operations in Studio for Neo4j connector](_images/neo4j-operations-studio.png)
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Execute</strong></p></td><td><div><div><p>Execute any CQL statement against DB.</p></div></div></td></tr><tr><td><p><strong>Create Node</strong></p></td><td><div><div><p>Create a node with a specific initial label. Optionally, properties for the node can be added.</p></div></div></td></tr><tr><td><p><strong>Select Nodes</strong></p></td><td><div><div><p>Query nodes with a specific label. Optionally, properties used as filter can be provided.</p></div></div></td></tr><tr><td><p><strong>Update Nodes</strong></p></td><td><div><div><p>Modified properties for one or multiple nodes with a specific label. Optional Properties can be added as search filter criteria.</p></div></div></td></tr><tr><td><p><strong>Delete Nodes</strong></p></td><td><div><div><p>Delete one or multiples nodes based on a specific label. This lets you delete nodes with inbound/outbound relationships. Optional Properties can be added as search filter criteria.</p></div></div></td></tr></tbody></table>
+
+    Note: The Neo4j connectorâs basic operations can filter nodes by only one label in its query. If
+    you want to filter in a query by multiple labels, use the Execute operation with a proper CQL
+    statement.
+
+3.  Configure the Global element for the connector.
+
+    ![Global elements properties window](_images/neo4j-config-studio1.png)
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>Enter the username to log in with.</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>Enter the corresponding password.</p></div></div></td></tr><tr><td><p><strong>BOLT URL</strong></p></td><td><div><div><p>Bolt endpoint URL. <strong>Version 4.0.0</strong>: This is the only required connection parameter.</p></div></div></td></tr></tbody></table>
+
+## Use Case: Node Basic CRUD
+
+![Studio flow with Listener, Transform Message, Create node, Select nodes, Delete node, and Transform Message](_images/neo4j-example-flow.png)
+
+1.  Create a new Mule Project in Anypoint Studio and set your Neo4j environment properties in
+    `src/main/resources/automation-credentials.properties`.
+
+    ```text
+    config.username=<USERNAME>
+    config.password=<PASSWORD>
+    config.boltUrl=<BOLT_URL_ENDOPOINT>
+    ```
+
+2.  Drag an HTTP connector onto the canvas and configure it with the default values.
+3.  Drag a Transform Message onto the canvas and create a flowVar called params with the following
+    code:
+
+    ```dataweave
+    %dw 2.0
+    %output application/json
+    ---
+    {
+    	"name":"Tom Hanks",
+    	"born": 1956
+    }
+    ```
+
+4.  Drag the Neo4j connector onto the canvas and configure a new global element according to the
+    table below:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p><code>${neo4j.username}</code></p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p><code>${neo4j.password}</code></p></div></div></td></tr><tr><td><p><strong>BOLT URL</strong></p></td><td><div><div><p><code>${neo4j.boltUrl}</code></p></div></div></td></tr></tbody></table>
+
+    ```xml
+    <neo4j:config name="Neo4j_Config" doc:name="Neo4j Config">
+    	<neo4j:connection username="${config.username}"
+    	password="${config.password}"
+    	boltUrl="${config.boltUrl}" />
+    </neo4j:config>
+    ```
+
+5.  In the Properties Editor, configure:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>Create node</p></div></div></td></tr><tr><td><p><strong>Connector Configuration</strong></p></td><td><div><div><p>Neo4j__Basic_Authentication</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>Create node</p></div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>Person</p></div></div></td></tr><tr><td><p><strong>Parameters Reference</strong></p></td><td><div><div><p><code>#[payload]</code></p></div></div></td></tr></tbody></table>
+
+    ![Create node properties configuration window](_images/neo4j-create-node.png)
+
+    Note: Click Test Connection to confirm that Mule can connect with the Neo4j instance. If the
+    connection is successful, click OK to save the configuration. Otherwise, review or correct any
+    invalid parameters and test again.
+
+6.  Drag a Neo4j connector onto the canvas, in the Properties Editor, configure the parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>Select nodes</p></div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>Person</p></div></div></td></tr></tbody></table>
+
+7.  Drag a Neo4j connector onto the canvas, in the Properties Editor, configure the parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>Delete nodes</p></div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>Person</p></div></div></td></tr></tbody></table>
+
+8.  Drag an Transform Message onto the canvas.
+
+    ```dataweave
+    %dw 2.0
+    %output application/json
+    ---
+    payload
+    ```
+
+9.  Save the changes and deploy the project as a Mule Application. Open a browser and make a request
+    to the following URL:
+
+    ```none
+    http://localhost:8081/CRUD
+    ```
+
+    If the node was successfully created and deleted, information displays in a JSON format:
+
+    ```json
+    { "born": 1956, "name": "Tom Hanks" }
+    ```
+
+### Create a Node with Multiple Labels
+
+![Studio flow with Listener, Transform Message, Create node, Select node, and Transform Message](_images/neo4j-create-node-with-multiple-labels.png)
+
+1.  Create a new Mule Project in Anypoint Studio and set your Neo4j environment properties in
+    `src/main/resources/automation-credentials.properties`.
+
+    ```text
+    config.username=<USERNAME>
+    config.password=<PASSWORD>
+    config.boltUrl=<BOLT_URL_ENDOPOINT>
+    ```
+
+2.  Drag an HTTP connector onto the canvas and configure it with the default values.
+3.  Drag a Transform Message onto the canvas and create two flowVars with the following code:
+    1.  Variable-create
+
+        ```dataweave
+        %dw 2.0
+        %output application/json
+        ---
+        "CREATE (a:ACTOR:PERSON { name:\"Tom Hanks\", born:1956 })"
+        ```
+
+    2.  Variable-select
+
+        ```dataweave
+        %dw 2.0
+        %output application/json
+        ---
+        "MATCH (a:ACTOR:PERSON) RETURN a"
+        ```
+
+4.  Drag the Neo4j connector onto the canvas and configure a new Global Element according to the
+    table below:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p><code>${neo4j.username}</code></p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p><code>${neo4j.password}</code></p></div></div></td></tr><tr><td><p><strong>BOLT URL</strong></p></td><td><div><div><p><code>${neo4j.boltUrl}</code></p></div></div></td></tr></tbody></table>
+
+    ```xml
+    <neo4j:config name="Neo4j_Config" doc:name="Neo4j Config">
+    	<neo4j:connection username="${config.username}"
+    	password="${config.password}"
+    	boltUrl="${config.boltUrl}" />
+    </neo4j:config>
+    ```
+
+5.  In the Properties Editor, configure:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>Create node (advanced)</p></div></div></td></tr><tr><td><p><strong>Connector Configuration</strong></p></td><td><div><div><p>Neo4j__Basic_Authentication</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>Execute</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p><code>#[vars.create]</code></p></div></div></td></tr><tr><td><p><strong>Parameters Reference</strong></p></td><td><div><div><p><code>#[payload]</code></p></div></div></td></tr></tbody></table>
+
+    ![Create node properties configuration window](_images/neo4j-execute-create.png)
+
+    Click Test Connection to confirm that Mule can connect with the Neo4j instance. If the
+    connection is successful, click OK to save the configuration. Otherwise, review or correct any
+    invalid parameters and test again.
+
+6.  Drag a Neo4j connector onto the canvas, in the Properties Editor, configure the parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>Select node (Multi-label)</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>Execute</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p><code>#[vars.select]</code></p></div></div></td></tr></tbody></table>
+
+7.  Drag a Transform Message onto the canvas.
+8.  Drag a Logger onto the canvas.
+9.  Save the changes and deploy the project as a Mule Application. Open a browser and make a request
+    to the following URL:
+
+    ```none
+    http://localhost:8081/createNodeMultiLabel
+    ```
+
+    If the node was successfully created and deleted, information displays in a JSON format:
+
+    ```json
+    [{ "a": { "born": 1956, "name": "Tom Hanks" } }]
+    ```
+
+## Use Case: XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:neo4j="http://www.mulesoft.org/schema/mule/neo4j"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/neo4j
+	http://www.mulesoft.org/schema/mule/neo4j/current/mule-neo4j.xsd">
+	<http:listener-config name="HTTP_Listener_config"
+	doc:name="HTTP Listener config" basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<neo4j:config name="Neo4j_Config" doc:name="Neo4j Config">
+		<neo4j:connection username="${config.username}"
+		 password="${config.password}" boltUrl="${config.boltUrl}" />
+	</neo4j:config>
+	<flow name="CRUD" >
+		<http:listener doc:name="Listener"
+		 config-ref="HTTP_Listener_config" path="/CRUD"/>
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"name":"Tom Hanks",
+	"born": "1956"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<neo4j:create-node label="Person" doc:name="Create node"
+		 config-ref="Neo4j_Config" input="#[payload]"/>
+		<neo4j:select-nodes label="Person" doc:name="Select nodes"
+		 config-ref="Neo4j_Config" input="#[payload]"/>
+		<neo4j:delete-nodes label="Person" doc:name="Delete nodes"
+		 config-ref="Neo4j_Config" parameters="#[payload]"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="createNodeWithMultiLabels">
+		<http:listener doc:name="Listener"
+		config-ref="HTTP_Listener_config"
+		path="/createNodeMultiLabel"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="select" ><![CDATA[%dw 2.0
+output application/json
+---
+"MATCH (a:ACTOR:PERSON) RETURN a"]]></ee:set-variable>
+				<ee:set-variable variableName="create" ><![CDATA[%dw 2.0
+output application/json
+---
+"CREATE (a:ACTOR:PERSON { name:\"Tom Hanks\", born:1956 })"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<neo4j:execute doc:name="Create node (advanced)" config-ref="Neo4j_Config" input="#[payload]">
+			<neo4j:query ><![CDATA[#[vars.create]]]></neo4j:query>
+		</neo4j:execute>
+		<neo4j:execute doc:name="Select node (Multi-label)"  config-ref="Neo4j_Config">
+			<neo4j:query ><![CDATA[#[vars.select]]]></neo4j:query>
+		</neo4j:execute>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## Upgrading from Version 3.x
+
+**Important**: Version 4.0.0 contains breaking changes. If you are upgrading from version 3.x, see
+[Neo4j Connector Upgrade and Migration Guide](neo4j-connector-upgrade-migrate) for detailed
+migration instructions.
+
+**Key Changes in Version 4.0.0:** \* **REST URL parameter removed**: Only BOLT URL is required for
+configuration \* **Enhanced metadata resolution**: Comprehensive field suggestions in Anypoint
+Studio \* **Minimum requirements updated**: Neo4j 4.4+, JDK 17+, Mule Runtime 4.9.0+ \* **Modern
+Neo4j driver**: Upgraded to Neo4j Java Driver 5.28.8 \* **Code quality enhancements**: Improved
+error handling, modern Java 17+ features, and better internal architecture
+
+## See Also
+
+- [Neo4j Connector Upgrade and Migration Guide](neo4j-connector-upgrade-migrate)
+- [Neo4j Connector Reference](neo4j-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Neo4j 4.0 Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Neo4j provides the capability to execute CQL statements and run basic
+operations, such as create, update, delete, and select nodes against a Neo4j Graph database
+instance.
+
+Release Notes:
+[Neo4j Connector Release Notes](../../release-notes/connector/neo4j-connector-release-notes-mule-4)
+
+## Configurations
+
+---
+
+### Config
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#Config_Connection">Connection</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate against the proxy server.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to authenticate against the proxy server.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>BOLT URL</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Create Node](#CreateNode)
+- [Delete Nodes](#DeleteNodes)
+- [Execute](#Execute)
+- [Select Nodes](#SelectNodes)
+- [Update Nodes](#UpdateNodes)
+
+## Operations
+
+## Create Node
+
+`<neo4j:create-node>`
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Label</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Input</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- NEO4J:AUTHENTICATION_ERROR
+- NEO4J:CLIENT_ERROR
+- NEO4J:CONNECTION_ERROR
+- NEO4J:CONNECTIVITY
+- NEO4J:DATABASE_EXCEPTION
+- NEO4J:INCORRECT_CREDENTIALS
+- NEO4J:INVALID_SESSION
+- NEO4J:JSON_PROCESSING_ERROR
+- NEO4J:NEO4J_DRIVER_EXCEPTION
+- NEO4J:NO_SUCH_RECORD_EXCEPTION
+- NEO4J:PROTOCOL_EXCEPTION
+- NEO4J:REQUEST_FAILED
+- NEO4J:RETRY_EXHAUSTED
+- NEO4J:SECURITY_EXCEPTION
+- NEO4J:SERVICE_UNAVAILABLE_EXCEPTION
+- NEO4J:SESSION_EXPIRED_EXCEPTION
+- NEO4J:TRANSIENT_EXCEPTION
+- NEO4J:UNKNOWN_HOST
+
+## Delete Nodes
+
+`<neo4j:delete-nodes>`
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Label</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Remove Relationships</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p>false</p></td><td></td></tr><tr><td><p>Parameters</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- NEO4J:AUTHENTICATION_ERROR
+- NEO4J:CLIENT_ERROR
+- NEO4J:CONNECTION_ERROR
+- NEO4J:CONNECTIVITY
+- NEO4J:DATABASE_EXCEPTION
+- NEO4J:INCORRECT_CREDENTIALS
+- NEO4J:INVALID_SESSION
+- NEO4J:JSON_PROCESSING_ERROR
+- NEO4J:NEO4J_DRIVER_EXCEPTION
+- NEO4J:NO_SUCH_RECORD_EXCEPTION
+- NEO4J:PROTOCOL_EXCEPTION
+- NEO4J:REQUEST_FAILED
+- NEO4J:RETRY_EXHAUSTED
+- NEO4J:SECURITY_EXCEPTION
+- NEO4J:SERVICE_UNAVAILABLE_EXCEPTION
+- NEO4J:SESSION_EXPIRED_EXCEPTION
+- NEO4J:TRANSIENT_EXCEPTION
+- NEO4J:UNKNOWN_HOST
+
+## Execute
+
+`<neo4j:execute>`
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Query</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Input</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that storesoperationâs output will be placed</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- NEO4J:AUTHENTICATION_ERROR
+- NEO4J:CLIENT_ERROR
+- NEO4J:CONNECTION_ERROR
+- NEO4J:CONNECTIVITY
+- NEO4J:DATABASE_EXCEPTION
+- NEO4J:INCORRECT_CREDENTIALS
+- NEO4J:INVALID_SESSION
+- NEO4J:JSON_PROCESSING_ERROR
+- NEO4J:NEO4J_DRIVER_EXCEPTION
+- NEO4J:NO_SUCH_RECORD_EXCEPTION
+- NEO4J:PROTOCOL_EXCEPTION
+- NEO4J:REQUEST_FAILED
+- NEO4J:RETRY_EXHAUSTED
+- NEO4J:SECURITY_EXCEPTION
+- NEO4J:SERVICE_UNAVAILABLE_EXCEPTION
+- NEO4J:SESSION_EXPIRED_EXCEPTION
+- NEO4J:TRANSIENT_EXCEPTION
+- NEO4J:UNKNOWN_HOST
+
+## Select Nodes
+
+`<neo4j:select-nodes>`
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Label</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Input</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that storesoperationâs output will be placed</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- NEO4J:AUTHENTICATION_ERROR
+- NEO4J:CLIENT_ERROR
+- NEO4J:CONNECTION_ERROR
+- NEO4J:CONNECTIVITY
+- NEO4J:DATABASE_EXCEPTION
+- NEO4J:INCORRECT_CREDENTIALS
+- NEO4J:INVALID_SESSION
+- NEO4J:JSON_PROCESSING_ERROR
+- NEO4J:NEO4J_DRIVER_EXCEPTION
+- NEO4J:NO_SUCH_RECORD_EXCEPTION
+- NEO4J:PROTOCOL_EXCEPTION
+- NEO4J:REQUEST_FAILED
+- NEO4J:RETRY_EXHAUSTED
+- NEO4J:SECURITY_EXCEPTION
+- NEO4J:SERVICE_UNAVAILABLE_EXCEPTION
+- NEO4J:SESSION_EXPIRED_EXCEPTION
+- NEO4J:TRANSIENT_EXCEPTION
+- NEO4J:UNKNOWN_HOST
+
+## Update Nodes
+
+`<neo4j:update-nodes>`
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Label</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameters</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Set Parameters</p></td><td><div><div><p>Any</p></div></div></td><td></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- NEO4J:AUTHENTICATION_ERROR
+- NEO4J:CLIENT_ERROR
+- NEO4J:CONNECTION_ERROR
+- NEO4J:CONNECTIVITY
+- NEO4J:DATABASE_EXCEPTION
+- NEO4J:INCORRECT_CREDENTIALS
+- NEO4J:INVALID_SESSION
+- NEO4J:JSON_PROCESSING_ERROR
+- NEO4J:NEO4J_DRIVER_EXCEPTION
+- NEO4J:NO_SUCH_RECORD_EXCEPTION
+- NEO4J:PROTOCOL_EXCEPTION
+- NEO4J:REQUEST_FAILED
+- NEO4J:RETRY_EXHAUSTED
+- NEO4J:SECURITY_EXCEPTION
+- NEO4J:SERVICE_UNAVAILABLE_EXCEPTION
+- NEO4J:SESSION_EXPIRED_EXCEPTION
+- NEO4J:TRANSIENT_EXCEPTION
+- NEO4J:UNKNOWN_HOST
+
+## Types
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Source</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+---
+
+# Upgrading and Migrating Neo4j Connector to Version 4.0.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for Neo4j (Neo4j Connector) to version 4.0.0.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>3.0.x</p></div></div></td><td><div><div><p>4.0.0</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+This release contains significant changes:
+
+- Upgraded the Neo4j Java driver from version 1.7.6 to 5.28.8.
+- Updated Neo4j server requirements to version 4.4 and later (previously supported Neo4j 3.x).
+- Required minimum JDK 17 (upgraded from JDK 8).
+- Updated minimum Mule runtime engine (Mule) to 4.9.0 (upgraded from 4.1.x).
+- Removed the **REST URL** parameter from the connector configuration.
+- Overhauled input and output metadata resolution for a better Anypoint Studio experience.
+- Provided full compatibility with Neo4j 5.x and 2025.x server features.
+- Gained access to reactive APIs, multi-database support, and enhanced security.
+- Updated Docker configuration settings to use current Neo4j standards.
+- Changed the connector to only require a BOLT URL configuration.
+- Changed all metadata operations to use native Cypher queries through a BOLT connection instead of
+  REST API calls.
+
+## Requirements
+
+Ensure that you meet these requirements before you perform the upgrade.
+
+### Neo4j Server Requirements
+
+- The minimum Neo4j server version required is 4.4 LTS or later.
+- The recommended versions are Neo4j 5.26 LTS or Neo4j 2025.06+.
+- Neo4j 3.x servers are no longer supported.
+
+### Java Runtime Requirements
+
+- The minimum JDK version required is 17
+- The only supported JDK version is 17
+- JDK 8 and 11 are no longer supported
+
+### Mule Requirements
+
+- Minimum Mule version 4.9.0, required for JDK 17 support and unified connectors parent
+  compatibility
+- Mule versions 4.1.x - 4.8.x not supported
+
+### Development Environment
+
+- Anypoint Studio latest version supporting Mule Runtime 4.9.0+
+- Maven version supporting JDK 17+
+
+## Considerations
+
+Before you perform the upgrade, be aware of these known limitations:
+
+- Restore from backup to roll back after upgrading the connector.
+- Avoid using Neo4j 3.x servers with connector version 4.0.0.
+- Ensure Mule applications run on Mule 4.9.0+ and JDK 17+.
+- Update existing configurations that use the REST URL parameter.
+- Re-test all existing connections after upgrading the connector.
+- Refresh Studio metadata for the connector operations.
+- Upgrade test servers to Neo4j version 4.4+ before performing connector testing.
+- Use a JDK 17+ toolchain for Maven builds.
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, you must complete the following.
+
+### Prepare Your Environment
+
+1.  Create a backup of your Mule applications, data, and configurations
+2.  Upgrade Neo4j Server to version 4.4 LTS or later (if currently using Neo4j 3.x)
+3.  Upgrade Mule to version 4.9.0 or higher
+4.  Upgrade JDK to version 17 or higher on all environments (development, test, production)
+
+### Asses Mule Application
+
+1.  Review existing configurations to identify REST URL usage.
+2.  Document current BOLT URL settings for post-upgrade validation.
+3.  Test connectivity to make sure Neo4j servers are accessible via BOLT protocol.
+4.  Identify custom error handling that references connector-specific error types.
+
+## Upgrade the Connector in Anypoint Code Builder
+
+Follow these steps to perform the upgrade:
+
+1.  In **Explorer**, right-click the configuration XML file in your integration project, and select
+    **Project Properties**.
+2.  In **Project Properties**, select **Connectors**.
+3.  Select the latest version for the connector, and click **Apply**.
+
+## Upgrade the Connector in Studio
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, open your existing Mule project.
+2.  In **Mule Palette**, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `neo4j` in the search field.
+4.  In **Available modules**, select **Neo4j Connector** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the Neo4j Connector `<dependency>` version is `4.0.0` in the `pom.xml` file in the
+    Mule project:
+
+    ```xml
+    <dependency>
+      <groupId>com.mulesoft.connectors</groupId>
+      <artifactId>mule-neo4j-connector</artifactId>
+      <version>4.0.0</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+    ```
+
+Studio upgrades the connector automatically, but configuration changes are required.
+
+## Post Upgrade Steps
+
+After you install the latest version of the connector, follow these steps to complete the upgrade:
+
+### Remove REST URL Parameter
+
+The REST URL parameter is no longer supported in the connector configuration. Update your
+configurations:
+
+Before (Version 3.x):
+
+```xml
+<neo4j:config name="Neo4j_Config" doc:name="Neo4j Config">
+    <neo4j:connection username="${config.username}"
+                     password="${config.password}"
+                     boltUrl="${config.boltUrl}"
+                     restUrl="${config.restUrl}" />
+</neo4j:config>
+```
+
+After (Version 4.0.0):
+
+```xml
+<neo4j:config name="Neo4j_Config" doc:name="Neo4j Config">
+    <neo4j:connection username="${config.username}"
+                     password="${config.password}"
+                     boltUrl="${config.boltUrl}" />
+</neo4j:config>
+```
+
+### Update Connection Properties
+
+Remove the REST URL property from your configuration files:
+
+Before:
+
+```text
+config.username=<USERNAME>
+config.password=<PASSWORD>
+config.boltUrl=<BOLT_URL_ENDPOINT>
+config.restUrl=<REST_URL_ENDPOINT>  <!-- Remove this line -->
+```
+
+After:
+
+```text
+config.username=<USERNAME>
+config.password=<PASSWORD>
+config.boltUrl=<BOLT_URL_ENDPOINT>
+```
+
+### Update Runtime Environment
+
+1.  Make sure all environments are running on Mule 4.9.0+.
+2.  Verify all environments are using JDK 17+.
+3.  Make sure Neo4j servers are version 4.4+ or 5.x.
+
+### Refresh Metadata
+
+1.  Regenerate metadata in Anypoint Studio for improved design-time experience.
+2.  Test the connector operations to ensure metadata is properly resolved.
+3.  Validate the DataWeave expressions benefit from enhanced type information.
+
+### Verify the Upgrade
+
+After you install the latest version of the connector, verify the upgrade:
+
+1.  Make sure no REST URL references remain in configurations.
+2.  Verify the `pom.xml` file shows version 4.0.0 of the Neo4j Connector.
+3.  Use the **Test Connection** feature to validate BOLT connectivity.
+4.  Check that the operations show comprehensive field suggestions in Studio.
+5.  Execute existing unit tests to ensure functionality is preserved.
+6.  Verify no deprecation warnings appear during application startup.
+
+## Troubleshooting
+
+If you encounter issues, perform these troubleshooting ste\[s\].
+
+### Troubleshoot Connection Failures After Upgrade
+
+If the connector cannot connect to Neo4j server after upgrade, follow these steps:
+
+1.  Verify that the Neo4j server is version 4.4+ (Neo4j 3.x is no longer supported).
+2.  Make sure the BOLT protocol is enabled on Neo4j server.
+3.  Remove any REST URL references from the configuration.
+
+Error example:  
+`Neo4j.ClientError.Security.Unauthorized`
+
+Therefore, verify credentials and server accessibility via BOLT port (default 7687).
+
+### Troubleshoot Metadata Not Displaying in Studio
+
+If the connector operations show empty metadata or missing field suggestions, try these steps to
+solve the issue:
+
+1.  Ensure sample data exists in your Neo4j database for the labels youâre using.
+2.  Regenerate metadata by refreshing the connector in Studio.
+3.  Verify the BOLT connection is working properly.
+
+### Troubleshoot Runtime Compatibility Issues
+
+If the Mule application fails to start with JDK or Mule runtime errors, try these steps:
+
+1.  Upgrade to JDK 17+ (JDK 8/11 no longer supported).
+2.  Upgrade to Mule Runtime 4.9.0+ (earlier versions incompatible).
+3.  Update Maven build configuration for JDK 17 compatibility.
+
+### Revert the Upgrade
+
+If you need to revert to the previous version of Neo4j Connector, go to Anypoint Studio and in the
+projectâs `pom.xml` file, change the `mule-neo4j-connector` dependency version 3.0.0 to the previous
+version.
+
+> [!IMPORTANT] Reverting requires restoring to environments compatible with version 3.x
+> requirements.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

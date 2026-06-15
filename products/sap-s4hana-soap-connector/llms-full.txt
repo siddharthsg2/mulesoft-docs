@@ -1,0 +1,1386 @@
+﻿# SAP S/4HANA SOAP Connector - Full Documentation
+
+# SAP S/4HANA SOAP Connector 2.6
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector (SAP S/4HANA SOAP Connector) provides full support for the SOAP APIs exposed by
+SAP S/4HANA Cloud ERP, and starting with version 2.1, also provides support for SAP S/4HANA
+on-premise ERP. This connector enables you to automatically discover SOAP services enabled on your
+SAP S/4HANA instance and to invoke the SOAP service and associated operations.
+
+For software requirements and compatibility information, see the
+[SAP S/4HANA SOAP Connector Release Notes](../../release-notes/connector/sap-s4-hana-soap-cloud-connector-release-notes-mule-4).
+
+## Before You Begin
+
+Before you create an app and use this connector, you must:
+
+- Have a developer account or other valid SAP S/4HANA instance.
+- Have a MuleSoft Enterprise license.
+- Enable discovery service in your SAP S/4HANA instance.
+- Have a communication user that is assigned to the corresponding communication arrangements for the
+  desired APIs.
+- Be familiar with:
+  - SAP S/4HANA SOAP
+  - Mule runtime engine (Mule)
+  - Anypoint Connectors
+  - Anypoint Studio essentials
+
+## Common Use Cases For the Connector
+
+Send an XML request to SAP S/4HANAâs SOAP API and print a response.
+
+## Using Exchange Templates and Examples
+
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) provides templates you can use as a starting
+point for your app, as well as examples that illustrate a complete solution.
+
+## Next Step
+
+After you complete the prerequisites and experiment with templates and examples, you are ready to
+create an app with [Anypoint Studio](sap-s4hana-soap-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [SAP S/4HANA SOAP Connector Release Notes](../../release-notes/connector/sap-s4-hana-soap-cloud-connector-release-notes-mule-4)
+- [SAP S/4HANA SOAP Connector on Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-sap-s4hana-soap-cloud-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# SAP S/4HANA SOAP Connector 2.6 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Send an XML Request and Print the Response
+
+This example sends an XML request to SAP S/4HANAâs SOAP API and prints the response:
+
+![First flow with Listener and Parse Template and second flow with Listener, Transform Message, Logger, Invoke, Logger, and Transform Message](_images/sap-s4hana-soap-demo-flow.png)
+
+### POM File for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.mycompany</groupId>
+	<artifactId>sap-hana-soap-demo</artifactId>
+    	<version>2.1.0</version>
+    	<packaging>mule-application</packaging>
+
+	<name>sap-hana-soap-demo</name>
+
+    <properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+		<app.runtime>4.2.0</app.runtime>
+		<mule.maven.plugin.version>3.2.7</mule.maven.plugin.version>
+	</properties>
+
+	<build>
+	   <plugins>
+	      <plugin>
+		 <groupId>org.mule.tools.maven</groupId>
+		 <artifactId>mule-maven-plugin</artifactId>
+		 <version>${mule.maven.plugin.version}</version>
+		 <extensions>true</extensions>
+	      </plugin>
+	   </plugins>
+	</build>
+
+	<dependencies>
+        <dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-http-connector</artifactId>
+            <version>1.5.3</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-sockets-connector</artifactId>
+            <version>1.1.5</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+    	<dependency>
+            <groupId>com.mulesoft.connectors</groupId>
+            <artifactId>mule-sap-s4hana-soap-cloud-connector</artifactId>
+            <version>2.1.0</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+	</dependencies>
+
+	<repositories>
+          <repository>
+            <id>anypoint-exchange</id>
+            <name>Anypoint Exchange</name>
+            <url>https://maven.anypoint.mulesoft.com/api/v1/maven</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <id>mulesoft-releases</id>
+            <name>MuleSoft Releases Repository</name>
+            <url>https://repository.mulesoft.org/releases/</url>
+            <layout>default</layout>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>mulesoft-releases</id>
+            <name>mulesoft release repository</name>
+            <layout>default</layout>
+            <url>https://repository.mulesoft.org/releases/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+</project>
+```
+
+### XML Code for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:s4hana-soap="http://www.mulesoft.org/schema/mule/s4hana-soap"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/s4hana-soap
+	http://www.mulesoft.org/schema/mule/s4hana-soap/current/mule-s4hana-soap.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<configuration-properties
+		doc:name="Configuration properties"
+		file="mule-artifact.properties" />
+
+	<s4hana-soap:config
+		name="SAP_S4_HANA_SOAP_Config"
+		doc:name="SAP S4 HANA SOAP Config" >
+		<s4hana-soap:basic-authentication-connection
+			baseUrl="${config.serviceBaseUrl}"
+			username="${config.username}"
+			password="${config.password}" />
+	</s4hana-soap:config>
+	<flow name="htmlPageFlow" >
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/"/>
+		<parse-template doc:name="Parse Template"  location="form.html"/>
+	</flow>
+	<flow name="queryFlow"  >
+		<http:listener doc:name="Listener"  config-ref="HTTP_Listener_config" path="/query"/>
+		<ee:transform doc:name="Transform Message"  >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://sap.com/xi/SAPGlobal/Global
+---
+{
+	ns0#CreditManagementAccountByIDQuery: {
+		MessageHeader: {
+			ID: "@" as String,
+			CreationDateTime: now()
+		},
+		Selection: {
+			DebtorPartyInternalID: attributes.queryParams['DebtorPartyInternalID'] as String,
+			CreditsegmentInternalID: attributes.queryParams['CreditsegmentInternalID'] as String
+		},
+		LanguageCode: "ZZZ" as String
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO"
+			doc:name="Logger"
+			message="Request #[payload]"/>
+		<s4hana-soap:invoke
+			doc:name="Invoke"
+			config-ref="SAP_S4_HANA_SOAP_Config"
+			service="https://mysap.s4hana.instance.com/sap/bc/srt/wsdl_ext/flv_10002S111AD1/srvc_url/sap/bc/srt/scs_ext/sap/creditmanagementaccountbyidqu1"
+			operation="CreditManagementAccountByIDQuery_In">
+		</s4hana-soap:invoke>
+		<logger level="INFO" doc:name="Logger"  message="Response #[payload]"/>
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## Send an XML Request and Receive the Replication Outbound Message
+
+In this example, an XML request is sent to SAP S/4HANAâs SOAP API and then receives the replication
+outbound message, which is saved to the object store:
+
+![First flow with Listener and Parse Template and second flow with Outbound Message Listener, Logger, Transform Message, Store, and Logger](_images/sap-s4hana-soap-soource-demo-flow1.png)
+
+This flow is used to get the outbound message from the object store:
+
+![First flow with Listener, Retrieve, Transform Message, and Logger and second flow with Listener, Transform Message, Invoke, Logger, and Transform Message](_images/sap-s4hana-soap-soource-demo-flow2.png)
+
+### POM File for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.mulesoft.connectors.examples</groupId>
+    <artifactId>sap-hana-soap-demo</artifactId>
+    <version>2.1.0</version>
+    <packaging>mule-application</packaging>
+
+	<name>s4-hana-source-demo</name>
+
+    <properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+		<app.runtime>4.3.0</app.runtime>
+		<mule.maven.plugin.version>3.3.5</mule.maven.plugin.version>
+	</properties>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-clean-plugin</artifactId>
+				<version>3.0.0</version>
+			</plugin>
+			<plugin>
+				<groupId>org.mule.tools.maven</groupId>
+				<artifactId>mule-maven-plugin</artifactId>
+				<version>${mule.maven.plugin.version}</version>
+				<extensions>true</extensions>
+				<configuration>
+				<classifier>mule-application</classifier>
+                </configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<dependencies>
+        <dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-http-connector</artifactId>
+            <version>1.5.17</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.mulesoft.connectors</groupId>
+            <artifactId>mule-sap-s4hana-soap-cloud-connector</artifactId>
+            <version>2.1.0</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+		<dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-objectstore-connector</artifactId>
+            <version>1.1.5</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+    </dependencies>
+
+	<repositories>
+          <repository>
+            <id>anypoint-exchange-v2</id>
+            <name>Anypoint Exchange</name>
+            <url>https://maven.anypoint.mulesoft.com/api/v2/maven</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <id>mulesoft-releases</id>
+            <name>MuleSoft Releases Repository</name>
+            <url>https://repository.mulesoft.org/releases/</url>
+            <layout>default</layout>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>mulesoft-releases</id>
+            <name>mulesoft release repository</name>
+            <layout>default</layout>
+            <url>https://repository.mulesoft.org/releases/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+</project>
+```
+
+### XML Code for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc"
+	xmlns:s4hana="http://www.mulesoft.org/schema/mule/s4hana" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:s4hana-soap="http://www.mulesoft.org/schema/mule/s4hana-soap" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/s4hana-soap http://www.mulesoft.org/schema/mule/s4hana-soap/current/mule-s4hana-soap.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/s4hana http://www.mulesoft.org/schema/mule/s4hana/current/mule-s4hana.xsd">
+	<http:listener-config name="HTTPS_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="8082" protocol="HTTPS"/>
+	</http:listener-config>
+
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<s4hana-soap:listener-config name="SAP_S4_HANA_SOAP_Listener_config" doc:name="SAP S4 HANA SOAP Listener config" httpListenerConfig="HTTPS_Listener_config" />
+
+	<s4hana-soap:config name="SAP_S4_HANA_SOAP_Config" doc:name="SAP S4 HANA SOAP Config" >
+		<s4hana-soap:basic-authentication-connection baseUrl="${config.serviceBaseUrl}" username="${config.username}" password="${config.password}" />
+	</s4hana-soap:config>
+
+	<os:object-store name="Product" doc:name="Object store" entryTtl="30" />
+
+	<flow name="html-page-flow" >
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/"/>
+		<parse-template doc:name="Parse Template" location="form.html"/>
+	</flow>
+	<flow name="product-message-type-flow">
+		<s4hana-soap:outbound-message-listener doc:name="Outbound Message Listener" config-ref="SAP_S4_HANA_SOAP_Listener_config" messageType="ProductMDMBulkReplicateRequestMessage" path="/productmdmbulkreplicaterequest" />
+		<logger level="INFO" doc:name="Logger" message='#["Outbound message received in the Product flow"]'/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<os:store doc:name="Store" key="#[payload.ProductMDMBulkReplicateRequestMessage.ProductMDMReplicateRequestMessage.Product.ProductInternalID]" objectStore="Product"/>
+		<logger level="INFO" doc:name="Logger" message="#[payload]" />
+	</flow>
+
+	<flow name="get-outbound-message-flow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/get"/>
+		<os:retrieve doc:name="Retrieve" key="#[attributes.queryParams.productId]" objectStore="Product">
+			<os:default-value ><![CDATA[There is no such productId]]></os:default-value>
+		</os:retrieve>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+
+	<flow name="create-product-flow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/create"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://sap.com/xi/SAPGlobal20/Global
+---
+{
+	ns0#ProductMDMBulkReplicateRequestMessage: {
+		MessageHeader: {
+			ID: "FA163E6728911EDAA5BFCEE21420A568",
+			UUID: "fa163e67-2891-1eda-a5bf-cee21420a568",
+			CreationDateTime: "20200528121755",
+			SenderBusinessSystemID: "SOBASIC",
+			RecipientBusinessSystemID: "0M2JP31"
+		},
+		ProductMDMReplicateRequestMessage: {
+			MessageHeader: {
+				ID: "FA163E6728911EDAA5BFCEE21420A568",
+				UUID: "fa163e67-2891-1eda-a5bf-cee21420a568",
+				CreationDateTime: "20200528121755",
+				SenderBusinessSystemID: "SOBASIC",
+				RecipientBusinessSystemID: "0M2JP31"
+			},
+			Product @(plantListCompleteTransmissionIndicator: true , salesSpecificationListCompleteTransmissionIndicator: true , valuationAreaListCompleteTransmissionIndicator: true , descriptionListCompleteTransmissionIndicator: true , globalTradeItemNumberListCompleteTransmissionIndicator: true , quantityConversionListCompleteTransmissionIndicator: true , quantityCharacteristicListCompleteTransmissionIndicator: true , changeOrdinalNumberValue: "00000000000000000001" , reconciliationPeriodCounterValue: "1"): {
+				ProductInternalID: attributes.queryParams.productId,
+				UnformattedProductInternalID: "TEST444",
+				ReceiverProductInternalID: attributes.queryParams.productId,
+				UnformattedReceiverProductInternalID: "TEST444",
+				ProductTypeCode: "MAT",
+				IndustrySectorCode: "M",
+				BaseMeasureUnitCode: "BG",
+				BasicViewMaintainedIndicator: true,
+				Description @(actionCode: "04"): {
+					Description @(languageCode: "en"): "Material test 444"
+				},
+				QuantityConversion @(actionCode: "04"): {
+					Quantity @(unitCode: "BG"): "1.0",
+					CorrespondingQuantity @(unitCode: "BG"): "1.0"
+				},
+				StorageSpecification: {
+					MinimumRemaininigShelfLifeCode: 0
+				}
+			}
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s4hana-soap:invoke doc:name="Invoke" config-ref="SAP_S4_HANA_SOAP_Config" service="https://my303109-api.s4hana.ondemand.com/sap/bc/srt/wsdl_ext/flv_10002S111AD1/srvc_url/sap/bc/srt/scs_ext/sap/productmdmbulkreplicaterequest" operation="ProductMDMBulkReplicateRequest_In" customQueryParams='#["MessageId" : uuid()]'/>
+		<logger level="INFO" doc:name="Logger" message='#["Product successfully created"]'/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.body]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# SAP S/4HANA SOAP Connector 2.6 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for SAP S/4HANA SOAP provides full support for the SOAP APIs exposed by SAP
+S/4HANA ERP and, starting with 2.1.x, provides support also for SAP S/4HANA On-Premise ERP.
+
+The main class of an extension is the entry point from which configurations, connection providers,
+operations, and sources are declared.
+
+## Configurations
+
+---
+
+### Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#Config_BasicAuthentication">Basic Authentication</a></p></li><li><p><a href="#Config_CertificateAuthentication">Certificate Authentication</a></p></li><li><p><a href="#Config_Oauth2ClientCredentialsAuthentication">Oauth2 Client Credentials Authentication</a></p></li></ul></div></div></td><td><p>Connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Default character encoding to use in all the messages. If not specified, the default charset in the mule configuration will be used.</p></td><td></td><td></td></tr><tr><td><p>Connection timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for the request.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeout configurations.</p></td><td><p><code>SECONDS</code></p></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Identifier of this element used to reference it in other components.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr><tr><td><p>Version</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WSA200508</p></li><li><p>WSA200408</p></li></ul></div></div></td><td><p>WS-Addressing version. Defaults to WSA200508.</p></td><td><p>WSA200508</p></td><td></td></tr><tr><td><p>From</p></td><td><div><div><p>String</p></div></div></td><td><p>Reference of the endpoint where the message originated from.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Basic Authentication
+
+Basic authentication is the simplest way of enforcing access controls because it does not require
+cookies, session identifiers, or login pages. Instead, it uses standard fields in the HTTP header,
+removing the need for handshakes. This mechanism provides no confidentiality protection for the
+transmitted credentials. They are merely encoded with Base64 in transit, but not encrypted or hashed
+in any way.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>Base URL of the service on SAP S/4HANA to be accessed from the connector.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Account username with which to log in to SAP S/4HANA.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Account password with which to log in to SAP S/4HANA.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Discovery Service Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables automatic service discovery.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Discovery Service Path</p></td><td><div><div><p>String</p></div></div></td><td><p>URL to use for automatic services discovery.</p></td><td><p><code>/sap/bc/srt/wsil_ext</code></p></td><td></td></tr><tr><td><p>Service directory</p></td><td><div><div><p>String</p></div></div></td><td><p>Common HTTP directory for all SAP services.</p></td><td></td><td></td></tr><tr><td><p>Unlisted services</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of services to add to the list of discovered services.</p></td><td></td><td></td></tr><tr><td><p>Service discovery resolution timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for service discovery.</p></td><td><p><code>30</code></p></td><td></td></tr><tr><td><p>Service Discovery Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeout configuration.</p></td><td><p><code>SECONDS</code></p></td><td></td></tr><tr><td><p>Default HTTP headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Default HTTP headers to include in the message.</p></td><td></td><td></td></tr><tr><td><p>Default query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Default query parameters to include in the request.</p></td><td></td><td></td></tr><tr><td><p>Proxy configuration</p></td><td><div><div><p><a href="#ProxyConfiguration">Proxy Configuration</a></p></div></div></td><td><p>Proxy configuration for the connector.</p></td><td></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td><p>HTTP</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+##### Certificate Authentication
+
+An X.509 certificate is a digital certificate based on the widely accepted International
+Telecommunications Union (ITU) X.509 standard, which defines the format of public key infrastructure
+(PKI) certificates. They are used to manage identity and security in internet communications and
+computer networking. X.509 authentication requires a discovery service configuration, a valid
+certificate, and a secure connection (HTTPS).
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>Base URL of the service on SAP S/4HANA to be accessed from the connector.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Discovery Service Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables automatic service discovery.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Discovery Service Path</p></td><td><div><div><p>String</p></div></div></td><td><p>URL to use for automatic services discovery.</p></td><td><p><code>/sap/bc/srt/wsil_ext</code></p></td><td></td></tr><tr><td><p>Service directory</p></td><td><div><div><p>String</p></div></div></td><td><p>Common HTTP directory for all SAP services.</p></td><td></td><td></td></tr><tr><td><p>Unlisted services</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of services to add to the list of discovered services.</p></td><td></td><td></td></tr><tr><td><p>Service discovery resolution timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for service discovery.</p></td><td><p><code>30</code></p></td><td></td></tr><tr><td><p>Service Discovery Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeout configuration</p></td><td><p><code>SECONDS</code></p></td><td></td></tr><tr><td><p>Default HTTP headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Default HTTP headers to include in the message.</p></td><td></td><td></td></tr><tr><td><p>Default query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Default query parameters to include in the request.</p></td><td></td><td></td></tr><tr><td><p>Proxy configuration</p></td><td><div><div><p><a href="#ProxyConfiguration">Proxy Configuration</a></p></div></div></td><td><p>Proxy configuration for the connector.</p></td><td></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td><p>HTTP</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+##### OAuth 2.0 Client Credentials Authentication
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+OAuth 2.0 authentication provides a secure way of authenticating against the resource using the
+provided client ID and client secret. Authentication is ensured using an access token generated by
+the resource. The generated token has a limited lifespan and is automatically refreshed by
+initiating a refresh dance, after the token expires.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>Base URL of the SAP S/4HANA SOAP service to access from the connector.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Discovery Service Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables automatic service discovery.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Discovery Service Path</p></td><td><div><div><p>String</p></div></div></td><td><p>URL to use for automatic services discovery.</p></td><td><p><code>/sap/bc/srt/wsil_ext</code></p></td><td></td></tr><tr><td><p>Service directory</p></td><td><div><div><p>String</p></div></div></td><td><p>Common HTTP directory for all SAP services.</p></td><td></td><td></td></tr><tr><td><p>Unlisted services</p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>List of services that will be added to the list of discovered services, for example: <code>/sap/bc/srt/wsdl_ext/flv_10002S111AD1/srvc_url/sap/bc/srt/scs_ext/sap/creditmanagementaccountbyidqu1</code><br>If the <code>Service directory</code> parameter is not specified, then the HTTP directory needs to be prepended before every service name in this list, in the following format: <code>{directory}/{service-name}</code>.</p></div></div></td><td></td><td></td></tr><tr><td><p>Service discovery resolution timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for service discovery.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Service Discovery Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeout configuration</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Default HTTP headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Default HTTP headers the message should include.</p></td><td></td><td></td></tr><tr><td><p>Default query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Default query parameters the request should include.</p></td><td></td><td></td></tr><tr><td><p>Proxy configuration</p></td><td><div><div><p><a href="#ProxyConfiguration">Proxy Configuration</a></p></div></div></td><td><p>Proxy configuration for the connector.</p></td><td></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td><p>HTTP</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Client Id</p></td><td><div><div><p>String</p></div></div></td><td><p>OAuth client ID as registered with the service provider.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Client Secret</p></td><td><div><div><p>String</p></div></div></td><td><p>OAuth client secret as registered with the service provider.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Token Url</p></td><td><div><div><p>String</p></div></div></td><td><p>Service providerâs token endpoint URL.</p></td><td><p><code>https://{host-name}/{oauth-service}/{generate-token-resource}</code></p></td><td></td></tr><tr><td><p>Scopes</p></td><td><div><div><p>String</p></div></div></td><td><p>OAuth scopes requested during the dance. If not provided, it defaults to those in the annotation.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>String</p></div></div></td><td><p>Reference to the object store used to store each resource owner IDâs data. If not specified, the default object store is automatically provisioned by Mule.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Associated Operations
+
+- [Invoke](#Invoke)
+- [Unauthorize](#Unauthorize)
+
+---
+
+### Listener Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Default character encoding to use in all the messages. If not specified, the default charset in the Mule configuration is used.</p></td><td></td><td></td></tr><tr><td><p>HTTP Listener</p></td><td><div><div><p>String</p></div></div></td><td><p>Reference to the global HTTP Listener that will be used to receive SOAP S/4HANA messages.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>WSDL Paths</p></td><td><div><div><p>Array of <a href="#WsdlPath">WSDL Path</a></p></div></div></td><td><p>Specify the locations of the WSDL definitions.</p></td><td></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Identifier of this element; used by other components to reference it.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Security</p></td><td><div><div><p><a href="#ListenerSecurityConfig">Listener Security Config</a></p></div></div></td><td><p>Message-level security configuration.</p></td><td></td><td></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Associated Sources
+
+- [Outbound Message Listener](#OutboundMessageListener)
+
+## Supported Operations
+
+- [Invoke](#Invoke)
+- [Unauthorize](#Unauthorize)
+
+## Invoke
+
+`<s4hana-soap:invoke>`
+
+Consumes an operation from an S/4HANA SOAP Web Service.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Web Service Addressing</p></td><td><div><div><p><a href="#AddressingSettings">Addressing Settings</a></p></div></div></td><td><p>Configuration of the WS-Addressing specific SOAP headers.</p></td><td></td><td></td></tr><tr><td><p>Custom Soap Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Additional soap headers to be wrapped in the soap envelope.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Operation name</p></td><td><div><div><p>String</p></div></div></td><td><p>Operation name of the service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message</p></td><td><div><div><p>Binary</p></div></div></td><td><p>Content of the message.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Connection timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for the request.</p></td><td></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeout configurations</p></td><td></td><td></td></tr><tr><td><p>Custom HTTP headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers that the request will include. The headers specified here will be merged with the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The query parameters specified here will be merged with the default query parameters specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable in which to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type a</p></td><td><p><a href="#SoapOutputEnvelope">SOAP Output Envelope</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#SoapAttributes">SOAP Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- S4HANA-SOAP:BAD_REQUEST
+- S4HANA-SOAP:CONNECTIVITY
+- S4HANA-SOAP:PROCESSING_ERROR
+- S4HANA-SOAP:RETRY_EXHAUSTED
+
+## Unauthorize
+
+`<s4hana-soap:unauthorize>`
+
+Deletes all of the access token information of a given resource owner ID so that itâs impossible to
+execute any operation for that user without repeating the authorization dance.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+## Sources
+
+## Outbound Message Listener
+
+`<s4hana-soap:outbound-message-listener>`
+
+Creates an input source that listens for incoming SAP S/4HANA SOAP outbound messages.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path where server listens for the outbound messages.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Allowed Methods</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of methods. Leave empty to allow all.</p></td><td><p>GET, POST</p></td><td></td></tr><tr><td><p>Message Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Message type the source listens for.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Allowed S/4HANA Systems</p></td><td><div><div><p>Array of <a href="#AllowedOutboundSystemParameter">Allowed Outbound System Parameter</a></p></div></div></td><td><p>Parameter for securing the Outbound Message Listener to receive outbound messages only from allowed S/4HANA systems.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should be executed only on the primary node when running in a cluster.</p></td><td></td><td></td></tr><tr><td><p>On Capacity Overload</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WAIT</p></li><li><p>FAIL</p></li><li><p>DROP</p></li></ul></div></div></td><td><p>Strategy that the Mule applies when the flow receives more messages to process than it has the capacity for</p></td><td><p>WAIT</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Binary</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status Code</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Reason Phrase</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Any</p></div></div></td></tr><tr><td><p><strong>Attributes Type</strong></p></td><td><div><div><p><a href="#OutboundMessageAttributes">Outbound Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Listener Config](#ListenerConfig)
+
+## Types
+
+### Proxy Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Host where the proxy requests are sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port where the proxy requests are sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Non Proxy Hosts</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of hosts against which the proxy should not be used.</p></td><td></td><td></td></tr><tr><td><p>Ntlm Domain</p></td><td><div><div><p>String</p></div></div></td><td><p>Domain to authenticate against the proxy.</p></td><td></td><td></td></tr></tbody></table>
+
+### TLS
+
+Defines a configuration for TLS, which can be used from both the client and server sides to secure
+communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured
+using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least
+the keystore in the `tls:context` child element of the `listener-config`.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Truststore</p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Keystore</p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Truststore
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Location of the truststore, which will be resolved relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the truststore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store used.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Algorithm used by the truststore.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Keystore
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Location of the keystore, which will be resolved relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the keystore contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file will be used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the keystore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Algorithm used by the keystore.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Only verify the last element of the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method (the one not selected before).</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server can not be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response (must be in the truststore) if present.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Scalar time value for the maximum amount of time a dynamic configuration instance can be idle before itâs considered eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit that qualifies the maxIdleTime attribute.</p></td><td></td><td></td></tr></tbody></table>
+
+### Listener Security Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service Credentials</p></td><td><div><div><p><a href="#UsernamePasswordSecurityStrategyConfig">Username Password Security Strategy Config</a></p></div></div></td><td><p>Listener client credentials configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Signature Verification Strategy</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#TrustStoreStrategy">Trust Store Strategy</a></p></li><li><p><a href="#DefaultStrategy">Default Strategy</a></p></li></ul></div></div></td><td><p>Strategy used to verify signed SOAP messages.</p></td><td></td><td></td></tr></tbody></table>
+
+### Username Password Security Strategy Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Clients</p></td><td><div><div><p>Array of <a href="#UsernamePasswordEntry">Username Password Entry</a></p></div></div></td><td><p>List of authorized usernames and passwords.</p></td><td></td><td></td></tr></tbody></table>
+
+### Username Password Entry
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Clientâs username.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Clientâs password.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Default Strategy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>CACerts Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password for the default Java cacerts truststore. This store is located in <code>&lt;JAVA_HOME&gt;/lib/security/cacerts</code>.</p></td><td><p><code>changeit</code></p></td><td></td></tr></tbody></table>
+
+### Trust Store Strategy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Trust store path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to your truststore. This is either an absolute path or a path relative to your <code>resources</code> folder.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Trust store password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password for the truststore.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Trust store type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p>JCEKS</p></li><li><p>JKS</p></li><li><p>PKCS12</p></li></ul></div></div></td><td><p>Type of truststore.</p></td><td><p><code>PKCS12</code></p></td><td></td></tr></tbody></table>
+
+### SOAP Output Envelope
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Attachments</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Binary</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### SOAP Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Transport Additional Data</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Transport Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Addressing Settings
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Wsa To</p></td><td><div><div><p>String</p></div></div></td><td><p>Address of the intended receiver of this message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Wsa Version</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WSA200508</p></li><li><p>WSA200408</p></li></ul></div></div></td><td><p>WS-Addressing version. If not specified, the connector uses the value from the configuration.</p></td><td></td><td></td></tr><tr><td><p>Wsa From</p></td><td><div><div><p>String</p></div></div></td><td><p>Reference of the endpoint from which the message originated. If not specified, the connector uses the value from the configuration.</p></td><td></td><td></td></tr><tr><td><p>Wsa Message ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Identifier that uniquely identifies this message in time and space. If not specified, the connector uses time-based UUID.</p></td><td></td><td></td></tr><tr><td><p>Wsa Relates To</p></td><td><div><div><p>String</p></div></div></td><td><p>Message ID to which the message relates.</p></td><td></td><td></td></tr></tbody></table>
+
+### WSDL Path
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Wsdl Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Location of the WSDL definition.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Outbound Message Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Http Request Attributes</p></td><td><div><div><p><a href="#HttpRequestAttributes">Http Request Attributes</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Message Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Soap Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Http Request Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Client Certificate</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Http Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Listener Path</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Local Address</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Method</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Query Params</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Raw Request Uri</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Remote Address</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Scheme</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Uri Params</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Allowed Outbound System Parameter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Recipient Business System ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Sender Business System ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+When streaming in this mode, Mule does not use the disk to buffer the contents. If you exceed the
+buffer size, the message fails.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Amount of memory to allocate to consume the stream and provide random access to it. If the stream contains more data than can fit into the specified buffer size, then the buffer is expanded according to the <code>bufferSizeIncrement</code> attribute, with an upper limit of what is specified for <code>maxInMemorySize</code>.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>How much the buffer size expands if it exceeds the amount specified for its initial size. Setting a value of zero or lower means that the buffer should not expand, and a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is thrown when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of memory to use. If the specified maximum is exceeded, a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is thrown. A value lower than or equal to zero means there is no limit on the buffer size.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these buffer size attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+File store repeatable streams require buffering. Mule keeps a portion of the stream contents in
+memory. If the stream contents are larger than the configured buffer size, Mule backs up the
+bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed, then the contents start to buffer on the disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit in which maxInMemorySize is expressed.</p></td><td></td><td></td></tr></tbody></table>
+
+### Non-repeatable Stream
+
+In some cases, you may want to disable the repeatable stream functionality and use non-repeatable
+streams, which can have less performance overhead, memory use, and cost.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>Type of joining action that operations can take regarding transactions.</p></td><td><p><code>JOIN_IF_POSSIBLE</code></p></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use. If not set, the default is SHA-256.</p></td><td></td><td></td></tr><tr><td><p>Message Identifier</p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><p>Defines which strategy is used to identify the messages.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>ObjectStore</p></div></div></td><td><p>Object store where the redelivery counter for each message is going to be stored.</p></td><td></td><td></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>Defines one or more expressions to use to determine when a message has been redelivered. This property may only be set if useSecureHash is false.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure SAP S/4HANA SOAP Connector 2.6
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Project
+
+Add SAP S/4HANA SOAP Connector to a Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location, as well as to add the required dependencies to the
+projectâs `pom.xml` file.
+
+1.  In Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type `SAP S/4HANA SOAP` in the search field.
+4.  Click the SAP S/4HANA SOAP connector name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source
+
+An input source initiates a flow when a specified condition is met. You can configure one of these
+input sources to use with SAP S/4HANA SOAP Connector:
+
+- **Outbound Message Listener**, which listens for incoming SAP S/4HANA SOAP outbound messages
+- **HTTP Listener**, which initiates a flow each time it receives a request on the configured host
+  and port
+- **Scheduler**, which initiates a flow when a time-based condition is met
+
+For example, to configure **HTTP Listener**, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP** > **Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** tab, optionally change the value of the **Display Name** field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for SAP S/4HANA SOAP Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **SAP S4 HANA SOAP** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Global Configuration Elements
+
+To use SAP S/4HANA SOAP Connector in a Mule app, you can configure a global SAP S/4HANA
+configuration element for use by SAP S/4HANA Connector operations in your application.
+
+You can put placeholder values in the `mule-artifact.content` configuration file in the
+`src/main/resources` folder of your project.
+
+You can either enter your credentials in the global configuration content or reference a
+configuration file that contains the values for your credentials. Using a configuration file is
+recommended for simpler maintenance and better reuse of your project. Keeping these values in a
+separate file is useful if you need to deploy to different environments, such as production,
+development, and QA, where access credentials might differ.
+
+### Configure the SAP S/4HANA SOAP Config
+
+When you configure a connector, it is best to configure a global element that can be used by all
+instances of that connector in the app. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target SAP S/4HANA system. SAP S/4HANA
+Connector supports both Basic authentication and OAuth 2.0 client credentials authentication.
+
+To configure the global element for SAP S/4HANA SOAP Connector, follow these steps:
+
+1.  In your project, click the **Global Elements** tab at the base of the canvas.
+2.  In the **Global Configuration Elements** screen, click **Create**:
+
+    ![Global configuration elements screen with Create button](_images/sap-hana-global-config-wizard.png)
+
+3.  In the **Choose Global Type** wizard, expand **Connector Configuration**, select **SAP S/4HANA
+    SOAP Config**, and click **OK**.
+4.  In the **General** tab, select the connection authentication from the **Connection** drop-down:
+    - [**Basic Authentication**](#basic_authentication)
+    - [**Certificate Authentication**](#certificate-authentication)
+    - [**OAuth 2 Client Credentials Authentication**](#oauth-client-credentials)
+
+5.  Enter the required information for the selected connection type and click **OK**.
+6.  Click **Test Connection** to ensure that your access credentials are correct.
+7.  Click the **Addressing** tab to configure the following values:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Studio Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Version</strong></p></td><td><div><div><p>WS-Addressing version. If nothing is specified, the connector uses the value from configuration.</p></div></div></td></tr><tr><td><p><strong>From</strong></p></td><td><div><div><p>Reference of the endpoint where the message originated from. If nothing is specified, the connector uses the value from configuration.</p></div></div></td></tr></tbody></table>
+
+8.  Click the **Advanced** tab to configure the following values:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Studio Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Discovery Service Enabled</strong></p></td><td><div><div><p>Feature switch for service discovery. If disabled, the service discovery relative path is not applied.</p></div></div></td></tr><tr><td><p><strong>Discovery Service Path</strong></p></td><td><div><div><p>Relative path from the base URL to the service to use for automatic services discovery</p></div></div></td></tr><tr><td><p><strong>Service directory</strong></p></td><td><div><div><p>Common HTTP directory for all SAP services. You can leave this parameter blank and specify the HTTP directory individually for every service in the unlisted services list.</p></div></div></td></tr><tr><td><p><strong>Unlisted services</strong></p></td><td><div><div><p>List of services to add to the list of discovered services</p></div></div></td></tr><tr><td><p><strong>Service discovery resolution timeout</strong></p></td><td><div><div><p>Connection timeout for service discovery</p></div></div></td></tr><tr><td><p><strong>Service discovery timeout unit</strong></p></td><td><div><div><p>Time unit to use in the service discovery resolution timeout configuration</p></div></div></td></tr><tr><td><p><strong>Default headers</strong></p></td><td><div><div><p>Custom headers to include in each request sent</p></div></div></td></tr><tr><td><p><strong>Default query parameter</strong></p></td><td><div><div><p>Custom query parameters to include in each request sent</p></div></div></td></tr><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p>TLS configuration</p></div></div></td></tr><tr><td><p><strong>Proxy configuration</strong></p></td><td><div><div><p>Configuration for executing requests through a proxy</p></div></div></td></tr></tbody></table>
+
+9.  Click **OK** to save the global connector configuration.
+
+### Basic Authentication
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure basic authentication:
+
+- **Service Base URL**  
+  URL of the SAP S/4HANA instance you want to manage
+- **Username**  
+  User name used to initialize the session
+- **Password**  
+  Password used to authenticate the user
+
+### Certificate Authentication
+
+Enter the following required information on the **General** tab of the **Global Element Properties**
+screen to configure certificate authentication:
+
+- **Service Base URL**  
+  URL of the SAP S/4HANA instance you want to manage
+
+### OAuth 2.0 Client Credentials Authentication
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+Enter the following required information on the **General** tab of the **Global Element Properties**
+screen to configure OAuth 2.0 client credentials authentication:
+
+- **Service base URL**  
+  Base URL of the service provider of the SAP S/4HANA system to access from the connector  
+  All other endpoints are derived from the base URL.
+- **Client ID**  
+  OAuth client ID that is registered with the service provider.
+- **Client secret**  
+  OAuth client secret that corresponds to the client ID and is registered with the service provider.
+
+### Configure the SAP S/4HANA SOAP Listener Config
+
+Use the Global Element Properties configuration dialog to configure a global element for SAP S/4HANA
+SOAP Connector:
+
+1.  In your project, click the **Global Elements** tab at the base of the canvas.
+2.  In the **Global Configuration Elements** screen, click **Create**:
+
+    ![Global configuration elements screen with Create button](_images/sap-hana-source-global-config-wizard.png)
+
+3.  In the **Choose Global Type** wizard, expand **Connector Configuration**, select **SAP S/4HANA
+    SOAP Listener Config**, and click **OK**.
+4.  Configure the following values in the **General** tab:
+    - **HTTP Listener**  
+      Reference to a global HTTPS Listener configuration, for example: `HTTPS_Listener_config`. This
+      configuration must be secured by using **HTTPS protocol** in order to receive outbound
+      messages from the SAP S/4HANA system.
+    - **WSDL Path**  
+      Specify the paths to the WSDL definitions to use for resolving metadata keys.
+    - **Encoding**  
+      Character encoding used in the messaging.
+
+5.  Click **OK** to save the global connector configuration.
+
+It is possible to share the same path between multiple sources, but sources that share a path cannot
+listen to the same message type.
+
+The list of message types specifies the message types the source can listen to. Message types are
+built from the provided WSDL definitions. The message type **ANY**, which is always present, allows
+the source to listen to any outbound message type sent from the SAP S/4HANA system.
+
+## Next Step
+
+After configuring the SAP S/4HANA SOAP Connector for use in Studio, see the
+[Examples](sap-s4hana-soap-connector-examples) topic for more examples of configuring the connector
+in Studio.
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating SAP S/4HANA SOAP Connector to 2.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for SAP S/4HANA SOAP to take advantage of the increased security offered
+by using OAuth 2.0 authentication to connect to SAP S/4HANA SOAP.
+
+## Supported Upgrade Paths
+
+This is a direct upgrade from version 1.0.0 version to 2.x.x.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>1.0.0</p></div></div></td><td><div><div><p>2.x.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+- OAuth 2.0 is supported.  
+  The **OAuth 2.0 Application Connection Provider** option has been added to **Connection** types.
+  For information about the configuration parameters for this connection type, see
+  [SAP S/4HANA SOAP Connector Reference](sap-s4hana-soap-connector-reference).
+- Mule runtime engine (Mule) 4.2.1 or later is required.
+- The base package name has been changed to `com.mulesoft.connector.sap.s4hana.soap` so that all
+  exported classes now have different fully qualified names.
+
+## Requirements and Limitations
+
+Be aware of the following requirements and limitations before you upgrade to the latest version.
+
+### Requirements
+
+You must be using Mule 4.2.1 or later.
+
+### Limitations
+
+This upgrade breaks backward compatibility.
+
+## Upgrade Prerequisites
+
+Before you upgrade, create a backup of your files, data, and configurations in case you need to
+restore to them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In **Mule Palette**, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `SAP S/4HANA SOAP` in the search field.
+4.  In **Available modules**, select **SAP S/4HANA SOAP Connector** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the `mule-sap-s4hana-soap-cloud-connector` dependency version is the one you are
+    upgrading to in the `pom.xml` file in the Mule project.
+
+Studio upgrades the connector automatically.
+
+## Post Upgrade Steps
+
+After you install the latest version of the connector, verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection and verify that the operations work.
+
+## Troubleshooting
+
+If there are problems with caching the parameters and metadata, try restarting Studio.
+
+## Revert the Upgrade
+
+If you must revert to your previous version of SAP S/4HANA SOAP Connector, change the
+`mule-sap-s4hana-soap-cloud-connector` dependency version 2.x.x in the projectâs `pom.xml` to the
+previous version.
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Web Service Addressing Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This example uses the following components and operations to configure WS-Addressing and send a SOAP
+request:
+
+- **HTTP > Listener**
+
+  Component that initiates the flow
+
+- **Transform Message**
+
+  Component that converts the input data to a new output structure or format
+
+- **SAP S/4HANA > Invoke**
+
+  Operation that sends a request to the specified service
+
+- **Logger**
+
+  Component that displays the response in the Mule console
+
+  ![Mule flow for sending a SOAP request with WS-Addressing enabled](_images/sap-s4hana-soap-wsa-flow.png)
+
+  Figure 1. The flow for this example sends a SOAP request with WS-Addressing enabled.
+
+This example uses configuration properties for some field values. You can either replace the
+variables with their values in the code, or you can provide the values for each variable in the
+`src/main/resources/mule-artifact.properties` file.
+
+## Before You Begin
+
+You must have:
+
+- Access to the SAP S/4HANA instance and Anypoint Platform
+
+## Send a SOAP request with WS-Addressing headers
+
+### Create a Mule Project
+
+In Studio, create a new Mule project to add and configure the connector:
+
+1.  Select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+### Add and Configure a Listener
+
+1.  In the **Mule Palette** view, search for **HTTP** and select the **Listener** operation:
+
+    ![HTTP Listener selected in the Mule Palette view](_images/sap-s4hana-soap-select-listener.png)
+
+2.  Drag the **Listener** operation onto the canvas.
+3.  In the **Listener** configuration, click **+** next to **Connector configuration** to add a
+    global element.
+4.  Accept the defaults.
+5.  Set the **Path** field to `/wsa`:
+
+    ![General configuration fields for HTTP Listener](_images/sap-s4hana-soap-http-listener-props.png)
+
+### Add and Configure the Invoke Operation
+
+1.  In the **Mule Palette** view, search for **SAP S4 HANA** and select the **Invoke** operation.
+2.  Drag the **Invoke** operation onto the canvas, to the right of the **Listener** component.
+3.  In the **Invoke** configuration, click **+** next to **Connector configuration** to add a global
+    element.
+4.  Configure the global element for the **Invoke** operation:
+    - **Name**  
+      Name used to reference the configuration. This example uses `SAP_S4_HANA_Cloud_SOAP_Config`.
+    - **Service base URL**  
+      Base URL of SAP S/4HANA instance (endpoint) to be accessed from the connector.
+    - **Username**  
+      Account username to log into SAP S/4HANA.
+    - **Password**  
+      Account password to log into SAP S/4HANA.
+
+      ![SAP S/4HANA SOAP Configuration window with example values for the Invoke operation](_images/sap-s4hana-soap-global-config.png)
+
+      Figure 2. The following image shows example values for the global element in **Invoke**
+      operation.
+
+5.  Open the **Addressing** tab.
+6.  Set global WS-Addressing properties:
+    - **Version**  
+      WS-Addressing version.
+    - **From**  
+      Reference of the endpoint where the SOAP request originated from.
+
+      ![Configure Web Service Addressing fields](_images/sap-s4hana-soap-global-config-addressing.png)
+
+      Figure 3. The following image shows example values for **Addressing** fields.
+
+7.  At the base of the Studio canvas, click **Configuration XML** to view the corresponding XML:
+
+    ```xml
+    <s4hana-soap:config name="SAP_S4_HANA_Cloud_SOAP_Config">
+        <s4hana-soap:basic-authentication-connection baseUrl="${config.cloud.soap.baseUrl}"
+            username="${config.cloud.soap.username}" password="${config.cloud.soap.password}" />
+        <s4hana-soap:web-service-addressing wsaVersion="WSA200408" />
+    </s4hana-soap:config>
+    ```
+
+8.  Return to the **Global elements** tab in the editor and open `SAP_S4_HANA_Cloud_SOAP_Config`
+    configuration.
+9.  Click the **Test Connectionâ¦â** button at the bottom of the window and verify if it is
+    successful.
+10. After successful test connection, close the **Test connection** and the **Global Element
+    Properties** windows.
+11. Open the Message flow tab in the editor and open **Invoke** operation processor.
+12. Configure the following fields in the properties window:
+    - **Display Name**  
+      Name to display in the UI for the connector operation.
+    - **Connector Configuration**  
+      Global configuration you previously created for the **Invoke** operation named
+      `SAP_S4_HANA_Cloud_SOAP_Config`.
+    - **Service name**  
+      Name of the service. In this example we chose `CreditManagementAccountByIDQuery_In`.
+    - **Operation name**  
+      Operation name of the service. In this example we chose `CreditManagementAccountByIDQuery_In`.
+    - **Message**  
+      Content of a SOAP message.
+
+13. Open the graphical view of message payload and set the SOAP message content. In this example we
+    set the following payload:
+
+    ```dataweave
+    %dw 2.0
+    output application/xml
+    ns ns0 http://sap.com/xi/SAPGlobal/Global
+    ---
+    {
+        ns0#CreditManagementAccountByIDQuery: {
+            MessageHeader: {
+                ID: "@" as String,
+                CreationDateTime: now()
+            },
+            Selection: {
+                DebtorPartyInternalID: "0011100050" as String,
+                CreditsegmentInternalID: 1 as String
+            },
+            LanguageCode: "ZZZ" as String
+        }
+    }
+    ```
+
+14. Set the **General** properties of the **Invoke** operation.
+
+    ![Invoke operation general properties](_images/sap-s4hana-soap-invoke-general-props.png)
+
+15. Open the **Advanced** tab and change the **Web Service Addressing** dropdown from `None` to
+    `Edit inline`.
+16. Configure the following fields:
+    - **To**  
+      Address of the intended receiver of this message.
+    - **Version** (optional)  
+      WS-Addressing version. If nothing is specified, the connector uses the value from the
+      configuration.
+    - **From** (optional)  
+      Reference of the endpoint where the message originated from. If nothing is specified, the
+      connector uses the value from configuration.
+    - **Message ID**  
+      Identifier that uniquely identifies the message in time and space. If nothing is specified,
+      the connector uses time-based UUID.
+    - **Relates to** (optional)  
+      Message ID that the message is related to.
+
+      ![Invoke operation advanced properties](_images/sap-s4hana-soap-invoke-addressing-props.png)
+
+      Figure 4. The following image shows the **Web Service Addressing** properties of the
+      **Invoke** operation.
+
+### Add and Configure a Transform Message Component
+
+Add the **Transform Message** component to the flow using what we transform in the response to JSON:
+
+1.  In the **Mule Palette** view, search for **Transform Message**.
+
+    ![Transform message core component selected in the Mule Palette view](_images/sap-s4hana-soap-select-transform.png)
+
+2.  Drag the **Transform Message** component onto the canvas, to the right of the **Invoke**
+    operation.
+3.  In the **Transform Message** configuration, set output to json and replace the brackets in the
+    **Output** section with a keyword **message**:
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    message
+    ```
+
+### Add and Configure a Logger Component
+
+Add and configure a **Logger** component to display the message response in the Mule console:
+
+1.  In the **Mule Palette** view, search for **Logger**.
+2.  Drag the **Logger** component onto the canvas, to the right of the **Transform Message**
+    component.
+3.  Configure the following fields:
+    - **Display Name**  
+      Name for the Logger component.
+    - **Message**  
+      String or DataWeave expression that specifies the Mule log message.
+    - **Level**  
+      Configures the logging level. The default is `INFO`.
+
+      ![Logger properties window](_images/sap-s4hana-soap-logger.png)
+
+      Figure 5. The following image shows example values for the fields:
+
+### Run the Application and Verify
+
+1.  Run the application and wait until it successfully deploys.
+2.  Visit the following URL from the web browser: `http://localhost:8081/wsa`
+3.  Verify that the successful response was returned.
+4.  Locate the **headers** property in the **payload** and verify that the **Relates to** property
+    has the same value as the one we set in the **Message ID** field for the **Invoke** operation.
+
+## XML for the Web Service Addressing Example
+
+Paste this code into your XML editor to load the flow for this example use case into your Mule
+application. If needed, change the values to reflect your environment.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:s4hana-soap="http://www.mulesoft.org/schema/mule/s4hana-soap"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s4hana-soap http://www.mulesoft.org/schema/mule/s4hana-soap/current/mule-s4hana-soap.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<configuration-properties file="mule-artifact.properties"/>
+
+	<s4hana-soap:config name="SAP_S4_HANA_Cloud_SOAP_Config">
+        <s4hana-soap:basic-authentication-connection baseUrl="${config.cloud.soap.baseUrl}"
+        username="${config.cloud.soap.username}" password="${config.cloud.soap.password}" />
+		<s4hana-soap:web-service-addressing wsaVersion="WSA200408" />
+    </s4hana-soap:config>
+
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<flow name="web-service-addressing">
+		<http:listener config-ref="HTTP_Listener_config" path="/wsa" />
+		<s4hana-soap:invoke config-ref="SAP_S4_HANA_Cloud_SOAP_Config"
+                    service="https://mysap.s4hana.instance.com/sap/bc/srt/wsdl_ext/flv_10002S111AD1/srvc_url/sap/bc/srt/scs_ext/sap/creditmanagementaccountbyidqu1"
+                    operation="CreditManagementAccountByIDQuery_In">
+                <s4hana-soap:addressing wsaTo="https://mysap.s4hana.instance.com/sap/bc/srt/scs_ext/sap/creditmanagementaccountbyidqu1"
+                                        wsaMessageID="#[123456]" />
+                <s4hana-soap:message><![CDATA[#[%dw 2.0
+output application/xml
+ns ns0 http://sap.com/xi/SAPGlobal/Global
+---
+{
+	ns0#CreditManagementAccountByIDQuery: {
+		MessageHeader: {
+			ID: "@" as String,
+			CreationDateTime: now()
+		},
+		Selection: {
+			DebtorPartyInternalID: "0011100050" as String,
+			CreditsegmentInternalID: 1 as String
+		},
+		LanguageCode: "ZZZ" as String
+	}
+}]]]></s4hana-soap:message>
+            </s4hana-soap:invoke>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+message]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" message="#[payload]"/>
+	</flow>
+</mule>
+```
+---
+
+# SAP S/4HANA SOAP Connector 2.6 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you manually code a Mule app in XML either from the Anypoint Studio XML editor or from a text
+editor, you can get access to the connector in your app by adding reference statements to your XML
+Mule flow and in the Apache Maven POM file.
+
+> [!NOTE] You can avoid the manual process described in this topic by using Studio. When you install
+> the connector in Anypoint Studio, Studio automatically populates the XML code with the connectorâs
+> namespace and schema location, and adds a dependency to the pom.xml file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/s4hana-soap
+http://www.mulesoft.org/schema/mule/s4hana-soap/current/mule-s4hana-soap.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:s4hana-soap="http://www.mulesoft.org/schema/mule/s4hana-soap"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s4hana-soap
+http://www.mulesoft.org/schema/mule/s4hana-soap/current/mule-s4hana-soap.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+```
+
+## Add a POM File Dependency
+
+The pom.xml Apache Maven file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your POM file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-sap-s4hana-soap-cloud-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Verify that the connector `version` corresponds to the one you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `SAP S/4HANA SOAP`.
+4.  Click **Dependency Snippets**.
+
+## Next Step
+
+After completing your namespace and pom.xml file, you can try the
+[Examples](sap-s4hana-soap-connector-examples).
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

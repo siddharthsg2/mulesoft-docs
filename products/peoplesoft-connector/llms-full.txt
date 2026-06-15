@@ -1,0 +1,467 @@
+﻿# Oracle PeopleSoft Connector - Full Documentation
+
+# Oracle PeopleSoft Connector 3.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Oracle PeopleSoft (PeopleSoft Connector) is a closed-source connector that
+uses the Component Interface (CI) to communicate in real-time with the service. This is a component
+provided by Oracleâs PeopleTools.
+
+Release Notes:
+[Oracle PeopleSoft Connector Release Notes](../../release-notes/connector/peoplesoft-connector-release-notes-mule-4)  
+Exchange:
+[Oracle PeopleSoft Connector](https://www.mulesoft.com/exchange/org.mule.connectors/mule-peoplesoft-connector/)
+
+> [!NOTE] To run the connector on PeopleTools 8.61, you must add the `-DTM_ALLOW_NOTLS=Y` flag to
+> both of these locations:
+>
+> - In Studio, **Run** > **Run Configurations** window > **Arguments** tab > **VM arguments**
+> - In the `AnypointStudio.ini` file, such as after the
+>   `-Dmule.deployment. forceParseConfigXmls=true` flag
+
+## Before You Begin
+
+To use this information, you should be familiar with PeopleSoft, Mule runtime engine (Mule),
+Anypoint Connectors, Anypoint Studio, Mule concepts, elements in a Mule flow, and Global Elements.
+
+You need login credentials to test your connection to your target resource.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>org.mule.connectors</groupId>
+  <artifactId>mule-peoplesoft-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Whatâs New in this Connector
+
+Reorganized user interface in the Connector configuration. The input and output of Operations is
+JSON. Fixed date conversion in Save operation.
+
+## Component Interfaces
+
+PeopleSoftâs Component Interfaces (CI) provides a one-way real-time interface to a PeopleSoft
+database instance. A component in PeopleSoft is a logical grouping of PeopleSoft pages representing
+a complete business transaction, such as Employee Onboarding. Component Interfaces expose the
+underlying APIs used by PeopleSoft Components and, therefore, ensure that validations, defaults, and
+business logic are preserved from the original definition of those components.
+
+The Component Interfaces allow you to query PeopleSoft for specific records, update data, and create
+new instances of the records.
+
+### Attributes and Architecture
+
+A component interface has the following four main attributes:
+
+![PeopleSoft architecture](_images/peoplesoft-ci-architecture.jpg)
+
+- Component Interface Name: Each component interface requires a unique name. The programs calling a
+  component use the name of the component interface to access properties and methods.
+- Keys (Get keys, Create keys, and Find keys): Keys are special properties containing values that
+  retrieve an instance (get keys) or a list of instances (find keys) of the component interface. You
+  can add, remove, or change keys in PeopleSoft Application Designer. Keys are created automatically
+  when you create a component interface.
+- Get keys: Map to fields marked as search keys in the Components Search record.
+- Create keys: Generated in CI when the Use tab on the Component Properties dialog allows the Add
+  action.
+- Find keys: Map to fields marked as both Alternate Search keys and Search Key in the Component
+  Search Record.
+- Properties and Collections (Fields and Records): Properties provide access to both component data
+  and component interface settings. A property can correspond to a field or a scroll (collection). A
+  component interface collection is a special type of property that corresponds to a scroll and
+  contains fields and subordinate scrolls as defined in its underlying component.  
+  Types of properties:
+  - Standard properties are assigned automatically when a component interface is created.
+
+- User-defined properties map to record fields on the PeopleSoft component and are displayed in the
+  PeopleSoft Application Designer.
+  - Methods: A method is a function that performs a specific task on a component interface at run
+    time. There are two main types of methods: standard and user-defined.
+
+    Standard methods are those that are available for all component interfaces. The following are
+    the standard methods that the connector supports:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Create</strong></p></td><td><div><div><p>Add a new instance of the Component Interface to the PeopleSoft database. This is similar to clicking Add and entering the relevant keys through the PeopleSoft Web UI.</p></div></div></td></tr><tr><td><p><strong>Cancel</strong></p></td><td><div><div><p>Cancel an instance of the Component Interface. This is equivalent of the Cancel operation in the Web UI when working on a particular component.</p></div></div></td></tr><tr><td><p><strong>Find</strong></p></td><td><div><div><p>Search for any instances of the component that match the provided Search Keys. This returns a list of possible matches.</p></div></div></td></tr><tr><td><p><strong>Get</strong></p></td><td><div><div><p>Retrieve instances that match the specific keys you provide. This returns a single record or none at all.</p></div></div></td></tr><tr><td><p><strong>Save</strong></p></td><td><div><div><p>Save changes made to the component, new, or existing.</p></div><div><p>The Save operation tries to update an existing record before creating a new one. For new records, the connector automatically populates the keys with default values provided by the PeopleSoft instance, thereby reducing the need for the user to provide the default key/values pairs.</p></div></div></td></tr></tbody></table>
+
+- User-defined methods are created in PeopleSoft Application Designer to provide added functionality
+  to the component interface.
+
+## Add the Connector to a Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "peoplesoft".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "peoplesoft" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure in Studio
+
+1.  Drag the connector to the Studio Canvas.
+2.  Create the connector configuration, configure the parameters and add the `psjoa` library.
+3.  In the properties editor of the Invoke Operation, configure the remaining parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>Name of the operation to display in Studio</p></div></div></td></tr><tr><td><p><strong>Extension Configuration</strong></p></td><td><div><div><p>The reference name to the global element you have created.</p></div></div></td></tr><tr><td><p><strong>Component Name</strong></p></td><td><div><div><p>The component interface name .</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>An operation to run over the selected CI.</p></div></div></td></tr></tbody></table>
+
+    The connector configuration should look like the image below:
+
+    ![Global elements properties window](_images/peoplesoft-config.png)
+
+## Log Requests and Responses
+
+To log requests and responses when using the connector, configure a logger by adding this line to
+the `Loggers` element of the `log4j2.xml` configuration file for the Mule app:
+
+```xml
+<AsyncLogger name="org.mule.modules.peoplesoft.extension.internal.service.PeopleSoftServiceImpl" level="DEBUG"/>
+```
+
+The following example shows the `Loggers` element with the `AsyncLogger` line added:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <AsyncLogger name="org.mule.modules.peoplesoft.extension.internal.service.PeopleSoftServiceImpl" level="DEBUG" additivity="false">
+            <appender-ref ref="Console" level="debug"/>
+        </AsyncLogger>
+    </Loggers>
+</Configuration>
+```
+
+You can view the app log as follows:
+
+- If youâre running the app from the Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path was customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in this default location:
+
+`MULE_HOME/logs/<app-name>.log`
+
+For more information about the app log, see
+[Configuring Logging](../../mule-runtime/latest/logging-in-mule).
+
+## Use Case: Retrieve a Collection of Employee Records
+
+![Find Employees Studio flow with Listener, Transform Message, Find Employees, Transform Message, and Logger](_images/peoplesoft-use-case-flow.png)
+
+1.  Create a new Mule Project in Anypoint Studio.
+2.  Drag a HTTP Listener to the canvas and configure the following parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>HTTP</p></div></div></td></tr><tr><td><p><strong>Extension Configuration</strong></p></td><td><div><div><p>If no HTTP element has been created yet, click the plus sign to add a new HTTP Listener Configuration, set the Host and Port, and click OK.</p></div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p><code>/find</code></p></div></div></td></tr></tbody></table>
+
+3.  Drag the PeopleSoft Invoke Operation next to the HTTP endpoint component and configure it
+    according to the steps below:
+    1.  Add a new PeopleSoft Configuration by clicking the plus sign in the Basic Settings field.
+    2.  Configure the global element completing required fields with your credentials.
+    3.  Add the `psjoa` library.
+    4.  Add CI_PERSONAL_DATA to the Component interface IDs.
+
+4.  Click Test Connection to confirm that Mule can connect with the PeopleSoft instance. If the
+    connection is successful, click OK to save the configurations. Otherwise, review or correct any
+    incorrect parameters, then test again.
+5.  Back in the properties editor of the Invoke Operation, configure the remaining parameters:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>Find Employees</p></div></div></td></tr><tr><td><p><strong>Extension Configuration</strong></p></td><td><div><div><p>PeopleSoft (the reference name to the global element you have created).</p></div></div></td></tr><tr><td><p><strong>Component Name</strong></p></td><td><div><div><p>CI_PERSONAL_DATA (the component interface name that holds the employee data).</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>Find</p></div></div></td></tr></tbody></table>
+
+    The connector settings should look like:
+
+    ![Find operation properties window configuration](_images/peoplesoft-use-case-settings.png)
+
+6.  Add a Transform Message (Core) element between the HTTP endpoint and the PeopleSoft endpoint to
+    provide the input parameters required by the FIND method. The input fields should be
+    automatically populated:
+
+    ![DataWeave input](_images/peoplesoft-use-case-dw.png)
+
+    Inside the Transform Message, associate fields with queryParamas. This way, each value can be
+    dynamically set from the URL.
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    {
+    	KEYPROP_EMPLID: attributes.queryParams.id,
+    	PROP_NAME: attributes.queryParams.name,
+    	PROP_LAST_NAME_SRCH: attributes.queryParams.lastname,
+    	PROP_NAME_AC: attributes.queryParams.nameac
+    }
+    ```
+
+7.  Add other Transform Message after the PeopleSoft element to display the response in the browser:
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+8.  Add a Logger scope after the JSON transformer to print the data that is being passed to the
+    PeopleSoft connector in the Mule Console.
+9.  Save and Run as Mule Application. Then, open a web browser and check the response after entering
+    the URL `http://localhost:8081/find?id=0004&name=&last_name=&name_ac=`. If there are records in
+    your PeopleSoft database whose KEYPROP_EMPLID contains the value "MULE", you should get a JSON
+    collection with those records. Otherwise, you receive an empty collection.
+
+```json
+[
+    {
+    "KEYPROP_EMPLID": "MULE0001",
+    "PROP_NAME": "Muley",
+    "PROP_LAST_NAME_SRCH": "The Mule",
+    "PROP_NAME_AC": ""
+    },
+    {
+    "KEYPROP_EMPLID": "MULE0002",
+    "PROP_NAME": "Second Muley",
+    "PROP_LAST_NAME_SRCH": "The Backup Mule",
+    "PROP_NAME_AC": ""
+    },
+    ...
+]
+```
+
+\+ In this example, all input parameters for the FIND operation are optional. If none of them
+defined (`http://localhost:8081/find?id=&name=&last_name=&name_ac=`), then PeopleSoft will retrieve
+the first 300 records available (the maximum limited by the server).
+
+### Use Case: XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:peoplesoft="http://www.mulesoft.org/schema/mule/peoplesoft"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-current.xsd
+	http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/peoplesoft
+	http://www.mulesoft.org/schema/mule/peoplesoft/current/mule-peoplesoft.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config"  >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<peoplesoft:config name="PeopleSoft_Config" doc:name="PeopleSoft Config" >
+		<peoplesoft:connection
+			server="${config.server}"
+			username="${config.username}"
+			password="${config.password}"
+			domainConnectionPassword="${config.domainPassword}" >
+			<peoplesoft:component-interface-ids >
+				<peoplesoft:component-interface-id value="CI_PERSONAL_DATA" />
+			</peoplesoft:component-interface-ids>
+		</peoplesoft:connection>
+	</peoplesoft:config>
+	<flow name="find-employee-flow" >
+		<http:listener config-ref="HTTP_Listener_config" path="/find" doc:name="Listener"  />
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	KEYPROP_EMPLID: attributes.queryParams.id,
+	PROP_NAME: attributes.queryParams.name,
+	PROP_LAST_NAME_SRCH: attributes.queryParams.lastname,
+	PROP_NAME_AC: attributes.queryParams.nameac
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<peoplesoft:invoke-operation
+			config-ref="PeopleSoft_Config"
+			component="CI_PERSONAL_DATA"
+			operation="Find"
+			doc:name="Find Employees"  />
+		<ee:transform doc:name="Transform Message"  >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+	<flow name="peoplesoft_demoFlow" >
+		<http:listener
+			config-ref="HTTP_Listener_config"
+			path="/save"
+			doc:name="Listener"  />
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<peoplesoft:invoke-operation
+			config-ref="PeopleSoft_Config"
+			component="CI_PERSONAL_DATA"
+			operation="Save"
+			doc:name="Invoke Operation" />
+	</flow>
+</mule>
+```
+
+## See Also
+
+- Visit Oracleâs
+  [PeopleSoft Component Interface API site](https://docs.oracle.com/en/applications/peoplesoft/peopletools/index.html)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Oracle PeopleSoft Connector 3.1 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Oracle PeopleSoft (PeopleSoft Connector) provides real-time connectivity to
+query and update all PeopleSoft modules, using a common integration interface known as the Component
+Interface.
+
+Release Notes:
+[Oracle PeopleSoft Connector Release Notes](../../release-notes/connector/peoplesoft-connector-release-notes-mule-4)
+
+## Default Configuration
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Name</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Connection</p></div></div></td><td><div><div><p>The connection types that can be provided to this configuration.</p></div><div><p>Type: Connection<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Enable Edit History Items</p></div></div></td><td><div><div><p>Type: Boolean<br>Default: false<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Enable Get History Items</p></div></div></td><td><div><div><p>Type: Boolean<br>Default: false<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Enable Interactive Mode</p></div></div></td><td><div><div><p>Type: Boolean<br>Default: false<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Date format for the conversion</p></div></div></td><td><div><div><p>Format the connector to convert DateTime values to the PeopleSoft format. By default, the connector uses <code>MM/dd/yyyy K:mm:ssa</code> where <code>MM</code> is the month, <code>dd</code> is the day, <code>yyyy</code> is the calendar year, <code>K</code> is the hour, <code>mm</code> is minutes, <code>ss</code> is seconds, and <code>a</code> is AM or PM . This format depends on the Peoplesoft instance.</p></div><div><p>Type: String<br>Default: <code>MM/dd/yyyy K:mm:ssa</code><br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Expiration Policy</p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances as needed.</p></div><div><p>Type: ExpirationPolicy<br>Default: false<br>Required: No</p></div></div></td></tr></tbody></table>
+
+## Connection Type
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Application Server</p></div></div></td><td><div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Username</p></div></div></td><td><div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Password</p></div></div></td><td><div><div><p>Type: String<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Domain Connection Password</p></div></div></td><td><div><div><p>Type: String<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Component Interface List</p></div></div></td><td><div><div><p>Type: Array of String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Reconnection</p></div></div></td><td><div><div><p>When the app is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div><div><p>Type: Reconnection<br>Default: None<br>Required: No</p></div></div></td></tr></tbody></table>
+
+## Operations
+
+- [Invoke Operation](#invokeoperation)
+- [Update User Profile ID Type](#updateuserprofile)
+
+## Invoke Operation
+
+`<peoplesoft:invoke-operation>`
+
+Invokes a PeopleSoft operation depending on the type selected. DataSense discovers the structure of
+the entities in the system during design time and run time and uses the structure to perform the
+operation for the type selected. This varies for Find, Get, Create, and so on.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Configuration</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Content</p></div></div></td><td><div><div><p>A Map with the parameters to be used in the operation.</p></div><div><p>Type: Binary<br>Default: #[payload]<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Streaming Strategy</p></div></div></td><td><div><div><p>Configure if repeatable streams should be used and their behavior.</p></div><div><p>Type: One of:</p></div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In-Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div><div><p>Default: #[payload]<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Component Name</p></div></div></td><td><div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Operation</p></div></div></td><td><div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Target Variable</p></div></div></td><td><div><div><p>The name of a variable in which the operationâs output is placed.</p></div><div><p>Type: String<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Target Value</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and the outcome of that expression is stored in the target variable.</p></div><div><p>Type: String<br>Default: #[payload]<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Reconnection Strategy</p></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors.</p></div><div><p>Type: One of:</p></div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div><div><p>Default: None<br>Required: No</p></div></div></td></tr></tbody></table>
+
+### Invoke Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- Default Configuration
+
+#### Throws
+
+- PEOPLESOFT:CONNECTIVITY
+- PEOPLESOFT:INVALID_COMPONENT_INTERFACE
+- PEOPLESOFT:INVALID_COMPONENT_INTERFACE_ID
+- PEOPLESOFT:INVALID_OPERATION_PARAMETER
+- PEOPLESOFT:MAPPING_EXCEPTION
+- PEOPLESOFT:NO_METADATA
+- PEOPLESOFT:REQUEST_FAILED
+- PEOPLESOFT:RETRY_EXHAUSTED
+- PEOPLESOFT:STRING_TO_DATE_PARSE_ERROR
+- PEOPLESOFT:UNKNOWN
+
+## Update User Profile ID Type
+
+`<peoplesoft:update-user-profile-id-type>`
+
+Changes the ID type of an USER_PROFILE record and assigns it an attribute.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Configuration</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>User Id</p></div></div></td><td><div><div><p>The UserID of the record to update.</p></div><div><p>Type: String<br>Default: None<br>Required: Yes</p></div></div></td></tr><tr><td><div><div><p>Id Types</p></div></div></td><td><div><div><p>The list of new ID Types to assign.</p></div><div><p>Type: Array of IDType Default: None<br>Required: Yes</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- Default Configuration
+
+### Throws
+
+- PEOPLESOFT:CONNECTIVITY
+- PEOPLESOFT:INVALID_COMPONENT_INTERFACE
+- PEOPLESOFT:INVALID_COMPONENT_INTERFACE_ID
+- PEOPLESOFT:INVALID_OPERATION_PARAMETER
+- PEOPLESOFT:MAPPING_EXCEPTION
+- PEOPLESOFT:NO_METADATA
+- PEOPLESOFT:REQUEST_FAILED
+- PEOPLESOFT:RETRY_EXHAUSTED
+- PEOPLESOFT:STRING_TO_DATE_PARSE_ERROR
+- PEOPLESOFT:UNKNOWN
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Fails Deployment</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div><div><p>Type: Boolean<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Reconnection Strategy</p></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div><div><p>Type: One of:</p></div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div><div><p>Default: None<br>Required: No</p></div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds)</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Max Idle Time</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></div><div><p>Type: Number<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Time Unit</p></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute.</p></div><div><p>Possible values:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div><div><p>Type: Enumeration<br>Default: None<br>Required: No</p></div></div></td></tr></tbody></table>
+
+### Repeatable In-Memory Stream
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Initial Buffer Size</p></div></div></td><td><div><div><p>This is the amount of memory to allocate to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div><div><p>Type: Number<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Buffer Size Increment</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div><div><p>Type: Number<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Max Buffer Size</p></div></div></td><td><div><div><p>This is the maximum amount of memory to use. If more than that is used, then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower or equal to zero means no limit.</p></div><div><p>Type: Number<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Buffer Unit</p></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed.</p></div><div><p>Possible values:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div><div><p>Type: Enumeration<br>Default: None<br>Required: No</p></div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>Max In Memory Size</p></div></div></td><td><div><div><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed, it starts to buffer the content on disk.</p></div><div><p>Type: Number<br>Default: None<br>Required: No</p></div></div></td></tr><tr><td><div><div><p>Buffer Unit</p></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed.</p></div><div><p>Possible values:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div><div><p>Type: Enumeration<br>Default: None<br>Required: No</p></div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

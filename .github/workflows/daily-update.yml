@@ -1,0 +1,79 @@
+name: Daily MuleSoft Docs Update
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch and reorganize MuleSoft docs
+        shell: bash
+        run: |
+          set -e
+
+          # Download main llms.txt
+          curl -sL -o llms_raw.txt "https://docs.mulesoft.com/llms.txt"
+          echo "Downloaded main llms.txt"
+
+          # Extract product slugs from the main index
+          PRODUCTS=$(grep -oP 'https://docs\.mulesoft\.com/\K[^/]+(?=/llms\.txt)' llms_raw.txt | sort -u)
+
+          # Generate new llms.txt with relative URLs
+          echo "# MuleSoft Documentation" > llms.txt
+          echo "" >> llms.txt
+          echo "> Mirrored from https://docs.mulesoft.com/llms.txt - Updated $(date -u '+%Y-%m-%d %H:%M UTC')" >> llms.txt
+          echo "> LLM-friendly index of all MuleSoft product documentation." >> llms.txt
+          echo "" >> llms.txt
+          echo "## Guides" >> llms.txt
+          echo "" >> llms.txt
+
+          COUNT=0
+          SUCCESS=0
+          FAIL=0
+
+          for SLUG in $PRODUCTS; do
+            COUNT=$((COUNT + 1))
+            DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt | head -1)
+
+            # Download product llms-full.txt
+            mkdir -p "products/$SLUG"
+            HTTP_CODE=$(curl -sL -o "products/$SLUG/llms-full.txt" -w "%{http_code}" "https://docs.mulesoft.com/$SLUG/llms-full.txt" --max-time 30)
+
+            if [ "$HTTP_CODE" = "200" ] && [ -s "products/$SLUG/llms-full.txt" ] && ! grep -qi "page not found" "products/$SLUG/llms-full.txt" 2>/dev/null; then
+              echo "- [$SLUG](products/$SLUG/llms-full.txt): $DESC" >> llms.txt
+              SUCCESS=$((SUCCESS + 1))
+              echo "[$COUNT] OK $SLUG"
+            else
+              rm -f "products/$SLUG/llms-full.txt"
+              rmdir "products/$SLUG" 2>/dev/null || true
+              FAIL=$((FAIL + 1))
+              echo "[$COUNT] FAIL $SLUG (HTTP $HTTP_CODE)"
+            fi
+          done
+
+          echo ""
+          echo "=== Summary ==="
+          echo "Success: $SUCCESS | Failed: $FAIL | Total: $COUNT"
+          echo "" >> llms.txt
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Daily docs update - $TIMESTAMP"
+            git push
+          fi

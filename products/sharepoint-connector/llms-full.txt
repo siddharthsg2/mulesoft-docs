@@ -1,0 +1,1516 @@
+﻿# Microsoft SharePoint Connector - Full Documentation
+
+# Microsoft SharePoint Connector 3.8
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft SharePoint (Microsoft SharePoint Connector) integrates with
+SharePoint 2013, SharePoint Online, and SharePoint Server Subscription Edition through the REST API
+for cloud and on-premises deployments. You can manage documents and content, access intranet and
+extranet portals, collaborate across your organization, and search enterprise-wide resources. The
+connector supports OAuth 2.0 authentication and provides operations for lists, files, folders, and
+site management.
+
+For compatibility information and fixed issues, see the Microsoft SharePoint Connector Release
+Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Microsoft SharePoint API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Credentials to access the Microsoft SharePoint target resource
+- Anypoint Platform
+- Anypoint Studio or Anypoint Code Builder
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-sharepoint-connector</artifactId>
+  <version>x.y.z</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.y.z` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## OAuth v2.0 Authorization Code
+
+Configuring the connector to use OAuth v2.0 Authorization Code authentication requires the following
+information:
+
+- Site Url: URL for the target SharePoint instance
+- Consumer Key: OAuth consumer key as registered with the service provider
+- Consumer Secret: OAuth consumer secret as registered with the service provider
+- Listener Config: Configuration for the HTTP listener that listens for requests on the access token
+  callback endpoint
+- Callback Path: Path of the access token callback endpoint
+- Authorize Path: Path of the local HTTP endpoint that triggers the OAuth dance
+
+## OAuth Client Credentials
+
+To configure OAuth Client Credentials, follow these steps:
+
+1.  Create a keystore with a certificate (openssl).
+2.  Log in to [Microsoft Azure](https://portal.azure.com/#home).
+3.  Go to **Azure Active Directory**.
+4.  Go to **App registrations**.
+5.  Add a new application and upload a certificate, or click on an existing application and click
+    **Certificates & secrets > Certificates > Upload certificate** to upload a certificate.
+6.  Go to Anypoint Studio and create a new Mule project in which to add and configure the connector.
+7.  Add a dependency for SharePoint Connector in the `pom.xml` file.
+8.  Create the flow and add the keystore and the credentials file into the `resources` folder. Add
+    the required fields for the connector configuration. Configuring the connector to use OAuth
+    Client Credentials with Certificate authentication requires the following information:
+    - Site Url: URL for the target SharePoint instance
+    - Client ID: Client ID to use to call the API
+    - Token URL: URL used to get an access token
+    - Keystore alias: Alias used to get the correct certificate from the keystore
+    - Path to keystore: Path to the clientâs keystore with the private key and certificate
+    - Keystore password: Password used to access the private key from the keystore
+    - Keystore type: JCEKS, JKS, or PKCS12
+
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Okta Authentication
+
+![Okta authentication configuration in global element properties window](_images/sharepoint-okta-config.png)
+
+Configuring the connector to use Okta authentication requires the following information:
+
+- Okta Domain: The Okta endpoint that accepts the Okta username and password for authentication, for
+  example: `your-domain.okta.com`
+- Okta Username: Your Okta username, for example: `your-email@example.com`
+- Okta Password: Your Okta password.
+- Okta API Token: Okta uses a bearer token for API authentication with a sliding scale expiration,
+  for example: `http://developer.okta.com/docs/api/getting_started/getting_a_token.html`
+- SharePoint Online Embedded Link: The link of your Microsoft Office 365 SharePoint Online
+  application from Okta, for example:
+  `https://your-domain.okta.com/home/office365/0oa14mz7f4HAWypdZ1t7/31737`
+
+## Security Token Authentication
+
+You can use a SAML security token to log in to SharePoint. The following shows how to configure a
+security token in Studio:
+
+![Security token authentication configuration in global element properties window](_images/sharepoint-security-token-config.png)
+
+- Security token: Enter the corresponding security token.
+- Site URL: Enter the corresponding site URL.
+
+You can obtain a security token by making a POST request to
+`[https://login.microsoftonline.com/extSTS.srf](https://login.microsoftonline.com/extSTS.srf)` with
+the following XML body:
+
+```text
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+      xmlns:a="http://www.w3.org/2005/08/addressing"
+      xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+  <s:Header>
+    <a:Action s:mustUnderstand="1">http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue</a:Action>
+    <a:ReplyTo>
+      <a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
+    </a:ReplyTo>
+    <a:To s:mustUnderstand="1">https://login.microsoftonline.com/extSTS.srf</a:To>
+    <o:Security s:mustUnderstand="1"
+       xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+      <o:UsernameToken>
+        <o:Username>[username]</o:Username>
+        <o:Password>[password]</o:Password>
+      </o:UsernameToken>
+    </o:Security>
+  </s:Header>
+  <s:Body>
+    <t:RequestSecurityToken xmlns:t="http://schemas.xmlsoap.org/ws/2005/02/trust">
+      <wsp:AppliesTo xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy">
+        <a:EndpointReference>
+          <a:Address>[endpoint]</a:Address>
+        </a:EndpointReference>
+      </wsp:AppliesTo>
+      <t:KeyType>http://schemas.xmlsoap.org/ws/2005/05/identity/NoProofKey</t:KeyType>
+      <t:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</t:RequestType>
+      <t:TokenType>urn:oasis:names:tc:SAML:1.0:assertion</t:TokenType>
+    </t:RequestSecurityToken>
+  </s:Body>
+</s:Envelope>
+```
+
+The response from the previous request contains the security token between the
+<wsse:BinarySecurityToken> tags.
+
+## About Connector Terminology
+
+- Actions - Operations that allow side effects, such as data modification, and cannot be further
+  composed to avoid non-deterministic behavior.
+- Complex types - Keyless named structured types consisting of a set of properties. Complex types
+  are commonly used as property values in model entities, or as parameters or return values for
+  operations.
+- Entities - Instances of entity types, for example, an account or an opportunity.
+- Entity sets - Named collections of entities, for example, an account is an entity set containing
+  account entities. An entityâs key uniquely identifies the entity within an entity set.
+- Entity types - Named structured types with a key. Entity types define the named properties and
+  relationships of an entity, and may derive by single inheritance from other entity types.
+- Enumeration types or Enum types - Named primitive types whose values are named constants with
+  underlying integer values.
+- Functions - Operations that do not have side effects and may support further composition, for
+  example, with additional filter operations, functions, or an action.
+
+## Connect in Anypoint Studio 7
+
+You can use this connector in Anypoint Studio by first downloading it from Exchange and configuring
+it as needed.
+
+## Add the Connector to Your Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "share".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "share" in the search field.
+4.  Click the connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure Your First Flow
+
+To configure:
+
+1.  In Anypoint Studio, click **File** > **New** > **Mule Project**.
+2.  Specify a value for **Project Name** and click **Finish**.
+3.  Click the **Global Elements** tab.
+4.  Click **Create**.
+5.  Search for "sharepoint".
+6.  Click **Microsoft SharePoint** and click **OK**.
+7.  Choose the Global Type to configure:
+
+    ![List of connection types](_images/sharepoint-global-types.png)
+
+8.  Click **Test Connection** to ensure the connection works correctly:
+
+    ![Global element properties window](_images/sharepoint-global-element-props.png)
+
+### Create an Anypoint Studio Flow
+
+To create an Anypoint Studio flow:
+
+1.  In Anypoint Studio, click **File** > **New** > **Mule Project**.
+2.  Specify a value for **Project Name** and click **Finish**.
+3.  Search for `http` and drag an HTTP connector to the canvas.
+4.  Search for `sharepoint` and drag a Microsoft SharePoint connector next to the HTTP connector.
+
+    ![Studio flow with File Connector](_images/sharepoint-studio-flow.png)
+
+5.  Double-click the HTTP connector and set **Host** to `0.0.0.0`, **Port** to `8081`, and **Path**
+    to `fileAdd`.
+6.  Click **OK**.
+7.  Double-click the Microsoft SharePoint connector and click the green plus symbol.
+8.  From the Connector Configuration list, click the Microsoft SharePoint configuration that was
+    previously created.
+9.  From the Operation list, click **File Add**.
+
+    Set these fields:
+
+    ![File add operation properties window](_images/sharepoint-visual-editor-fields.png)
+    - File server relative URL: The path and file name in SharePoint of where to create the file.
+    - File content stream: The content of the file to be created.
+
+## Run a Flow
+
+1.  In Package Explorer, right click your projectâs name, and click Run As > Mule Application.
+2.  Check the console to see when the application starts. You should see messages such as these if
+    no errors occur:
+
+    ```text
+    ************************************************************
+    INFO  2019-10-14 22:12:42,003 [main] org.mule.module.launcher.DeploymentDirectoryWatcher:
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    + Mule is up and kicking (every 5000ms)                    +
+    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    INFO  2019-10-14 22:12:42,006 [main] org.mule.module.launcher.StartupSummaryDeploymentListener:
+    **********************************************************
+    *  - - + DOMAIN + - -               * - - + STATUS + - - *
+    **********************************************************
+    * default                           * DEPLOYED           *
+    **********************************************************
+
+    ************************************************************************
+    * - - + APPLICATION + - -   * - - + DOMAIN + - -  * - - + STATUS + - - *
+    ************************************************************************
+    * myapp                     * default             * DEPLOYED           *
+    ************************************************************************
+    ```
+
+## Frequently Asked Questions
+
+- Which versions of SharePoint are supported by this connector?
+
+  The SharePoint connector supports SharePoint Online on-premises and SharePoint online versions.
+
+- What authentication schemes are supported by this connector?
+
+  SharePoint Online supports authentication using standard SharePoint Online user credentials is
+  supported, secure authentication, and Okta authentication.
+
+- What parts of the SharePoint object model are accessible by the connector?
+
+  Specific support for Files and Folders, Lists, ListItems, and Attachments is offered.
+  Additionally, all other entities of the SharePoint API are accessible in JSON form using the
+  ResolveObject and ResolveCollection operations.
+
+- Are DataSense and DataWeave supported by this connector?
+
+  Yes, all supported entities and entity attributes are exposed to Studio by the connector for use
+  with DataWeave.
+
+- What operations can I perform with the connector?
+
+  For the Lists and ListItems API, operations include create, retrieve, update, and delete.
+
+  For Files and Folders, operations include add, retrieve content, retrieve metadata, delete, check
+  out, undo check out, check in, publish, unpublish, approve, deny, recycle, and copy.
+
+- What Mule editions can I use this connector with?
+
+  This connector is supported on any Enterprise Edition Anypoint platform running on any operating
+  system and bit type, including the CloudHub integration PaaS.
+
+- How do I build a query for a query operation?
+
+  The query operations `Folder Query`, `File Query`, and `List Item Query` only support OData
+  queries.
+
+  For the `List Item Query` operation, the query has this format:
+  `LIST_ID?$select=FIELDS_TO_SELECT&filter=FILTER_PART`.
+
+  For example: `Vessels?$select=Title,FLAG,SEGMENT,ID,VesselName&$filter=Title eq 1`.
+
+  The same format applies to the other query operations.
+
+  To learn more about building queries, see the SharePoint documentation page
+  [Use OData query operations in SharePoint REST requests](https://learn.microsoft.com/en-us/sharepoint/dev/sp-add-ins/use-odata-query-operations-in-sharepoint-rest-requests).
+
+- How do I parse an HTML form so that I can test the demo?
+
+  Use the <parse-template> statement, as shown in the Use Case XML section. In this use case,
+  `forminput.html` is the file that Mule uses as a template into which to insert values extracted
+  from the message properties or variables. For more information, see the
+  [Parse Template Reference](../../mule-runtime/latest/parse-template-reference).
+
+## Use Case XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:sharepoint="http://www.mulesoft.org/schema/mule/sharepoint"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/sharepoint
+	http://www.mulesoft.org/schema/mule/sharepoint/current/mule-sharepoint.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+ <configuration-properties file="mule-app.properties"/>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<sharepoint:sharepoint-online-config
+		name="SharePoint_SharePoint_online"
+		doc:name="SharePoint online">
+		<sharepoint:online-connection
+			username="${sharepoint.username}"
+			password="${sharepoint.password}"
+			siteUrl="${sharepoint.siteUrl}"
+			disableCnCheck="${sharepoint.disableCnCheck}" />
+	</sharepoint:sharepoint-online-config>
+	<flow name="UI-PROVIDER">
+		<http:listener
+			doc:name="Listener"
+			config-ref="HTTP_Listener_config"
+			path="/demo"/>
+		<parse-template doc:name="Parse Template" location="formInput.html"/>
+	</flow>
+	<flow name="FILE-ADD_FLOW">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/fileadd"/>
+		<sharepoint:file-add doc:name="File add"
+		config-ref="SharePoint_SharePoint_online"
+		fileServerRelativeUrl="#[attributes.queryParams.path]"
+		overwrite="true">
+		<sharepoint:file-content-stream ><![CDATA[#[attributes.queryParams.content]]]></sharepoint:file-content-stream>
+		</sharepoint:file-add>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload.name
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value="#[payload ++ ' Successfully created.']"
+		doc:name="Set Payload" mimeType="text/plain"/>
+	</flow>
+
+	<flow name="FILE-GET-CONTENT-FLOW"  >
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/filegetcontent"/>
+		<sharepoint:file-get-content doc:name="File get content"
+		 config-ref="SharePoint_SharePoint_online">
+			<sharepoint:file-server-relative-url ><![CDATA[#[attributes.queryParams.path]]]></sharepoint:file-server-relative-url>
+		</sharepoint:file-get-content>
+		<set-payload value="#[payload]" doc:name="Set Payload"
+		 mimeType="text/plain"/>
+	</flow>
+
+	<flow name="FILE-GET-META-FLOW">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/getmetadata"/>
+		<sharepoint:get-metadata doc:name="Get metadata"
+		 config-ref="SharePoint_SharePoint_online">
+			<sharepoint:file-server-relative-url ><![CDATA[#[attributes.queryParams.path]]]></sharepoint:file-server-relative-url>
+		</sharepoint:get-metadata>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="FILE-DELETE-FLOW">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/deletefile"/>
+		<sharepoint:file-delete doc:name="File delete"
+		 config-ref="SharePoint_SharePoint_online">
+			<sharepoint:file-server-relative-url ><![CDATA[#[attributes.queryParams.path]]]></sharepoint:file-server-relative-url>
+		</sharepoint:file-delete>
+		<set-payload value="#[payload  ++ ' Successfully deleted.']"
+		doc:name="Set Payload" mimeType="text/plain"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# SharePoint Connector 3.8 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+Anypoint Connector for SharePoint enables you to connect to a Microsoft SharePoint application.
+
+## Configurations
+
+---
+
+### SharePoint Online
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#sharepoint-online_oauth-authorization-code">OAuth v2.0 Authorization Code</a></p></li><li><p><a href="#sharepoint-online_oauth-client-credentials">OAuth Client Credentials</a></p></li><li><p><a href="#sharepoint-online_okta">Okta</a></p></li><li><p><a href="#sharepoint-online_online">Online</a></p></li><li><p><a href="#sharepoint-online_security-token">(DEPRECATED) Security Token</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Charset</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>US_ASCII</p></li><li><p>ISO_8859_1</p></li><li><p>UTF_8</p></li><li><p>UTF_16BE</p></li><li><p>UTF_16LE</p></li><li><p>UTF_16</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>UTF_8</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### OAuth v2.0 Authorization Code
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth consumerKey registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Consumer Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth consumerSecret registered with the service provider.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authorization Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Authorization endpoint URL of the service provider.</p></div></div></td><td><div><div><p><code>https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Access Token Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Access token endpoint URL of the service provider.</p></div></div></td><td><div><div><p><code>https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Scopes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OAuth scopes requested during the dance. If not provided, it will default to those in the annotation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Resource Owner Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The resource owner ID is in the format <code>&lt;Resource_App_ID&gt;/&lt;Sharepoint_site_domain&gt;@&lt;Tenant_ID&gt;</code>. You can find the <code>Resource_App_ID</code> and <code>Tenant_ID</code> after you create your app. Go to <strong>Azure Active Directory &gt; App registrations</strong> and select the app. The <code>Resource_App_ID</code> is the <strong>Application (client) ID</strong> and the <code>Tenant_ID</code> is the <strong>Directory (tenant) ID</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Before</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the flow that is executed immediately before starting the OAuth dance.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>After</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the flow that is executed immediately after an access token is received.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Listener Config</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Reference to a &lt;http:listener-config /&gt; used to create the listener that receives the access token callback endpoint.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Callback Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path of the access token callback endpoint.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authorize Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path of the local HTTP endpoint that triggers the OAuth dance.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>External Callback Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>If the callback endpoint is behind a proxy or accessed through a non direct URL, use this parameter to specify the OAuth provider that the URL should use to access the callback.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A reference to the object store to use to store each resource owner IDâs data. If a value is not specified, Mule automatically provisions the default object store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### OAuth Client Credentials
+
+Uses client credentials with certificate for authentication.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner. To prevent this, you can disable the CN (Common Name) check. Avoid disabling this for production environments.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Client ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client ID to use to call the API.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Token URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL used to get an access token.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Scopes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defined scopes for the client ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Keystore alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias used to get the correct certificate from the keystore.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Path to keystore</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the clientâs keystore with the private key and certificate.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keystore password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to access the private key from the keystore.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keystore type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>JCEKS</p></li><li><p>JKS</p></li><li><p>PKCS12</p></li><li><p>BCFKS</p></li></ul></div></div></td><td><div><div><p>Keystore type.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Key password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Configures the object store that stores data for each resource owner. If not configured, Mule uses the default object store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### Okta
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Okta Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use to log in to the Okta Identity Provider</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Okta Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use to log in to the Okta Identify Provider</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Okta Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain name for the Okta Identity Provider</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Okta API token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Sharepoint Online embedded link from Okta</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### Online
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Online Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to log in with. Do not include the domain name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Online Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to log in with</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### (DEPRECATED) Security Token
+
+The Security Token connection provider is deprecated because the Basic Connection provider already
+obtains the security token.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Security Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security Token Provider</strong></p></td><td><div><div><p>SecurityTokenProvider</p></div></div></td><td><div><div><p>(Optional) Provider instance that provides the security token when required.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### SharePoint On-premises
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#sharepoint-onpremise_claims">Claims</a></p></li><li><p><a href="#sharepoint-onpremise_kerberos">Kerberos</a></p></li><li><p><a href="#sharepoint-onpremise_ntlm">Ntlm</a></p></li><li><p><a href="#sharepoint-onpremise_security-token">(DEPRECATED) Security Token</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Charset</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>US_ASCII</p></li><li><p>ISO_8859_1</p></li><li><p>UTF_8</p></li><li><p>UTF_16BE</p></li><li><p>UTF_16LE</p></li><li><p>UTF_16</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>UTF_8</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Claims
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Claims Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to log in with. Do not include the domain name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Claims Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to log in with</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Sts Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Security Token Service URL to use for claims authentication</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Scope</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application Identifier configured for this SharePoint site in the Security Token Service (<code>Relying Party Identifier</code>, <code>Client Identifier</code>, <code>Scope</code> or <code>Realm</code>).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### Kerberos
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Kerberos Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to log in with. Do not include the domain name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Kerberos Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to log in with</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>SPN</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Optional) Service principal name for the SharePoint Web Service</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Realm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Optional) The case-sensitive default realm (Domain Name) that the user belongs to.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>KDC</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Optional) The KDC (usually the Domain Controller name) to authenticate the user.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Login Properties File Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Optional) Path to a customized login properties file. The default values work for most cases</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Properties File Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Optional) Path to a customized Kerberos properties file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### NTLM
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain name to use for NTLM authorization</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Ntlm Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to log in with. Do not include the domain name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Ntlm Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password NTLM authorization.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### Security Token
+
+The Security Token connection strategy connection provider is deprecated because the Basic
+Connection provider already obtains the security token.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Security Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security Token Provider</strong></p></td><td><div><div><p>SecurityTokenProvider</p></div></div></td><td><div><div><p>(Optional) Provider instance that provides the security token when required.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Site Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL for the target SharePoint instance</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disable SSL certificate validation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Disables the CN (Common Name) check so that the server wonât throw an exception if the HTTPS certificate is not signed by a trusted partner.</p></div><div><div data-type="NOTE">Disabling the CN check is not recommended for production environments.</div></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port number for the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authenticating against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authenticating against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>NTLM Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain to use for authenticating against the proxy server</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## List of Sources
+
+- [On New Objects](#created-objects)
+- [On Deleted Objects](#deleted-objects)
+- [On Modified Objects](#modified-objects)
+
+## List of Operations
+
+- [Attach File](#attachFile)
+- [File Add](#fileAdd)
+- [File Approve](#fileApprove)
+- [File Check In](#fileCheckIn)
+- [File Check Out](#fileCheckOut)
+- [File Copy To](#fileCopyTo)
+- [File Delete](#fileDelete)
+- [File Deny](#fileDeny)
+- [File Get Content](#fileGetContent)
+- [File Move](#fileMove)
+- [File Publish](#filePublish)
+- [File Query](#fileQuery)
+- [File Recycle](#fileRecycle)
+- [File Undo Check Out](#fileUndoCheckOut)
+- [File Unpublish](#fileUnpublish)
+- [File Update Metadata](#fileUpdateMetadata)
+- [Folder Create](#folderCreate)
+- [Folder Delete](#folderDelete)
+- [Folder Query](#folderQuery)
+- [Get Metadata](#getMetadata)
+- [List Create](#listCreate)
+- [List Delete](#listDelete)
+- [List Get](#listGet)
+- [List Get All](#listGetAll)
+- [List Item Create](#listItemCreate)
+- [List Item Delete](#listItemDelete)
+- [List Item Query](#listItemQuery)
+- [List Item Update](#listItemUpdate)
+- [List Update](#listUpdate)
+- [Resolve Collection](#resolveCollection)
+- [Resolve Object](#resolveObject)
+
+## Sources
+
+> [!NOTE] SharePoint Connector sources (listeners) use Object Store to save watermarks. You might
+> experience limitations that are specific to the Object Store implementation you are using (Object
+> Store for CloudHub deployments or Object Store for on-premises deployments), so you must configure
+> Object Store to suit your needs.  
+> For more information, see
+> [The Different Types of Object Stores Explained](https://help.salesforce.com/s/articleView?id=001123185&type=1).
+
+### On New Objects
+
+`<sharepoint:created-objects>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Since</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Required date format is <code>yyyy-MM-ddTHH:mm:ssZ</code>. If left empty, the UTC moment of time is used as a starting point.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>FOLDER</p></li><li><p>FILE</p></li><li><p>LIST</p></li><li><p>LIST_ITEM</p></li></ul></div></div></td><td><div><div><p>The type of objects to listen for</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Used when listening for newly created list items or files</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Recursive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Used when listening for created files or folders</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Base path for the FOLDER and FILE object types</p></div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should be executed only on the primary node when running in Cluster mode</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+### On Deleted Objects
+
+`<sharepoint:deleted-objects>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Since</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Required date format is <code>yyyy-MM-ddTHH:mm:ssZ</code></p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should be executed only on the primary node when running in Cluster mode</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#DeletedObject">Deleted Object</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+### On Modified Objects
+
+`<sharepoint:modified-objects>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Since</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Required date format is <code>yyyy-MM-ddTHH:mm:ssZ</code>. If left empty, the UTC moment of time is used as a starting point</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>FOLDER</p></li><li><p>FILE</p></li><li><p>LIST</p></li><li><p>LIST_ITEM</p></li></ul></div></div></td><td><div><div><p>The type of objects to listen for</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Used when listening for modified list items or files</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Recursive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Used when listening for modified files or folders</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should be executed only on the primary node when running in Cluster mode</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+## Operations
+
+### Attach File
+
+`<sharepoint:attach-file>`
+
+Attach a file to an item from a SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Title</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Title of the list to which the item belongs</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Item Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the list item.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the file.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The file content represented as a stream. The stream and file name must be specified if localFilePath is empty</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Add
+
+`<sharepoint:file-add>`
+
+Adds a file.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Where to add the new file.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Content Stream</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The content that this new file should contain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Overwrite</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>True if this operation should overwrite the destination file if it already exists, false otherwise.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SharepointFile">SharePoint File</a></p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Approve
+
+`<sharepoint:file-approve>`
+
+Approves the file submitted for content approval with the specified comment. Only documents in lists
+that are enabled for content approval can be approved.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be approved</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Comment</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Additional comment for this approve operation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Check In
+
+`<sharepoint:file-check-in>`
+
+Executes a check in operation on a file in SharePoint that has been previously checked out.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be checked in</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Check In Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>MINOR_CHECK_IN</p></li><li><p>MAJOR_CHECK_IN</p></li><li><p>OVERWRITE_CHECK_IN</p></li></ul></div></div></td><td><div><div><p>Type of check in to execute</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Comment</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Additional comment for this check in</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Check Out
+
+`<sharepoint:file-check-out>`
+
+Executes a checkout request on file in SharePoint.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be checked out</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Copy To
+
+`<sharepoint:file-copy-to>`
+
+Copies a file from fileServerRelativeUrl to newFileServerRelativeUrl.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be copied</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>New File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Overwrite</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>True if this operation should overwrite the destination file if it already exists, false otherwise.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Delete
+
+`<sharepoint:file-delete>`
+
+Deletes a file.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be deleted</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Deny
+
+`<sharepoint:file-deny>`
+
+Denies approval for a file that was submitted for content approval. Only documents in lists that are
+enabled for content approval can be denied.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be denied</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Comment</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Additional comment for this deny operation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Get Content
+
+`<sharepoint:file-get-content>`
+
+Retrieves content of a file in SharePoint.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Target file that contains the content to retrieve from SharePoint.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Move
+
+`<sharepoint:file-move>`
+
+Executes an HTTP POST against the Sharepoint API to move a file. The `fileServerRelativeUrl`
+parameter must point to an existing file in SharePoint. The `newFileServerRelativeUrl` parameter
+must be the path for where to move the file. If the provided path is to a directory, an error will
+be thrown since it should be a new file path. The new file can have the same name as the old file or
+it can have a new name.
+
+To use this operation as a rename operation, specify the same path in both parameters and use a
+different file name in the `newFileServerRelativeUrl` parameter.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the source file</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>New File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the destination file</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Flag</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><ul><li><p>8 - Completes the move operation even if supporting files are separated from the file.</p></li><li><p>0 - No move operation specified.</p></li><li><p>1 - Overwrites a file with the same name if it exists.</p></li></ul></div></div></td><td><div><div><p>1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Publish
+
+`<sharepoint:file-publish>`
+
+Submits the file for content approval with the specified comment.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be published</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Comment</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Additional comment for this publish operation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Query
+
+`<sharepoint:file-query>`
+
+Executes a request on SharePoint to find the files that match the specified query.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The query to execute.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Starting Folder Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The starting folder for the query.</p></div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Recursive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>True if the query should be executed on sub-folders, false otherwise.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Recycle
+
+`<sharepoint:file-recycle>`
+
+Moves the file to the Recycle Bin and returns the identifier of the new Recycle Bin item.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to be recycled.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Undo Check Out
+
+`<sharepoint:file-undo-check-out>`
+
+If a file is checked out, this operation can revert the checkout state.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the file to revert</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Unpublish
+
+`<sharepoint:file-unpublish>`
+
+Removes the file from content approval or unpublishes a major version.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path of the file to unpublish</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Comment</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Additional comment for this unpublish operation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### File Update Metadata
+
+`<sharepoint:file-update-metadata>`
+
+Update metadata for a target item in SharePoint.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Target item in SharePoint to update its metadata</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Update Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>New metadata</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Folder Create
+
+`<sharepoint:folder-create>`
+
+Creates a folder in a Document list
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Server relative URL of the folder to create. For example, <code>/Shared Documents/new folder</code> creates a folder in the <code>Shared Documents</code> list.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Welcome Page</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Welcome page property of the folder, for example, <code>index.html</code></p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SharepointFolder">SharePoint Folder</a></p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Folder Delete
+
+`<sharepoint:folder-delete>`
+
+Deletes a folder from a Document list
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Server relative URL of the folder to delete. For example, <code>/Shared Documents/new folder</code>, deletes <code>new folder</code> from the <code>Shared Documents</code> list.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Folder Query
+
+`<sharepoint:folder-query>`
+
+Retrieves all folders that match the specified criteria.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>OData query in the format <code>listDocumentName?queryString</code>, for example, <code>Shared Documents?$select=Name&amp;$folderName</code></p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Starting Folder Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The starting path of the folder from where to begin the query, relative to the document library selected as part of the query. For example, <code>/myfolder/level2</code> searches for folders inside <code>/document library/myfolder/level2</code>. NOTE: You must specify the document library as part of the query.</p></div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Recursive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Specifies whether to search recursively in inner folders</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Get Metadata
+
+`<sharepoint:get-metadata>`
+
+Gets the metadata of a determined file.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path of the item that is retrieved for its metadata.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SharepointFile">SharePoint File</a></p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Create
+
+`<sharepoint:list-create>`
+
+Creates a new SharePointList.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List</strong></p></td><td><div><div><p><a href="#SharepointList">SharePoint List</a></p></div></div></td><td><div><div><p>SharePoint List reference to create</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SharepointList">SharePoint List</a></p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Delete
+
+`<sharepoint:list-delete>`
+
+Deletes a SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the list to delete</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Get
+
+`<sharepoint:list-get>`
+
+Retrieves a SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the list to retrieve</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SharepointList">SharePoint List</a></p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Get All
+
+`<sharepoint:list-get-all>`
+
+Retrieves all SharePoint lists.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#SharepointList">SharePoint List</a></p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Item Create
+
+`<sharepoint:list-item-create>`
+
+Creates a new Item in an existing SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the list in which to create the item</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Properties of the item to create</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Item Delete
+
+`<sharepoint:list-item-delete>`
+
+Deletes an Item from a SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the list in which to delete the Item</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Item Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the item to delete</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Item Query
+
+`<sharepoint:list-item-query>`
+
+Executes a query against a SharePoint list and returns list items that match the specified criteria.
+This operation returns the list of all items because the operation supports pagination.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Query in the format <code>listId?queryString</code></p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Retrieve References</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Retrieves full objects for reference fields. NOTE: Large lists with a lot of reference fields can take a long time to retrieve.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><div><div><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Item Update
+
+`<sharepoint:list-item-update>`
+
+Updates an Item from a SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the list in which to update the item</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Item Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the item to update</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Updated Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Item properties to update</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### List Update
+
+`<sharepoint:list-update>`
+
+Updates the specified properties of a SharePoint list.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the list to update</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>List</strong></p></td><td><div><div><p><a href="#SharepointList">SharePoint List</a></p></div></div></td><td><div><div><p>List properties to update</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Resolve Collection
+
+`<sharepoint:resolve-collection>`
+
+Executes an HTTP GET against the SharePoint API.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The absolute or relative URL to get</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Resolve Object
+
+`<sharepoint:resolve-object>`
+
+Executes an HTTP GET against the SharePoint API. (Executes a POST if the body is blob).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The absolute or relative URL to get</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Get</p></li><li><p>Create</p></li><li><p>Merge</p></li><li><p>Delete</p></li></ul></div></div></td><td><div><div><p>The request type to be sent.</p></div></div></td><td><div><div><p>Get</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Body</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>Body of the request to send. The operation sends <code>null</code> if the request body is empty.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of a variable that stores the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates against the operationâs output. The outcome of this expression is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+- [SharePoint On-premises](#sharepoint-onpremise)
+
+#### Throws
+
+- SHAREPOINT:INVALID_PARAMETERS
+- SHAREPOINT:RETRY_EXHAUSTED
+- SHAREPOINT:UNKNOWN
+- SHAREPOINT:NOT_FOUND
+- SHAREPOINT:CONNECTIVITY
+- SHAREPOINT:SECURITY
+
+### Unauthorize
+
+`<sharepoint:unauthorize>`
+
+Deletes all the access token information of a given resource owner ID so that it is impossible to
+execute any operation for that user without doing the authorization dance again.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Resource Owner Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the resource owner of which access should be invalidated</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [SharePoint Online](#sharepoint-online)
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect (in milliseconds).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering a process-failed message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use.</p></div></div></td><td><div><div><p>SHA-256</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property can be set only if useSecureHash is false.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Deleted Object
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Author Email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Author Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Deleted By Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Deleted Date</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Deleted Date Local Formatted</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Dir Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Item State</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Item Type</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Size</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Title</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### SharePoint File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Author</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Check In Comment</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Check Out Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Checked Out By User</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Tag</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Customized Page Status</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>E Tag</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Exists</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Length</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Level</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Linking Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>List Item All Fields</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Locked By User</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Major Version</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Metadata</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Minor Version</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Modified By</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Created</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Last Modified</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Title</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>U I Version</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>U I Version Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Unique Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Versions</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### SharePoint Folder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Exists</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Files</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Folders</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Item Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>List Item All Fields</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Metadata</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Parent Folder</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Server Relative Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Created</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Last Modified</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Unique Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Welcome Page</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### SharePoint List
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Allow Content Types</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Base Template</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>GENERIC_LIST</p></li><li><p>DOCUMENT_LIBRARY</p></li><li><p>SURVEY</p></li><li><p>LINKS</p></li><li><p>ANNOUNCEMENTS</p></li><li><p>CONTACTS</p></li><li><p>EVENTS</p></li><li><p>TASKS</p></li><li><p>DISCUSSION_BOARD</p></li><li><p>PICTURE_LIBRARY</p></li><li><p>DATASOURCES</p></li><li><p>WEB_TEMPLATE_CATALOG</p></li><li><p>USER_INFORMATION</p></li><li><p>WEB_PART_CATALOG</p></li><li><p>LIST_TEMPLATE_CATALOG</p></li><li><p>XML_FORM</p></li><li><p>MASTER_PAGE_CATALOG</p></li><li><p>NO_CODE_WORKFLOWS</p></li><li><p>WORKFLOW_PROCESS</p></li><li><p>WEB_PAGE_LIBRARY</p></li><li><p>CUSTOM_GRID</p></li><li><p>SOLUTION_CATALOG</p></li><li><p>NO_CODE_PUBLIC</p></li><li><p>THEME_CATALOG</p></li><li><p>DESIGN_CATALOG</p></li><li><p>APP_DATA_CATALOG</p></li><li><p>DATA_CONNECTION_LIBRARY</p></li><li><p>WORKFLOW_HISTORY</p></li><li><p>GANTT_TASKS</p></li><li><p>HELP_LIBRARY</p></li><li><p>ACCESS_REQUEST</p></li><li><p>TASKS_WITH_TIMELINE_AND_HIERARCHY</p></li><li><p>MAINTENANCE_LOGS</p></li><li><p>MEETINGS</p></li><li><p>AGENDA</p></li><li><p>MEETING_USER</p></li><li><p>DECISION</p></li><li><p>MEETING_OBJECTIVE</p></li><li><p>TEXT_BOX</p></li><li><p>THINGS_TO_BRING</p></li><li><p>HOME_PAGE_LIBRARY</p></li><li><p>POSTS</p></li><li><p>COMMENTS</p></li><li><p>CATEGORIES</p></li><li><p>FACILITY</p></li><li><p>WHEREABOUTS</p></li><li><p>CALL_TRACK</p></li><li><p>CIRCULATION</p></li><li><p>TIMECARD</p></li><li><p>HOLIDAYS</p></li><li><p>IME_DIC</p></li><li><p>EXTERNAL_LIST</p></li><li><p>MY_SITE_DOCUMENT_LIBRARY</p></li><li><p>ISSUE_TRACKING</p></li><li><p>ADMIN_TASKS</p></li><li><p>HEALTH_RULES</p></li><li><p>HEALTH_REPORTS</p></li><li><p>DEVELOPER_SITE_DRAFT_APPS</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Base Type</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Types</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Types Enabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Crawl Non Default Views</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Creatables Info</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Created</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Default Content Approval Workflow Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Default Display Form Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Default Edit Form Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Default New Form Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Default View</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Description</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Description Resource</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Direction</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>LTR</p></li><li><p>RTL</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Document Template Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Draft Version Visibility</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>READER</p></li><li><p>AUTHOR</p></li><li><p>APPROVER</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Attachments</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Folder Creation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Minor Versions</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Moderation</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Versioning</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Entity Type Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Event Receivers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Fields</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>First Unique Ancestor Securable Object</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Force Checkout</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Forms</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Has External Data Source</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Hidden</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Image Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Information Rights Management Settings</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Irm Enabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Irm Expire</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Irm Reject</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Is Application List</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Is Catalog</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Is Private</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Item Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Items</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Last Item Deleted Date</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Last Item Modified Date</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>List Item Entity Type Full Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Major Version Limit</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Major With Minor Versions Limit</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Metadata</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Multiple Data List</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Crawl</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>On Quick Launch</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Parent Web</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Parent Web Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Parser Disabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Role Assignments</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Root Folder</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Server Template Can Create Folders</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Template Feature Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Title</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Title Resource</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>User Custom Actions</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Validation Formula</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Validation Message</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Views</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Workflow Associations</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of instances to initially keep in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div></div></td><td><div><div><p>100</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div><div><p>100</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more memory is used, a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of instances to keep in memory. If more than what is specified is required, content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

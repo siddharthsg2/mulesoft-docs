@@ -1,0 +1,1458 @@
+﻿# LDAP Connector - Full Documentation
+
+# LDAP Connector 3.7
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Lightweight Directory Access Protocol (LDAP) is a public standard that
+facilitates maintenance and access to distributed directories (such as network user privilege
+information) over an Internet Protocol (IP) network.
+
+LDAP Connector supports LDAP over SSL (Deprecated), LDAP over TLS, and a Secure SSL connection type
+for FIPS 140-3 compliant deployments.
+
+Many LDAP servers are included in free-use open source projects and packages. The particulars of
+installing, running, and configuring LDAP servers fall outside the scope of this document.
+
+For information about compatibility and fixed issues, see the LDAP Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The LDAP Connectorâs API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have:
+
+- Credentials to access an OpenLDAP instance that supports LDAP v3
+- Anypoint Platform
+- Anypoint Studio version 7.0 or later
+
+## Common Use Cases For the Connector
+
+Common use cases for LDAP Connector include:
+
+- Adding user accounts to Active Directory
+
+  You can add business users to Active Directory groups defined on the base distinguished name (DN).
+
+- Retrieving user attributes
+
+  You can retrieve the basic attributes of a business user such as a userâs e-mail or phone number.
+
+## Connection Types
+
+LDAP Connector supports four types of connections:
+
+- Basic
+
+  Communications are not encrypted.
+
+  > [!NOTE] If running in an instance configured with `mule.security.model=fips140-2`, attempting to
+  > use a Basic connection returns an `LDAP:SECURITY` error.
+
+- SSL (Deprecated)
+
+  Communications are encrypted using Secure Sockets Layer (SSL). Accepts a custom truststore path
+  for certificate validation. The SSL connection type is deprecated. Use the Secure SSL connection
+  type instead.
+
+- Secure SSL
+
+  Communications are encrypted using SSL and accept a Mule TLS context factory for trust store
+  configuration. This connection type is required for FIPS 140-3 compliant deployments, and is also
+  supported in non-FIPS environments with any trust store type provided via **TLS Context**.
+
+- TLS
+
+  Communications are encrypted using Transport Layer Security (TLS).
+
+You can use Basic (username and password) authentication for each of these connection types.
+
+For more information about configuring connection types and authentication, see
+[Using Studio to Configure LDAP Connector](ldap-connector-use-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [LDAP Connector Reference](ldap-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# LDAP Connector 3.7 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show how to use Anypoint Connector for Lightweight Directory Access Protocol
+Connector (LDAP Connector) to:
+
+- Add a group and user to an organizational unit and then delete that user and group
+- Set up a common truststore
+
+## Add and Delete Groups and Users from an Organizational Unit
+
+This example shows how to use the LDAP **Add entry** operation to add a group and user to an
+organizational unit and the **Delete entry** operation to delete a user and group from that
+organizational unit.
+
+The following screenshot shows the Studio app flow for this example:
+
+![Flow for adding and deleting users](_images/ldap-usecase-flow.png)
+
+### Add a Group and User to an Organizational Unit
+
+To add a group and user to an organizational unit:
+
+1.  Create a new Mule Project in Anypoint Studio.
+2.  Add these properties to the `mule-artifact.properties` file:
+
+    ```text
+    config.principal.dn=<DN>
+    config.password=<Password>
+    config.url=<URL>
+    ```
+
+3.  Place the `mule-artifact.properties` file into the projectâs `src/main/resources` directory.
+4.  From the **Mule Palette** view, click **HTTP** and drag the **Listener** source to the canvas.
+5.  In the Listener properties window, change the display name of the **Listener** source to `HTTP`.
+6.  Click **+** next to the **Connector configuration** field to add a global element.
+7.  Accept the defaults.
+8.  In the Listener properties window, set the **Path** field value to `/`.
+9.  From the **Mule Palette** view, select **Core** and drag the **Transform Message** component
+    next to **HTTP**.
+10. In the **Output** section, replace the existing text with the following DataWeave script:
+
+    ```java
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	dn : "ou=DevOpsGroup," ++ attributes.queryParams.dn,
+    	ou : "DevOpsGroup",
+    	objectclass : ["top", "organizationalUnit"]
+    }
+    ```
+
+11. From the **Mule Palette** view, select **LDAP** and drag the **Add entry** operation next to the
+    **Transform Message** component to start adding an LDAP group.
+12. Click **+** next to the connector configuration field to add a new global element.
+13. Configure the global element as follows:
+
+    <table><colgroup><col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Value</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>Name of the configuration</p></td><td><p><code>LDAP_Configuration</code></p></td></tr><tr><td><p>Principal DN</p></td><td><p>User distinguished name (DN)</p></td><td><p><code>${config.principal.dn}</code></p></td></tr><tr><td><p>Password</p></td><td><p>User password</p></td><td><p><code>${config.password}</code></p></td></tr><tr><td><p>URL</p></td><td><p>URL that connects to the LDAP server</p></td><td><p><code>${config.url}</code></p></td></tr></tbody></table>
+
+14. Click **Test Connection** to confirm that Mule can connect to the LDAP server instance.
+15. Process the connection results as follows:
+    - If the connection succeeds, click **OK** to save the configuration.
+    - If the connection fails, review and correct any incorrect field values and test again.
+
+16. Return to the LDAP Connector properties window and configure the parameters required for the
+    **Add entry** operation:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p><code>Add Group Entry to LDAP Directory</code></p></td></tr><tr><td colspan="2"><p>Basic Settings</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>LDAP Connector global element that you created previously</p></td></tr><tr><td colspan="2"><p>General</p></td></tr><tr><td><p>Entry</p></td><td><p><code>payload</code> (the default value)</p></td></tr></tbody></table>
+
+17. From the **Mule Palette** view, select **Core** and drag the **Transform Message** component
+    next to **Add Group Entry to the LDAP directory**.
+18. In the **Output** section, replace the existing text with the following DataWeave script:
+
+    ```java
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	dn : "cn=Test User,ou=DevOpsGroup," ++ attributes.queryParams.dn,
+    	uid : "testUser",
+    	cn : "Test User",
+    	sn : "User",
+    	userPassword : "test1234",
+    	objectclass : ["top", "person", "organizationalPerson", "inetOrgPerson"]
+    }
+    ```
+
+19. From the **Mule Palette** view, select **LDAP** and drag the **Add entry** operation next to
+    **Transform Message** to start adding an LDAP user.
+20. In the LDAP Connector properties editor, configure the parameters as follows:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p><code>Add User Entry to LDAP Directory</code></p></td></tr><tr><td colspan="2"><p>Basic Settings</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>LDAP Connector global element that you created previously</p></td></tr><tr><td colspan="2"><p>General</p></td></tr><tr><td><p>Entry</p></td><td><p><code>payload</code> (the default value)</p></td></tr></tbody></table>
+
+### Delete a Group and User from an Organizational Unit
+
+After you successfully add a group and user to an organizational unit, delete them using LDAP
+Connector:
+
+1.  From the **Mule Palette** view, select **LDAP** and drag the **Delete entry** operation next to
+    the **Add User Entry to LDAP Directory** on the canvas.
+2.  In the LDAP Connector properties editor, configure the parameters as follows:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p><code>Delete User Entry from LDAP Directory</code></p></td></tr><tr><td colspan="2"><p>Basic Settings</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>LDAP Connector global element that you created previously</p></td></tr><tr><td colspan="2"><p>General</p></td></tr><tr><td><p>DN</p></td><td><p><code>#['cn=Test User,ou=DevOpsGroup,' ++ attributes.queryParams.dn]</code></p></td></tr></tbody></table>
+
+3.  Drag another **Delete entry** operation next to the first one to start deleting the LDAP group
+    entry.
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p><code>Delete Group Entry from LDAP Directory</code></p></td></tr><tr><td colspan="2"><p>Basic Settings</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>LDAP Connector global element that you created previously</p></td></tr><tr><td colspan="2"><p>General</p></td></tr><tr><td><p>DN</p></td><td><p><code>#['ou=DevOpsGroup,' ++ attributes.queryParams.dn]</code></p></td></tr></tbody></table>
+
+4.  Drag the **Transform Message** component next to **Delete Group Entry from LDAP Directory**.
+5.  Set the payload to "Flow Successfully Completed".
+
+### Test the App
+
+To test the app:
+
+1.  Save the project.
+2.  Run the project as a Mule app.
+3.  Send a PUT command to this URL:
+
+    `http://localhost:8081/?dn=mulesoft,dc=orgrequest`
+
+### XML for the Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ldap="http://www.mulesoft.org/schema/mule/ldap" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/ldap
+http://www.mulesoft.org/schema/mule/ldap/current/mule-ldap.xsd">
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="74b34b41-4e8b-4b96-adec-da917b183083" >
+<http:listener-connection host="0.0.0.0" port="8081" />
+</http:listener-config>
+<ldap:config name="LDAP_Configuration" doc:name="LDAP Configuration" doc:id="2e1caebb-d041-47ec-9513-69c140c78700" >
+		<ldap:basic-connection authDn="${config.principal.dn}" authPassword="${config.password}" url="${config.url}" />
+	</ldap:config>
+	<flow name="ldap-examplesFlow" doc:id="dc01fbb8-1e2c-4255-be17-46309cdbef07" >
+		<http:listener doc:name="HTTP" doc:id="180e5809-d508-498c-a74f-97d93afc98f8" config-ref="HTTP_Listener_config" path="/"/>
+		<ee:transform doc:name="Transform Message" doc:id="183ca95a-dcc2-448f-8bba-26f7295fb1e4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	dn : "ou=DevOpsGroup," ++ attributes.queryParams.dn,
+	ou : "DevOpsGroup",
+	objectclass : ["top", "organizationalUnit"]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ldap:add doc:name="Add Group Entry to LDAP Directory" doc:id="95d60199-e087-4fe1-afa7-1c035fdd3aec" config-ref="LDAP_Configuration"/>
+		<ee:transform doc:name="Transform Message" doc:id="0e96e606-48be-4ba0-9266-242bd9911184">
+			<ee:message>
+				<ee:set-payload><![CDATA[{
+	dn : "cn=Test User,ou=DevOpsGroup," ++ attributes.queryParams.dn,
+	uid : "testUser",
+	cn : "Test User",
+	sn : "User",
+	userPassword : "test1234",
+	objectclass : ["top", "person", "organizationalPerson", "inetOrgPerson"]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ldap:add doc:name="Add User Entry to LDAP Directory" doc:id="28c98048-0ba6-4a36-92df-49d437303217" config-ref="LDAP_Configuration"/>
+		<ldap:delete doc:name="Delete User Entry from LDAP Directory" doc:id="07e7141a-03d9-4565-bbca-8a4b03cbb6ee" config-ref="LDAP_Configuration" dn="#['cn=Test User,ou=DevOpsGroup,' ++ attributes.queryParams.dn]"/>
+		<ldap:delete doc:name="Delete Group ENtry from LDAP Directory" doc:id="892dca59-86a3-40a2-b758-09560fb95383" config-ref="LDAP_Configuration" dn="#['ou=DevOpsGroup,' ++ attributes.queryParams.dn]"/>
+		<ee:transform doc:name="Transform Message" doc:id="5dc391aa-87b1-4e84-97e5-71dc5f8daa22" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## Set Up a Common Truststore
+
+This example shows how to change the previous example so that it has a TLS configuration that uses a
+custom truststore.
+
+> [!NOTE] The custom truststore feature is not FIPS compliant.
+
+To set up a custom truststore:
+
+1.  Follow the steps in the previous example.
+2.  Add these properties to the `mule-artifact.properties` file to hold your LDAP credentials:
+
+    ```text
+    config.principal.dn=<DN>
+    config.password=<Password>
+    config.url=<URL>
+    ```
+
+3.  Place the `mule-artifact.properties` file into the projectâs `src/main/resources` directory.
+4.  Locate the following element in the XML code:
+
+    ```xml
+     <ldap:conf name=:LDAP_configuration" doc:name="LDAP Configuration"
+     .
+     .
+     .
+     </ldap:config
+    ```
+
+5.  Overlay the located element with the following code:
+
+    ```xml
+    <ldap:config name="LDAP_Configuration">
+      <ldap:tls-connection
+        authDn="${config.principal.dn}}"
+        authPassword="${config.password}"
+        url="${config.url}"
+        trustStorePath="path_to_truststore_jks_file"
+        trustStorePassword="changeit" />
+    ```
+
+### Test the App
+
+To test the app:
+
+1.  Save the project.
+2.  Run the project as a Mule app.
+3.  Send a PUT command to this URL:
+
+    `http://localhost:8081/?dn=mulesoft,dc=orgrequest`
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# LDAP Connector 3.7 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Lightweight Directory Access Protocol (LDAP) enables you to interface with
+LDAP servers.
+
+## Default Configuration
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#basic-configuration-type">Basic Configuration Type</a></p></li><li><p><a href="#ssl-configuration-type-deprecated">SSL Configuration Type (Deprecated)</a></p></li><li><p><a href="#secure-ssl-configuration-type">Secure SSL Configuration Type</a></p></li><li><p><a href="#tls-configuration-type">TLS Configuration Type</a></p></li></ul></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p>ExpirationPolicy</p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr><tr><td><p>Show Attributes As Objects</p></td><td><p>boolean</p></td><td><p>If set to true, the queries display the entity attributes as objects, containing the definition type, a flag to indicate whether or not the attribute is multi-value, and the value of the attribute. If set to false, the queries only display the attribute values.</p></td><td><p>false</p></td><td></td></tr></tbody></table>
+
+## Basic Configuration Type
+
+For the Basic Configuration Type connection, the communications are not encrypted. If LDAP Connector
+runs in an instance configured with `mule.security.model=fips140-2`, attempting to use a Basic
+Configuration Type connection returns the `LDAP:SECURITY` error.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Principal DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN (distinguished name) of the user.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password of the user.</p></td><td></td><td></td></tr><tr><td><p>Authentication</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the authentication mechanism to use. Valid values are:</p></div><div><ul><li><p><code>simple</code> - Authenticates using the user DN and password</p></li><li><p><code>none</code> - Does not authenticate</p></li></ul></div></div></td><td><p><code>simple</code></p></td><td></td></tr><tr><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The connection URL to the LDAP server.</p><p>You can configure <strong>URL</strong> to specify multiple LDAP hosts, for example, <code>ldap://ldap1.example.com ldap2.example.com/ou=intern-users,dc=acc,o=myorg</code>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p>Reconnection</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><p>Enumeration, one of:</p><p>** JNDI</p></td><td><p>The implementation of the connection to use.</p></td><td><p>JNDI</p></td><td></td></tr><tr><td><p>Schema Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to true, the LDAP connector uses the LDAP schema (only works for LDAP v3) to define the structure of the LDAP entry or map. This must be 'true' to use DataSense because it affects the implementing class of org.mule.module.ldap.api.LDAPEntry attributes.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Referral</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IGNORE</p></li><li><p>THROW</p></li><li><p>FOLLOW</p></li></ul></div></div></td><td><p>Constant that holds the name of the environment property for specifying how referrals encountered by the service provider are to be processed (follow, ignore, throw).</p></td><td><p>IGNORE</p></td><td></td></tr><tr><td><p>Extended Configuration</p></td><td><div><div><p>Object</p></div></div></td><td><p>This is a Map instance holding extended configuration attributes to use in the Context environment. When working with TLS connections make sure that the native LDAP pooling functionality is turned off. For example, if using JNDI, do not use attributes such as <code>com.sun.jndi.ldap.connect.pool=true</code>, which causes problems when using TLS.</p></td><td></td><td></td></tr><tr><td><p>Initial Pool Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The string representation of an integer that represents the number of connections per connection identity to create when initially creating a connection for the identity. To disable pooling, just set this value to 0 (zero).</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Max Pool Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The string representation of an integer that represents the maximum number of connections per connection identity that can be maintained concurrently.</p></td><td><p>5</p></td><td></td></tr><tr><td><p>Pool Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The string representation of an integer that represents the number of milliseconds that an idle connection may remain in the pool without being closed and removed from the pool.</p></td><td><p>60000</p></td><td></td></tr></tbody></table>
+
+> [!NOTE] To see more logs related to connection pools, use
+> `com.sun.jndi.ldap.connect.pool.debug=all`.
+
+## SSL Configuration Type (Deprecated)
+
+> [!IMPORTANT] The **SSL Configuration** type is deprecated. Use the
+> [Secure SSL Configuration Type](#secure-ssl-configuration-type) instead, which accepts a Mule TLS
+> context factory and supports FIPS 140-3 compliant deployments.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Principal DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN (distinguished name) of the user.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password of the user.</p></td><td></td><td></td></tr><tr><td><p>Authentication</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the authentication mechanism to use. Valid values are:</p></div><div><ul><li><p><code>simple</code> - Authenticates using the user DN and password</p></li><li><p><code>none</code> - Does not authenticate</p></li></ul></div></div></td><td><p><code>simple</code></p></td><td></td></tr><tr><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The connection URL to the LDAP server.</p><p>You can configure <strong>URL</strong> to specify multiple LDAP hosts, for example, <code>ldap://ldap1.example.com ldap2.example.com/ou=intern-users,dc=acc,o=myorg</code>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>JNDI</p></li></ul></div></div></td><td><p>The implementation of the connection to use.</p></td><td><p>JNDI</p></td><td></td></tr><tr><td><p>Schema Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the LDAP connector will use the LDAP schema (works only for LDAP v3) to define the structure of the LDAP entry or map. This parameter must be set to <code>true</code> to use DataSense, as it affects the implementing class of <code>org.mule.module.ldap.api.LDAPEntry</code> attributes.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Referral</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IGNORE</p></li><li><p>THROW</p></li><li><p>FOLLOW</p></li></ul></div></div></td><td><p>A constant that consists of the name of the environment property to specify how referrals encountered by the service provider must be processed (FOLLOW, IGNORE, THROW).</p></td><td><p>IGNORE</p></td><td></td></tr><tr><td><p>Extended Configuration</p></td><td><div><div><p>Object</p></div></div></td><td><p>A map instance that consists of extended configuration attributes used in the context environment. When working with TLS connections, ensure that the native LDAP pooling functionality is turned off. For example, if using JNDI, do not use attributes such as <code>com.sun.jndi.ldap.connect.pool=true</code>, as it will cause problems when using TLS.</p></td><td></td><td></td></tr><tr><td><p>TrustStore Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Custom path to the truststore that contains the certificates needed for a secure authentication. The supported formats are JKS and PKCS12.</p></td><td></td><td></td></tr><tr><td><p>TrustStore Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Custom password for the custom truststore file.</p></td><td></td><td></td></tr></tbody></table>
+
+## Secure SSL Configuration Type
+
+SSL connection provider that accepts a Mule TLS context factory for trust store configuration. This
+connection type is required for FIPS 140-3 compliant deployments, and is also usable in non-FIPS
+environments with any trust store type supplied via **TLS Context** field.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>TLS Context</p></td><td><div><div><p><a href="#TLS">TLS Type</a></p></div></div></td><td><p>The TLS context used to configure secure communication.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Principal DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN (distinguished name) of the user.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password of the user.</p></td><td></td><td></td></tr><tr><td><p>Authentication</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the authentication mechanism to use. Valid values are:</p></div><div><ul><li><p><code>simple</code> - Authenticates using the user DN and password</p></li><li><p><code>none</code> - Does not authenticate</p></li></ul></div></div></td><td></td><td><p><code>simple</code></p></td></tr><tr><td></td><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The connection URL to the LDAP server.</p><p>You can configure <strong>URL</strong> to specify multiple LDAP hosts, for example, <code>ldap://ldap1.example.com ldap2.example.com/ou=intern-users,dc=acc,o=myorg</code>.</p></td><td></td></tr><tr><td><p>x</p></td><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td></tr><tr><td></td><td><p>Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>JNDI</p></li></ul></div></div></td><td><p>The implementation of the connection to use.</p></td><td><p>JNDI</p></td></tr><tr><td></td><td><p>Schema Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the LDAP connector will use the LDAP schema (works only for LDAP v3) to define the structure of the LDAP entry or map. This parameter must be set to <code>true</code> to use DataSense, as it affects the implementing class of <code>org.mule.module.ldap.api.LDAPEntry</code> attributes.</p></td><td><p>false</p></td></tr><tr><td></td><td><p>Referral</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IGNORE</p></li><li><p>THROW</p></li><li><p>FOLLOW</p></li></ul></div></div></td><td><p>A constant that consists of the name of the environment property to specify how referrals encountered by the service provider must be processed (FOLLOW, IGNORE, THROW).</p></td><td><p>IGNORE</p></td></tr><tr><td></td><td><p>Extended Configuration</p></td><td><div><div><p>Object</p></div></div></td><td><p>A map instance that consists of extended configuration attributes used in the context environment. When working with TLS connections, ensure that the native LDAP pooling functionality is turned off. For example, if using JNDI, do not use attributes such as <code>com.sun.jndi.ldap.connect.pool=true</code>, as it will cause problems when using TLS.</p></td><td></td></tr></tbody></table>
+
+## TLS Configuration Type
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Principal DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN (distinguished name) of the user.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password of the user.</p></td><td></td><td></td></tr><tr><td><p>Authentication</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the authentication mechanism to use. Valid values are:</p></div><div><ul><li><p><code>simple</code> - Authenticates using the user DN and password</p></li><li><p><code>none</code> - Does not authenticate</p></li></ul></div></div></td><td><p><code>simple</code></p></td><td></td></tr><tr><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The connection URL to the LDAP server.</p><p>You can configure <strong>URL</strong> to specify multiple LDAP hosts, for example, <code>ldap://ldap1.example.com ldap2.example.com/ou=intern-users,dc=acc,o=myorg</code>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p>Reconnection</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>JNDI</p></li></ul></div></div></td><td><p>The implementation of the connection to use.</p></td><td><p>JNDI</p></td><td></td></tr><tr><td><p>Schema Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to true, the LDAP connector uses the LDAP schema (only works for LDAP v3) to define the structure of the LDAP entry (or map). This needs to be 'true' to use DataSense as it affects the implementing class of <code>org.mule.module.ldap.api.LDAPEntry</code> attributes.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Referral</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IGNORE</p></li><li><p>THROW</p></li><li><p>FOLLOW</p></li></ul></div></div></td><td><p>Constant that holds the name of the environment property for specifying how referrals encountered by the service provider are to be processed (follow, ignore, throw).</p></td><td><p>IGNORE</p></td><td></td></tr><tr><td><p>Extended Configuration</p></td><td><div><div><p>Object</p></div></div></td><td><p>This is a Map instance holding extended configuration attributes to use in the Context environment. When working with TLS connections, you need to ensure that the native LDAP pooling functionality is turned off. For example if using JNDI, do not use attributes such as <code>com.sun.jndi.ldap.connect.pool=true</code>, which causes problems when using TLS.</p></td><td></td><td></td></tr><tr><td><p>TrustStore Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Custom path to the truststore that contains the certificates needed for a secure authentication. The supported formats are JKS and PKCS12.</p></td><td></td><td></td></tr><tr><td><p>TrustStore Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Custom password for the custom truststore file.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Add Entry](#add)
+- [Add Multi Value Attribute](#addMultiValueAttribute)
+- [Add Single Value Attribute](#addSingleValueAttribute)
+- [Bind](#bind)
+- [Delete Entry](#delete)
+- [Delete Multi Value Attribute](#deleteMultiValueAttribute)
+- [Delete Single Value Attribute](#deleteSingleValueAttribute)
+- [Exists](#exists)
+- [LDAPEntry To LDIF](#ldapEntryToLdif)
+- [Lookup](#lookup)
+- [Modify Entry](#modify)
+- [Modify Multi Value Attribute](#modifyMultiValueAttribute)
+- [Modify Single Value Attribute](#modifySingleValueAttribute)
+- [Paged Result Search](#pagedResultSearch)
+- [Rename entry](#rename)
+- [Search](#ldapsearch)
+- [Search One](#searchOne)
+- [Unbind](#unbind)
+
+## Associated Sources
+
+- [On Modified Objects](#modifiedObjects)
+- [On New Objects](#newObjects)
+
+## Operations
+
+## Add Entry
+
+`<ldap:add>`
+
+Creates a new LDAPEntry in the LDAP server. The entry should contain the distinguished name (DN),
+the objectClass attributes that define its structure and at least a value for all the required
+attributes. Required attributes depend on the object classes assigned to the entry. Refer to RFC
+4519 for standard object classes and attributes.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entry</p></td><td><div><div><p>Object</p></div></div></td><td><p>The LDAPEntry that should be added.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to add. If the entry doesnât have the objectClass attribute set, then this one is used to retrieve the whole objectClass hierarchy. If performance is a requirement, donât rely on this functionality, as several calls to the LDAP server are done to traverse the object class hierarchy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Add Multi Value Attribute
+
+`<ldap:add-multi-value-attribute>`
+
+Adds all the values for an attribute in an existing LDAP entry. If the entry already contains a
+value (or values) for an attributeName, then these values are added. The attribute should allow
+multiple values, or an exception is raised.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to modify.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the attribute to add values to.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Values</p></td><td><div><div><p>Array of Any</p></div></div></td><td><p>The values for the attribute.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Ignore Invalid Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the attribute value to add is already present, then donât throw the INVALID_ATTRIBUTE error.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Add Single Value Attribute
+
+`<ldap:add-single-value-attribute>`
+
+Adds a value for an attribute in an existing LDAP entry. If the entry already contains a value for
+the given attributeName, then this value is added (only if the attribute is multi value and the
+entry didnât have the value already). If you want to add a value with a type different than String,
+then you can use the add-multi-value-attribute operation and define a single element list with the
+value.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to modify.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the attribute to add a value to.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value for the attribute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ignore Invalid Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the attribute value to add is already present, then donât throw InvalidAttributeException.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Bind
+
+`<ldap:bind>`
+
+Performs an LDAP bind (login) operation. After login there will be an LDAP connection pool ready to
+use for other operations using the authenticated user. If no values are provided to override authDn
+and authPassword then using this operation will just re-bind (re-authenticate) the user/password
+defined in the config element. If new values are provided for authDn and authPassword, then
+authentication will be performed. Re-authenticating and returning the LDAP entry using config level
+credentials (authDn & authPassword).
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Principal DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The Principal DN of the user.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The Password for Principal DN.</p></td><td></td><td></td></tr><tr><td><p>Authentication</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the authentication mechanism to use. Valid values are:</p></div><div><ul><li><p><code>simple</code> - Authenticates using the user DN and password</p></li><li><p><code>none</code> - Does not authenticate</p></li></ul></div></div></td><td><p><code>simple</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which the operationâs output is placed</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Delete Entry
+
+`<ldap:delete>`
+
+Deletes the LDAP entry represented by the provided distinguished name (DN). The entry should not
+have child entries, in which case a CONTEXT_NOT_EMPTY error is thrown. This operation is idempotent.
+The operations succeeds even if the terminal atomic name is not bound in the target context, but
+throws NAME_NOT_FOUND error if any of the intermediate contexts do not exist.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to delete.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Delete Multi Value Attribute
+
+`<ldap:delete-multi-value-attribute>`
+
+Deletes all the values matching attributeValues of the attribute defined by attributeName. Values
+that are not present in the entry are ignored. If no values are specified, then the whole attribute
+is deleted from the entry.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to modify.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the attribute to delete its values.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Values</p></td><td><div><div><p>Array of Any</p></div></div></td><td><p>The values that should be deleted.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Ignore Invalid Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the attribute or value to delete is not present, then donât throw the INVALID_ATTRIBUTE error.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Delete Single Value Attribute
+
+`<ldap:delete-single-value-attribute>`
+
+Deletes the value matching attributeValue of the attribute defined by attributeName. If the entry
+didnât have the value, then the entry stays the same. If no value is specified, then the whole
+attribute is deleted from the entry. If you want to delete a value with a type different than
+String, then you can use the delete-multi-value-attribute operation and define a single element list
+with the value.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to modify.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the attribute to delete its value.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value that should be deleted.</p></td><td></td><td></td></tr><tr><td><p>Ignore Invalid Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the attribute or value to delete is not present, then donât throw the INVALID_ATTRIBUTE error.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Exists
+
+`<ldap:exists>`
+
+Checks whether an LDAP entry exists in the LDAP server or not.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Boolean</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## LDAPEntry To LDIF
+
+`<ldap:ldap-entry-to-ldif>`
+
+Transforms an LDAPEntry to a String in LDIF representation (RFC 2849).
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entry</p></td><td><div><div><p>Object</p></div></div></td><td><p>The LDAPEntry to transform to LDIF.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>String</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Lookup
+
+`<ldap:lookup>`
+
+Retrieves an entry from the LDAP server based on its distinguished name (DN). Distinguished Names
+are the unique identifiers of an LDAP entry, so this method performs a search based on this ID and
+returns a single entry as the result, or throws an exception if the DN is invalid or doesnât exist.
+
+When you know the DN of the object you want to retrieve, use this operation:
+
+`#searchOne(LDAPConfiguration, LDAPConnectionWrapper, String, String, List, SearchScope, int, long, boolean, String)`
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of the attributes to return in the result. If the attributes list is empty or null, then by default all LDAP entry attributes are returned.</p></td><td></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to return. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Modify Entry
+
+`<ldap:modify>`
+
+Updates an existing LDAPEntry in the LDAP server. The entry should contain an existing distinguished
+name (DN), and at least a value for all the required attributes. Required attributes depend on the
+object classes assigned to the entry. You can refer to RFC 4519 for standard object classes and
+attributes.
+
+When updating an LDAP entry, only the attributes in the entry passed as parameters are updated or
+added. If you need to delete an attribute, you should use the delete attribute operation.
+
+Example: Updating one attribute and adding another.
+
+Original LDAP server entry:
+
+```text
+dn: cn=entry,ou=group,dc=company,dc=org
+cn: entry
+attr1: Value1
+attr2: Value2
+multi1: Value3
+multi1: Value4
+objectclass: top
+objectclass: myentry
+```
+
+Entry map passed as a parameter:
+
+```text
+dn: cn=entry,ou=group,dc=company,dc=org
+attr1: NewValue
+attr3: NewAttributeValue `
+```
+
+Resulting LDAP server entry:
+
+```text
+dn: cn=entry,ou=group,dc=company,dc=org
+cn: entry
+attr1: NewValue
+attr2: Value2
+multi1: Value3
+multi1: Value4
+attr3: NewAttributeValue
+objectclass: top
+objectclass: myentry
+```
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entry</p></td><td><div><div><p>Object</p></div></div></td><td><p>The LDAPEntry that should be updated.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to update. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Modify Multi Value Attribute
+
+`<ldap:modify-multi-value-attribute>`
+
+Updates (replaces) the value or values of the attribute defined by attributeName with the new values
+defined by attributeValues. If the attribute is not present in the entry, then the value is added.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to modify.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the attribute to update its values.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Values</p></td><td><div><div><p>Array of Any</p></div></div></td><td><p>The new values for the attribute.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Ignore Invalid Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the attribute value to modify is already present, then donât throw the INVALID_ATTRIBUTE error.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Modify Single Value Attribute
+
+`<ldap:modify-single-value-attribute>`
+
+Updates (replaces) the value or values of the attribute defined by attributeName with the new value
+defined by attributeValue. If the attribute is not present in the entry, then the value is added. To
+update a value with a type different than String, use the update-multi-value-attribute operation and
+define a single element list with the value.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The DN of the LDAP entry to modify.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the attribute to update its value.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attribute Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The new value for the attribute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ignore Invalid Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If the attribute value to modify is already present, then donât throw the INVALID_ATTRIBUTE error.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Paged Result Search
+
+`<ldap:paged-result-search>`
+
+Performs an LDAP search and streams the result to the rest of the flow.
+
+This means that if the LDAP server supports paging, this operation chunks the LDAP search request in
+pages, and then returns a list with all the results to the rest of the flow.
+
+For queries returning large results, it is best to use pagination, however, not all LDAP servers
+support this or are configured to support it.
+
+To use pagination, provide a page size value thatâs less than or equal to the **Max Results** (count
+limit). If you get a size limit exceeded exception, ensure that the authenticated user has
+sufficient privileges, or that the LDAP server is not limited by its configuration, in which case,
+you should reduce the value of the fetch size.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Base DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The base DN of the LDAP search.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>A valid LDAP filter. LDAP connector supports LDAP search filters as defined in RFC 2254.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of the attributes to return in the result. If the attributes list is empty or null then, by default, all LDAP entry attributes are returned.</p></td><td></td><td></td></tr><tr><td><p>Scope</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>OBJECT</p></li><li><p>ONE_LEVEL</p></li><li><p>SUB_TREE</p></li></ul></div></div></td><td><p>The scope of the search. Valid attributes are:</p><p>* OBJECT: Searches only the entry at the base DN so that only results from that entry are returned. This must meet the search filter criteria. * ONE_LEVEL: Searches all entries one level under the base DN and does not include entries in the base DN or any entries one level under the base DN. * SUB_TREE: Searches all entries at all levels under and including the specified base DN.</p></td><td><p>ONE_LEVEL</p></td><td></td></tr><tr><td><p>Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Search timeout in milliseconds. If the value is 0, this means to wait indefinitely.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Max Results</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of entries to return as a result of the search. 0 indicates to return all entries.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Return Object</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables returning objects that are returned as part of the result. If disabled, only the name and class of the object is returned. If enabled, the object is returned.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Page Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>If the LDAP server supports paging results, set this attribute to the size of the page. If the pageSize is less than or equal to 0, paging is disabled.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Order by attribute</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the LDAP attribute used to sort results.</p></td><td></td><td></td></tr><tr><td><p>Ascending order?</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If orderBy is set, indicates whether to sort in ascending or descending order.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to return. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of LDAP entries retrieved at once per page.</p></td><td><p>200</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p>repeatable-in-memory-iterable</p></li><li><p>repeatable-file-store-iterable</p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in <strong>Target Variable</strong>.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Array of Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:UNKNOWN
+
+## Rename entry
+
+`<ldap:rename>`
+
+Renames an existing LDAP entry (moves an entry from a DN to another one).
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Current DN</p></td><td><div><div><p>String</p></div></div></td><td><p>DN of the existing entry to rename.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>New DN</p></td><td><div><div><p>String</p></div></div></td><td><p>Destination DN</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Search
+
+`<ldap:search>`
+
+Performs an LDAP search that returns a list of all resulting LDAP entries. For queries returning
+large results, use pagination; however, not all LDAP servers support this or are configured to
+support it. To use pagination, provide a page size value thatâs less than or equal to the max
+results (count limit). If you get a size limit exceeded exception, ensure that the authenticated
+user has sufficient privileges, or that the LDAP server is not limited by its configuration.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Base DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The base DN of the LDAP search.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>A valid LDAP filter. The LDAP connector supports LDAP search filters as defined in RFC 2254.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of the attributes to return in the result. If the attributes list is empty or null, by default all LDAP entry attributes are returned.</p></td><td></td><td></td></tr><tr><td><p>Scope</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>OBJECT</p></li><li><p>ONE_LEVEL</p></li><li><p>SUB_TREE</p></li></ul></div></div></td><td><p>The scope of the search. Valid attributes are:</p><p>* OBJECT: This value is used to indicate searching only the entry at the base DN, resulting in only that entry being returned (keeping in mind that it also has to meet the search filter criteria) * ONE_LEVEL: This value is used to indicate searching all entries one level under the base DN - but not including the base DN and not including any entries under that one level under the base DN. * SUB_TREE: This value is used to indicate searching of all entries at all levels under and including the specified base DN.</p></td><td><p>ONE_LEVEL</p></td><td></td></tr><tr><td><p>Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Search timeout in milliseconds. If the value is 0, this means to wait indefinitely.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Max Results</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of entries to return as a result of the search. 0 indicates to return all entries.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Return Object</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables objects returned as part of the result. If disabled, only the name and class of the object is returned. If enabled, the object is also returned.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Page Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>If the LDAP server supports paging results, set this attribute to the size of the page. If the pageSize is less than or equal to 0, then paging is disabled.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to return. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Array of Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Search One
+
+`<ldap:search-one>`
+
+Performs an LDAP search that is supposed to return a unique result. If the search returns more than
+one result, a warning log message is generated and the first element of the result is returned. Use
+this operation over `#lookup(LDAPConfiguration, LDAPConnectionWrapper, String, List, String)` when
+you donât know the DN of the entry you need to retrieve but have a set of attributes that you know
+should return a single entry (for example an email address).
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Base DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The base DN of the LDAP search.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>A valid LDAP filter. The LDAP connector supports LDAP search filters as defined in RFC 2254.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of the attributes to return in the result. If the attributes list is empty or null, then by default all LDAP entry attributes are returned.</p></td><td></td><td></td></tr><tr><td><p>Scope</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>OBJECT</p></li><li><p>ONE_LEVEL</p></li><li><p>SUB_TREE</p></li></ul></div></div></td><td><p>The scope of the search. Valid attributes are:</p><p>* OBJECT: Indicates to search only for the entry at the base DN, resulting in only that entry being returned (keep in mind that it also has to meet the search filter criteria). * ONE_LEVEL: Indicates to search for all entries one level under the base DN - but not including the base DN and not including any entries under that one level under the base DN. * SUB_TREE: Indicates to search for all entries at all levels under and including the specified base DN.</p></td><td><p>ONE_LEVEL</p></td><td></td></tr><tr><td><p>Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Search timeout in milliseconds. If the value is 0, this means to wait indefinitely.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Max Results</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of entries to return as a result of the search. 0 indicates to return all entries.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Return Object</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables returning objects returned as part of the result. If disabled, only the name and class of the object is returned. If enabled, the object also returns.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to return. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Unbind
+
+`<ldap:unbind>`
+
+Closes the current connection, forcing the login operation (bind) the next time it is used.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- LDAP:COMMUNICATION
+- LDAP:CONNECTIVITY
+- LDAP:SECURITY
+- LDAP:CONTEXT_NOT_EMPTY
+- LDAP:INVALID_ATTRIBUTE
+- LDAP:INVALID_ENTRY
+- LDAP:NAME_ALREADY_BOUND
+- LDAP:NAME_NOT_FOUND
+- LDAP:OPERATION_NOT_SUPPORTED
+- LDAP:OPERATION_NOT_COMPLETED
+- LDAP:PERMISSION
+- LDAP:RETRY_EXHAUSTED
+- LDAP:UNKNOWN
+
+## Sources
+
+## On Modified Objects
+
+`<ldap:modified-objects>`
+
+Triggers when an existing LDAP entry is modified.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Base DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The base DN of the LDAP search.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>A valid LDAP filter. The LDAP connector supports LDAP search filters as defined in RFC 2254.</p></td><td></td><td></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of the attributes to return in the result. If the attributes list is empty or null, then by default all LDAP entry attributes are returned.</p></td><td></td><td></td></tr><tr><td><p>Scope</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>OBJECT</p></li><li><p>ONE_LEVEL</p></li><li><p>SUB_TREE</p></li></ul></div></div></td><td><p>The scope of the search. Valid attributes are:</p><p>* OBJECT: Searches only the entry at the base DN so that only results from that entry are returned. This must meet the search filter criteria. * ONE_LEVEL: Searches all entries one level under the base DN and does not include entries in the base DN or any entries one level under the base DN. * SUB_TREE: Searches all entries at all levels under and including the specified base DN.</p></td><td><p>ONE_LEVEL</p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to return. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Since</p></td><td><div><div><p>String</p></div></div></td><td><p>Specify a date in <code>YYYYMMDDhhmmssâZ'</code> format, which is the way LDAP formats dates (for example, <code>20170317163040Z</code>). If this field is empty, this operation retrieves the selected objects from the time the Mule app is started.</p></td><td></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to execute this source only on the primary node when running Mule instances in a cluster.</p></td><td></td><td></td></tr><tr><td><p>Scheduling Strategy</p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><p>Configures the scheduler that triggers the polling.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy Type</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr><tr><td><div><div><p>Attributes Type</p></div></div></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+## On New Objects
+
+`<ldap:new-objects>`
+
+Triggers when a new LDAP entry is added.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Base DN</p></td><td><div><div><p>String</p></div></div></td><td><p>The base DN of the LDAP search.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>A valid LDAP filter. The LDAP connector supports LDAP search filters as defined in RFC 2254.</p></td><td></td><td></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of the attributes to return in the result. If the attributes list is empty or null, then by default all LDAP entry attributes are returned.</p></td><td></td><td></td></tr><tr><td><p>Scope</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>OBJECT</p></li><li><p>ONE_LEVEL</p></li><li><p>SUB_TREE</p></li></ul></div></div></td><td><p>The scope of the search. Valid attributes are:</p><p>* OBJECT: Searches only the entry at the base DN so that only results from that entry are returned. This must meet the search filter criteria. * ONE_LEVEL: Searches all entries one level under the base DN and does not include entries in the base DN or any entries one level under the base DN. * SUB_TREE: Searches all entries at all levels under and including the specified base DN.</p></td><td><p>ONE_LEVEL</p></td><td></td></tr><tr><td><p>Structural Object Class</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entry to return. This is used for DataSense in Anypoint Studio IDE and has no impact on Mule.</p></td><td></td><td></td></tr><tr><td><p>Since</p></td><td><div><div><p>String</p></div></div></td><td><p>Specify a date in <code>YYYYMMDDhhmmssâZ'</code> format, which is the way LDAP formats dates (for example, <code>20170317163040Z</code>). If this field is empty, this operation retrieves the selected objects from the time the Mule app is started.</p></td><td></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to execute this source only on the primary node when running Mule instances in a cluster.</p></td><td></td><td></td></tr><tr><td><p>Scheduling Strategy</p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><p>Configures the scheduler that triggers the polling.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy Type</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr><tr><td><div><div><p>Attributes Type</p></div></div></td><td><div><div><p>Any</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+## Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>reconnect</p></li><li><p>reconnect-forever</p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+## Expiration Policy Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute.</p></td><td></td><td></td></tr></tbody></table>
+
+## Repeatable In-Memory Iterable Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of instances to initially allow to be kept in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize. Default value is 100 instances.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, and to raise a STREAM_MAXIMUM_SIZE_EXCEEDED error when the buffer gets full. Default value is 100 instances.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of memory to use. If more than that is used, then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></td><td></td><td></td></tr></tbody></table>
+
+## Repeatable File Store Iterable Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of instances to keep in memory. If more than that is required, then it starts to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed.</p></td><td></td><td></td></tr></tbody></table>
+
+## TLS Type
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Truststore Type</a></p></div></div></td><td><p>Configures the TLS truststore.</p></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Keystore Type</a></p></div></div></td><td><p>Configures the TLS keystore.</p></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check Type</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder Type</a></p></li><li><p><a href="#crl-file">CRL File Type</a></p></li></ul></div></div></td><td><p>Configures certificate revocation checking.</p></td><td></td><td></td></tr></tbody></table>
+
+## Truststore Type
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the truststore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the truststore uses.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></td><td></td><td></td></tr></tbody></table>
+
+## Keystore Type
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the keystore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the keystore uses.</p></td><td></td><td></td></tr></tbody></table>
+
+## Standard Revocation Check Type
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Which elements to verify in the certificate chain:</p><p>* <code>true</code> - Verify only the last element in the certificate chain. * <code>false</code> - Verify all elements in the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>How to check certificate validity:</p><p>* <code>true</code> - Check the Certification Revocation List (CRL) for certificate validity. * <code>false</code> - Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to use the secondary method to check certificate validity:</p><p>* <code>true</code> - Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity. * <code>false</code> - Do not use the secondary method to check certificate validity.</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>What to do if the revocation server canât be reached or is busy:</p><p>* <code>true</code> - Avoid verification failure. * <code>false</code> - Allow the verification to fail.</p></td><td></td><td></td></tr></tbody></table>
+
+## Custom OCSP Responder Type
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></td><td></td><td></td></tr></tbody></table>
+
+## CRL File Type
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+## Redelivery Policy Type
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>One or more expressions that determine when a message was redelivered. You can set this property only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>Object Store</p></div></div></td><td><p>Configures the object store that stores the redelivery counter for each message.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Studio to Configure LDAP Connector 3.7
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[LDAP Connector Reference](ldap-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Lightweight Directory Access Protocol Connector (LDAP Connector) to your
+Mule project to automatically populate the XML code with the connectorâs namespace and schema
+location and add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Dependencies to Project**, type `ldap` in the search field.
+3.  Click **LDAP Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with LDAP Connector:
+
+- On Modified Objects
+
+  Initiates a flow when an LDAP data object is modified
+
+- On New Objects
+
+  Initiates a flow when a new LDAP data object is created
+
+- HTTP Listener
+
+  Initiates a flow each time it receives a request on the configured host and port
+
+- Scheduler
+
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an **On Modified Objects** source, follow these steps:
+
+1.  In the **Mule Palette** view, select **On Modified objects**.
+2.  Drag **On Modified Objects** to the Studio canvas.
+3.  If you want to customize the display name, change the value of the **Display Name** field.
+4.  In the **Connector configuration** field, either select an existing global element or click the
+    plus sign (**+**) to configure a new global element.
+5.  On the **General** tab, specify the principal distinguished name (DN) for the connection, the
+    authentication mechanism, and the configuration URL.
+6.  On the **Advanced** tab, specify reconnection information, including a reconnection strategy.
+7.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+8.  In the **On Modified Objects** configuration screen, specify a value for the **Base DN** field.
+9.  Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for LDAP Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **LDAP** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas, next to the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target LDAP system.
+
+To configure the global element for LDAP Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the **General** configuration screen for the operation, click **+** to access the global
+    element configuration fields.
+3.  In the **General** tab, in **Connection**, select the connection type and then complete the
+    associated connection fields.
+
+    For information about configuring the SSL (Deprecated), Secure SSL, and TLS connection types,
+    see [Configure an SSL Connection Type (Deprecated)](#ssl-connection-type),
+    [Configure a Secure SSL Connection Type](#secure-ssl-connection-type), and
+    [Configure a TLS Connection Type](#tls-connection-type).
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  In the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+### Configure an SSL Connection Type (Deprecated)
+
+> [!IMPORTANT] The SSL connection type is deprecated. Use the
+> [Secure SSL connection type](#secure-ssl-connection-type) instead, which accepts a Mule TLS
+> context factory and supports FIPS 140-3 compliant deployments.
+
+To configure an SSL connection type, use Anypoint Studio to set up an SSL connection in the LDAP
+global element:
+
+1.  In the **Connection** field of the global element, select `SSL Configuration`.
+2.  Complete the required fields.
+
+Connect to SSL using port 636.
+
+When you set up an SSL connection type, you can set up one custom truststore. To support this
+scenario, the connector overrides the JVM default truststore path, which can affect other processes
+that depend on that truststore.
+
+### Configure a Secure SSL Connection Type
+
+The Secure SSL connection type uses a Mule TLS context factory for trust store configuration. Use
+this connection type for FIPS 140-3 compliant deployments. It is also supported in non-FIPS
+environments with any trust store type provided via **TLS Context** field.
+
+To configure a Secure SSL connection type, use Studio to set up a Secure SSL connection in the LDAP
+global element:
+
+1.  In the **Connection** field of the global element, select `Secure SSL Configuration`.
+2.  In the **TLS Context** field, click the plus sign (**+**) to configure a new TLS context, or
+    select an existing one.
+3.  In the TLS context, configure your truststore settings, including the truststore path, password,
+    and type.
+4.  Complete the remaining required fields, including **Principal DN** and **URL**.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+Connect to Secure SSL using port 636.
+
+### Configure a TLS Connection Type
+
+To configure a TLS connection type, use Studio to set up a TLS connection in the LDAP global
+element:
+
+1.  In the **Connection** field of the global element, select `TLS Configuration`.
+2.  Select the **Advanced** Tab.
+3.  In the **Extended configurations** field, select **Edit inline** and then add the
+    `org.mule.module.ldap.trustStorePath` and `org.mule.module.ldap.trustStorePassword` key values.
+4.  Ensure that the native LDAP pooling functionality is turned off. For example if using JNDI, do
+    not use attributes such as `com.sun.jndi.ldap.connect.pool=true`, which causes problems when
+    using TLS.
+
+Connect to TLS using port 389, using `ldap` instead of `ldaps` in the associated URL.
+
+For an example of configuring a TLS connection, see
+[Set Up a Common Truststore](ldap-connector-examples#set-up-common-truststore).
+
+## Configure Additional Connector Fields
+
+After you configure a global element for LDAP Connector, configure the other required fields for the
+connector. The required fields vary depending on which connector operation you use.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output goes to the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log output goes to your
+  operating system console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also access the
+app log in the default location `MULE_HOME/logs/<app-name>.log`. You can configure the location of
+the log path in the app log file `log4j2.xml`.
+
+## Next Step
+
+After configuring Studio, you can try using the [LDAP Connector Examples](ldap-connector-examples).
+
+## See Also
+
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [LDAP Connector Reference](ldap-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# LDAP Connector 3.7 - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML (either from the Anypoint Studio XML
+  editor or from a text editor), you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/ldap
+http://www.mulesoft.org/schema/mule/ldap/current/mule-ldap.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:ldap="http://www.mulesoft.org/schema/mule/ldap" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ldap http://www.mulesoft.org/schema/mule/ldap/current/mule-ldap.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-ldap-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `<version>` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `ldap`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](ldap-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

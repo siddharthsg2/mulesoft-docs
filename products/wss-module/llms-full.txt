@@ -1,0 +1,1083 @@
+﻿# WSS Module - Full Documentation
+
+# Apply Operation Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The `apply` operation applies WSS information to a SOAP response according to the configuration
+specified in `WssOutboundConfig`.
+
+<table><caption>Table 1. Parameters</caption> <colgroup><col> <col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>M</th><th>ES</th><th>Default Value</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><p><code>response</code></p></td><td><p>Yes</p></td><td><p>No</p></td><td><p>-</p></td><td><p><code>TypedValue &lt;InputStream&gt;</code></p></td><td><p>SOAP response</p></td></tr><tr><td><p><code>version</code></p></td><td><p>No</p></td><td><p>Yes</p></td><td><p><code>SOAP_12</code></p></td><td><p><code>SoapVersion</code></p></td><td><p>SOAP version: <code>SOAP_11</code> or <code>SOAP_12</code></p></td></tr></tbody></table>
+
+The output is a SOAP response that contains the header element `<wsse:Security></wsse:Security>`,
+resulting from applying the outbound configuration. The operation does not return any attributes.
+
+<table><caption>Table 2. Errors</caption> <colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Namespace</th><th>Type</th><th>Parent</th><th>Description</th></tr></thead><tbody><tr><td><p>WSS</p></td><td><p>SECURITY_APPLYING</p></td><td><p>n.a.</p></td><td><p>Thrown when failing to apply WSS in the response</p></td></tr><tr><td><p>WSS</p></td><td><p>MISSING_CERTIFICATE</p></td><td><p>n.a.</p></td><td><p>Thrown when unable to get a certificate from either the trustStore or the keystore</p></td></tr></tbody></table>
+
+## Encrypt
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example shows you how to apply encryption using a keystore:
+
+Encryption Example
+
+```XML
+<wss:outbound-config name="encryption-config">
+	<wss:encryption-config>
+		<wss:keystore-config path="certificates/sign-keystore.jks"
+password="mulepassword"
+alias="muleclient"
+keyPassword="mulepassword" />
+	</wss:encryption-config>
+</wss:outbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+	<http:listener config-ref="HTTP-listener-config" path="/order" />
+	<flow-ref name="OrderTshirtFlowImpl" />
+	<wss:apply-wss config-ref="encryption-config" version="SOAP_12"/>
+</flow>
+```
+
+## Sign
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example shows you how to sign a SOAP response using a keystore and the `RSAwithSHA256`
+algorithm:
+
+Signature Example
+
+```XML
+<wss:outbound-config name="sign-config">
+	<wss:signature-config algorithm="RSAwithSHA256" >
+		<wss:keystore-config path="certificates/sign-keystore.jks"
+                            	password="mulepassword"
+					alias="muleclient"
+       	                    keyPassword="mulepassword" />
+	</wss:signature-config>
+</wss:outbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+	<http:listener config-ref="HTTP-listener-config" path="/order" />
+	<flow-ref name="OrderTshirtFlowImpl" />
+	<wss:apply-wss config-ref="sign-config" version="SOAP_12"/>
+</flow>
+```
+
+## Encrypt and Sign a Certificate
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example validates a signed request, saves the signing certificate, and uses it later in the
+`apply-wss` operation to sign the response:
+
+Request Example
+
+```XML
+<soapenv:Envelope xmlns:ser="http://service.soap.service.mule.org/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+   <soapenv:Header><wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd"><ds:Signature Id="SIG-F8FAC4A91BEF76355615530303348205" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="ser soapenv" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#id-F8FAC4A91BEF76355615530303348174"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="ser" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>yLFLEkH4/MjYbZ4viZxjou9/4os=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>xxxxx+xxxxxxxxx==</ds:SignatureValue><ds:KeyInfo Id="KI-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"><wsse:SecurityTokenReference wsu:Id="STR-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"><ds:X509Data><ds:X509IssuerSerial><ds:X509IssuerName>CN=Unknown,OU=Unknown,O=Unknown,L=Unknown,ST=Unknown,C=US</ds:X509IssuerName><ds:X509SerialNumber>1545521240</ds:X509SerialNumber></ds:X509IssuerSerial></ds:X509Data></wsse:SecurityTokenReference></ds:KeyInfo></ds:Signature></wsse:Security></soapenv:Header>
+   <soapenv:Body wsu:Id="id-F8FAC4A91BEF76355615530303348174" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd">
+      <ser:echo>
+         <text>test</text>
+      </ser:echo>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+Encryption Example
+
+```XML
+<wss:inbound-config name="validate-signature-config">
+   <wss:verify-signature-config>
+       <wss:truststore-config path="certificates/verify-signature-truststore.jks"
+					password="mulepassword" />
+   </wss:verify-signature-config>
+</wss:inbound-config>
+
+<wss:outbound-config name="encryption-without-keystore-config">
+   <wss:encryption-config />
+</wss:outbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+	<http:listener config-ref="HTTP-listener-config" path="/order" />
+	<wss:validate-wss config-ref="validate-signature-config" version="SOAP_12" />
+	<flow-ref name="OrderTshirtFlowImpl" />
+	<wss:apply-wss config-ref="encryption-without-keystore-config"
+					version="SOAP_12" />
+</flow>
+```
+---
+
+# WSS Module 2.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+WSS Module enables you to process and validate an inbound SOAP request against a given Web Service
+Security (WSS) extension configuration to, for example, validate the requestâs signature, perform an
+LDAP authentication, or decrypt the inbound message. WSS Module also enables you to sign your
+response by adding a WSS header to it, or to encrypt your outbound message.
+
+In version 2.1, the module upgrades the default hashing algorithm from SHA-1 to SHA-256 to enhance
+cryptographic security and align with FIPS 140-3 approved standards.
+
+For information about compatibility and fixed issues, see the WSS Module Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The WSS Module API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have access to:
+
+- The WSS Module target resource
+- Anypoint Platform
+- Anypoint Studio or Anypoint Code Builder
+- Web Services Security (WSS) extension for SOAP
+
+## Common Use Cases for the Connector
+
+WSS Module enables you to validate WSS headers in inbound SOAP requests to your application to:
+
+- Decrypt a SOAP envelope according to the encryption information
+- Validate a signature
+- Verify the freshness of the message using `timestamp` information
+- Verify the `Username` and `Password` credentials of `UsernameToken`
+- Verify the `LDAP` credentials of `UsernameToken`
+- Determine whether `UsernameToken` is expired
+- Determine whether a SAML assertion expired
+- Verify the signature of a SAML assertion.
+- Verify that a SAML assertion has a specific confirmation method.
+
+Using WSS Module, you can also add WSS headers to your outbound SOAP response to:
+
+- Encrypt some or all of your SOAP message content
+- Sign your SOAP message
+
+See the [WSS Module Examples](wss-examples) section for detailed examples.
+
+## Audience
+
+- New user
+
+  To create your Mule app, see:
+  - [Studio Configuration](wss-studio) to help extend your understanding of WSS Module.
+  - [Examples](wss-examples), with use case information for the connector
+
+- Advanced user
+
+  Read the following:
+  - [XML and Maven Support](wss-xml-maven)
+  - [Examples](wss-examples), with use case information for the connector
+
+## Next Step
+
+After you complete the prerequisites and experiment with templates and examples, you are ready to
+create an app and configure the connector using [Anypoint Studio](wss-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [WSS Module on Exchange](https://www.mulesoft.com/exchange/?search=wss-module&type=connector)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Validate Operation Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This `validate` operation validates an incoming SOAP request that contains WSS information. The WSS
+module validates the request against a `WssInboundConfig` configuration.
+
+<table><caption>Table 1. Parameters</caption> <colgroup><col> <col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>M</th><th>ES</th><th>Default Value</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><p><code>request</code></p></td><td><p>Yes</p></td><td><p>No</p></td><td><p>n.a.</p></td><td><p><code>TypedValue &lt;InputStream&gt;</code></p></td><td><p>SOAP request</p></td></tr><tr><td><p><code>version</code></p></td><td><p>No</p></td><td><p>No</p></td><td><p><code>SOAP_12</code></p></td><td><p><code>SoapVersion</code></p></td><td><p>SOAP protocol version</p></td></tr></tbody></table>
+
+The output is the same SOAP request received. The operation does not return any attributes.
+
+<table><caption>Table 2. Errors</caption> <colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Namespace</th><th>Type</th><th>Parent</th><th>Description</th></tr></thead><tbody><tr><td><p>WSS</p></td><td><p>SECURITY_VALIDATING</p></td><td><p>n.a.</p></td><td><p>Thrown when the request isnât valid or no WS-Security information is found</p></td></tr><tr><td><p>WSS</p></td><td><p>MISSING_CERTIFICATE</p></td><td><p>n.a.</p></td><td><p>Thrown when unable to get a certificate from either the truststore or the keystore</p></td></tr></tbody></table>
+
+## Decryption
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example shows you how to decrypt a request using a keystore:
+
+Request Example
+
+```XML
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+    <soap:Header>
+        <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd"><xenc:EncryptedKey Id="EK-D77EFA434E6694DA5315531006937483" xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"><xenc:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p"/><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><wsse:SecurityTokenReference><ds:X509Data><ds:X509IssuerSerial><ds:X509IssuerName>CN=OLEKSIYS-W3T,OU=Sun Java System Application Server,O=Sun Microsystems,L=Santa Clara,ST=California,C=US</ds:X509IssuerName><ds:X509SerialNumber>1182300426</ds:X509SerialNumber></ds:X509IssuerSerial></ds:X509Data></wsse:SecurityTokenReference></ds:KeyInfo><xenc:CipherData><xenc:CipherValue>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxx+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=</xenc:CipherValue></xenc:CipherData><xenc:ReferenceList><xenc:DataReference URI="#ED-D77EFA434E6694DA5315531006937494"/></xenc:ReferenceList></xenc:EncryptedKey></wsse:Security></soap:Header>
+    <soap:Body><xenc:EncryptedData Id="ED-D77EFA434E6694DA5315531006937494" Type="http://www.w3.org/2001/04/xmlenc#Content" xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"><xenc:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><wsse:SecurityTokenReference wsse11:TokenType="http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#EncryptedKey" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd" xmlns:wsse11="http://docs.oasis-open.org/wss/oasis-wss-wssecurity-secext-1.1.xsd"><wsse:Reference URI="#EK-D77EFA434E6694DA5315531006937483"/></wsse:SecurityTokenReference></ds:KeyInfo><xenc:CipherData><xenc:CipherValue>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxx+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=</xenc:CipherValue></xenc:CipherData></xenc:EncryptedData></soap:Body>
+</soap:Envelope>
+```
+
+Multipart Request Example
+
+```XML
+------=_Part_8049_2119795515.1555963425591
+Content-Type: application/soap+xml
+Content-ID: main
+
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+    <soap:Header>
+        <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd"><xenc:EncryptedKey Id="EK-D77EFA434E6694DA5315531006937483" xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"><xenc:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p"/><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><wsse:SecurityTokenReference><ds:X509Data><ds:X509IssuerSerial><ds:X509IssuerName>CN=OLEKSIYS-W3T,OU=Sun Java System Application Server,O=Sun Microsystems,L=Santa Clara,ST=California,C=US</ds:X509IssuerName><ds:X509SerialNumber>1182300426</ds:X509SerialNumber></ds:X509IssuerSerial></ds:X509Data></wsse:SecurityTokenReference></ds:KeyInfo><xenc:CipherData><xenc:CipherValue>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxx+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=</xenc:CipherValue></xenc:CipherData><xenc:ReferenceList><xenc:DataReference URI="#ED-D77EFA434E6694DA5315531006937494"/></xenc:ReferenceList></xenc:EncryptedKey></wsse:Security></soap:Header>
+    <soap:Body><xenc:EncryptedData Id="ED-D77EFA434E6694DA5315531006937494" Type="http://www.w3.org/2001/04/xmlenc#Content" xmlns:xenc="http://www.w3.org/2001/04/xmlenc#"><xenc:EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><wsse:SecurityTokenReference wsse11:TokenType="http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#EncryptedKey" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd" xmlns:wsse11="http://docs.oasis-open.org/wss/oasis-wss-wssecurity-secext-1.1.xsd"><wsse:Reference URI="#EK-D77EFA434E6694DA5315531006937483"/></wsse:SecurityTokenReference></ds:KeyInfo><xenc:CipherData><xenc:CipherValue>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxx+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=</xenc:CipherValue></xenc:CipherData></xenc:EncryptedData></soap:Body>
+</soap:Envelope>
+------=_Part_8049_2119795515.1555963425591
+Content-Type: application/json
+Content-Disposition: related; name="file1"; filename="a.json"
+Content-ID: file1
+
+{
+  "title": "Java in Action",
+  "author": "Mario Fusco",
+  "year": 2014
+}
+------=_Part_8049_2119795515.1555963425591--
+```
+
+Decryption Example
+
+```XML
+<wss:inbound-config name="decryption-config">
+  <wss:decryption-config>
+    <wss:keystore-config path="certificates/decrypt-keystore.jks"
+                            password="password"
+                            alias="alias"
+                            keyPassword="key" />
+  </wss:decryption-config>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss config-ref="decryption-config" version="SOAP_12"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+## UsernameToken Validation
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+These examples show you how to validate against either an [LDAP server](#ldap-validate) or a
+provided [username/password credentials pair](#username-password).
+
+Use LDAP authentication to validate multiple users. Credentials validation does not support
+validation of multiple users.
+
+### LDAP Authentication
+
+This example shows `usernameToken` validation against an LDAP server. The username and password from
+the request are validated in the LDAP server.
+
+Request Example
+
+```XML
+<soap:Envelope xmlns:ser="http://service.util.soap.mule.org/" xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+  <soap:Header>
+    <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd"
+      xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd">
+      <wsse:UsernameToken wsu:Id="UsernameToken-D77EFA434E6694DA53155311225135914">
+        <wsse:Username>username</wsse:Username>
+        <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">password</wsse:Password>
+      </wsse:UsernameToken>
+    </wsse:Security>
+  </soap:Header>
+  <soap:Body>
+    <ser:echo>
+      <text>test username</text>
+    </ser:echo>
+  </soap:Body>
+</soap:Envelope>
+```
+
+Validation Example
+
+```XML
+<wss:inbound-config name="ldap-config">
+  <wss:username-config>
+    <wss:authenticate-user-config>
+      <wss:ldap-config providerUrl="ldap://localhost:${LDAP_PORT}"
+             userDn="cn=admin,dc=example,dc=com"
+             password="password"
+             searchBase="ou=people,dc=example,dc=com"
+             searchFilter="(uid={0})"
+             searchInSubtree="false"/>
+    </wss:authenticate-user-config>
+  </wss:username-config>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss config-ref="ldap-config" version="SOAP_12"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+### Credentials Authentication
+
+This example shows a `usernameToken` validation against a configured pair of username and password:
+
+Request Example
+
+```XML
+<soap:Envelope xmlns:ser="http://service.util.soap.mule.org/" xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+    <soap:Header>
+        <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+                       xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+            <wsse:UsernameToken wsu:Id="UsernameToken-D77EFA434E6694DA53155311225135914">
+                <wsse:Username>username</wsse:Username>
+                <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">username</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soap:Header>
+    <soap:Body>
+        <ser:echo>
+            <text>test username</text>
+        </ser:echo>
+    </soap:Body>
+</soap:Envelope>
+```
+
+Multipart Request Example
+
+```XML
+------=_Part_8049_2119795515.1555963425591
+Content-Type: application/soap+xml
+Content-ID: main
+
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+  <soap:Header>
+    <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd">
+      <wsse:UsernameToken xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd" wsu:Id="UsernameToken-D77EFA434E6694DA53155311225135914">
+        <wsse:Username>username</wsse:Username>
+        <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">username</wsse:Password>
+      </wsse:UsernameToken>
+    </wsse:Security>
+  </soap:Header>
+  <soap:Body>
+    <ser:echo xmlns:ser="http://service.util.soap.mule.org/">
+      <text>test username</text>
+    </ser:echo>
+  </soap:Body>
+</soap:Envelope>
+------=_Part_8049_2119795515.1555963425591
+Content-Type: application/json
+Content-Disposition: related; name="file1"; filename="a.json"
+Content-ID: file1
+
+{
+  "title": "Java in Action",
+  "author": "Mario Fusco",
+  "year": 2014
+}
+------=_Part_8049_2119795515.1555963425591--
+```
+
+Validation Example
+
+```XML
+<wss:inbound-config name="username-config">
+  <wss:username-config>
+    <wss:authenticate-user-config>
+      <wss:credentials-config username="username" password="password"/>
+    </wss:authenticate-user-config>
+  </wss:username-config>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/orderTshirt" />
+  <wss:validate-wss config-ref="username-config" />
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+## Validate Signature
+
+These examples show you how to validate signatures in your incoming requests against a configured
+[truststore](#validate-trustore-signature), a
+[binary security token](#validate-binary-security-token), or a
+[X.509 certificate](#validate-x509-certificate).
+
+### Truststore
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example validates the request signature against a configured truststore to verify that only
+valid messages from trusted senders are received:
+
+Request Example
+
+```XML
+<soapenv:Envelope xmlns:ser="http://service.soap.service.mule.org/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+   <soapenv:Header><wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd"><ds:Signature Id="SIG-F8FAC4A91BEF76355615530303348205" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="ser soapenv" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#id-F8FAC4A91BEF76355615530303348174"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="ser" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>yLFLEkH4/MjYbZ4viZxjou9/4os=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>xxxxxxx+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxX+xxxxxxxxxxxxxxxxxxxx/xxxxxxxx
+xxxxxxx/xxxxxxxxxx
+xxxxxxxx+xxx/xxxxxxxxxxx==</ds:SignatureValue><ds:KeyInfo Id="KI-F8FAC4A91BEF76355615530303348132"><wsse:SecurityTokenReference wsu:Id="STR-F8FAC4A91BEF76355615530303348153"><ds:X509Data><ds:X509IssuerSerial><ds:X509IssuerName>CN=Unknown,OU=Unknown,O=Unknown,L=Unknown,ST=Unknown,C=US</ds:X509IssuerName><ds:X509SerialNumber>1545521240</ds:X509SerialNumber></ds:X509IssuerSerial></ds:X509Data></wsse:SecurityTokenReference></ds:KeyInfo></ds:Signature></wsse:Security></soapenv:Header>
+   <soapenv:Body wsu:Id="id-F8FAC4A91BEF76355615530303348174" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd">
+      <ser:echo>
+         <text>test</text>
+      </ser:echo>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+Validation Example
+
+```XML
+<wss:inbound-config name="validate-signature-config">
+  <wss:verify-signature-config>
+    <wss:truststore-config path="certificates/verify-signature-truststore.jks" password="mulepassword"/>
+  </wss:verify-signature-config>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss config-ref="validate-signature-config"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+### BinarySecurityToken Signature
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+Example of validation against the truststore of a request signed with a binary security token.
+
+Request Example
+
+```XML
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wor="http://snowyhydro.com.au/workorder-service">
+   <soapenv:Header><wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd"><wsse:BinarySecurityToken EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.1#Base64Binary" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.1#X509PKIPathv1" wsu:Id="X509-B1C61A5DA2BB64CA6A15792851906729">xxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxx+xxxxxx/xxxxxxxxxxxxxx</wsse:BinarySecurityToken><ds:Signature Id="SIG-B1C61A5DA2BB64CA6A157928519067613" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="soapenv wor" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#id-B1C61A5DA2BB64CA6A157928519067312"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="wor" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>H/d9uuvKNSGhJPNoJtm1DhWBQmI=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>xxxxxxxxx+xxxx/xxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx==</ds:SignatureValue><ds:KeyInfo Id="KI-B1C61A5DA2BB64CA6A157928519067210"><wsse:SecurityTokenReference wsse11:TokenType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.1#X509PKIPathv1" wsu:Id="STR-B1C61A5DA2BB64CA6A157928519067211" xmlns:wsse11="http://docs.oasis-open.org/wss/oasis-wss-wssecurity-secext-1.1.xsd"><wsse:Reference URI="#X509-B1C61A5DA2BB64CA6A15792851906729" ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-profile-1.1#X509PKIPathv1"/></wsse:SecurityTokenReference></ds:KeyInfo></ds:Signature></wsse:Security></soapenv:Header>
+   <soapenv:Body wsu:Id="id-B1C61A5DA2BB64CA6A157928519067312" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd">
+      <wor:Workorder>
+         <InitiatingEvent>?</InitiatingEvent>
+         <OriginatingDocumentNumber>?</OriginatingDocumentNumber>
+         <StandardJob>?</StandardJob>
+         <WorkorderDescription>?</WorkorderDescription>
+         <Originator>?</Originator>
+         <MaintenanceType>?</MaintenanceType>
+         <EquipmentReference>?</EquipmentReference>
+         <WorkorderType>?</WorkorderType>
+         <WorkGroup>?</WorkGroup>
+         <AccountCode>?</AccountCode>
+      </wor:Workorder>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+Validation Example
+
+```XML
+<wss:inbound-config name="validate-signature-config">
+  <wss:verify-signature-config>
+    <wss:truststore-config path="certificates/sign-keystore.jks" password="mulepassword"/>
+  </wss:verify-signature-config>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss config-ref="validate-signature-config"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+### X.509 Certificate
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example shows validation of an X.509 certificate issuer by pattern:
+
+Request Example
+
+```XML
+<soapenv:Envelope xmlns:ser="http://service.soap.service.mule.org/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+   <soapenv:Header><wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd"><ds:Signature Id="SIG-F8FAC4A91BEF76355615530303348205" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="ser soapenv" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:CanonicalizationMethod><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI="#id-F8FAC4A91BEF76355615530303348174"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces PrefixList="ser" xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>yLFLEkH4/MjYbZ4viZxjou9/4os=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>xxxxxxxxxxx==</ds:SignatureValue><ds:KeyInfo Id="KI-F8FAC4A91BEF76355615530303348132"><wsse:SecurityTokenReference wsu:Id="STR-F8FAC4A91BEF76355615530303348153"><ds:X509Data><ds:X509IssuerSerial><ds:X509IssuerName>CN=Unknown,OU=Unknown,O=Unknown,L=Unknown,ST=Unknown,C=US</ds:X509IssuerName><ds:X509SerialNumber>1545521240</ds:X509SerialNumber></ds:X509IssuerSerial></ds:X509Data></wsse:SecurityTokenReference></ds:KeyInfo></ds:Signature></wsse:Security></soapenv:Header>
+   <soapenv:Body wsu:Id="id-F8FAC4A91BEF76355615530303348174" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd">
+      <ser:echo>
+         <text>test</text>
+      </ser:echo>
+   </soapenv:Body>
+</soapenv:Envelope>
+```
+
+Validation Example
+
+```XML
+<wss:inbound-config name="validate-signature-config">
+  <wss:verify-signature-config issuerPattern="CN=Unknown.*">
+    <wss:truststore-config path="certificates/verify-signature-truststore.jks" password="mulepassword"/>
+  </wss:verify-signature-config>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss config-ref="validate-signature-config"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+## Validate Timestamp
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+This example shows you how to validate the `<wsu:Timestamp>` element in your incoming SOAP requests:
+
+Request Example
+
+```XML
+<soap:Envelope xmlns:ser="http://service.util.soap.mule.org/" xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+    <soap:Header>
+        <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd"
+                       xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.1.xsd">
+            <wsu:Timestamp wsu:Id="TS-D77EFA434E6694DA5315531011197435">
+                <wsu:Created>2001-09-13T08:42:00Z</wsu:Created>
+                <wsu:Expires>2001-10-13T09:00:00Z</wsu:Expires>
+            </wsu:Timestamp>
+        </wsse:Security>
+    </soap:Header>
+    <soap:Body>
+        <ser:echo>
+            <text>test timestamp</text>
+        </ser:echo>
+    </soap:Body>
+</soap:Envelope>
+```
+
+Timestamp Validation Example
+
+```XML
+<wss:inbound-config name="timestamp-config">
+  <wss:timestamp-config timeToLive="100" precisionInMilliseconds="true"/>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss config-ref="timestamp-config"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+## Validate SAML
+
+These examples show you how to validate both [signed](#signed-saml) and [unsigned](#unsigned-saml)
+security assertions in your incoming SOAP requests.
+
+### Signed SAML Assertion
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+Example of a signed SAML assertion that requires the `Subject Confirmation Method` to be `Bearer`:
+
+Request Example
+
+```XML
+<soap:Envelope xmlns:ser="http://service.soap.service.mule.org/" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Header>
+        <wsse:Security soap:mustUnderstand="1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd"><saml2:Assertion ID="SAML-d328e428-1d0a-422d-b758-1408b0c010c7" Version="2.0" xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion"><saml2:Issuer>WssTest</saml2:Issuer><dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#"><dsig:SignedInfo><dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><dsig:Reference URI=""><dsig:Transforms><dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></dsig:Transforms><dsig:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><dsig:DigestValue>xX+xxxxxxxxxx=</dsig:DigestValue></dsig:Reference></dsig:SignedInfo><dsig:SignatureValue>mT9648OrsRiYV/xxxx/xxxxxxxx/xxxxxx==</dsig:SignatureValue><dsig:KeyInfo><dsig:X509Data><dsig:X509SubjectName>CN=Unknown,OU=Unknown,O=Unknown,L=Unknown,ST=Unknown,C=US</dsig:X509SubjectName><dsig:X509Certificate>xxxxxxxxxxxx+xxxxxxxxxxxxxxxxxx=</dsig:X509Certificate></dsig:X509Data></dsig:KeyInfo></dsig:Signature><saml2:Subject><saml2:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified" NameQualifier="Mulesoft">o=test</saml2:NameID><saml2:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"/></saml2:Subject></saml2:Assertion>
+        </wsse:Security>
+    </soap:Header>
+   <soap:Body>
+      <ser:echo>
+         <text>test</text>
+      </ser:echo>
+   </soap:Body>
+</soap:Envelope>
+```
+
+Signed SAML Assertion Validation Example
+
+```XML
+<wss:inbound-config name="validate-saml-config">
+  <wss:verify-saml-config samlVersion="SAML20"
+        requiredSubjectConfirmationMethod="BEARER"/>
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss version="SOAP_11" config-ref="validate-saml-config"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+
+### Unsigned SAML Assertion
+
+> [!NOTE] Do not apply transformations to your messageâs payload when performing cryptographic
+> operations. Transform operations donât exclude cryptographic signatures.
+
+Example of SAML assertion of unsigned SOAP message:
+
+Request Example
+
+```XML
+<soap:Envelope xmlns:ser="http://service.soap.service.mule.org/" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Header>
+        <wsse:Security soap:mustUnderstand="1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.1.xsd"><saml2:Assertion ID="SAML-d328e428-1d0a-422d-b758-1408b0c010c7" Version="2.0" xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion"><saml2:Issuer>WssTest</saml2:Issuer><saml2:Subject><saml2:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified" NameQualifier="Mulesoft">o=test</saml2:NameID><saml2:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer"/></saml2:Subject></saml2:Assertion>
+        </wsse:Security>
+    </soap:Header>
+    <soap:Body>
+        <ser:echo>
+            <text>test</text>
+        </ser:echo>
+    </soap:Body>
+</soap:Envelope>
+```
+
+Unsigned SAML Assertion Validation Example
+
+```XML
+<wss:inbound-config name="validate-saml-config">
+  <wss:verify-saml-config samlVersion="SAML20" />
+</wss:inbound-config>
+
+<flow name="OrderTshirtServiceFlow">
+  <http:listener config-ref="HTTP-listener-config" path="/order" />
+  <wss:validate-wss version="SOAP_11" config-ref="validate-saml-config"/>
+  <flow-ref name="OrderTshirtFlowImpl" />
+</flow>
+```
+---
+
+# WSS Module - Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following WSS module examples show you how to validate a Web Service Security (WSS)
+configuration in your incoming SOAP requests:
+
+- [Validate Operation Examples](validate-wss-examples)
+  - [Decrypt Message Example](validate-wss-examples#decrypt)
+  - [Validate UsernameToken Examples](validate-wss-examples#usernameToken)
+    - [LDAP Authentication](validate-wss-examples#ldap-validate)
+    - [Credentials Authentication](validate-wss-examples#username-password)
+
+  - [Validate Signature Examples](validate-wss-examples#signature)
+    - [Trustore](validate-wss-examples#validate-trustore-signature)
+    - [Binary Security Token](validate-wss-examples#validate-binary-security-token)
+    - [X.509 Certificate](validate-wss-examples#validate-x509-certificate)
+
+  - [Validate Timestamp Example](validate-wss-examples#timestamp)
+  - [Validate SAML Examples](validate-wss-examples#saml)
+    - [Signed SAML](validate-wss-examples#signed-saml)
+    - [Unsigned SAML](validate-wss-examples#unsigned-saml)
+
+The following WSS module examples show you how to apply a Web Service Security (WSS) configuration
+to your outgoing SOAP responses:
+
+- [Apply Operation Examples](apply-wss-examples)
+  - [Encrypt Example](apply-wss-examples#encrypt)
+  - [Sign Example](apply-wss-examples#signature)
+  - [Encrypt and Sign Example](apply-wss-examples#encryption-signing-certificate)
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating WSS Module to Version 2.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade WSS Module to version 2.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>2.0.x</p></div></div></td><td><div><div><p>2.1.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+WSS Module 2.1 includes these changes.
+
+- WSS Module upgrades the default hashing algorithm from SHA-1 to SHA-256 to enhance cryptographic
+  security and align with FIPS 140-3 approved standards.
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, you must create a backup of your files, data, and configurations in
+case you must restore them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, right-click the project and select **Manage Dependencies** > **Manage
+    Modules**.
+2.  Select `Web Service Security Module` and click **Update version**.
+3.  Click **Apply and Close**.
+4.  Verify that the WSS Module dependency version is `2.1.0` in the `pom.xml` file in the Mule
+    project.
+
+Alternatively, you can manually update the WSS Module dependency version in the `pom.xml` file in
+the Mule project, or simply add the updated module to the project.
+
+### Verify the Upgrade
+
+After you upgrade the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+## Troubleshoot
+
+If there are problems with caching the parameters and caching the metadata, try restarting Anypoint
+Studio.
+
+### Revert the Upgrade
+
+If itâs necessary to revert to the previous version of WSS Module, change the WSS Module dependency
+version `2.1.0` in the projectâs `pom.xml` to the previous version.
+
+You must update the projectâs `pom.xml` in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [WSS Module Reference](wss-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# WSS Module 2.1 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+WSS Module enables you to process and validate an inbound SOAP request against a given Web Service
+Security (WSS) extension configuration.
+
+## Configurations
+
+---
+
+### Inbound
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p><strong>x</strong>&nbsp;</p></td></tr><tr><td><p>Actor</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Extract Security Header</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p>false</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Validate Username Token</p></td><td><div><div><p><a href="#VerifyUsernameTokenConfig">Verify Username Token Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Validate Signature</p></td><td><div><div><p><a href="#VerifySignatureConfig">Verify Signature Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Decrypt Message</p></td><td><div><div><p><a href="#DecryptionConfig">Decryption Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Validate Timestamp</p></td><td><div><div><p><a href="#VerifyTimestampConfig">Verify Timestamp Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Validate SAML Assertion</p></td><td><div><div><p><a href="#VerifySamlConfig">Verify Saml Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform will expire the instance at the exact moment that it becomes eligible. The runtime will actually purge the instances when it sees it fit.</p></td><td></td><td><p>&nbsp;</p></td></tr></tbody></table>
+
+#### Associated Operations
+
+- [Validate WSS](#validateWss) Â 
+
+---
+
+### Outbound
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p><strong>x</strong>&nbsp;</p></td></tr><tr><td><p>Signature Configuration</p></td><td><div><div><p><a href="#SignatureConfig">Signature Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Encryption Configuration</p></td><td><div><div><p><a href="#EncryptionConfig">Encryption Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Timestamp Configuration</p></td><td><div><div><p><a href="#TimestampConfig">Timestamp Config</a></p></div></div></td><td></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>'Must Understand' Attribute</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p>false</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components.</p></td><td></td><td><p><strong>x</strong></p></td></tr></tbody></table>
+
+#### Associated Operations
+
+- [Apply WSS](#applyWss) Â 
+
+## Operations
+
+### Validate WSS
+
+`<wss:validate-wss>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p><strong>x</strong>&nbsp;</p></td></tr><tr><td><p>Request</p></td><td><div><div><p>Binary</p></div></div></td><td></td><td><p>#[payload]</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SOAP_11</p></li><li><p>SOAP_12</p></li></ul></div></div></td><td></td><td><p>SOAP_12</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>Non-Repeatable Stream</p></li></ul></div></div></td><td><p>Configure if repeatable streams should be used and their behaviour</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operation's output will be placed</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that will be evaluated against the operation's output and the outcome of that expression will be stored in the target variable</p></td><td><p>#[payload]</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations.
+
+- [Inbound](#inbound) Â 
+
+#### Throws
+
+- WSS:MISSING_CERTIFICATE Â 
+- WSS:SECURITY_APPLYING Â 
+- WSS:SECURITY_VALIDATING Â 
+
+### Apply WSS
+
+`<wss:apply-wss>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p><strong>x</strong>&nbsp;</p></td></tr><tr><td><p>Response</p></td><td><div><div><p>Binary</p></div></div></td><td></td><td><p>#[payload]</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SOAP_11</p></li><li><p>SOAP_12</p></li></ul></div></div></td><td></td><td><p>SOAP_12</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration used to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>Non-Repeatable Stream</p></li></ul></div></div></td><td><p>Configure if repeatable streams should be used and their behaviour</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operation's output will be placed</p></td><td></td><td><p>&nbsp;</p></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that will be evaluated against the operation's output and the outcome of that expression will be stored in the target variable</p></td><td><p>#[payload]</p></td><td><p>&nbsp;</p></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations.
+
+- [Outbound](#outbound) Â 
+
+#### Throws
+
+- WSS:MISSING_CERTIFICATE Â 
+- WSS:SECURITY_APPLYING Â 
+- WSS:SECURITY_VALIDATING Â 
+
+## Types
+
+### Verify Username Token Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Authenticate User Config</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#CredentialsConfig">Credentials Config</a></p></li><li><p><a href="#LDAPConfig">LDAP Config</a></p></li></ul></div></div></td><td><p>Specific type for the authentication configuration. See AuthenticateUserConfig sub-types.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time difference between creation and expiry time in seconds in the UsernameToken Created element.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Check Nonce</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to check the Nonce Element in the UsernameToken. A Nonce is a random value that the sender creates to include in each UsernameToken that it sends. Only checked if included.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Verify Signature Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Truststore Config</p></td><td><div><div><p><a href="#TrustStoreConfiguration">Trust Store Configuration</a></p></div></div></td><td><p>TrustStore configuration used for validating the signature.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Issuer Pattern</p></td><td><div><div><p>String</p></div></div></td><td><p>Certificate Issuer pattern.</p></td><td></td><td></td></tr><tr><td><p>Subject Pattern</p></td><td><div><div><p>String</p></div></div></td><td><p>Certificate Subject pattern.</p></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td><p>jks</p></td><td></td></tr></tbody></table>
+
+### Decryption Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Keystore Config</p></td><td><div><div><p><a href="#KeyStoreConfiguration">Key Store Configuration</a></p></div></div></td><td><p>KeyStore configuration used for decryption.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Key Store Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td><p>jks</p></td><td></td></tr></tbody></table>
+
+### Verify Timestamp Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time within which the Timestamp element is valid. The default is 5 minutes.</p></td><td><p>300</p></td><td></td></tr><tr><td><p>Skew Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time difference between server and client. The default is 60 seconds.</p></td><td><p>60</p></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to be used in the timeToLive configuration.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Strict</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to true then validates if the timestamp contains an expires element and the semantics are expired.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Require Expires Header</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether timestamp Expires header is required.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Precision In Milliseconds</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to true then use timestamps with milliseconds, otherwise omit the milliseconds.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Verify Saml Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Saml Version</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SAML10</p></li><li><p>SAML11</p></li><li><p>SAML20</p></li></ul></div></div></td><td><p>SAML Version.</p></td><td><p>SAML10</p></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time in seconds within which a SAML Assertion is valid, if it does not contain a NotOnOrAfter Condition. The default is 30 minutes.</p></td><td><p>1800</p></td><td></td></tr><tr><td><p>Skew Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time difference between server and client. The default is 60 seconds.</p></td><td><p>60</p></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to be used in the timeToLive and skewTime configuration.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Require Standard Subject Confirmation Method</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set, at least one of the standard Subject Confirmation Methods in SamlConfirmationMethod <strong>must</strong> be present in the assertion (Bearer / SenderVouches / HolderOfKey).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Require Bearer Signature</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set, an Assertion with a Bearer Subject Confirmation Method must be signed.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Validate Signature Against Profile</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to validate the signature of the Assertion (if it exists) against the relevant profile. Default is true.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Required Subject Confirmation Method</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BEARER</p></li><li><p>HOLDER_OF_KEY</p></li><li><p>SENDER_VOUCHES</p></li></ul></div></div></td><td><p>If set, the value must appear as one of the Subject Confirmation Methods SamlConfirmationMethod.</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is the amount of memory that will be allocated in order to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then it will be expanded by according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much will be buffer size by expanded if it exceeds its initial size. Setting a value of zero or lower will mean that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error will be raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is the maximum amount of memory that will be used. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error will be raised. A value lower or equal to zero means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Source</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Signature Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Key Identifier</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ISSUER_SERIAL</p></li><li><p>DIRECT_REFERENCE</p></li><li><p>X509_KEY_IDENTIFIER</p></li><li><p>THUMBPRINT</p></li><li><p>SKI_KEY_IDENTIFIER</p></li><li><p>KEY_VALUE</p></li></ul></div></div></td><td><p>The key identifier type to use for signature. See SignatureKeyIdentifierConstants</p></td><td><p>ISSUER_SERIAL</p></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>RSAwithSHA256</p></li><li><p>ECDSAwithSHA256</p></li><li><p>DSAwithSHA1</p></li><li><p>RSAwithSHA1</p></li><li><p>RSAwithSHA224</p></li><li><p>RSAwithSHA384</p></li><li><p>RSAwithSHA512</p></li><li><p>ECDSAwithSHA1</p></li><li><p>ECDSAwithSHA224</p></li><li><p>ECDSAwithSHA384</p></li><li><p>ECDSAwithSHA512</p></li><li><p>DSAwithSHA256</p></li></ul></div></div></td><td><p>The signature algorithm to use. The default is set by the data in the certificate. See SignatureAlgorithmConstants</p></td><td></td><td></td></tr><tr><td><p>Digest Algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SHA1</p></li><li><p>SHA256</p></li><li><p>SHA224</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li></ul></div></div></td><td><p>The signature digest algorithm to use. See SignatureDigestAlgorithmConstants</p></td><td><p>SHA256</p></td><td></td></tr><tr><td><p>C14n Algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CanonicalXML_1_0</p></li><li><p>CanonicalXML_1_1</p></li><li><p>ExclusiveXMLCanonicalization_1_0</p></li></ul></div></div></td><td><p>Defines which signature c14n (canonicalization) algorithm to use. See SignatureC14nAlgorithmConstants</p></td><td><p>ExclusiveXMLCanonicalization_1_0</p></td><td></td></tr><tr><td><p>Keystore Config</p></td><td><div><div><p><a href="#KeyStoreConfiguration">Key Store Configuration</a></p></div></div></td><td><p>KeyStore configuration used for signing.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Wss Parts</p></td><td><div><div><p>Array of <a href="#wss-part">Wss Part</a></p></div></div></td><td><p>Lists of parts to be encrypted. If any part is specified, the SOAP Body will be encrypted.</p></td><td></td><td></td></tr></tbody></table>
+
+### Wss Part
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Encode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ELEMENT</p></li><li><p>CONTENT</p></li></ul></div></div></td><td></td><td><p>CONTENT</p></td><td></td></tr><tr><td><p>Namespace</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Localname</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Encryption Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Encryption Key Identifier</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ISSUER_SERIAL</p></li><li><p>DIRECT_REFERENCE</p></li><li><p>X509_KEY_IDENTIFIER</p></li><li><p>THUMBPRINT</p></li><li><p>SKI_KEY_IDENTIFIER</p></li><li><p>ENCRYPTED_KEY_SHA1</p></li></ul></div></div></td><td><p>The key identifier type to use for encryption.</p></td><td><p>ISSUER_SERIAL</p></td><td></td></tr><tr><td><p>Encryption Sym Algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRIPLE_DES</p></li><li><p>AES_128</p></li><li><p>AES_256</p></li><li><p>AES_192</p></li><li><p>AES_128_GCM</p></li><li><p>AES_192_GCM</p></li><li><p>AES_256_GCM</p></li></ul></div></div></td><td><p>The symmetric encryption algorithm to use.</p></td><td><p>AES_128</p></td><td></td></tr><tr><td><p>Encryption Key Transport Algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>KEYTRANSPORT_RSA15</p></li><li><p>KEYTRANSPORT_RSAOAEP</p></li><li><p>KEYTRANSPORT_RSAOAEP_XENC11</p></li></ul></div></div></td><td><p>The algorithm used to encrypt the generated symmetric key.</p></td><td><p>KEYTRANSPORT_RSAOAEP</p></td><td></td></tr><tr><td><p>Encryption Digest Algorithm</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SHA1</p></li><li><p>SHA256</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li></ul></div></div></td><td><p>The encryption digest algorithm to use with the key transport algorithm.</p></td><td><p>SHA256</p></td><td></td></tr><tr><td><p>Keystore Config</p></td><td><div><div><p><a href="#KeyStoreConfiguration">Key Store Configuration</a></p></div></div></td><td><p>KeyStore configuration used for encryption.</p></td><td></td><td></td></tr><tr><td><p>Wss Parts</p></td><td><div><div><p>Array of <a href="#wss-part">Wss Part</a></p></div></div></td><td><p>Lists of parts to be encrypted. If any part is specified, the SOAP Body will be encrypted.</p></td><td></td><td></td></tr></tbody></table>
+
+### Timestamp Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time within which the Timestamp element is valid. The default is 5 minutes.</p></td><td><p>300</p></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to be used in the timeToLive configuration.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Precision In Milliseconds</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to true then use timestamps with milliseconds, otherwise omit the milliseconds.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Credentials Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### LDAP Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Provider Url</p></td><td><div><div><p>String</p></div></div></td><td><p>LDAP Server URL.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User Dn</p></td><td><div><div><p>String</p></div></div></td><td><p>User that will authenticate to the directory.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Credentials to use for getting authenticated contexts.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Search Base</p></td><td><div><div><p>String</p></div></div></td><td><p>The search base defines the starting point for the search in the directory tree.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Search Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>Filters can be used to restrict the numbers of users or groups that are permitted to access an application.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Search In Subtree</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to search in subtree.</p></td><td><p>false</p></td><td></td></tr></tbody></table>
+---
+
+# Using Anypoint Studio to Configure WSS Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+After you configure and run the connector, you can view the app log, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If you need additional information about the connector fields after reading the Studio topic, see
+[WSS Module Reference](wss-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add WSS Module to your Mule project to automatically populate the XML code with the connectorâs
+namespace and schema location and add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `WSS Module` in the search field.
+3.  Click the connector name in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source
+
+An input source initiates a flow when a specified condition is met. You can configure one of these
+input sources to use with WSS Module:
+
+<\* connector-specific input source> \* `HTTP Listener`, which initiates a flow each time it
+receives a request on the configured host and port \* `Scheduler`, which initiates a flow when a
+time-based condition is met
+
+For example, to configure an HTTP listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for WSS Module, follow these steps:
+
+1.  In the **Mule Palette** view, select **WSS Module** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target WSS Module system. WSS Module
+supports <mention the types of authorization the connector supports>.
+
+To configure the global element for WSS Module, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+
+## View the App Log
+
+You can view the app log (`log4j2.xml`) as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+App log output is available at the location specified by the log path, which defaults to
+`MULE_HOME/logs/<app-name>.log`. You can configure the location of the log path in the app log file
+`log4j2.xml`.
+
+## See Also
+
+- [WSS Module Reference](wss-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# WSS Module XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you manually code a Mule application in XML either from the Studio XML editor or a text editor,
+you must perform the following actions to get access to a connector:
+
+Add the namespace for the connector to your XML flow.
+
+Add dependency information to your Maven `pom.xml` file.
+
+In the Studio visual editor, when you drag a connector from the Mule Palette to the canvas, Studio
+automatically populates the XML code with the connector namespace and schema location.
+
+## Add a Namespace for the Connector
+
+If you manually code the Mule application in the Studio XML editor or another text editor, paste the
+following code inside the <mule> tag in your XML configuration:
+
+```xml
+http://www.mulesoft.org/schema/mule/wss
+http://www.mulesoft.org/schema/mule/wss/current/mule-wss.xsd
+```
+
+This example shows how the namespace statements are placed in the `mule` XML block:
+
+```xml
+<mule
+	xmlns:wss="http://www.mulesoft.org/schema/mule/wss"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/wss
+	http://www.mulesoft.org/schema/mule/wss/current/mule-wss.xsd">
+
+</mule>
+```
+
+## Add a POM File Dependency
+
+The `pom.xml` Apache Maven file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your POM file to enable access to
+this connector:
+
+```xml
+<dependency>
+        <groupId>org.mule.modules</groupId>
+        <artifactId>mule-wss-module</artifactId>
+        <version>1.1.1</version>
+        <classifier>mule-plugin</classifier>
+    </dependency>
+```
+
+To obtain the most up-to-date pom.xml file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `WSS Module`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the [Examples](wss-examples).
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+

@@ -1,0 +1,743 @@
+﻿# Amazon Kinesis Connector - Full Documentation
+
+# Amazon Kinesis Data Streams Connector 2.0 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example shows how to use Anypoint Connector for Amazon Kinesis Data Streams (Amazon
+Kinesis Data Streams Connector) to put data records and listen from an Amazon Kinesis data stream.
+
+> [!NOTE] Amazon Kinesis Data Streams Connector supports
+> [Enhanced Fan-Out (EFO)](https://docs.aws.amazon.com/streams/latest/dev/enhanced-consumers.html)
+> by default. This means that the connector automatically subscribes to all shards of the configured
+> stream using EFO.
+>
+> The connectorâs behavior aligns with AWS Kinesis Client Library (KCL) version 2.0 and later. The
+> connector uses the same implementation as shown in
+> [Develop enhanced fan-out consumers using KCL 2.x in Java](https://docs.aws.amazon.com/streams/latest/dev/building-enhanced-consumers-kcl-java.html).
+
+Before you try the example, access Anypoint Studio (Studio) and verify that the **Mule Palette**
+view displays entries for Kinesis. If not, follow the instructions in
+[Add the Connector to Your Project](amazon-kinesis-connector-studio#add-connector-to-project).
+
+## Flows for This Example
+
+The following screenshots show the Anypoint Studio app flows for this example:
+
+- This flow uses the **Put Records** operation to put data into the Amazon Kinesis data stream. In
+  this flow, **HTTP > Listener** receives a query parameter named **data** that sets the payload for
+  the **Put Record** operation. It uses a query parameter named **partitionKey** to set the
+  partition key value for the **Put Record** operation.
+
+  ![Put Record operation flow](_images/amazon-kinesis-example-put-record.png)
+
+- This flow uses the **Listener** source to listen for new data records:
+
+  ![Listener source flow](_images/amazon-kinesis-example-listener.png)
+
+- This flow uses the **Listener** source to listen for new data records. After receiving the new
+  records, it calls the **Checkpoint** operation to set a manual checkpoint:
+
+  ![Checkpoint operation flow](_images/amazon-kinesis-example-checkpoint.png)
+
+## XML Code for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:kinesis="http://www.mulesoft.org/schema/mule/kinesis" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/kinesis http://www.mulesoft.org/schema/mule/kinesis/current/mule-kinesis.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+
+    <configuration-properties doc:name="Configuration properties" file="mule-artifact.properties" />
+
+    <kinesis:config name="Kinesis_config" doc:name="Kinesis config">
+        <kinesis:connection accessKey="${config.accessKey}" secretKey="${config.secretKey}" />
+    </kinesis:config>
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <flow name="kinesis-demo-put-record" >
+        <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/putrecord"/>
+        <kinesis:put-record doc:name="Put Record"  config-ref="Kinesis_config" streamName="${streamName}"
+                            partitionKey="#[attributes.queryParams.partitionKey]">
+            <kinesis:data ><![CDATA[#[attributes.queryParams.data]]]></kinesis:data>
+        </kinesis:put-record>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" message="Sent message: #[payload]"/>
+    </flow>
+
+    <!-- Stop the following flow and enable/start the other one in order to run it -->
+    <flow name="kinesis-demo-listener-latest">
+        <kinesis:listener doc:name="Listener" config-ref="Kinesis_config"
+                          streamName="${streamName}" applicationName="${applicationName}"
+                          absolutePosition="LATEST"/>
+        <ee:transform doc:name="Transform Message"  >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" message="Received message:  #[payload]" />
+    </flow>
+
+    <flow name="kinesis-demo-checkpoint" initialState="stopped">
+        <kinesis:listener doc:name="Listener" config-ref="Kinesis_config"
+                          streamName="${streamName}" applicationName="${applicationName}"
+                          absolutePosition="LATEST" checkpointOnComplete="false"/>
+        <ee:transform doc:name="Transform Message" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" message="Received message:  #[payload]" />
+        <kinesis:checkpoint doc:name="Checkpoint" config-ref="Kinesis_config" applicationName="${applicationName}" streamName="${streamName}"/>
+    </flow>
+
+</mule>
+```
+
+### See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon Kinesis Data Streams Connector 2.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Amazon Kinesis Data Streams Connector doesnât support Windows because it uses the Kinesis
+> Producer Library (KPL), which deprecated Windows support starting in version 0.14.0.
+
+## Configurations
+
+---
+
+### Config
+
+The configuration for the connector. You can use this configuration for both the producer and
+consumer.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#Config_Connection">Kinesis Connection</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform will expire the instance at the exact moment that it becomes eligible. The runtime will actually purge the instances when it sees it fit.</p></td><td></td><td></td></tr><tr><td><p>Aggregation Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When set to <code>true</code>, this option packs multiple user data records into a single Amazon Kinesis data record.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum total time that can elapse between the start of an HTTP request and when the responses are received. If this time is exceeded, the request times out.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Request Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the <strong>Response Timeout</strong> value</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Record Max Buffered Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of time that an Amazon Kinesis data record spends buffering before it is sent. Records can be sent earlier than this value, depending on other buffering limits.</p></td><td><p>100</p></td><td></td></tr><tr><td><p>Record Max Buffered Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the <strong>Record Max Buffered Time</strong> value</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Aggregation Max Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of items to pack into an aggregated Amazon Kinesis data record.</p></td><td><p>4294967295</p></td><td></td></tr><tr><td><p>Aggregation Max Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum data size to pack into an aggregated Amazon Kinesis data record.</p></td><td><p>51200</p></td><td></td></tr><tr><td><p>Aggregation Max Size Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>A data unit that qualifies the <strong>Aggregation Max Size</strong> value</p></td><td><p>BYTE</p></td><td></td></tr><tr><td><p>Collection Max Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of items to pack into a batch request.</p></td><td><p>500</p></td><td></td></tr><tr><td><p>Collection Max Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of data to send with a <strong>Put Record</strong> operation.</p></td><td><p>5242880</p></td><td></td></tr><tr><td><p>Collection Max Size Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>A data unit that qualifies the <strong>Collection Max Size</strong> value</p></td><td><p>BYTE</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of time to wait when initially establishing the TCP connection between the connector and Amazon Kinesis server before throwing an exception if the connection fails</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit for the <strong>Connection Timeout</strong> value</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections to open to the backend. HTTP requests are sent in parallel over multiple connections. Setting this value too high can impact latency and consume additional resources without increasing throughput.</p></td><td><p>24</p></td><td></td></tr><tr><td><p>Min Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Minimum number of connections to keep open to the backend. In most cases, there is no need to increase value.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Rate Limit</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limits the number of data records per second and number of bytes per second sent to a shard. This limit can reduce bandwidth and CPU cycle wastage from sending requests that will fail from throttling. The default value, 150%, enables a single producer instance to completely saturate the allowance for a shard. To reduce throttling errors rather than completely saturate the shard, consider reducing this setting.</p></td><td><p>150%</p></td><td></td></tr><tr><td><p>Record TTL</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time limit for data records to be put. Records that are not successfully put within this limit fail. When setting this value, take into consideration the fact that data records still incur network latency after they leave the Amazon Kinesis Producer Library (KPL).</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Record TTL Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit for the <strong>Record TTL</strong> value.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Thread Pool Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of threads with which to configure the native process thread pool. The default value, 0, enables the KPL process to choose the size of the thread pool.</p></td><td><p>0</p></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Kinesis Connection
+
+Connects to AWS Kinesis through the use of a user-specified access and secret key and, optionally, a
+role. These credentials securely sign requests sent to AWS services.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Custom Kinesis Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies a custom Kinesis endpoint, often used for FIPS compliance.</p></td><td></td><td></td></tr><tr><td><p>Custom STS endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets a custom STS endpoint. This is useful when a non-standard service endpoint is required, such as a VPC endpoint or a FIPS-compliant endpoint.</p></td><td></td><td></td></tr><tr><td><p>Proxy Configuration</p></td><td><div><div><p><a href="#ProxyConfiguration">Proxy Configuration</a></p></div></div></td><td><p>Proxy connection settings for outbound connections. This setting applies to the <strong>Listener</strong> source and <strong>Checkpoint</strong> operation. It does not affect the <strong>Put Record</strong> operation.</p></td><td></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Protocol to use for communication. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol, then, at a minimum, you must configure the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.<br><br>This setting applies to the <strong>Listener</strong> source and <strong>Checkpoint</strong> operation. It does not affect the <strong>Put Record</strong> operation.</p></td><td></td><td></td></tr><tr><td><p>Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Access key provided by Amazon.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Secret Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Secret key provided by Amazon.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Region Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic region endpoint</p></td><td><p>us-east-1</p></td><td></td></tr><tr><td><p>Role</p></td><td><div><div><p><a href="#Role">Role</a></p></div></div></td><td><p>Role configuration</p></td><td></td><td></td></tr><tr><td><p>Custom Dynamo DB Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets a Dynamo DB endpoint to track and maintain state information.</p></td><td></td><td></td></tr><tr><td><p>Custom Cloud Watch Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets a Cloud Watch endpoint for monitoring and observability.</p></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of time to wait when initially establishing the TCP connection between the connector and Amazon Kinesis server before throwing an exception if the connection fails</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit for the <strong>Connection Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum time to wait between the time an HTTP request is sent and when a response is received</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> value.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Checkpoint](#Checkpoint)
+- [Put Record](#PutRecord)
+
+## Associated Sources
+
+- [Listener](#Listener)
+
+## Operations
+
+## Checkpoint
+
+`<kinesis:checkpoint>`
+
+The operation checkpoint position of a listener into the Amazon DynamoDB table. Upon failover, the
+connector starts fetching records that are located after the check pointed position. The
+**Checkpoint** operation does not modify the current position of the listener.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Stream Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The stream name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Application Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the DynamoDB table that holds data about the current stream positions.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shard ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The shard identifier.</p></td><td></td><td></td></tr><tr><td><p>Sequence Number</p></td><td><div><div><p>String</p></div></div></td><td><p>A sequence number at which to checkpoint in the shard.</p></td><td></td><td></td></tr><tr><td><p>Subsequence Number</p></td><td><div><div><p>Number</p></div></div></td><td><p>A subsequence number at which to checkpoint within the shard.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- KINESIS:ILLEGAL_STATE
+- KINESIS:INVALID_ARGUMENT
+- KINESIS:PROVISIONED_THROUGHPUT_EXCEEDED
+- KINESIS:TIMEOUT
+- KINESIS:UNAUTHORIZED
+
+## Put Record
+
+`<kinesis:put-record>`
+
+Puts a data record into an Amazon Kinesis data stream.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Stream Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The stream name</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Partition Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The partition key. If not provided, the connector generates a UUID for this value.</p></td><td></td><td></td></tr><tr><td><p>Explicit Hash Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Overrides the Amazon Kinesis Data Streams explicitHashKey value, which is normally computed with using MD5 function of the data record partition key.</p></td><td></td><td></td></tr><tr><td><p>Data</p></td><td><div><div><p>Any</p></div></div></td><td><p>The content to put in the Amazon Kinesis data stream. This content can be up to 1 MB in size.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams to have lower performance overhead, memory use, and costs</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable in which to store the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- KINESIS:CONNECTIVITY
+- KINESIS:INVALID_ARGUMENT
+- KINESIS:PROCESSING
+- KINESIS:RETRY_EXHAUSTED
+- KINESIS:TIMEOUT
+- KINESIS:UNAUTHORIZED
+
+## Sources
+
+## Listener
+
+`<kinesis:listener>`
+
+Uses the Amazon Kinesis Client Library (KCL) to listen from a specified point in a stream.
+
+> [!NOTE] Due to varying batch sizes, checkpoints can occur in the incorrect sequence, potentially
+> leading to transaction loss in certain cases. Set `maxConcurrency=1` to ensure transactions are
+> processed sequentially.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The MIME type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this listener executes on the primary node only when running in a cluster</p></td><td></td><td></td></tr><tr><td><p>On Capacity Overload</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WAIT</p></li><li><p>DROP</p></li></ul></div></div></td><td><p>Strategy that Mule applies when the flow receives more messages than it can handle</p></td><td><p>WAIT</p></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Set to true to restrict the execution of this source to the primary node when operating in a cluster environment.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to be used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Policy for processing the redelivery of a message</p></td><td></td><td></td></tr><tr><td><p>Stream Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The stream name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Application Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the DynamoDB table that holds data about current stream positions. If the table doesnât exist, then the connector creates a new one at the initial position.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shard Configs</p></td><td><div><div><p>Array of <a href="#ShardConfig">Shard Config</a></p></div></div></td><td><p>The shard configuration. If specified, the listener listens only from selected shards.</p></td><td></td><td></td></tr><tr><td><p>Max Batch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of data records a batch can carry. A batch is the number of records that the listener receives from the stream.</p></td><td><p>10000</p></td><td></td></tr><tr><td><p>Max Leases For Worker</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of shards to which the listener can subscribe in parallel.</p></td><td><p>2137483647</p></td><td></td></tr><tr><td><p>Shard Prioritization</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>PARENTS_FIRST_SHARD_PRIORITIZATION</p></li><li><p>NO_OP_SHARD_PRIORITIZATION</p></li></ul></div></div></td><td><p>Logic used to prioritize or filter the shards before their execution.<br><br>PARENTS_FIRST_SHARD_PRIORITIZATION Prioritizes parent shards first and limits the number of shards that are available for initialization based on their depth (<strong>Max Depth</strong> field).</p><p>NO_OP_SHARD_PRIORITIZATION Returns the original list of shards without any modifications.</p></td><td><p>NO_OP_SHARD_PRIORITIZATION</p></td><td></td></tr><tr><td><p>Max Depth</p></td><td><div><div><p>Number</p></div></div></td><td><p>Used by the PARENTS_FIRST_SHARD_PRIORITIZATION shard prioritization option. Any shard that is deeper than this value is excluded from processing.</p></td><td></td><td></td></tr><tr><td><p>Read Capacity Units</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of strongly consistent reads consumed per second before Amazon DynamoDB returns a ThrottlingException.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Write Capacity Units</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of writes consumed per second before Amazon DynamoDB returns a ThrottlingException.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Failover Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Duration of a lease for a worker. This parameter also determines the frequency with which a worker looks for new leases to work on. The frequency is roughly twice the specified value.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Failover Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Failover Time</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Checkpoint On Complete</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, the listener checkpoints the current reading position to Amazon DynamoDB after data records are processed by the owning flow, without taking into account whether the processing finished successfully.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Absolute Position</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LATEST</p></li><li><p>FIRST</p></li></ul></div></div></td><td><p>Whether the listener listens from the latest data record or the oldest data record</p></td><td></td><td></td></tr><tr><td><p>Timestamp</p></td><td><div><div><p>DateTime</p></div></div></td><td><p>Date and time from which the listener listens</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of binary messages with [<a href="#RecordAttributes">Record Attributes</a>]</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+## Types
+
+### Proxy Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Host where the proxy requests are sent.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port where the proxy requests are sent.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The username to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Non Proxy Hosts</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>A list of hosts against which the proxy should not be used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Ntlm Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The domain to authenticate against the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom Ocsp Responder</a></p></li><li><p><a href="#CrlFile">Crl File</a></p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (which is resolved relative to the current classpath and file system, if possible) of the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If set to <code>true</code>, no certificate validations are performed, which makes connections vulnerable to attacks. Use at your own risk.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (which is resolved relative to the current classpath and file system, if possible) of the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>When the keystore contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file is used by default.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Verifies the last element of the certificate chain only.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Tries CRL instead of OCSP first.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Does not use the secondary checking method.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Avoids a certification failure when the revocation server cannot be reached or is busy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom Ocsp Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response (must be in the truststore), if present.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Crl File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Role
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Arn</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Amazon Resource Name (ARN) of the role to assume.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>External Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A unique identifier that might be required when you assume a role in another account. If the administrator of the account to which the role belongs provides an external ID, then provide that value in this field.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Duration</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The duration of the role session.</p></div></div></td><td><div><div><p>3600</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Duration Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Duration</strong> field</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Referred Policy Arns</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>The Amazon Resource Names (ARNs) of the IAM-managed policies to use as managed session policies. The policies must exist in the same account as the role.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Tags</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>A list of session tags that you want to pass. Each session tag consists of a key name and an associated value.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the <strong>Max Idle Time</strong> attribute.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Record Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Aggregated</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Approximate Arrival Timestamp</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Encryption Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sequence Number</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Shard Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sub Sequence Number</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering a process-failed message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use.</p></div></div></td><td><div><div><p>SHA-256</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Identifier</strong></p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><div><div><p>The strategy used to identify the messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>ObjectStore</p></div></div></td><td><div><div><p>The object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions to use to determine when a message was redelivered. This property can be set only if the value of the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Shard Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Shard Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The shard identifier.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shard Initial Position</strong></p></td><td><div><div><p><a href="#ShardInitialPosition">Shard Initial Position</a></p></div></div></td><td><div><div><p>The shard initial position.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Shard Initial Position
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>At Sequence Number</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The listener starts listening at this position in the data stream.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>After Sequence Number</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The listener starts listening after this position in the data stream.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Absolute Position</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LATEST</p></li><li><p>FIRST</p></li></ul></div></div></td><td><div><div><p>The listener starts listening from the latest or oldest record, depending on the value.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Timestamp</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Source</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory to allocate to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the <strong>Buffer Size Increment</strong> value, with an upper limit of the <strong>Max In Memory Size</strong> value.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised when the buffer is full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more memory is used, then a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value less than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which the fields in this table are expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum memory that the stream should use to keep data in memory. If more than that is consumed, content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which the <strong>In Memory Size</strong> value is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Reference](#)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Amazon Kinesis Data Streams Connector 2.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Add a connector operation to the flow](#add-connector-operation).
+4.  [Configure a global element for the connector](#configure-global-element)
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Amazon Kinesis Data Streams Connector (Amazon Kinesis Data Streams
+Connector) to your Mule project to automatically populate the XML code with the connectorâs
+namespace and schema location and add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `kinesis` in the search field.
+3.  Click **Amazon Kinesis Data Streams Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+### Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Amazon Kinesis Data Streams Connector:
+
+- **Listener**
+
+  Enables you to subscribe to a particular data stream. This source uses the Kinesis Client Library
+  (KCL) to listen from a specified initial point in the data stream. It returns dynamically sized
+  batches of records, however, the max size can also be configured.
+
+- **HTTP > Listener**
+
+  Initiates a flow each time it receives a request on the configured host and port
+
+- **Scheduler**
+
+  Initiates a flow when a time-based condition is met
+
+For example, to configure the Amazon Kinesis **Listener** source, follow these steps:
+
+1.  In the **Mule Palette** view, select **Kinesis**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** properties window, optionally change the value of the **Display Name**
+    field.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the Amazon Kinesis Connector in the app.
+5.  On the **General** tab, complete the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Name used to reference this connector instance</p></div></div></td></tr><tr><td><p><strong>Access Key</strong></p></td><td><div><div><p>Access key provided by Amazon</p></div></div></td></tr><tr><td><p><strong>Secret Key</strong></p></td><td><div><div><p>Secret key provided by Amazon</p></div></div></td></tr><tr><td><p><strong>Region Endpoint</strong></p></td><td><div><div><p>URL entry point for a web service</p></div></div></td></tr><tr><td><p><strong>Role</strong></p></td><td><div><div><p>IAM role, if any</p></div></div></td></tr></tbody></table>
+
+6.  On the **Security** tab, optionally specify the TLS information for the connector.
+7.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+8.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+9.  Click **OK**.
+10. In the **Listener Params** section of the **Listener** properties window, optionally enter
+    values for the fields.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+You can use the following operations:
+
+- **Checkpoint**, which keeps track of the current position in the Kinesis data stream
+- **Seek**, which moves the reading position of the sources (listeners)
+
+  While moving forward in the stream is fluent, moving backward causes an internal restart of the
+  Kinesis Client Library (KCL) instance. Therefore, use this operation sparingly to move backward in
+  a stream.
+
+- **Put Record**, which puts a record into the Kinesis data stream.
+
+  If the **Aggregation Enabled** field in the global configuration **Advanced** tab is `true` (the
+  default), then multiple records are combined and stored in one Kinesis Data Streams record.
+
+  Records include binary data, a partition key, and an explicit hash key. The explicit hash key
+  value is normally computed with the MD5 function of the record partition key, but you can override
+  the value by using the **Explicit Hash Key** field. The operation uses the Kinesis Producer
+  Library (KPL), which increases throughput.
+
+To add an operation for Amazon Kinesis Data Streams Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Kinesis** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials that the connector requires to access the target Amazon Kinesis Data
+Streams system.
+
+Amazon Kinesis Data Streams Connector supports Access Key authentication, which uses **Access Key**
+and **Secret Key** field values for AWS Identity and Access Management (IAM).
+
+When you configure a global element, you can reference a configuration file that contains ANT-style
+property placeholders (recommended), or you can enter your authorization credentials in the global
+configuration properties. For information about the benefits of using property placeholders and how
+to configure them, see
+[Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+To configure a global element, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, configure the following fields.
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Name used to reference the connector instance</p></div></div></td></tr><tr><td><p><strong>Access Key</strong></p></td><td><div><div><p>Access key provided by Amazon</p></div></div></td></tr><tr><td><p><strong>Secret Key</strong></p></td><td><div><div><p>Secret key provided by Amazon</p></div></div></td></tr><tr><td><p><strong>Region Endpoint</strong></p></td><td><div><div><p>URL entry point for a web service</p></div></div></td></tr><tr><td><p><strong>Role</strong></p></td><td><div><div><p>IAM role, if any</p></div></div></td></tr></tbody></table>
+
+4.  On the **Advanced** tab, optionally specify proxy and reconnection information, including a
+    reconnection strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`. You can configure the location of
+the log path in the app log file `log4j2.xml`.
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Reference](amazon-kinesis-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating Amazon Kinesis Data Streams Connector to Version 2.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for Amazon Kinesis Data Streams (Amazon Kinesis Data Streams Connector)
+to version 2.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><p>1.x</p></td><td><p>2.x</p></td></tr></tbody></table>
+
+## Changes in This Release
+
+- The `kinesis-client` library is upgraded to version 3.2.0.
+- The `kinesis-producer` library is upgraded to version 1.0.6.
+- The `aws-sts` library is upgraded to version 2.38.3.
+- The `aws-sdk` library is upgraded to version 2.38.3.
+- The `netty-codec-http` library is upgraded to version 4.2.7.Final.
+- The `netty-codec-http2` library is upgraded to version 4.2.7.Final.
+- The `netty-codec` library is upgraded to version 4.2.7.Final.
+- The `kafka-clients` library is upgraded to version 4.1.0.
+- The `protobuf-java` library is upgraded to version 4.33.0.
+- The `commons-lang3` library is upgraded to version 3.19.0.
+
+## Requirements
+
+Ensure your system meets the following compatibility requirements before you perform the upgrade:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Application/Service</th><th>Version</th></tr></thead><tbody><tr><td><p>Mule</p></td><td><p>4.3.0 and later</p></td></tr><tr><td><p>OpenJDK</p></td><td><p>8, 11, and 17</p></td></tr><tr><td><p>Amazon-Kinesis-Client</p></td><td><p>3.2.0</p></td></tr><tr><td><p>Amazon-Kinesis-Producer</p></td><td><p>1.0.6</p></td></tr></tbody></table>
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, create a backup of your files, data, and configuration in case you
+need to restore to the previous version.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade to version 2.x:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `amazon kinesis data streams` in the search field.
+4.  In **Available modules**, select **Amazon Kinesis Data Streams** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the Amazon Kinesis Data Streams dependency version is 2.x in the `pom.xml` file in
+    the Mule project.
+
+Studio upgrades the connector automatically.
+
+## Post-Upgrade Steps
+
+After you install the latest version of the connector, verify that your error handling is updated to
+work with the minor changes in error codes in this version of the connector.
+
+## Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+## Revert the Upgrade
+
+If it is necessary to revert to the previous version of Amazon Kinesis Data Streams, change the
+`mule-amazon-kinesis` dependency version in the projectâs `pom.xml` file to the previous version.
+
+You must update the projectâs `pom.xml` file in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon Kinesis Data Streams Connector 2.0 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+editor or from a text editor, you can access the connector from your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/amazon-kinesis
+http://www.mulesoft.org/schema/mule/amazon-kinesis/current/mule-amazon-kinesis.xsd
+```
+
+This example shows how the namespace and schema statements are placed in the XML:
+
+```xml
+<mule xmlns:kinesis="http://www.mulesoft.org/schema/mule/kinesis"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/kinesis>
+	http://www.mulesoft.org/schema/mule/kinesis/current/mule-kinesis.xsd".
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>amazon-kinesis-data-streams-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `amazon kinesis`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](amazon-kinesis-connector-examples), which provides one or more use cases for the
+connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon Kinesis Data Streams Connector 2.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Amazon Kinesis Data Streams (Amazon Kinesis Data Streams Connector) provides
+access to standard Amazon Kinesis Data Stream operations using Anypoint Platform.
+
+Amazon Kinesis is a streaming solution built by Amazon AWS to collect and process large streams of
+data records in real time. To learn more, see the Amazon Kinesis official documentation.
+
+For compatibility information and fixed issues, see the Amazon Kinesis Data Streams Release Notes.
+
+> [!NOTE] Amazon Kinesis Data Streams Connector doesnât support Windows because it uses the Kinesis
+> Producer Library (KPL), which deprecated Windows support starting in version 0.14.0.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Amazon Kinesis Data Streams API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- AWS Identity and Access Management (IAM) Access Key credentials with access rights to the Kinesis,
+  DynamoDB, and CloudWatch services. You can find the required permissions
+  [here](https://docs.aws.amazon.com/streams/latest/dev/tutorial-stock-data-kplkcl-iam.html).
+- Access to the Amazon Kinesis target resource
+- Anypoint Studio or Anypoint Code Builder
+
+## Common Use Cases for the Connector
+
+Common use cases for Kinesis Data Streams connector include the following:
+
+- Troubleshooting
+
+  Collect log and event data from sources such as servers, desktops, and mobile devices. Then
+  continuously process the data, generate metrics, power live dashboards, and put the aggregated
+  data into data stores such as Amazon S3.
+
+- Real-time analytics
+
+  Run real-time analytics on high-frequency event data such as sensor data or social media data
+  collected by Amazon Kinesis Data Streams. These analytics enable you to gain insights from your
+  data at a frequency of minutes instead of a frequency of hours or days.
+
+- Mobile data capture
+
+  Have your mobile applications push data to Amazon Kinesis data streams from hundreds of thousands
+  of devices, making the data available to you as soon as it is produced on the mobile devices.
+
+For examples, see [Examples](amazon-kinesis-connector-examples).
+
+## Audience
+
+- New users, read:
+  - [Using Anypoint Studio to Configure the Connector](amazon-kinesis-connector-studio) to create
+    your Mule app
+  - [Examples](amazon-kinesis-connector-examples), which provide one or more use cases for the
+    connector
+
+- Advanced users, read:
+  - [XML and Maven Support](amazon-kinesis-connector-xml-maven)
+  - [Examples](amazon-kinesis-connector-examples), which provides one or more use cases for the
+    connector
+
+## Authentication Types
+
+Amazon Kinesis Data Streams Connector supports Access Key authentication. With this type of
+authentication, the connector authenticates to AWS by using an access key, secret key, and
+optionally, a role.
+
+For information about configuring authentication, see
+[Using Anypoint Studio to Configure Amazon Kinesis Data Streams](amazon-kinesis-connector-studio).
+
+## Using Exchange Templates and Examples
+
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) provides templates that you can use as
+starting points for your apps and examples that illustrate a complete solution.
+
+## Next Step
+
+After you complete the prerequisites and try the templates and examples, you are ready to create
+your own app and configure the connector using [Anypoint Studio](amazon-kinesis-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+

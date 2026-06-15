@@ -1,0 +1,1498 @@
+﻿# SAP S/4HANA OData Connector - Full Documentation
+
+# SAP S/4HANA OData Connector 2.9
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for SAP S/4HANA OData (SAP S/4HANA OData Connector) provides support for the
+OData APIs exposed by SAP S/4HANA Cloud and SAP S/4HANA on-premise.
+
+The connector enables you to perform operations to:
+
+- Create, get, update, and delete entities
+- Retrieve a single entity
+- Query multiple entities
+- Invoke a remote function
+- Execute batch requests that consist of multiple requests
+
+For software requirements and compatibility information, see the SAP S4/HANA Connector Release
+Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The SAP S/4HANA OData API
+- Anypoint Connectors
+- Mule runtime (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Credentials to access the SAP S/4HANA OData target resource
+- Anypoint Platform
+- Anypoint Studio or Anypoint Code Builder
+- Have a developer account or other valid SAP S/4HANA instance
+- Access to the catalog service that allows you to use the service discovery
+- A communication user that is assigned to the corresponding communication arrangements for the
+  desired APIs
+
+## Common Use Case for the Connector
+
+Perform CRUD operations on entity types of SAP S/4HANAâs OData API and process the response.
+
+## Exchange Templates and Examples
+
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) provides templates you can use as a starting
+point for your app, as well as examples that illustrate a complete solution.
+
+## Next Step
+
+After you complete the prerequisites and experiment with templates and examples, you are ready to
+create an app with [Anypoint Studio](sap-s4hana-cloud-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [SAP S/4HANA OData Connector Release Notes](../../release-notes/connector/sap-s4-hana-connector-release-notes-mule-4)
+- [SAP S/4HANA OData Connector on Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-sap-s4hana-cloud-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# SAP S/4HANA OData Connector 2.9 Batch Operations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The batch processing feature is available in SAP S/4HANA OData Connector 2.1 and later.
+
+You must follow the correct order for structural batch operations, which is as follows:
+
+1.  Initiate the batch before adding any requests into it.
+2.  Do not add requests to the batch or the change set after it is executed.
+
+## Create a Batch Operation
+
+To create and process a batch operation, you must:
+
+1.  Place the **Initiate Batch** operation in the Mule flow, which returns a unique batch
+    identifier.  
+    This unique batch identifier must be stored, for example, in the flow variable, so that it can
+    then be used to group the batch data operations under the common batch request.
+2.  Use the **Create Change Set** operation to create a new change set.  
+    This operation returns a unique change set identifier, which you then use in the **Batch
+    Create**, **Batch Update**, **Delete Entity**, or **Batch Execute Function** operations to add
+    them to the change set. Within a change set, requests are executed sequentially in the order
+    they are added.
+3.  When you complete the batch, use the **Execute Batch** operation to send the batch request.
+
+The **Batch Create Entity**, **Batch Get Entity**, **Batch Query**, and **Batch Execute Function**
+operations return a JSON result. However, the result of these operations cannot be read until the
+**Execute Batch** operation is done.
+
+If you attempt to read the result before the **Execute Batch** operation is executed, the connector
+throws an exception. You can store the output of these operations, for instance, into a flow
+variable, and access the output after the **Execute Batch** operation is executed.
+
+After the **Execute Batch** operation is successfully executed, a summary is returned, which
+contains basic information about the outcome of every batch operation that was included as part of
+the batch operation. The detailed results of these batch operations are then available to read.
+
+## Troubleshooting
+
+Exceptions are thrown in the following circumstances:
+
+- An operation references a batch identifier that is invalid, either because:
+  - It was never initiated.
+  - It was already processed as part of an **Execute Batch** operation.
+
+- The change set identifier used in that batch operation is not valid.
+
+## See Also
+
+- [SAP S/4HANA OData Connector Reference](sap-s4hana-cloud-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# SAP S/4HANA OData Connector 2.9 - Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+In this example SAP S/4HANA OData Connector is used to create and get an entity, query for a value,
+update the entity, and then execute a function.
+
+> [!NOTE] When using the **Update entity** operation, the entity key _must_ be specified as part of
+> the payload.
+
+![Studio flow with Listener, Transform Message, Get entity, Transform Message, and Logger](_images/sap-hana-create.png)
+
+![Studio flow with Listener, Transform Message, Delete entity, Transform Message, and Logger](_images/sap-hana-get.png)
+
+![Studio flow with Listener, Query, Transform Message, and Logger](_images/sap-hana-query.png)
+
+![Studio flow with Listener, Transform Message, Update entity, Get entity by key, Transform Message, and Logger](_images/sap-hana-update.png)
+
+![Studio flow with Listener, Transform Message, Execute function, Transform Message, and Logger](_images/sap-hana-execute.png)
+
+## POM File for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>sapdemo</artifactId>
+  <groupId>com.mulesoft.connectors.examples</groupId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>mule-application</packaging>
+
+  <name>mule-saphana-connector-entity-crud-demo</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <app.runtime>4.2.1</app.runtime>
+    <mule.maven.plugin.version>3.2.8</mule.maven.plugin.version>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>mule-maven-plugin</artifactId>
+        <version>${mule.maven.plugin.version}</version>
+        <extensions>true</extensions>
+        <configuration>
+          <classifier>mule-application</classifier>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.mule.connectors</groupId>
+      <artifactId>mule-http-connector</artifactId>
+      <version>1.3.1</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.mule.connectors</groupId>
+      <artifactId>mule-sockets-connector</artifactId>
+      <version>1.1.2</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+    <dependency>
+      <groupId>com.mulesoft.connector</groupId>
+      <artifactId>mule-sap-s4hana-cloud-connector</artifactId>
+      <version>2.2.0</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <id>anypoint-exchange</id>
+      <name>Anypoint Exchange</name>
+      <url>https://maven.anypoint.mulesoft.com/api/v1/maven</url>
+      <layout>default</layout>
+    </repository>
+    <repository>
+        <id>mulesoft-releases</id>
+        <name>MuleSoft Releases Repository</name>
+        <url>https://repository.mulesoft.org/releases/</url>
+        <layout>default</layout>
+    </repository>
+    <repository>
+        <id>mulesoft-snapshots</id>
+        <name>MuleSoft Snapshots Repository</name>
+        <url>https://repository.mulesoft.org/snapshots/</url>
+        <layout>default</layout>
+    </repository>
+  </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+        <id>mulesoft-releases</id>
+        <name>mulesoft release repository</name>
+        <layout>default</layout>
+        <url>https://repository.mulesoft.org/releases/</url>
+        <snapshots>
+          <enabled>false</enabled>
+        </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+</project>
+```
+
+## XML Code for This Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+ <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:s4hana="http://www.mulesoft.org/schema/mule/s4hana"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s4hana http://www.mulesoft.org/schema/mule/s4hana/current/mule-s4hana.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="3440aea5-7401-47d6-8b58-ba23046e1cac" basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<s4hana:config name="SAP_S_4HANA_Config" doc:name="SAP S 4HANA Config" doc:id="ef9c8c13-3002-4f50-b366-faa771393929" >
+		<s4hana:basic-authentication-connection username="${config.username}" password="${config.password}" baseUrl="${config.serviceBaseUrl}" serviceDirectory="sap/opu/odata/sap">
+		<s4hana:unlisted-services >
+          		<s4hana:unlisted-service value="API_BUSINESS_PARTNER" />
+          		<s4hana:unlisted-service value="API_FINANCIALPLANDATA_SRV" />
+          		<s4hana:unlisted-service value="MD_CUSTOMER_MASTER_SRV_01" />
+	        </s4hana:unlisted-services>
+	        <s4hana:default-query-params>
+          		<s4hana:default-query-param key="saml2" value="disabled" />
+	        </s4hana:default-query-params>
+        </s4hana:basic-authentication-connection>
+
+	</s4hana:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="beca6c84-45d8-4a8c-95e7-322a9bbe2e5e" file="mule-artifact.properties" />
+	<flow name="htmlFormFlow" doc:id="0380e195-ebb4-4595-8b00-c5018002c714" >
+		<http:listener doc:name="Listener" doc:id="8e232545-4ec3-495e-ab9e-1122a9db9ca8" config-ref="HTTP_Listener_config" path="/"/>
+		<parse-template doc:name="Parse Template" doc:id="18304b99-add7-4692-a8d0-e70e519044bc" location="form.html"/>
+	</flow>
+	<flow name="createEntityFlow" doc:id="720fb3fc-b09a-46ed-9949-388aad43ff67" >
+		<http:listener doc:name="Listener" doc:id="84f90343-0ed6-45e0-9fa3-aa26cefb08cb" config-ref="HTTP_Listener_config" path="/create"/>
+		<ee:transform doc:name="Transform Message" doc:id="ff52de8a-3ffa-4fe8-b59f-2e215af75835" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"BusinessPartner": attributes.queryParams['business-partner-one'],
+	"BankIdentification": attributes.queryParams['bank-identification-one'],
+	"BankCountryKey": attributes.queryParams['bank-country-key-one'],
+	"BankName": attributes.queryParams['bank-name-one'],
+	"BankNumber": attributes.queryParams['bank-number-one'],
+	"SWIFTCode": attributes.queryParams['swift-code-one'],
+	"BankControlKey": attributes.queryParams['bank-control-key-one'],
+	"BankAccountHolderName": attributes.queryParams['bank-account-holder-name-one'],
+	"BankAccountName": attributes.queryParams['bank-account-name-one'],
+	"IBAN": attributes.queryParams['iban-one'],
+	"IBANValidityStartDate": attributes.queryParams['iban-validity-start-date-one'] as DateTime,
+	"BankAccount": attributes.queryParams['bank-account-one'],
+	"BankAccountReferenceText": attributes.queryParams['bank-account-reference-text-one'],
+	"CollectionAuthInd": attributes.queryParams['collection-auth-ind-one'] as Boolean,
+	"CityName": attributes.queryParams['city-name-one'],
+	"AuthorizationGroup": attributes.queryParams['authorization-group-one']
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s4hana:create-entity doc:name="Create entity" doc:id="eba9b06d-4834-4577-a6c2-4190a54e18b6" config-ref="SAP_S_4HANA_Config" service="API_BUSINESS_PARTNER" entityType="A_BusinessPartnerBank">
+			<s4hana:entity ><![CDATA[#[%dw 2.0
+output application/java
+---
+payload]]]></s4hana:entity>
+		</s4hana:create-entity>
+		<ee:transform doc:name="Transform Message" doc:id="5a8c4a4b-5efb-49c1-912c-d77b31ecdfe1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="b7e16d01-1741-4f17-8942-a7800877b5d2" message="#[payload]"/>
+	</flow>
+	<flow name="updateEntityFlow" doc:id="295a4bc8-ba58-4b92-9d05-27e63108b691" >
+		<http:listener doc:name="Listener" doc:id="90e2fc87-3b32-4e28-8b32-387d5ab6a95c" config-ref="HTTP_Listener_config" path="/update"/>
+		<ee:transform doc:name="Transform Message" doc:id="7be1dff2-c6f1-4075-90c9-dfa58ad6dd64" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"BusinessPartner": attributes.queryParams['business-partner-three'],
+	"BankIdentification": attributes.queryParams['bank-identification-three'],
+	"BankCountryKey": attributes.queryParams['bank-country-key-three'],
+	"BankName": attributes.queryParams['bank-name-three'],
+	"BankNumber": attributes.queryParams['bank-number-three'],
+	"SWIFTCode": attributes.queryParams['swift-code-three'],
+	"BankControlKey": attributes.queryParams['bank-control-key-three'],
+	"BankAccountHolderName": attributes.queryParams['bank-account-holder-name-three'],
+	"BankAccountName": attributes.queryParams['bank-account-name-three'],
+	"IBAN": attributes.queryParams['iban-three'],
+	"IBANValidityStartDate": attributes.queryParams['iban-validity-start-date-three'] as DateTime,
+	"BankAccount": attributes.queryParams['bank-account-three'],
+	"BankAccountReferenceText": attributes.queryParams['bank-account-reference-text-three'],
+	"CollectionAuthInd": attributes.queryParams['collection-auth-ind-three'] as Boolean,
+	"CityName": attributes.queryParams['city-name-three'],
+	"AuthorizationGroup": attributes.queryParams['authorization-group-three']
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s4hana:update-entity   doc:name="Update entity" doc:id="6d32c722-f614-43e0-9d06-b8867adc4b4d" config-ref="SAP_S_4HANA_Config" service="API_BUSINESS_PARTNER" entityType="A_BusinessPartnerBank">
+			<s4hana:entity ><![CDATA[#[output application/json
+---
+{
+	BankIdentification: payload.BankIdentification,
+	BusinessPartner: payload.BusinessPartner,
+	AuthorizationGroup: payload.AuthorizationGroup,
+	BankAccount: payload.BankAccount,
+	BankAccountHolderName: payload.BankAccountHolderName,
+	BankAccountName: payload.BankAccountName,
+	BankAccountReferenceText: payload.BankAccountReferenceText,
+	BankControlKey: payload.BankControlKey,
+	BankCountryKey: payload.BankCountryKey,
+	BankName: payload.BankName,
+	BankNumber: payload.BankNumber,
+	CityName: payload.CityName,
+	CollectionAuthInd: payload.CollectionAuthInd,
+	IBAN: payload.IBAN,
+	IBANValidityStartDate: payload.IBANValidityStartDate as DateTime,
+	SWIFTCode: payload.SWIFTCode,
+}]]]></s4hana:entity>
+		</s4hana:update-entity>
+		<ee:transform doc:name="Transform Message" doc:id="8ab21233-6396-4039-bc2e-8911f9c0b6a3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="a5bea8a6-1905-4aa6-95a4-1fffb140b541" message="#[payload]"/>
+	</flow>
+	<flow name="getEntityFlow" doc:id="deffa7d4-da3d-45d8-8528-a579ffbdd021" >
+		<http:listener doc:name="Listener" doc:id="a8e27adc-a1ce-4247-8d64-6b5350b26fe5" config-ref="HTTP_Listener_config" path="/get"/>
+		<ee:transform doc:name="Transform Message" doc:id="0d8a8421-ec80-4827-9f5b-3db0515db421" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"BusinessPartner": attributes.queryParams['business-partner-two'],
+	"BankIdentification": attributes.queryParams['bank-identification-two']
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s4hana:get-entity   doc:name="Get entity" doc:id="4244dc06-1185-4b3c-87e3-fc61f57637a1"  config-ref="SAP_S_4HANA_Config" select="*" service="API_BUSINESS_PARTNER" entityType="A_BusinessPartnerBank">
+			<s4hana:key ><![CDATA[#[output application/java
+---
+payload]]]></s4hana:key>
+		</s4hana:get-entity>
+		<ee:transform doc:name="Transform Message" doc:id="9f94b79f-31a4-4480-9e26-4105d72fd6b1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="0e744bf8-8dc6-4d7b-934f-595bf8ac2e12" message="#[payload]"/>
+	</flow>
+	<flow name="queryFlow" doc:id="2d7f7e4c-316d-4876-a39c-34d94b1af167" >
+		<http:listener doc:name="Listener" doc:id="9993a238-46f7-4317-9f92-4bd45951b16e" config-ref="HTTP_Listener_config" path="/query"/>
+		<s4hana:query  doc:name="Query" doc:id="1cf90519-7333-4a9b-8589-eaccf2b29852" filter="#[attributes.queryParams['filter-five']]" config-ref="SAP_S_4HANA_Config" select="*" service="API_BUSINESS_PARTNER" entityType="A_BusinessPartnerBank" orderBy="#[attributes.queryParams['order-by-five']]"/>
+		<ee:transform doc:name="Transform Message" doc:id="12b7cc68-7da2-4589-b7e5-3d060162cceb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="6cc92c7b-32c7-49a0-afd2-1c325970653f" message="#[payload]"/>
+	</flow>
+	<flow name="executeFunctionFlow" doc:id="37321278-e90c-49c3-848b-838f5a1a23ae" >
+		<http:listener doc:name="Listener" doc:id="03436cd6-b1eb-4c2c-bad7-2837eea6b590" config-ref="HTTP_Listener_config" path="/execute"/>
+		<ee:transform doc:name="Transform Message" doc:id="c72e3dfb-2009-4cf1-9e90-a30d65fb022e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"BusinessPartner": attributes.queryParams['business-partner-six'],
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s4hana:execute-function doc:name="Execute function" doc:id="3b9f1217-05b5-4c10-8138-0208bbe825dd" config-ref="SAP_S_4HANA_Config" function="GET_DATACLOUD_OPURL" service="MD_CUSTOMER_MASTER_SRV_01">
+		</s4hana:execute-function>
+		<ee:transform doc:name="Transform Message" doc:id="ff2e2bed-ff5b-4e26-b369-79de991a9b0d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="d4e8caa9-a10f-4b33-a778-54a61651e628" message="#[payload]"/>
+	</flow>
+	<flow name="deleteEntityFlow" doc:id="49c4f82b-c46e-4ffc-ae33-f88aabdeb719" >
+		<http:listener doc:name="Listener" doc:id="9997807c-aa61-4ff3-86d8-80671668eb3c" config-ref="HTTP_Listener_config" path="/delete"/>
+		<ee:transform doc:name="Transform Message" doc:id="8105e13a-067c-41a0-90ff-4f94e0210e60" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"BusinessPartner": attributes.queryParams['business-partner-four'],
+	"BankIdentification": attributes.queryParams['bank-identification-four']
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<s4hana:delete-entity doc:name="Delete entity" doc:id="86048ebe-fde8-4dde-aa65-c1f322ba5519" config-ref="SAP_S_4HANA_Config" service="API_BUSINESS_PARTNER" entityType="A_BusinessPartnerBank">
+			<s4hana:key ><![CDATA[#[output application/java
+---
+{
+	BusinessPartner: payload.BusinessPartner,
+	BankIdentification: payload.BankIdentification
+}]]]></s4hana:key>
+		</s4hana:delete-entity>
+		<ee:transform doc:name="Transform Message" doc:id="d08e9a23-cff5-45cc-af5e-78bf9b278fa7" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="a2cf1ec8-0cbe-44e1-8612-a629b485dafa" message="#[payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# SAP S/4HANA OData Connector 2.9 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+For software requirements and compatibility information, see the SAP S/4HANA OData Connector Release
+Notes.
+
+## Default Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#Config_BasicAuthentication">Basic Authentication</a></p></li><li><p><a href="#Config_Oauth2ClientCredentialsAuthentication">Oauth2 Client Credentials Authentication</a></p></li></ul></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Time Zone</p></td><td><div><div><p>String</p></div></div></td><td><p>The timezone with which to convert the Date objects returned from S/4HANA.</p></td><td><p>UTC</p></td><td></td></tr><tr><td><p>Batch Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory the connector will use to keep batch requests in memory. If more than the specified maximum memory is consumed the connector starts to buffer the content on disk.</p></td><td><p>512</p></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which batchBufferSize size is expressed.</p></td><td><p>KB</p></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element, which is also used in other components to reference the element.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+## Connection Types
+
+### Basic Authentication
+
+Basic authentication is the simplest way of enforcing access controls because it does not require
+cookies, session identifiers, or login pages. Instead, it uses standard fields in the HTTP header,
+which removes the need for handshakes. This mechanism provides no confidentiality protection for the
+transmitted credentials. The credentials are encoded with Base64 in transit, but not encrypted or
+hashed in any other way.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The base URL of the SAP S/4HANA instance to access from the connector and from which all other endpoints are derived.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Cache Entry TTL</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to live. The time a cache entry is kept in the cache before being evicted. A value of 0 disables the cache.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Cache Entry TTL Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Cache Entry TTL</strong> field.</p></td><td><p>MINUTES</p></td><td></td></tr><tr><td><p>EDM Expiration Interval</p></td><td><div><div><p>Number</p></div></div></td><td><p>The interval to check for expired EDM objects in the ObjectStore.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>EDM Expiration Interval Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>EDM Expiration Interval</strong> field.</p></td><td><p>MINUTES</p></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>The account username with which to log into SAP S/4HANA.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The account password with which to log into SAP S/4HANA.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Discovery Service Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Feature switch for automatic service discovery.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Service discovery relative path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path from the base URL to the endpoint used for automatic services discovery.</p></td><td><p><code>sap/opu/odata/IWFND/CATALOGSERVICE;v=0002/ServiceCollection</code></p></td><td><p>s</p></td></tr><tr><td><p>OData v4 service discovery relative path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path from the base URL to the endpoint used for automatic OData v4 service discovery.</p></td><td><p><code>sap/opu/odata4/iwfnd/config/default/iwfnd/catalog/0002/ServiceGroups</code></p></td><td></td></tr><tr><td><p>Scoped service discovery relative path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path from the base URL to the endpoint used for automatic services discovery (with custom namespaces) on cloud instances.</p></td><td><p><code>sap/opu/odata/IWFND/CATALOGSERVICE;v=0002/ScopedServiceCollection</code></p></td><td></td></tr><tr><td><p>Unlisted services directory</p></td><td><div><div><p>String</p></div></div></td><td><p>Common HTTP directory for unlisted services and services declared in <strong>Service Attribute</strong> (if the service URL is not specified). This field enables users to specify service names instead of service URLs in the unlisted services list or enables users to not specify a service URL in <strong>Services Attribute</strong>. It also enables the connector to construct the service URL by using the following format: <code>{base URL parameter}/{this parameter}/{item from unlisted services list or service name from <strong>Service Attribute</strong>}</code>.</p></td><td></td><td></td></tr><tr><td><p>Unlisted services</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of services to add to the list of discovered services. Each item in this list must be a valid service URL, or it must be possible to construct a valid service URL with the following format: <code>{base url parameter}/{service directory parameter}/{item from this list}</code>.</p></td><td></td><td></td></tr><tr><td><p>Services attributes</p></td><td><div><div><p>Array of <a href="#ServiceAttribute">Service Attribute</a></p></div></div></td><td><p>List of services that are added to the list of discovered services. With <strong>Service attributes</strong>, you can add new services or override existing services.</p></td><td></td><td></td></tr><tr><td><p>Default headers</p></td><td><div><div><p>Array of <a href="#DefaultHeader">Default Header</a></p></div></div></td><td><p>Default HTTP headers to include in the message.</p></td><td></td><td></td></tr><tr><td><p>Default query parameters</p></td><td><div><div><p>Array of <a href="#DefaultQueryParam">Default Query Param</a></p></div></div></td><td><p>Default query parameters to include in the request.</p></td><td></td><td></td></tr><tr><td><p>Proxy configuration</p></td><td><div><div><p><a href="#ProxyConfiguration">Proxy Configuration</a></p></div></div></td><td><p>Proxy configuration for the connector.</p></td><td></td><td></td></tr><tr><td><p>Connection timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for the request</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Connection timeout unit for the request</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Client timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Client timeout for the request</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Client Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Client timeout unit for the request</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Retrieve Csrf Token</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables automatic X-CSRF-Token retrieval before a resource-modifying request, such as a POST request.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td><p><code>HTTP</code></p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+### OAuth 2.0 Client Credentials Authentication
+
+Use OAuth 2.0 to delegate user authentication to the service hosting the user account. For more
+information, refer to
+[Configuring OAuth 2.0 for Connectors](../../connectors/introduction/intro-config-oauth2) or
+[Configuring OAuth 2.0 for Connectors on CloudHub](../../connectors/introduction/intro-config-oauth2-cloudhub).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The base URL of the SAP S/4HANA instance to access from the connector and from which all other endpoints are derived.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Cache Entry TTL</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to live. The time a cache entry is kept in the cache before being evicted. A value of 0 disables the cache.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Cache Entry TTL Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Cache Entry TTL</strong> field.</p></td><td><p>MINUTES</p></td><td></td></tr><tr><td><p>EDM Expiration Interval</p></td><td><div><div><p>Number</p></div></div></td><td><p>The interval to check for expired EDM objects in the ObjectStore.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>EDM Expiration Interval Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>EDM Expiration Interval</strong> field.</p></td><td><p>MINUTES</p></td><td></td></tr><tr><td><p>Discovery Service Enabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Feature switch for automatic service discovery.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Service discovery relative path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path from the base URL to the endpoint which will be used for automatic services discovery.</p></td><td><p><code>sap/opu/odata/IWFND/CATALOGSERVICE;v=0002/ServiceCollection</code></p></td><td></td></tr><tr><td><p>OData v4 service discovery relative path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path from the base URL to the endpoint used for automatic OData v4 service discovery.</p></td><td><p><code>sap/opu/odata4/iwfnd/config/default/iwfnd/catalog/0002/ServiceGroups</code></p></td><td></td></tr><tr><td><p>Scoped service discovery relative path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path from the base URL to the endpoint used for automatic services discovery with custom namespaces on cloud instances.</p></td><td><p><code>sap/opu/odata/IWFND/CATALOGSERVICE;v=0002/ScopedServiceCollection</code></p></td><td></td></tr><tr><td><p>Unlisted services directory</p></td><td><div><div><p>String</p></div></div></td><td><p>Common HTTP directory for unlisted services and services declared in <strong>Service Attribute</strong> (if the service URL is not specified). This field enables users to specify service names instead of service URLs in the unlisted services list or enables users to not specify a service URL in <strong>Services Attribute</strong>. It also enables the connector to construct the service URL by using the following format: <code>{base URL parameter}/{this parameter}/{item from unlisted services list or service name from <strong>Service Attribute</strong>}</code>.</p></td><td></td><td></td></tr><tr><td><p>Unlisted services</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of services to add to the list of discovered services. Each item in this list must be a valid service URL, or it must be possible to construct a valid service URL with the following format: <code>{base url parameter}/{service directory parameter}/{item from this list}</code>.</p></td><td></td><td></td></tr><tr><td><p>Services attributes</p></td><td><div><div><p>Array of <a href="#ServiceAttribute">Service Attribute</a></p></div></div></td><td><p>List of services that are added to the list of discovered services. With <strong>Service attributes</strong>, you can add new services or override existing services.</p></td><td></td><td></td></tr><tr><td><p>Default headers</p></td><td><div><div><p>Array of <a href="#DefaultHeader">Default Header</a></p></div></div></td><td><p>Default HTTP headers to include in the message.</p></td><td></td><td></td></tr><tr><td><p>Default query parameters</p></td><td><div><div><p>Array of <a href="#DefaultQueryParam">Default Query Param</a></p></div></div></td><td><p>Default query parameters to include in the request.</p></td><td></td><td></td></tr><tr><td><p>Proxy configuration</p></td><td><div><div><p><a href="#ProxyConfiguration">Proxy Configuration</a></p></div></div></td><td><p>Proxy configuration for the connector.</p></td><td></td><td></td></tr><tr><td><p>Connection timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connection timeout for the request</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Connection timeout unit for the request</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Client timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Client timeout for the request</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Client Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Client timeout unit for the request</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Retrieve Csrf Token</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables automatic X-CSRF-Token retrieval before a resource-modifying request, such as a POST request.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td><p><code>HTTP</code></p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Client Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The OAuth client ID as registered with the service provider.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Client Secret</p></td><td><div><div><p>String</p></div></div></td><td><p>The OAuth client secret as registered with the service provider.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Token Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The service providerâs token endpoint URL.</p></td><td><p><code>https://{host-name}/{oauth-service}/{generate-token-resource}</code></p></td><td></td></tr><tr><td><p>Scopes</p></td><td><div><div><p>String</p></div></div></td><td><p>The OAuth scopes requested during the dance. If not provided, it defaults to those in the annotation.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>String</p></div></div></td><td><p>A reference to the object store used to store each resource owner IDâs data. If not specified, Mule automatically provisions the default object store.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Batch Create Entity](#BatchCreateEntity)
+- [Batch Delete Entity](#BatchDeleteEntity)
+- [Batch Execute Function](#BatchExecuteFunction)
+- [Batch Get Entity](#BatchGetEntity)
+- [Batch Query Entity](#BatchQuery)
+- [Batch Update Entity](#BatchUpdateEntity)
+- [Batch Upsert Custom Business Object](#BatchUpsertCustomBusinessObject)
+- [Create Change Set](#CreateChangeSet)
+- [Create Entity](#CreateEntity)
+- [Delete Entity](#DeleteEntity)
+- [Execute Batch](#ExecuteBatch)
+- [Execute Function](#ExecuteFunction)
+- [Get Entity by Key](#GetEntity)
+- [Initiate Batch](#InitiateBatch)
+- [Query](#Query)
+- [Unauthorize](#Unauthorize)
+- [Update Entity](#UpdateEntity)
+
+## Batch Create Entity
+
+`<s4hana:batch-create-entity>`
+
+This operation adds a create entity request into the batch. This is a dynamic operation that returns
+what the OData specification states will be returned by the operation. The result of the operation
+will be an empty JSON if this request was not processed by the server successfully. The result will
+be available only after executing the **Execute batch** operation. Accessing the result before the
+**Execute batch** operation is executed results in an error.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Change set ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Change set identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity</p></td><td><div><div><p>Object</p></div></div></td><td><p>The entity in the SAP S/4HANA instance that is affected. This entity must be of the type defined in the <strong>Entity type</strong> parameter.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The custom query parameters specified here overwrite the default query parameters specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_CHANGE_SET_ID
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+
+## Batch Delete Entity
+
+`<s4hana:batch-delete-entity>`
+
+Adds a delete entity request into the batch.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Change set ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Change set identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity key</p></td><td><div><div><p>Object</p></div></div></td><td><p>The object that identifies the entity sought, which may itself be an object. This is defined by the type of entity selected.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The custom query parameters specified here will overwrite the default query parameters specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_CHANGE_SET_ID
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+
+## Batch Execute Function
+
+`<s4hana:batch-execute-function>`
+
+This operation adds an execute function request (invoke request) to the batch. The result of the
+operation will be an empty JSON if this request was not processed by the server successfully. The
+result will be available only after executing the **Execute batch** operation. Accessing the result
+before the **Execute batch** operation is executed will cause an error.
+
+You are required to specify the change set identifier for the **Change set ID** parameter only if
+**Execute Batch Function** is executed using a POST HTTP method, otherwise do not specify the
+changet set identifier.
+
+The connector throws an exception:
+
+- If the change set identifier is not specified and the POST HTTP method is used
+- When the change set identifier is specified and the **Execute Batch Function** uses GET HTTP
+  method
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Change set ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Change set identifier</p></td><td></td><td></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Function Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the function to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Input parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>The parameters of the function wrapped into a single object.</p></td><td></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The custom query parameters specified here will overwrite the default query parameters specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:BATCH_PROCESSING_ERROR
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_ENTITY
+- S4HANA:INVALID_FUNCTION_PARAMETER
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_CHANGE_SET_ID
+- S4HANA:NO_SUCH_FUNCTION
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+
+## Batch Get Entity
+
+`<s4hana:batch-get-entity>`
+
+Adds a query operation request with a defined key into the batch. This is a dynamic operation,
+returning whatever the OData specification states will be returned by the operation. Result of the
+operation will be an empty JSON if this request was not processed by the server successfully. The
+result will be available only after the Execute batch operation is executed. Accessing the result
+before the Execute batch operation is executed will lead to an error.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Returned Fields</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of selection clauses. Each selection clause may be a Property name, Navigation Property name, or the "*" character. The "*" syntax causes all Properties on an Entry to be included without traversing associations. Use forward slash "/" to select fields of expanded navigation properties. If no field is selected, then all fields are returned.</p></td><td></td><td></td></tr><tr><td><p>Expanded properties</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of Navigation Properties. Additionally, each Navigation Property can be followed by a forward slash and another Navigation Property to enable identification of a multi-level relationship. Properties of the expanded navigation property will not be part of the payload unless selected.</p></td><td></td><td></td></tr><tr><td><p>Entity key</p></td><td><div><div><p>Object</p></div></div></td><td><p>The object that identifies the entity sought, which may itself be an object. This is defined by the type of entity selected.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The custom query parameters specified here will overwrite the default query parameters specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+
+## Batch Query Entity
+
+`<s4hana:batch-query>`
+
+Adds a query operation request into the batch, filtering the results by the parameters defined. If
+no filter is added, then all results will be listed. Result of the operation will be an empty JSON
+if this request was not processed by the server successfully. The result will be available only
+after the Execute batch operation is executed. Accessing the result before the Execute batch
+operation is executed will lead to an error.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Returned Fields</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of selection clauses. Each selection clause may be a Property name, Navigation Property name, or the "*" character. The "*" syntax causes all Properties on an Entry to be included without traversing associations. Use forward slash "/" to select fields of expanded navigation properties. If no field is selected, then all fields are returned.</p></td><td></td><td></td></tr><tr><td><p>Expanded properties</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of Navigation Properties. Additionally each Navigation Property can be followed by a forward slash and another Navigation Property to enable identification of a multi-level relationship. Properties of expanded navigation property will not be part of the payload unless selected.</p></td><td></td><td></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>The condition to filter the resulting list of entities.</p></td><td></td><td></td></tr><tr><td><p>Order by</p></td><td><div><div><p>String</p></div></div></td><td><p>Allows information to be requested in either ascending or descending order by using the <code>asc</code> or <code>desc</code> suffixes. If <code>asc</code> or <code>desc</code> are not specified, then the resources will be ordered in ascending order.</p></td><td><p><code>asc</code></p></td><td></td></tr><tr><td><p>Maximum returned elements</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limits the number of records to be retrieved by this query.</p></td><td></td><td></td></tr><tr><td><p>Skipped record amount</p></td><td><div><div><p>Number</p></div></div></td><td><p>The number of records to skip before starting to return results.</p></td><td><p><code>0</code></p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:RETRY_EXHAUSTED
+
+## Batch Update Entity
+
+`<s4hana:batch-update-entity>`
+
+Adds an update entity request into the batch. This operation works through a PATCH request. This
+means that any fields that are missing will not be updated.
+
+> [!NOTE] Users cannot specify custom namespaces for custom business objects.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Change set ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Change set identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity</p></td><td><div><div><p>Object</p></div></div></td><td><p>The entity to be affected in the SAP S/4HANA instance. This entity must be of the type defined in the type parameter.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_CHANGE_SET_ID
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RESOURCE_NOT_FOUND
+- S4HANA:RETRY_EXHAUSTED
+
+## Batch Upsert Custom Business Object
+
+`<s4hana:batch-upsert-custom-business-object>`
+
+This operation supports upsert for custom business objects.
+
+> [!NOTE] Users cannot specify custom namespaces for custom business objects.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Change set ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Change set identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the entity type to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom business object entity of the entity type wrapped into a single object.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers that the request includes. The custom headers specified here overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request includes. The custom query parameters specified here overwrite the default query parameters specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long Mule waits for a response to complete before the request times out.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_CHANGE_SET_ID
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RESOURCE_NOT_FOUND
+- S4HANA:RETRY_EXHAUSTED
+
+## Create Change Set
+
+`<s4hana:create-change-set>`
+
+Creates a new change set in the batch and returns its identifier.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:RETRY_EXHAUSTED
+
+## Create Entity
+
+`<s4hana:create-entity>`
+
+Executes a create operation within the connected SAP S/4HANA instance. This is a dynamic operation,
+returning whatever the OData specification states will be returned by the operation.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity</p></td><td><div><div><p>Object</p></div></div></td><td><p>The entity to be affected in the SAP S/4HANA instance. This entity must be of the type defined in the type parameter.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseAttributes">Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_ENTITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_ENTITY_KEY
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+- S4HANA:SERVER_ERROR
+- S4HANA:TIMEOUT
+- S4HANA:UNAUTHORIZED
+
+## Delete Entity
+
+`<s4hana:delete-entity>`
+
+Executes a delete operation within the connected SAP S/4HANA instance.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity key</p></td><td><div><div><p>Object</p></div></div></td><td><p>The object that identifies the entity sought, which may itself be an object. This is defined by the type of entity selected.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_ENTITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_ENTITY_KEY
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+- S4HANA:SERVER_ERROR
+- S4HANA:TIMEOUT
+- S4HANA:UNAUTHORIZED
+
+## Execute Batch
+
+`<s4hana:execute-batch>`
+
+Executes the batch and returns a summary containing results for all requests of the batch. After
+this operation is successfully executed, it will be possible to read a detailed result of each batch
+operation which was a part of this batch.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The SAP S/4HANAâs service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Batch identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BulkOperationResult">Bulk Operation Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:BATCH_PROCESSING_ERROR
+- S4HANA:CONNECTIVITY
+- S4HANA:NO_SUCH_BATCH_ID
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+
+## Execute Function
+
+`<s4hana:execute-function>`
+
+Executes an OData-defined function in the SAP S/4HANA instance.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Function Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the function to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Input parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>The parameters of the function wrapped into a single object.</p></td><td></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseAttributes">Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_FUNCTION_PARAMETER
+- S4HANA:NO_SUCH_FUNCTION
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+- S4HANA:SERVER_ERROR
+- S4HANA:TIMEOUT
+- S4HANA:UNAUTHORIZED
+
+## Get Entity by Key
+
+`<s4hana:get-entity>`
+
+Executes a retrieve operation on the SAP S/4HANA instance filtering the result by key. If no
+elements are found an error is thrown.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Returned Fields</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of selection clauses. Each selection clause may be a Property name, Navigation Property name, or the "*" character. The "*" syntax causes all Properties on an Entry to be included without traversing associations. Use forward slash "/" to select fields of expanded navigation properties. If no field is selected, then all fields are returned.</p></td><td></td><td></td></tr><tr><td><p>Expanded properties</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of Navigation Properties. Additionally each Navigation Property can be followed by a forward slash and another Navigation Property to enable identifying a multi-level relationship. Properties of expanded navigation property will not be part of the payload unless selected.</p></td><td></td><td></td></tr><tr><td><p>Entity key</p></td><td><div><div><p>Object</p></div></div></td><td><p>The object that identifies the entity sought, which may itself be an object. This is defined by the type of entity selected.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseAttributes">Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_ENTITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_ENTITY_FIELD
+- S4HANA:NO_SUCH_ENTITY_KEY
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_NAVIGATION_PROPERTY
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+- S4HANA:SERVER_ERROR
+- S4HANA:TIMEOUT
+- S4HANA:UNAUTHORIZED
+
+## Initiate Batch
+
+`<s4hana:initiate-batch>`
+
+Prepares a new batch and returns its identifier.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:RETRY_EXHAUSTED
+
+## Query
+
+`<s4hana:query>`
+
+Executes a retrieve operation on the SAP S/4HANA instance filtering the results by the parameters
+defined. If no filter is added, then all results will be listed. This is a paginated operation.
+
+> [!NOTE] You must enable pagination support in your SAP S/4HANA instance to use this operation.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryIterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#RepeatableFileStoreIterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><p>Configure how Mule processes streams with streaming strategies. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Returned Fields</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of selection clauses. Each selection clause may be a Property name, Navigation Property name, or the "*" character. The "*" syntax causes all Properties on an Entry to be included without traversing associations. Use forward slash "/" to select fields of expanded navigation properties. If no field is selected, then all fields are returned.</p></td><td></td><td></td></tr><tr><td><p>Expanded properties</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of Navigation Properties. Additionally each Navigation Property can be followed by a forward slash and another Navigation Property to enable identifying a multi-level relationship. Properties of expanded navigation property will not be part of the payload unless selected.</p></td><td></td><td></td></tr><tr><td><p>Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>The condition to filter the resulting list of entities.</p></td><td></td><td></td></tr><tr><td><p>Order by</p></td><td><div><div><p>String</p></div></div></td><td><p>Allows to request information in either ascending or descending order by using the ?asc? or ?desc? suffixes. If asc or desc not specified, then the resources will be ordered in ascending order.</p></td><td></td><td></td></tr><tr><td><p>Maximum returned elements</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limits the amount of records to be retrieved by this query.</p></td><td></td><td></td></tr><tr><td><p>Skipped record amount</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of records to skip before starting returning results.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Page size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The size of the pages retrieved by the query.</p></td><td><p>100</p></td><td></td></tr><tr><td><p>Legacy Pagination</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enable users to use the legacy pagination of version 2.6.2 or earlier.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters that the request will include. The ones specified here will overwrite the default ones specified in the config.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable in which to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:INVALID_ENTITY
+- S4HANA:INVALID_FILTER
+- S4HANA:INVALID_KEY
+- S4HANA:INVALID_PAGE_SIZE
+- S4HANA:INVALID_SKIP_SIZE
+- S4HANA:INVALID_TOP_SIZE
+- S4HANA:NO_SUCH_ENTITY_FIELD
+- S4HANA:NO_SUCH_ENTITY_KEY
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_NAVIGATION_PROPERTY
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:NO_SUCH_SORTING_FIELD
+- S4HANA:SERVER_ERROR
+- S4HANA:TIMEOUT
+- S4HANA:UNAUTHORIZED
+
+## Unauthorize
+
+`<s4hana:unauthorize>`
+
+Deletes all the access token information of a given resource owner ID so that itâs impossible to
+execute any operation for that user without repeating the authorization dance.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+## Update Entity
+
+`<s4hana:update-entity>`
+
+Executes an update operation within the connected SAP S/4HANA instance. This operation will work
+through PATCH requests. This means that any fields that are missing will not be updated.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of service. This is defined from the services available in the SAP S/4HANA instance.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of entity over which the operation is executed. This is defined from the types of entities available in the selected service.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity</p></td><td><div><div><p>Object</p></div></div></td><td><p>The entity in the SAP S/4HANA instance that is affected. This entity must be of the type defined in the type parameter.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Custom headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom headers to include in the request. The custom headers specified here will overwrite the default headers specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom query parameters</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom query parameters to include in the request. The custom query parameters specified here overwrite the default query parameters that are specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout for the request. The timeout specified here overwrites the default timeout that is specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Response timeout unit for the request. The timeout unit specified here overwrites the default timeout unit specified in the configuration.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#Config)
+
+### Throws
+
+- S4HANA:CONNECTIVITY
+- S4HANA:INVALID_ENTITY
+- S4HANA:INVALID_KEY
+- S4HANA:NO_SUCH_ENTITY_KEY
+- S4HANA:NO_SUCH_ENTITY_TYPE
+- S4HANA:NO_SUCH_SERVICE
+- S4HANA:RETRY_EXHAUSTED
+- S4HANA:SERVER_ERROR
+- S4HANA:TIMEOUT
+- S4HANA:UNAUTHORIZED
+
+## Types
+
+### Service Attribute
+
+Specify additional details about services with namespaces as a separate configuration.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Service Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Service name, which is usually the title in the service catalog. If the URL contains a version suffix, the service name is the part of the URL after the last <code>/</code>. For example, if the URL is <code>{base URL parameter}/sap/opu/odata/sap/SERVICE_NAME;v=0002</code>, the service name is <code>SERVICE_NAME;v=0002</code>. The service name for OData API v4 is different.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Service Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL to the service.</p></td><td></td><td></td></tr><tr><td><p>Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Custom namespace for the service, if applicable.</p></td><td></td><td></td></tr></tbody></table>
+
+### Default Header
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Default Query Param
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The key</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Value</p></td><td><div><div><p>String</p></div></div></td><td><p>The value</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Proxy Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Host where the proxy requests is sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Port where the proxy requests is sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>The username to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password to authenticate against the proxy.</p></td><td></td><td></td></tr><tr><td><p>Non Proxy Hosts</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>A list of hosts against which the proxy should not be used.</p></td><td></td><td></td></tr><tr><td><p>Ntlm Domain</p></td><td><div><div><p>String</p></div></div></td><td><p>The domain to authenticate against the proxy.</p></td><td></td><td></td></tr></tbody></table>
+
+### TLS
+
+Defines a configuration for TLS, which can be used from both the client and server sides to secure
+communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured
+using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least
+the keystore in the `tls:context` child element of the `listener-config`.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Truststore
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the truststore.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the truststore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the truststore.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Keystore
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the keystore.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the keystore contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file will be used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the keystore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the keystore.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Only verify the last element of the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method (the one not selected before).</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server can not be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response (must be in the truststore), if present.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+When streaming in this mode, Mule does not use the disk to buffer the contents. If you exceed the
+buffer size, the message fails.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of memory that will be allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This specifies how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+File store repeatable streams require buffering, and there are different buffering strategies. Mule
+keeps a portion of contents in memory. If the stream contents are larger than the configured buffer
+size, Mule backs up the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Non-repeatable Stream
+
+You can disable the repeatable stream functionality and use non-repeatable streams, which can have
+less performance overhead, memory use, and cost.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Transactional Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><div><div><p>The type of joining action that operations can take regarding transactions.</p></div></div></td><td><div><div><p><code>JOIN_IF_POSSIBLE</code></p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Response Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status Code</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Bulk Operation Result
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Id</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Items</p></td><td><div><div><p>Array of <a href="#BulkItem">Bulk Item</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Successful</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Bulk Item
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Exception</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Id</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Message</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Payload</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status Code</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Successful</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of instances that is initially be allowed to be kept in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td><p>100 instances</p></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></td><td><p>100 instances</p></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>In Memory Objects</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of instances that will be kept in memory. If more than that is required, then it will start to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure SAP S/4HANA OData Connector 2.9
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[SAP S/4HANA OData Connector Reference](sap-s4hana-cloud-connector-reference).
+
+## Create a Mule Project
+
+In Anypoint Studio, create a new Mule project in which to add and configure the connector:
+
+1.  From the Studio main menu, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for SAP S/4HANA OData to a Mule project to automatically populate the
+projectâs XML code with the connectorâs namespace and schema location, as well as to add the
+required dependencies to the projectâs `pom.xml` file.
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Dependencies to Project**, type `sap s/4hana odata` in the search field.
+3.  Click the connector name in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. The act of dragging the connectorâs
+operation from the palette onto the Anypoint Studio canvas automatically populates the XML code with
+the connector namespace and schema location.
+
+Possible source operations for this connector are:
+
+- HTTP Listener  
+  Starts your app using a browser or a command such as `curl`
+- Scheduler  
+  Starts your app at timed intervals
+
+In Studio, drag the input operation you choose from the **Mule Palette** to the **Source** panel in
+the canvas, and supply the required parameters.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for SAP S/4HANA OData Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **SAP S/4HANA OData** and then select the desired
+    operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Global Configuration Elements
+
+To use SAP S/4HANA OData Connector in a Mule app, configure a connector global element for connector
+operations to use in your application.
+
+You can put placeholder values in the `mule-artifact.content` configuration file in the
+`src/main/resources` folder of your project.
+
+You can either enter your credentials in the global configuration content or reference a
+configuration file that contains the values for your credentials. Using a configuration file is
+recommended for simpler maintenance and better reuse of your project. Keeping these values in a
+separate file is useful if you need to deploy to different environments, such as production,
+development, and QA, where access credentials might differ.
+
+For more information, see
+[Use Property Placeholders for Property Values](../../connectors/introduction/intro-connector-configuration-overview#property-placeholders).
+
+### Configure a Global Element
+
+Use the **Global Element Properties** configuration dialog to configure a global element for SAP
+S/4HANA OData Connector:
+
+1.  In your project, click the **Global Elements** tab at the base of the canvas.
+2.  In the **Global Configuration Elements** screen, click **Create**:
+
+    ![Global configuration elements screen with Create button](_images/sap-hana-global-config-wizard.png)
+
+3.  In the **Choose Global Type** wizard, expand **Connector Configuration**, select **SAP S 4HANA
+    Config**, and click **OK**.
+4.  Configure the following values in the **General** tab:
+    1.  In the **Connection** drop-down menu, select the connection type:
+        - **Basic authentication**  
+          For basic authentication, enter the following required values:
+          - **Service Base URL**  
+            The URL of the SAP S/4HANA instance you want to manage
+          - **Username**  
+            The user name used to initialize the session
+          - **Password**  
+            The password used to authenticate the user
+
+        - **OAuth 2 Application Connection Provider**  
+          In OAuth 2.0 authentication, a TLS context that comes with a truststore canât be added
+          because the SDK doesnât expose the TLS context afterward. For OAuth 2.0 authentication,
+          enter this required information:
+          - **Service base URL**  
+            The base URL of the service provider of the SAP S/4HANA system to access from the
+            connector. All other endpoints are derived from this base URL.
+          - **Client ID**  
+            The OAuth client ID that is registered with the service provider
+          - **Client secret**  
+            The OAuth client secret that corresponds to the client ID and is registered with the
+            service provider.
+          - **Token URL**  
+            Token URL that corresponds to the URL of the endpoint that provides the access tokens
+
+5.  Click **OK**.
+6.  Click **Test Connection** to ensure that your access credentials are correct.
+7.  Click the **Advanced** tab inside the **Connection** section to configure the following values:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Studio Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Discovery Service Enabled</strong></p></td><td><div><div><p>Feature switch for service discovery. If disabled, the service discovery relative path is not applied.</p></div></div></td></tr><tr><td><p><strong>Discovery Service Path</strong></p></td><td><div><div><p>Relative path from the base URL to the service to use for automatic services discovery.</p></div></div></td></tr><tr><td><p><strong>Service directory</strong></p></td><td><div><div><p>Common HTTP directory for all SAP services. You can leave this parameter blank and then specify the HTTP directory individually for every service in the unlisted services list.</p></div></div></td></tr><tr><td><p><strong>Unlisted services</strong></p></td><td><div><div><p>List of services to add to the list of discovered services.</p></div></div></td></tr><tr><td><p><strong>Service discovery resolution timeout</strong></p></td><td><div><div><p>Connection timeout for service discovery.</p></div></div></td></tr><tr><td><p><strong>Service discovery timeout unit</strong></p></td><td><div><div><p>Time unit to use in the service discovery resolution timeout configuration.</p></div></div></td></tr><tr><td><p><strong>Default headers</strong></p></td><td><div><div><p>Custom headers that can be included in each request sent.</p></div></div></td></tr><tr><td><p><strong>Default query parameter</strong></p></td><td><div><div><p>Custom query parameters to include in each request sent.</p></div></div></td></tr><tr><td><p><strong>TLS configuration</strong></p></td><td><div><div><p>TLS configuration.</p></div></div></td></tr><tr><td><p><strong>Proxy configuration</strong></p></td><td><div><div><p>Configuration for executing requests through a proxy.</p></div></div></td></tr><tr><td><p><strong>Connection timeout</strong></p></td><td><div><div><p>Connection timeout for the request.</p></div></div></td></tr><tr><td><p><strong>Connection timeout unit</strong></p></td><td><div><div><p>Connection timeout unit for the request.</p></div></div></td></tr><tr><td><p><strong>Client timeout</strong></p></td><td><div><div><p>Client timeout for the request.</p></div></div></td></tr><tr><td><p><strong>Client timeout unit</strong></p></td><td><div><div><p>Client timeout unit for the request.</p></div></div></td></tr></tbody></table>
+
+8.  Click the **Advanced** tab in the configuration window to configure the following values:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Studio Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Time zone</strong></p></td><td><div><div><p>The time zone to which the Date objects returned from S/4Hana are converted.</p></div></div></td></tr><tr><td><p><strong>Batch buffer size</strong></p></td><td><div><div><p>The maximum memory the connector can use to keep batch requests in memory. Any requests requiring additional memory are buffered on disk.</p></div></div></td></tr><tr><td><p><strong>Buffer unit</strong></p></td><td><div><div><p>The unit of measure in which the batch buffer size parameter is expressed.</p></div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Response timeout for the request.</p></div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Response timeout unit for the request.</p></div></div></td></tr></tbody></table>
+
+9.  Click **OK** to save the global connector configuration.
+
+## Next Step
+
+After configuring the SAP S/4HANA OData Connector for use in Studio, see the
+[Examples](sap-s4hana-cloud-connector-examples) topic for more Studio information.
+
+## See Also
+
+- [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview)
+- [SAP S/4HANA OData Connector Reference](sap-s4hana-cloud-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating SAP S/4HANA OData Connector to 2.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for SAP S/4HANA OData (SAP S/4HANA OData Connector) to take advantage of
+the increased security offered by using OAuth 2.0 authentication to connect to SAP S/4HANA OData.
+
+## Supported Upgrade Paths
+
+This is a direct upgrade from version 1.2.1 version to 2.x.x.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>1.2.1</p></div></div></td><td><div><div><p>2.x.x</p></div></div></td></tr></tbody></table>
+
+## Whatâs Changed
+
+### 2.9
+
+- The **Batch update entity** operation now uses the correct syntax for the OData v4 URI for fields
+  that have the EDM type as GUID.
+- The connector now throws the correct error types:
+  - When there is an invalid filter provided in the operation, the connector now throws
+    `S4HANA:INVALID_FILTER` instead of `S4HANA:INVALID_ENTITY`.
+  - When there are authentication issues (such as an incorrect username, password, or URL), the
+    connector now throws `S4HANA:UNAUTHORIZED` instead of `S4HANA:NO_SUCH_SERVICE`.
+
+- The connector now proactively re-triggers service discovery before each operation if the service
+  list is empty.
+
+### 2.8
+
+- SAP S/4HANA OData Connector now provides support for old pagination logic (version 2.6.2 and
+  earlier) in the **Query** operation. To support this change, a Legacy Pagination checkbox is added
+  in the Advanced tab of the **Query** operation.
+
+### 2.7
+
+- SAP S/4HANA OData Connector now provides support for OData API v4 in addition to OData API v2.  
+  To support OData API v4, the connector now includes the new **OData v4 service discovery relative
+  path** field in the connection types. For information about the **OData v4 service discovery
+  relative path** field, see
+  [SAP S/4HANA OData Connector Reference](sap-s4hana-cloud-connector-reference).
+
+### 2.6
+
+The connector now supports custom namespaces. To support custom namespaces, the connector now
+includes the new **Scoped service discovery relative path** and **Services attributes** fields in
+the connection types and the new **Service Attribute** type.
+
+Use custom namespaces to define and organize custom objects and developments, such as programs,
+function modules, or tables. The naming convention for a custom namespace is `Z` or `Y` followed by
+an identifier. For example, if there are custom programs that manage customer data, you can create a
+custom namespace called `ZCUST` to organize all custom programs related to customer data.
+
+Custom namespaces enable you to maintain better control over your custom objects and developments
+and avoid naming conflicts with SAP standard objects or custom objects by other organizations, as
+well as improve the maintainability and upgradability of the system.
+
+### 2.5
+
+You can now use the new **Batch Upsert Custom Business Object** operation and the modified **Batch
+update entity** operation to support custom business objects.
+
+### 2.4
+
+Added support for a configurable cache of metadata for S/4HANA services to improve performance by
+not executing a metadata request in every operation call.
+
+### 2.3
+
+Added support to enable or disable the automatic retrieval of a CSRF token before a
+resource-modifying request, such as a POST request.
+
+### 2.2
+
+You can now configure the response, client, and connection timeout parameters.
+
+### 2.1
+
+SAP S/4HANA OData Connector now provides support for the OData APIs exposed by SAP S/4HANA S/4HANA
+on-premise.
+
+### 2.0
+
+- OAuth 2.0 is now supported.  
+  The **OAuth 2.0 Application Connection Provider** option is added to **Connection** types. For
+  information about the configuration parameters for this connection type, see
+  [SAP S/4HANA OData Connector Reference](sap-s4hana-cloud-connector-reference).
+- Mule runtime engine (Mule) 4.2.1 or later is required.
+- The default value for the **Service directory** field was removed.
+- Because the base package has changed, all exported classes now have different fully qualified
+  names.
+- The group ID of the connectorâs JAR has changed.
+
+## Requirements and Limitations
+
+Be aware of the following requirements and limitations before you upgrade to the latest version.
+
+### Requirements
+
+You must use Mule 4.2.1 or later.
+
+### Limitations
+
+This upgrade breaks backward compatibility with 1.x.x versions of the connector.
+
+## Upgrade Prerequisites
+
+Before you upgrade, create a backup of your files, data, and configurations in case you need to
+restore to them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `sap s/4hana odata` in the search field.
+4.  In **Available modules**, select **SAP S/4HANA OData Connector** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the `mule-sap-s4hana-cloud-connector` dependency version is updated to the version
+    of the connector you are using in the `pom.xml` file in the Mule project.
+
+Studio upgrades the connector automatically.
+
+## Post Upgrade Steps
+
+After you install the latest version of the connector, verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection and verify that the operations work.
+
+## Troubleshooting
+
+If there are problems with caching the parameters and metadata, try restarting Studio.
+
+## Revert the Upgrade
+
+If it is necessary to revert to the previous version of SAP S/4HANA OData Connector, change the
+`mule-sap-s4hana-cloud-connector` dependency version in the projectâs `pom.xml` to the version to
+which you want to revert.
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# SAP S/4HANA OData Connector 2.9 - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Reference Namespace Statement for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/s4hana
+http://www.mulesoft.org/schema/mule/s4hana/current/mule-s4hana.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:s4hana="http://www.mulesoft.org/schema/mule/s4hana"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s4hana
+http://www.mulesoft.org/schema/mule/s4hana/current/mule-s4hana.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains Mule app connector
+dependencies. When you code a Mule app manually, include this XML snippet in your POM file to enable
+access to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-sap-s4hana-cloud-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Verify that the connector `version` corresponds to the one you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `SAP S/4HANA OData`.
+4.  Click **Dependency Snippets**.
+
+## Next Step
+
+After completing your namespace and pom.xml file, you can try the
+[Examples](sap-s4hana-cloud-connector-examples).
+
+## See Also
+
+- [Using Anypoint Studio to Configure SAP S/4HANA OData Connector](sap-s4hana-cloud-connector-studio)
+  [Salesforce Help](https://help.salesforce.com)
+

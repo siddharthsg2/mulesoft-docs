@@ -1,0 +1,1567 @@
+﻿# HL7 EDI Connector - Full Documentation
+
+# HL7 EDI - Customizing Schemas and Mapping Message Types
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use these options to:
+
+- Customize your schema definitions
+- Define a mapping from the HL7 event and message types to message structures
+- Customize global elements
+
+## Copy and Edit Schema Definitions
+
+HL7 schema definitions are located in the `hl7-schemas-4.0.0.jar` file, embedded inside the HL7 EDI
+Connector update site, and within the standard MuleSoft enterprise Maven repositories (under group
+ID `com.mulesoft.connectors`). You can copy a message structure schema from the
+`hl7-schemas-4.0.0.jar` file and edit it to match your specific needs.
+
+To make changes at the segment level, copy the message structure schema. To change segment
+definitions, copy the `basedefs.esl` schema of the same version, as that file contains the segment,
+composite, and element definitions.
+
+The
+[EDI Schema Language Reference](../../x12-edi-connector/latest/x12-edi-schema-language-reference)
+provides an overview of the ESL schema structure used by all the EDI connectors, including HL7 EDI
+Connector.
+
+The following is an example HL7 message structure schema for the standard v2.5.1 ADT_A05 message
+structure:
+
+```yaml
+form: HL7
+version: "2.5.1"
+imports: ["/hl7/v2_5_1/basedefs.esl"]
+id: "ADT_A05"
+name: "ADT_A05"
+data:
+  - { idRef: "MSH", position: "01", usage: M }
+  - { idRef: "SFT", position: "02", usage: O, count: ">1" }
+  - { idRef: "EVN", position: "03", usage: M }
+  - { idRef: "PID", position: "04", usage: M }
+  - { idRef: "PD1", position: "05", usage: O }
+  - { idRef: "ROL", position: "06", usage: O, count: ">1" }
+  - { idRef: "NK1", position: "07", usage: O, count: ">1" }
+  - { idRef: "PV1", position: "08", usage: M }
+  - { idRef: "PV2", position: "09", usage: O }
+  - { idRef: "ROL", position: "10", usage: O, count: ">1" }
+  - { idRef: "DB1", position: "11", usage: O, count: ">1" }
+  - { idRef: "OBX", position: "12", usage: O, count: ">1" }
+  - { idRef: "AL1", position: "13", usage: O, count: ">1" }
+  - { idRef: "DG1", position: "14", usage: O, count: ">1" }
+  - { idRef: "DRG", position: "15", usage: O }
+  - groupId: "PROCEDURE"
+    count: ">1"
+    usage: O
+    items:
+      - { idRef: "PR1", position: "17", usage: M }
+      - { idRef: "ROL", position: "18", usage: O, count: ">1" }
+  - { idRef: "GT1", position: "20", usage: O, count: ">1" }
+  - groupId: "INSURANCE"
+    count: ">1"
+    usage: O
+    items:
+      - { idRef: "IN1", position: "22", usage: M }
+      - { idRef: "IN2", position: "23", usage: O }
+      - { idRef: "IN3", position: "24", usage: O, count: ">1" }
+      - { idRef: "ROL", position: "25", usage: O, count: ">1" }
+  - { idRef: "ACC", position: "27", usage: O }
+  - { idRef: "UB1", position: "28", usage: O }
+  - { idRef: "UB2", position: "29", usage: O }
+```
+
+This shows the list of segments that compose the `ADT_A05` message structure, including the segment
+groups PROCEDURE and INSURANCE. Because this example illustrates the standard definition (not the
+lax version), it includes both mandatory segments (indicated with `usage: M`) and optional segments
+(indicated with `usage: O`). The full set of usage codes used for HL7 includes:
+
+- `C` for Conditional
+
+  Equivalent to Optional
+
+- `M` for Mandatory
+- `O` for Optional
+- `U` for Unused
+
+  Accepted without warning when reading, but not present in the data passed on from the read
+  operation and ignored when writing
+
+The possible number of occurrences of a segment or group is defined by the count value. This
+defaults to a value of `1`.
+
+To delete segments from the message structure or change segment requirements from mandatory to
+optional (or vice versa), make the change in your copy of the schema and use the modified version in
+your application.
+
+You can add segments that are not present in the original message structure definition. Remove the
+position values from all existing segment and group definition lines in the schema; otherwise, you
+must renumber everything following an added segment. If you remove the explicit position numbers,
+segments and groups are assigned position numbers sequentially, and for most purposes these numbers
+are not seen by HL7 EDI Connector applications.
+
+If you want to add a standard HL7 segment to a message structure, reference it with an `idRef` line
+at the appropriate place, and HL7 obtains the definition from the `basedefs.esl` file referenced as
+an import.
+
+The following partial example shows `CON` segments added to an ADT_A05 message structure:
+
+```yaml
+form: HL7
+version: "2.5.1"
+imports: ["/hl7/v2_5_1/basedefs.esl"]
+id: "ADT_A05"
+name: "ADT_A05"
+data:
+  - { idRef: "MSH", usage: M }
+  - { idRef: "SFT", usage: O, count: ">1" }
+  - { idRef: "EVN", usage: M }
+  - { idRef: "PID", usage: M }
+  - { idRef: "PD1", usage: O }
+  - { idRef: "CON", usage: O, count: ">1" }
+  - { idRef: "NTE", usage: O }
+  - { idRef: "ROL", usage: O, count: ">1" }
+  - { idRef: "NK1", usage: O, count: ">1" }
+  - { idRef: "PV1", usage: M }
+  - { idRef: "PV2", usage: O }
+  - { idRef: "CON", usage: O, count: ">1" }
+  - { idRef: "ROL", usage: O, count: ">1" }
+...
+```
+
+If you want to define a nonstandard segment for your message structure, add the segment definition
+to the schema. This is more complex than just modifying the segment structure, because you need to
+list all components in the segment. The easiest starting point is to find a similar standard HL7
+segment and copy the definition used for that standard segment from the `basedefs.esl` file. You can
+then add the segmentâs key, following your message structure definition, followed by one or more
+segment definitions.
+
+### Set Your Schema Locations
+
+You can configure schema locations in the Anypoint Studio XML view.
+
+1.  Select the XML view by clicking **Configuration XML**.
+2.  Modify your HL7 EDI configuration to include a list of all the schemas to include by adding an
+    `<http://edischema[edi:schema]>` element for each document type:
+
+    ```xml
+    <hl7-edi:config name="HL7_EDI__Configuration" identKeys="true" doc:name="HL7 EDI: Configuration">
+      <hl7-edi:schemas>
+        <hl7-edi:schema>hl7/v2_6/ADT_A01.esl</hl7-edi:schema>
+      </hl7-edi:schemas>
+    </hl7-edi:config>
+    ```
+
+3.  After you create a global element for your HL7 EDI, configure the event and message structure.
+
+## Event and Message-to-Message Structure Map
+
+If you configure the connector with multiple message structure schemas (whether in separate schema
+definitions files, as with the provided schemas, or in a single file), you must define a mapping
+from the HL7 event and message types to message structures.
+
+HL7 defines the message type in the component values of `MSH-09`, a composite structure of type MSG.
+HL7 EDI Connector uses these component values to find the structure schema to use for processing a
+receive message, according to the following rules:
+
+- If the MSG-01 Message Code value is `ACK`, always use the predefined ACK schema.
+- If the MSG-03 Message Structure value is present (a value such as `ADT_A01`), use the schema
+  structure with that ID.
+- If neither of these, then use a configured Event and Message-to-Message Structure Map to determine
+  the message structure from the specified Trigger Event (`MSG-02`) and Message Code (`MSG-01`)
+  values.
+
+The Event and Message-to-Message Structure Map is an optional configuration parameter. It must be a
+YAML file consisting of a map from each Event Type to a map for each supported Message Code to the
+actual Message Structure.
+
+Hereâs an example:
+
+```yaml
+A01: { XYZ: ADT_A01, ACK: ACK }
+A02: { XYZ: ADT_A02, ACK: ACK }
+A03: { XYZ: ADT_A03, ACK: ACK }
+A04: { XYZ: ADT_A01, ACK: ACK }
+A05: { XYZ: ADT_A05, ACK: ACK }
+A06: { XYZ: ADT_A06, ACK: ACK }
+A07: { XYZ: ADT_A06, ACK: ACK }
+A08: { XYZ: ADT_A01, ACK: ACK }
+```
+
+Each version of HL7 defines a different set of mappings from the event type and message code to the
+message structure. The default mappings are provided in the same JAR file as the standard HL7 schema
+definitions, in files named `event-message.yaml`. You use the same type of paths for these mapping
+definitions as for the actual message structure schemas.
+
+### Uses for the General Tab
+
+Use the **General** tab to configure settings for reading and writing HL7 messages:
+
+- HL7 character encoding
+
+  Always used for writing messages and used when reading messages unless a different encoding is
+  specified by the MSH-18 (Character Set).
+
+- Disable numeric prefixes for data keys
+
+  This option is true by default, which turns off numeric prefixes for segment data. The only reason
+  to set this option as false is to achieve compatibility with mappings defined for HL7 EDI
+  Connector 3.0.0.
+
+- Manually create or edit the list of schemas
+
+### Set Your HL7 Identification in the Visual Editor
+
+You can configure the Message Header (MSH) application and facility identification for you and your
+trading partner in the HL7 EDI Connector configuration.
+
+The values you set are used when writing HL7 messages to supply the namespace ID, universal ID, and
+universal ID type, and are verified in receive messages. If you donât want to restrict incoming
+messages, then leave these blank and set the values for outgoing messages on the write operation or
+the actual outgoing message. Values set on the write operation override the connector configuration,
+and values set directly on the message override both the connector configuration and any values set
+on the write operation.
+
+In Studio, these values are set in the following Global Element Properties:
+
+- Self identification parameters identify your side of the trading partner relationship. These are
+  some self identification settings:
+
+  ```text
+  Mule Application Namespace ID (MSH-03/HD-01 when sending, MSH-05/HD-01 when receiving)
+  Mule Application Universal ID (MSH-03/HD-02 when sending, MSH-05/HD-02 when receiving)
+  Mule Application Universal ID Type (MSH-03/HD-03 when sending, MSH-05/HD-03 when receiving)
+  ```
+
+- Partner identification parameters identify your trading partner. These are some partner
+  identification settings:
+
+  ```text
+  Partner Application Namespace ID (MSH-03/HD-01 when receiving, MSH-05/HD-01 when sending)
+  Partner Application Universal ID (MSH-03/HD-02 when receiving, MSH-05/HD-02 when sending)
+  Partner Application Universal ID Type (MSH-03/HD-03 when receiving, MSH-05/HD-03 when sending)
+  ```
+
+### Parser Tab
+
+You can set the following options if needed:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>eventMessageMap="/hl7/v2_5_1/event-message.yaml"</p></td><td><p>Event and message-to-message structure map path (required if using multiple message structures, unless the MSH-09 and MSG-03 message structure values are always present in the received messages)</p></td></tr><tr><td><p>genericExtensionPattern="Z.."</p></td><td><p>Java regular pattern for generic extension segment names (to allow handling of extension segments as maps of field values)</p></td></tr><tr><td><p>invalidCharacterInValueFail="true"</p></td><td><p>Fail when an invalid character is in a value</p></td></tr><tr><td><p>missingRequiredValueFail="true"</p></td><td><p>Fail when a required value is missing</p></td></tr><tr><td><p>processingId="PRODUCTION"</p></td><td><p>Required processing ID (to specify a particular processing ID required on receive messages, such as <code>P</code> for Production)</p></td></tr><tr><td><p>segmentOutOfOrderFail="true"</p></td><td><p>Fail when a segment is out of order in a message</p></td></tr><tr><td><p>unknownSegmentFail="true"</p></td><td><p>Fail when an unknown segment is in a message</p></td></tr><tr><td><p>unusedSegmentPresentFail="true"</p></td><td><p>Fail when an unused segment is included in a message</p></td></tr><tr><td><p>validateHL7Version="true"</p></td><td><p>Validate the HL7 message version</p></td></tr><tr><td><p>valueLengthErrorFail="true"</p></td><td><p>Fail when a value length is outside an allowed range</p></td></tr><tr><td><p>wrongSegmentsRepeatsFail="true"</p></td><td><p>Fail when there are too many repeats of a segment</p></td></tr><tr><td><p>wrongValuesRepeatsFail="true"</p></td><td><p>Fail when there are too many repetitions of a value</p></td></tr></tbody></table>
+
+## Next Step
+
+After you complete connector configuration, you can try the [Examples](hl7-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# HL7 EDI - Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use the following examples to see how to customize a schema, configure the Message Header (MSH)
+application and facility identification for you and your trading partner, and view a test flow with
+an HTTP Listener that initiates a flow.
+
+## Simplify a Schema Using Example Messages
+
+The HL7 standard definitions are very complex, with segments often having twenty or more components.
+Many of these components are broken down into subcomponents. This component nesting can make mapping
+HL7 difficult, since the DataSense view of the message has to contain all these subcomponents.
+
+In practice, most users of HL7 populate only a small fraction of the total HL7 standard definitions.
+To take advantage of this, HL7 EDI Connector provides a console-based Java tool you can use to
+simplify your schema definitions by eliminating components that are not normally used in your
+messages.
+
+The schema simplification tool is in the `hl7-simplify-4.0.0.jar` file, which is found in the
+standard MuleSoft enterprise Maven repositories (under group ID `com.mulesoft.connectors`). The tool
+accepts a message structure schema and one or more example messages (as separate files) as input,
+and generates an output schema reduced to only those segments and components present in one or more
+of the sample messages.
+
+To use this tool, download the `JAR` and open a command line console, then type:
+
+```console
+java -jar hl7-simplify-4.0.0.jar {input-schema} {output-schema} {sample1} {sample2} ...
+```
+
+The placeholders in this syntax represent the following values:
+
+- `input-schema`
+
+  Message structure schema used to read the messages, which can be a file or a classpath reference
+  to a supplied schema such as the `/hl7/v2_5_1/ADT_A05.esl` path.
+
+- `output-schema`
+
+  File path for the simplified schema output.
+
+- `sample1â¦ân`
+
+  File paths to the sample messages.
+
+Ensure that each sample message file is saved with a carriage return (CR) line ending, which is the
+required HL7 segment delimiter. Text editors generally use the default line ending for your
+operating system, and this might not be correct.
+
+Hereâs a partial example of a simplified schema generated using this tool:
+
+```yaml
+form: HL7
+version: "2.5.1"
+structures:
+  - id: "SIU_S12"
+    name: "SIU_S12"
+    data:
+      - { idRef: "MSH", position: "01", usage: O }
+      - { idRef: "SCH", position: "02", usage: O }
+      - groupId: "PATIENT"
+        count: ">1"
+        usage: O
+        items:
+          - { idRef: "PID", position: "06", usage: O }
+          - { idRef: "PV1", position: "08", usage: O }
+      - groupId: "RESOURCES"
+        count: ">1"
+        usage: O
+        items:
+          - { idRef: "RGS", position: "14", usage: O }
+          - groupId: "SERVICE"
+            count: ">1"
+            usage: O
+            items:
+              - { idRef: "AIS", position: "16", usage: O }
+          - groupId: "GENERAL_RESOURCE"
+            count: ">1"
+            usage: O
+            items:
+              - { idRef: "AIG", position: "20", usage: O }
+          - groupId: "LOCATION_RESOURCE"
+            count: ">1"
+            usage: O
+            items:
+              - { idRef: "AIL", position: "24", usage: O }
+          - groupId: "PERSONNEL_RESOURCE"
+            count: ">1"
+            usage: O
+            items:
+              - { idRef: "AIP", position: "28", usage: O }
+segments:
+  - id: "AIG"
+    name: "Appointment Information - General Resource"
+    varTag: "AIG"
+    values:
+      - { idRef: "SI", name: "Set ID - AIG", usage: O }
+      - { idRef: "varies", name: "Segment Action Code", usage: U, count: ">1" }
+      - { idRef: "CE_2", name: "Resource ID", usage: O }
+      - { idRef: "varies", name: "Resource Type", usage: U, count: ">1" }
+      - { idRef: "varies", name: "Resource Group", usage: U, count: ">1" }
+      - { idRef: "varies", name: "Resource Quantity", usage: U, count: ">1" }
+      - { idRef: "varies", name: "Resource Quantity Units", usage: U, count: ">1" }
+      - { idRef: "TS", name: "Start Date/Time", usage: O }
+  - id: "AIL"
+    name: "Appointment Information - Location Resource"
+    varTag: "AIL"
+    values:
+      - { idRef: "SI", name: "Set ID - AIL", usage: O }
+      - { idRef: "varies", name: "Segment Action Code", usage: U, count: ">1" }
+      - { idRef: "PL", name: "Location Resource ID", usage: O, count: ">1" }
+      - { idRef: "CE", name: "Location Type-AIL", usage: O }
+      - { idRef: "varies", name: "Location Group", usage: U, count: ">1" }
+      - { idRef: "TS", name: "Start Date/Time", usage: O }
+  - id: "AIP"
+    name: "Appointment Information - Personnel Resource"
+    varTag: "AIP"
+    values:
+      - { idRef: "SI", name: "Set ID - AIP", usage: O }
+      - { idRef: "varies", name: "Segment Action Code", usage: U, count: ">1" }
+      - { idRef: "XCN_2", name: "Personnel Resource ID", usage: O, count: ">1" }
+      - { idRef: "CE_1", name: "Resource Type", usage: O }
+      - { idRef: "varies", name: "Resource Group", usage: U, count: ">1" }
+      - { idRef: "TS", name: "Start Date/Time", usage: O }
+...
+composites:
+  - id: "CE"
+    name: "Coded Element"
+    values:
+      - { idRef: "ST", name: "Identifier", usage: O }
+      - { idRef: "ST", name: "Text", usage: O }
+  - id: "CE_1"
+    name: "Coded Element"
+    values:
+      - { idRef: "ST", name: "Identifier", usage: O }
+  - id: "CE_2"
+    name: "Coded Element"
+    values:
+      - { idRef: "ST", name: "Identifier", usage: O }
+      - { idRef: "ST", name: "Text", usage: O }
+      - { idRef: "ID", name: "Name of Coding System", usage: O }
+...
+```
+
+Because unused components of a segment cannot be dropped from the segment definition unless theyâre
+at the end of the segment, the simplification tool substitutes a `varies` data type for the
+component and marks it with `Usage: U` for Unused. The repetition count for `varies` remains the
+same as for the original component, but it does not display in the DataSense view of the data you
+see in DataWeave.
+
+When the schema simplification tool checks for data present in the messages, it handles each
+occurrence of a composite in context. Different uses of the same composite might have different
+values present in your samples. When this happens, the composite is defined more than once, using
+different identifiers.
+
+The simplified schema retains the segment positions from the original schema. You can delete these
+position values from the simplified schema, because theyâre not used by HL7 EDI Connector unless you
+use position prefixes on segment keys (one of the connector configuration options).
+
+### Example: HL7 Studio
+
+The following flow can be loaded from the XML.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:hl7="http://www.mulesoft.org/schema/mule/hl7"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+  http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/hl7
+http://www.mulesoft.org/schema/mule/hl7/current/mule-hl7.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config"
+  doc:name="HTTP Listener config" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<hl7:config name="HL7_Extension_Config" doc:name="HL7 Extension Config" identKeys="true">
+		<hl7:schemas >
+			<hl7:schema value="/hl7/v2_5_1/ADT_A05.esl" />
+			<hl7:schema value="/hl7/v2_5_1/ADT_A01.esl" />
+		</hl7:schemas>
+	</hl7:config>
+	<flow name="hl7testFlow" >
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/hl7"/>
+		<hl7:read doc:name="Read" config-ref="HL7_Extension_Config"/>
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	Delimiters: payload.Delimiters,
+	Id: payload.Id
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<hl7:write doc:name="Write" config-ref="HL7_Extension_Config"/>
+	</flow>
+</mule>
+```
+
+## Set Your HL7 Identification in XML
+
+You can configure the Message Header (MSH) application and facility identification for you and your
+trading partner in the HL7 EDI connector configuration.
+
+The values you set are used when writing HL7 messages to supply the namespace ID, universal ID, and
+universal ID type, and are verified in receive messages. If you donât want to restrict incoming
+messages you can leave these blank, and set the values for outgoing messages on the write operation
+or the actual outgoing message. Values set on the write operation override the connector
+configuration, and values set directly on the message override both the connector configuration and
+any values set on the write operation.
+
+- Self-identification parameters identify your side of the trading partner relationship.
+
+  Self-identification parameters:
+
+  ```text
+  appNamespaceIdSelf="<value>"
+  appUniversalIdSelf="<value>"
+  appUniversalIdTypeSelf="<value>"
+  ```
+
+- Partner-identification parameters identify your trading partner.
+
+  Partner-identification parameters:
+
+  ```text
+  appNamespaceIdPartner="<value>"
+  appUniversalIdPartner="<value>"
+  appUniversalIdTypePartner="<value>"
+  ```
+
+## Reading and Validating HL7 ER7 Messages
+
+To read an HL7 message:
+
+1.  Search the palette for **HL7 EDI** and drag it into a flow.
+2.  From the properties view, select the previously created connector configuration and then the
+    `Read` operation.
+
+    This operation reads any byte stream into the structure as described by your HL7 schemas.
+
+    HL7 EDI validates the message structure when read:
+    - Checking the syntax and content of the MSH and all component segments of the message.
+    - The generated ACK message logs, accumulates, and reports errors provided in the generated data
+      structure.
+    - All messages, whether error-free or with non-fatal errors, are passed on for processing as
+      part of the output message map.
+    - Reading input data errors can throw exceptions.
+
+Error data entered in the receive data map uses the HL7Error class, a read-only JavaBean with the
+following properties:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Property</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p><code>segment</code></p></div></div></td><td><div><div><p>Zero-based index within the input of the segment causing the error</p></div></div></td></tr><tr><td><div><div><p><code>fatal</code></p></div></div></td><td><div><div><p>Flag for a fatal error, meaning the associated message was rejected as a result of the error</p></div></div></td></tr><tr><td><div><div><p><code>errorType</code></p></div></div></td><td><div><div><p>Enumeration for the different types of errors defined by the HL7 standards (ERR-3 values)</p></div></div></td></tr><tr><td><div><div><p><code>errorCode</code></p></div></div></td><td><div><div><p>Error code, as defined by the HL7 standard for the indicated type of error</p></div></div></td></tr><tr><td><div><div><p><code>errorText</code></p></div></div></td><td><div><div><p>Text description of the error</p></div></div></td></tr></tbody></table>
+
+The `Read` operation returns error data as an optional list with the `Errors` key.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# HL7 EDI Connector 4.3 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Configurations
+
+---
+
+### Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p>Connection</p></div></div></td><td><p>Connection type for this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p>ExpirationPolicy</p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances when appropriate.</p></td><td></td><td></td></tr><tr><td><p>Mule application namespace ID (MSH-3-1/MSH-5-1)</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application namespace ID for Mule in the message header (MSH segment). If set, this value affects both receive and send message handling:</p></div><div><ul><li><p>On the receive side, the MSH receiving application namespace ID must match this value.</p></li><li><p>On the send side, the connector uses this value as the MSH sending application namespace ID unless the send configuration or message parameters override it.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Mule Application universal ID (MSH-3-2/MSH-5-2)</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application universal ID for Mule in the message header (MSH segment). If set, this value affects both receive and send message handling:</p></div><div><ul><li><p>On the receive side, the MSH receiving application universal ID must match this value.</p></li><li><p>On the send side, the connector uses this value as the MSH sending application universal ID unless it is overridden in the send configuration or message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Mule Application universal ID Type (MSH-3-3/MSH-5-3)</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application universal ID type for Mule in the message header (MSH segment). If set, this value affects both receive and send message handling:</p></div><div><ul><li><p>On the receive side, the MSH receiving application universal ID type must match this value.</p></li><li><p>On the send side, the connector uses this value as the MSH sending application universal ID type unless it is overridden in the send configuration or message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner Application Namespace ID (MSH-3-1/MSH-5-1)</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application namespace ID for the partner in the message header (MSH segment). If set, this value affects both receive and send message handling:</p></div><div><ul><li><p>On the receive side, the MSH sending application namespace ID must match this value.</p></li><li><p>On the send side, the connector uses this value as the MSH sending application namespace ID unless it is overridden in the send configuration or message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner Application universal ID (MSH-3-2/MSH-5-2)</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application universal ID for the partner in the message header (MSH segment). If set, this value affects both receive and send message handling:</p></div><div><ul><li><p>On the receive side, the MSH sending application universal ID must match this value.</p></li><li><p>On the send side, the connector uses this value as the MSH sending application universal ID unless it is overridden in the send configuration or message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner Application universal ID Type (MSH-3-3/MSH-5-3)</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Application universal ID type for the partner in the message header (MSH segment). If set, this value affects both receive and send message handling:</p></div><div><ul><li><p>On the receive side, the MSH sending application universal ID type must match this value.</p></li><li><p>On the send side, the connector uses this value as the MSH sending application universal ID type unless it is overridden in the send configuration or message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Schema definitions</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of schema paths for the connector to use. The paths can be filesystem paths or classpaths.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Event and message to message structure map path</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to a YAML file that defines the mapping of the event code and message code to the message structure ID:</p></div><div><ul><li><p>If working with multiple message structures, this mapping definition supports using MSH-9-1 and MSH-9-2 to determine the message structure when MSH-9-3 is not present in a message.</p></li><li><p>If only a single message structure is present in the schemas for which this message structure is used, the connector uses the message structure to parse all messages.</p></li><li><p>If MSH-9-3 is present in a message, the connector ignores the MSH-9-1 and MSH-9-2 values.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>HL7 Message character encoding</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASCII</p></li><li><p>BIG_5</p></li><li><p>EUC_KR</p></li><li><p>EUC_TW</p></li><li><p>GB_18030</p></li><li><p>ISO_8859_1</p></li><li><p>ISO_8859_15</p></li><li><p>ISO_8859_2</p></li><li><p>ISO_8859_3</p></li><li><p>ISO_8859_4</p></li><li><p>ISO_8859_5</p></li><li><p>ISO_8859_6</p></li><li><p>ISO_8859_7</p></li><li><p>ISO_8859_8</p></li><li><p>ISO_8859_9</p></li><li><p>JIS0208</p></li><li><p>JIS_X0201</p></li><li><p>JIS_X0212</p></li><li><p>UTF_16</p></li><li><p>UTF_32</p></li><li><p>UTF_8</p></li></ul></div></div></td><td><p>Character encoding for HL7 messages. This is the default for receive messages when MSH-18 is not present and for send messages when MSH-18 is not present in the send message data.</p></td><td><p>ASCII</p></td><td></td></tr><tr><td><p>Disable numeric prefixes for data keys</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Uses segment and group IDs directly as keys in the data, rather than prefixing the segment and group IDs with position values.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Required processing ID</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DEBUGGING</p></li><li><p>PRODUCTION</p></li><li><p>TRAINING</p></li></ul></div></div></td><td><p>Value to match the MSH-11-1 processing ID. If set, only messages with the specified processing ID are accepted for processing. Messages with other processing ID values or with no processing ID specified are rejected with an exception.</p></td><td></td><td></td></tr><tr><td><p>Pattern for generic extension segment names</p></td><td><div><div><p>String</p></div></div></td><td><p>Java regular pattern for segment names to treat as generic extension segments. If specified, segment names matching this pattern are allowed anywhere in the message and are converted to maps of string values for elements and composites.</p></td><td></td><td></td></tr><tr><td><p>Fail when required value missing</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message if a required value is missing:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the value is ignored and the message is accepted.</p></li></ul></div><div><p>In either case, the error is logged and reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when value length outside allowed range</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message if the receive value length is outside of allowed the range:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the value is used and the message is accepted.</p></li></ul></div><div><p>In either case, the error is logged and reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when invalid character in value</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message if the receive value contains an invalid character:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the character is either passed through or substituted, and the message is accepted.</p></li></ul></div><div><p>In either case the error is reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when too many repeats of value</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message if the receive value is repeated too many times:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the value is accepted and the message is accepted.</p></li></ul></div><div><p>In either case the error is reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when unknown segment in message</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message if it contains an unknown segment:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the segment is ignored and the message is accepted.</p></li></ul></div><div><p>In either case the error is reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when segment out of order in message set</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message when a segment in a message set is out of order:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code> and the segment can be reordered, the message is accepted.</p></li></ul></div><div><p>In either case the error is reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when unused segment included in message set</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message when a segment marked as unused is included in a message set:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the message is accepted and the unused segment is ignored.</p></li></ul></div><div><p>In either case the error is reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Fail when too many repeats of segment</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to reject a message when a segment occurs too many times in a message set:</p></div><div><ul><li><p>If <code>true</code>, a message with this error is rejected.</p></li><li><p>If <code>false</code>, the message is accepted.</p></li></ul></div><div><p>In either case, the error is reported in an ERR segment.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>HL7 Message segment terminator</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CR</p></li><li><p>LF</p></li></ul></div></div></td><td><p>Value for the segment terminator.</p></td><td><p>CR</p></td><td></td></tr><tr><td><p>Handle empty arrays for fields in message</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the incoming payload contains empty arrays and the parameter is set to <code>true</code>, the connector includes the field separation character for optional repeatable fields.</p></div></div></td><td><p>false</p></td><td></td></tr></tbody></table>
+
+## Connection Type
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+## Operations
+
+- [Read](#read)
+- [Write](#write)
+
+### Read
+
+`<hl7:read>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Read Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>Input payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>None</p></li><li><p><a href="#standard">Standard</a></p></li><li><p><a href="#forever">Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- config
+
+#### Throws
+
+- HL7:RETRY_EXHAUSTED
+- HL7:UNKNOWN
+- HL7:PARSE
+- HL7:SCHEMA
+- HL7:CONNECTIVITY
+- HL7:WRITE
+
+### Write
+
+`<hl7:write>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Write Content</p></td><td><div><div><p>Object</p></div></div></td><td><p>Output payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-Repeatable Stream</a></p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the output of the operation.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>None</p></li><li><p><a href="#standard">Standard</a></p></li><li><p><a href="#forever">Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- config
+
+#### Throws
+
+- HL7:RETRY_EXHAUSTED
+- HL7:UNKNOWN
+- HL7:PARSE
+- HL7:SCHEMA
+- HL7:CONNECTIVITY
+- HL7:WRITE
+
+## Types
+
+### Expiration Policy
+
+Configures the maximum amount of time that a dynamic configuration instance can remain idle before
+Mule considers it eligible for expiration.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the <strong>Max Idle Time</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Forever
+
+Configures a forever reconnection strategy by which the connector operation attempts to reconnect at
+a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><p>Number</p></td><td><p>How often to attempt to reconnect, in milliseconds.</p></td><td></td><td></td></tr></tbody></table>
+
+### Non-Repeatable Stream
+
+Disables the repeatable stream functionality and uses non-repeatable streams to have lower
+performance overhead, memory use, and cost.
+
+### Reconnection
+
+Configures reconnection options.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails deployment when test connection fails</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p>true</p><div><p>Allow the deployment to fail.</p></div></li><li><p>false</p><div><p>Ignore the results of the connectivity test.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p>None</p></li><li><p><a href="#standard">Standard</a></p></li><li><p><a href="#forever">Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Max In Memory Size</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the
+maximum buffer size. Always run performance tests to find the optimal buffer size for your specific
+use case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by the <strong>Buffer Size Increment</strong>, with an upper limit of the <strong>Max Buffer Size</strong> value.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often to attempt to reconnect, in milliseconds.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Attempts</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts the Mule app can make.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure HL7 EDI Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[HL7 EDI Reference](hl7-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add HL7 EDI Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `HL7` in the search field.
+3.  Click HL7 EDI in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure HTTP Listener as the
+source for the HL7 EDI Connector to initiate a flow each time the listener receives a request on the
+configured host and port.
+
+To configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for HL7 EDI Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **HL7** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target HL7 EDI system.
+
+To configure the global element for HL7 EDI Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties.
+
+3.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+4.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+5.  Click **OK**.
+
+## Configure Additional Connector Fields
+
+After you configure a global element for HL7, configure the other required fields for the connector.
+The required fields vary depending on which connector operation you use.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## Next Step
+
+See [Additional Configuration Information](hl7-connector-config-topics) for more configuration
+steps.
+
+## See Also
+
+- [HL7 EDI Connector Reference](hl7-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# HL7 EDI - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/hl7
+http://www.mulesoft.org/schema/mule/hl7/current/mule-hl7.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:hl7="http://www.mulesoft.org/schema/mule/hl7"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/hl7
+	http://www.mulesoft.org/schema/mule/hl7/current/mule-hl7.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-hl7-extension</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `<version>` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `HL7 EDI`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](hl7-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# HL7 Supplied Schemas
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+These are the message structures included in the schema definitions for each version of HL7.
+
+## Version 2.1
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A04 ADT_A05 ADT_A06 ADT_A07 ADT_A08 ADT_A09 ADT_A10 ADT_A11
+ADT_A12 ADT_A13 ADT_A14 ADT_A15 ADT_A16 ADT_A17 ADT_A18 ADT_A20 ADT_A21 ADT_A22 ADT_A23 ADT_A24
+
+BAR_P01 BAR_P02
+
+DFT_P03 DSR_Q01 DSR_Q03
+
+MCF_Q02
+
+ORM_O01 ORR_O02 ORU_R01 ORU_R03
+
+QRY_A19 QRY_Q01 QRY_Q02
+
+UDM_Q05
+
+## Version 2.2
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A04 ADT_A05 ADT_A06 ADT_A07 ADT_A08 ADT_A09 ADT_A10 ADT_A11
+ADT_A12 ADT_A13 ADT_A14 ADT_A15 ADT_A16 ADT_A17 ADT_A18 ADT_A20 ADT_A21 ADT_A22 ADT_A23 ADT_A24
+ADT_A25 ADT_A26 ADT_A27 ADT_A28 ADT_A29 ADT_A30 ADT_A31 ADT_A32 ADT_A33 ADT_A34 ADT_A35 ADT_A36
+ADT_A37
+
+BAR_P01 BAR_P02
+
+DFT_P03 DSR_P04 DSR_Q01 DSR_Q03 DSR_R03
+
+MFD_M01 MFD_M02 MFD_M03 MFK_M01 MFK_M02 MFK_M03 MFN_M01 MFN_M02 MFN_M03 MFQ_M01 MFQ_M02 MFQ_M03
+MFR_M01 MFR_M02 MFR_M03 NMD_N01 NMQ_N02 NMR_N02
+
+ORD_O02 ORF_R04 ORM_O01 ORN_O02 ORR_O02 ORU_R01 ORU_R03
+
+QRY_A19 QRY_P04 QRY_Q01 QRY_Q02 QRY_R02
+
+UDM_Q05
+
+## Version 2.3
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A04 ADT_A05 ADT_A06 ADT_A07 ADT_A08 ADT_A09 ADT_A10 ADT_A11
+ADT_A12 ADT_A13 ADT_A14 ADT_A15 ADT_A16 ADT_A17 ADT_A18 ADT_A20 ADT_A21 ADT_A22 ADT_A23 ADT_A24
+ADT_A25 ADT_A26 ADT_A27 ADT_A28 ADT_A29 ADT_A30 ADT_A31 ADT_A32 ADT_A33 ADT_A34 ADT_A35 ADT_A36
+ADT_A37 ADT_A38 ADT_A39 ADT_A40 ADT_A41 ADT_A42 ADT_A43 ADT_A44 ADT_A45 ADT_A46 ADT_A47 ADT_A48
+ADT_A49 ADT_A50 ADT_A51
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06
+
+CRM_C01 CRM_C02 CRM_C03 CRM_C04 CRM_C05 CRM_C06 CRM_C07 CRM_C08 CSU_C09 CSU_C10 CSU_C11 CSU_C12
+
+DFT_P03 DOC_T12 DSR_Q01 DSR_Q02 DSR_Q03
+
+EDR_Q01 EQQ_Q01 ERP_Q01
+
+MDM_T01 MDM_T02 MDM_T03 MDM_T04 MDM_T05 MDM_T06 MDM_T07 MDM_T08 MDM_T09 MDM_T10 MDM_T11 MFK_M01
+MFK_M02 MFK_M03 MFK_M04 MFK_M05 MFK_M07 MFN_M01 MFN_M02 MFN_M03 MFN_M04 MFN_M05 MFN_M06 MFN_M07
+MFN_M08 MFN_M09 MFN_M10 MFN_M11
+
+OMD_O01 OMN_O01 OMS_O01 ORD_O02 ORF_R02 ORF_R04 ORM_O01 ORN_O02 ORR_O02 ORU_R01 OSQ_Q06 OSR_Q06
+
+PEX_P07 PEX_P08 PGL_PC6 PGL_PC7 PGL_PC8 PIN_I07 PPG_PCG PPG_PCH PPG_PCJ PPP_PCB PPP_PCC PPP_PCD
+PPR_PC1 PPR_PC2 PPR_PC3 PPT_PCL PPV_PCA PRR_PC5 PTR_PCF
+
+QCK_Q02 QRY_A19 QRY_PC4 QRY_PC9 QRY_PCE QRY_PCK QRY_Q01 QRY_Q02 QRY_R02 QRY_T12
+
+RAR_RAR RAS_O01 RAS_O02 RCI_I05 RCL_I06 RDE_O01 RDO_O01 RDR_RDR RDS_O01 REF_I12 REF_I13 REF_I14
+REF_I15 RER_RER RGR_RGR RGV_O01 ROR_ROR RPA_I08 RPA_I09 RPA_I10 RPA_I11 RPI_I01 RPI_I04 RPL_I02
+RPR_I03 RQA_I08 RQA_I09 RQA_I10 RQA_I11 RQC_I05 RQC_I06 RQI_I01 RQI_I02 RQI_I03 RQP_I04 RQQ_Q01
+RRA_O02 RRD_O02 RRE_O01 RRG_O02 RRI_I12 RRI_I13 RRI_I14 RRI_I15 RRO_O02
+
+SIU_S12 SIU_S13 SIU_S14 SIU_S15 SIU_S16 SIU_S17 SIU_S18 SIU_S19 SIU_S20 SIU_S21 SIU_S22 SIU_S23
+SIU_S24 SIU_S26 SPQ_Q01 SQM_S25 SQR_S25 SRM_S01 SRM_S02 SRM_S03 SRM_S04 SRM_S05 SRM_S06 SRM_S07
+SRM_S08 SRM_S09 SRM_S10 SRM_S11 SRR_S01 SRR_S02 SRR_S03 SRR_S04 SRR_S05 SRR_S06 SRR_S07 SRR_S08
+SRR_S09 SRR_S10 SRR_S11 SUR_P09
+
+TBR_Q01
+
+UDM_Q05
+
+VQQ_Q01 VXQ_V01 VXR_V03 VXU_V04 VXX_V02
+
+## Version 2.3.1
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A04 ADT_A05 ADT_A06 ADT_A07 ADT_A08 ADT_A09 ADT_A10 ADT_A11
+ADT_A12 ADT_A13 ADT_A14 ADT_A15 ADT_A16 ADT_A17 ADT_A18 ADT_A20 ADT_A21 ADT_A22 ADT_A23 ADT_A24
+ADT_A25 ADT_A26 ADT_A27 ADT_A28 ADT_A29 ADT_A30 ADT_A31 ADT_A32 ADT_A33 ADT_A34 ADT_A35 ADT_A36
+ADT_A37 ADT_A38 ADT_A39 ADT_A40 ADT_A41 ADT_A42 ADT_A43 ADT_A44 ADT_A45 ADT_A46 ADT_A47 ADT_A48
+ADT_A49 ADT_A50 ADT_A51
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06
+
+CRM_C01 CSU_C09
+
+DFT_P03 DOC_T12 DSR_Q01 DSR_Q03
+
+EDR_R07 EQQ_Q04 ERP_R09
+
+MDM_T01 MDM_T02 MDM_T03 MDM_T04 MDM_T05 MDM_T06 MDM_T07 MDM_T08 MDM_T09 MDM_T10 MDM_T11 MFK_M01
+MFK_M04 MFK_M05 MFK_M06 MFN_M01 MFN_M02 MFN_M03 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09
+MFN_M10 MFN_M11 MFQ_M01 MFR_M01
+
+NMD_N02 NMQ_N01 NMR_N01
+
+OMD_O01 OMN_O01 OMS_O01 ORD_O02 ORF_R04 ORM_O01 ORN_O02 ORR_O02 ORS_O02 ORU_R01 OSQ_Q06 OSR_Q06
+
+PEX_P07 PGL_PC6 PIN_I07 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA PRR_PC5 PTR_PCF
+
+QCK_Q02 QRY_A19 QRY_PC4 QRY_PC9 QRY_PCE QRY_PCK QRY_Q01 QRY_Q02 QRY_R02 QRY_T12
+
+RAR_RAR RAS_O01 RCI_I05 RCL_I06 RDE_O01 RDO_O01 RDR_RDR RDS_O01 REF_I12 RER_RER RGR_RGR RGV_O01
+ROR_R0R ROR_ROR RPA_I08 RPI_I01 RPI_I04 RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQC_I06 RQI_I01 RQI_I02
+RQI_I03 RQP_I04 RQQ_Q09 RRA_O02 RRD_O02 RRE_O02 RRG_O02 RRI_I12 RRO_O02
+
+SIU_S12 SPQ_Q08 SQM_S25 SQR_S25 SRM_S01 SRR_S01 SUR_P09
+
+TBR_R08
+
+UDM_Q05
+
+VQQ_Q07 VXQ_V01 VXR_V03 VXU_V04 VXX_V02
+
+## Version 2.4
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A15 ADT_A16 ADT_A17 ADT_A18 ADT_A20
+ADT_A21 ADT_A24 ADT_A30 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A45 ADT_A50 ADT_A52 ADT_A54 ADT_A60
+ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10
+
+CRM_C01 CSU_C09
+
+DFT_P03 DFT_P11 DOC_T12 DSR_Q01 DSR_Q03
+
+EAC_U07 EAN_U09 EAR_U08 EDR_R07 EQQ_Q04 ERP_R09 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M01 MFN_M02 MFN_M03 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09
+MFN_M10 MFN_M11 MFN_M12 MFQ_M01 MFR_M01
+
+NMD_N02 NMQ_N01 NMR_N01
+
+OMD_O03 OMG_O19 OML_O21 OMN_O07 OMP_O09 OMS_O05 ORD_O04 ORF_R04 ORG_O20 ORL_O22 ORM_O01 ORN_O08
+ORP_O10 ORR_O02 ORS_O06 ORU_R01 OSQ_Q06 OSR_Q06 OUL_R21
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA PRR_PC5 PTR_PCF
+
+QBP_K13 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCK_Q02 QCN_J01 QRY_A19 QRY_PC4 QRY_Q01
+QRY_Q02 QRY_R02 QRY_T12 QSB_Q16 QVR_Q17
+
+RAR_RAR RAS_O17 RCI_I05 RCL_I06 RDE_O11 RDR_RDR RDS_O13 RDY_K15 REF_I12 RER_RER RGR_RGR RGV_O15
+ROR_ROR RPA_I08 RPI_I01 RPI_I04 RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQI_I01 RQP_I04 RQQ_Q09 RRA_O18
+RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_K11 RSP_K13 RSP_K15 RSP_K21 RSP_K22 RSP_K23 RSP_K24 RSP_K25
+RSP_Z82 RSP_Z86 RSP_Z88 RSP_Z90 RTB_K13 RTB_Knn RTB_Q13 RTB_Z74
+
+SIU_S12 SPQ_Q08 SQM_S25 SQR_S25 SRM_S01 SRR_S01 SSR_U04 SSU_U03 SUR_P09
+
+TBR_R08 TCU_U10
+
+UDM_Q05
+
+VQQ_Q07 VXQ_V01 VXR_V03 VXU_V04 VXX_V02
+
+## Version 2.5
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A18
+ADT_A20 ADT_A21 ADT_A24 ADT_A30 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A45 ADT_A50 ADT_A52 ADT_A54
+ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CRM_C01 CSU_C09
+
+DFT_P03 DFT_P11 DOC_T12 DSR_Q01 DSR_Q03
+
+EAC_U07 EAN_U09 EAR_U08 EDR_R07 EQQ_Q04 ERP_R09 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M01 MFN_M02 MFN_M03 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09
+MFN_M10 MFN_M11 MFN_M12 MFN_M13 MFN_M15 MFN_Znn MFQ_M01 MFR_M01 MFR_M04 MFR_M05 MFR_M06 MFR_M07
+
+NMD_N02 NMQ_N01 NMR_N01
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OMN_O07 OMP_O09 OMS_O05 ORB_O28 ORD_O04
+ORF_R04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36 ORM_O01 ORN_O08 ORP_O10 ORR_O02 ORS_O06 ORU_R01
+ORU_R30 OSQ_Q06 OSR_Q06 OUL_R21 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA
+PRR_PC5 PTR_PCF
+
+QBP_K13 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCK_Q02 QCN_J01
+
+QRY
+
+QRY_A19 QRY_PC4 QRY_Q01 QRY_Q02 QRY_R02 QSB_Q16 QVR_Q17
+
+RAR_RAR RAS_O17 RCI_I05 RCL_I06 RDE_O11 RDR_RDR RDS_O13 RDY_K15 REF_I12 RER_RER RGR_RGR RGV_O15
+ROR_ROR RPA_I08 RPI_I01 RPI_I04 RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQI_I01 RQP_I04 RQQ_Q09 RRA_O18
+RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_K11 RSP_K21 RSP_K23 RSP_K25 RSP_K31 RSP_Q11 RSP_Z82 RSP_Z86
+RSP_Z88 RSP_Z90 RTB_K13 RTB_Knn RTB_Z74
+
+SIU_S12 SPQ_Q08 SQM_S25 SQR_S25 SRM_S01 SRR_S01 SSR_U04 SSU_U03 SUR_P09
+
+TBR_R08 TCU_U10
+
+UDM_Q05
+
+VQQ_Q07 VXQ_V01 VXR_V03 VXU_V04 VXX_V02
+
+## Version 2.5.1
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A18
+ADT_A20 ADT_A21 ADT_A24 ADT_A30 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A45 ADT_A50 ADT_A52 ADT_A54
+ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CRM_C01 CSU_C09
+
+DFT_P03 DFT_P11 DOC_T12 DSR_Q01 DSR_Q03
+
+EAC_U07 EAN_U09 EAR_U08 EDR_R07 EQQ_Q04 ERP_R09 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M01 MFN_M02 MFN_M03 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09
+MFN_M10 MFN_M11 MFN_M12 MFN_M13 MFN_M15 MFN_Znn MFQ_M01 MFR_M01 MFR_M04 MFR_M05 MFR_M06 MFR_M07
+
+NMD_N02 NMQ_N01 NMR_N01
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OMN_O07 OMP_O09 OMS_O05 ORB_O28 ORD_O04
+ORF_R04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36 ORM_O01 ORN_O08 ORP_O10 ORR_O02 ORS_O06 ORU_R01
+ORU_R30 OSQ_Q06 OSR_Q06 OUL_R21 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA
+PRR_PC5 PTR_PCF
+
+QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCK_Q02 QCN_J01
+
+QRY
+
+QRY_A19 QRY_PC4 QRY_Q01 QRY_Q02 QRY_R02 QSB_Q16 QVR_Q17
+
+RAR_RAR RAS_O17 RCI_I05 RCL_I06 RDE_O11 RDR_RDR RDS_O13 RDY_K15 REF_I12 RER_RER RGR_RGR RGV_O15
+ROR_ROR RPA_I08 RPI_I01 RPI_I04 RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQI_I01 RQP_I04 RQQ_Q09 RRA_O18
+RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_K11 RSP_K21 RSP_K23 RSP_K25 RSP_K31 RSP_Q11 RSP_Z82 RSP_Z86
+RSP_Z88 RSP_Z90 RTB_K13 RTB_Knn RTB_Z74
+
+SIU_S12 SPQ_Q08 SQM_S25 SQR_S25 SRM_S01 SRR_S01 SSR_U04 SSU_U03 SUR_P09
+
+TBR_R08 TCU_U10
+
+UDM_Q05
+
+VQQ_Q07 VXQ_V01 VXR_V03 VXU_V04 VXX_V02
+
+## Version 2.6
+
+ACK
+
+ADR_A19 ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A18
+ADT_A20 ADT_A21 ADT_A24 ADT_A30 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A45 ADT_A50 ADT_A52 ADT_A54
+ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CRM_C01 CSU_C09
+
+DFT_P03 DFT_P11 DOC_T12 DSR_Q01 DSR_Q03
+
+EAC_U07 EAN_U09 EAR_U08 EHC_E01 EHC_E02 EHC_E04 EHC_E10 EHC_E12 EHC_E13 EHC_E15 EHC_E20 EHC_E21
+EHC_E24 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M01 MFN_M02 MFN_M03 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09
+MFN_M10 MFN_M11 MFN_M12 MFN_M13 MFN_M15 MFN_M16 MFN_M17 MFN_Znn MFQ_M01 MFR_M01 MFR_M04 MFR_M05
+MFR_M06 MFR_M07 NMD_N02 NMQ_N01 NMR_N01
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OMN_O07 OMP_O09 OMS_O05 OPL_O37 OPR_O38
+OPU_R25 ORB_O28 ORD_O04 ORF_R04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36 ORM_O01 ORN_O08 ORP_O10
+ORR_O02 ORS_O06 ORU_R01 ORU_R30 OSQ_Q06 OSR_Q06 OUL_R21 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA
+PRR_PC5 PTR_PCF
+
+QBP_E03 QBP_E22 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCK_Q02 QCN_J01 QRY_A19 QRY_PC4
+QRY_Q01 QRY_Q02 QRY_R02 QRY_T12 QSB_Q16 QVR_Q17
+
+RAR_RAR RAS_O17 RCI_I05 RCL_I06 RDE_O11 RDR_RDR RDS_O13 RDY_K15 REF_I12 RER_RER RGR_RGR RGV_O15
+ROR_ROR RPA_I08 RPI_I01 RPI_I04 RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQI_I01 RQP_I04 RRA_O18 RRD_O14
+RRE_O12 RRG_O16 RRI_I12 RSP_E03 RSP_E22 RSP_K11 RSP_K21 RSP_K23 RSP_K25 RSP_K31 RSP_Q11 RSP_Z82
+RSP_Z86 RSP_Z88 RSP_Z90 RTB_K13 RTB_Z74
+
+SDR_S31 SDR_S32 SIU_S12 SLR_S28 SQM_S25 SQR_S25 SRM_S01 SRR_S01 SSR_U04 SSU_U03 STC_S33 SUR_P09
+
+TCU_U10
+
+UDM_Q05
+
+VXQ_V01 VXR_V03 VXU_V04 VXX_V02
+
+## Version 2.7
+
+ACK
+
+ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A20 ADT_A21
+ADT_A24 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A44 ADT_A45 ADT_A50 ADT_A52 ADT_A54 ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CCF_I22 CCI_I22 CCM_I21 CCQ_I19 CCR_I16 CCU_I20 CQU_I19 CRM_C01 CSU_C09
+
+DFT_P03 DFT_P11
+
+EAC_U07 EAN_U09 EAR_U08 EHC_E01 EHC_E02 EHC_E04 EHC_E10 EHC_E12 EHC_E13 EHC_E15 EHC_E20 EHC_E21
+EHC_E24 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M02 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09 MFN_M10 MFN_M11
+MFN_M12 MFN_M13 MFN_M15 MFN_M16 MFN_M17 MFN_Znn
+
+NMD_N02
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OML_O39 OMN_O07 OMP_O09 OMS_O05 OPL_O37
+OPR_O38 OPU_R25 ORA_R33 ORB_O28 ORD_O04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36 ORL_O40 ORN_O08
+ORP_O10 ORS_O06 ORU_R01 ORU_R30 OSM_R26 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA
+PRR_PC5 PTR_PCF
+
+QBP_E03 QBP_E22 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCN_J01 QRY_PC4 QSB_Q16 QVR_Q17
+
+RAS_O17 RCI_I05 RCL_I06 RDE_O11 RDR_RDR RDS_O13 RDY_K15 REF_I12 RGV_O15 RPA_I08 RPI_I01 RPI_I04
+RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQI_I01 RQP_I04 RRA_O18 RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_E03
+RSP_E22 RSP_K11 RSP_K21 RSP_K22 RSP_K23 RSP_K25 RSP_K31 RSP_K32 RSP_Z82 RSP_Z86 RSP_Z88 RSP_Z90
+RTB_K13 RTB_Knn RTB_Z74
+
+SDR_S31 SDR_S32 SIU_S12 SLR_S28 SRM_S01 SRR_S01 SSR_U04 SSU_U03 STC_S33
+
+TCU_U10
+
+UDM_Q05
+
+VXU_V04
+
+## Version 2.7.1
+
+ACK
+
+ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A20 ADT_A21
+ADT_A24 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A44 ADT_A45 ADT_A50 ADT_A52 ADT_A54 ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CCF_I22 CCI_I22 CCM_I21 CCQ_I19 CCR_I16 CCU_I20 CQU_I19 CRM_C01 CSU_C09
+
+DFT_P03 DFT_P11
+
+EAC_U07 EAN_U09 EAR_U08 EHC_E01 EHC_E02 EHC_E04 EHC_E10 EHC_E12 EHC_E13 EHC_E15 EHC_E20 EHC_E21
+EHC_E24 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M02 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09 MFN_M10 MFN_M11
+MFN_M12 MFN_M13 MFN_M15 MFN_M16 MFN_M17 MFN_Znn
+
+NMD_N02
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OML_O39 OMN_O07 OMP_O09 OMS_O05 OPL_O37
+OPR_O38 OPU_R25 ORA_R33 ORB_O28 ORD_O04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36 ORL_O40 ORN_O08
+ORP_O10 ORS_O06 ORU_R01 ORU_R30 OSM_R26 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1 PPT_PCL PPV_PCA
+PRR_PC5 PTR_PCF
+
+QBP_E03 QBP_E22 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCN_J01 QRY_PC4 QSB_Q16 QVR_Q17
+
+RAS_O17 RCI_I05 RCL_I06 RDE_O11 RDR_RDR RDS_O13 RDY_K15 REF_I12 RGV_O15 RPA_I08 RPI_I01 RPI_I04
+RPL_I02 RPR_I03 RQA_I08 RQC_I05 RQI_I01 RQP_I04 RRA_O18 RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_E03
+RSP_E22 RSP_K11 RSP_K21 RSP_K22 RSP_K23 RSP_K25 RSP_K31 RSP_K32 RSP_Z82 RSP_Z86 RSP_Z88 RSP_Z90
+RTB_K13 RTB_Knn RTB_Z74
+
+SDR_S31 SDR_S32 SIU_S12 SLR_S28 SRM_S01 SRR_S01 SSR_U04 SSU_U03 STC_S33
+
+TCU_U10 UDM_Q05
+
+VXU_V04
+
+## Version 2.8
+
+ACK
+
+ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A20 ADT_A21
+ADT_A24 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A44 ADT_A45 ADT_A50 ADT_A52 ADT_A54 ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CCF_I22 CCI_I22 CCM_I21 CCQ_I19 CCR_I16 CCU_I20 CQU_I19 CRM_C01 CSU_C09
+
+DBC_O41 DBC_O42 DEL_O46 DEO_O45 DER_O44 DFT_P03 DFT_P11 DPR_O48 DRC_O47 DRG_O43
+
+EAC_U07 EAN_U09 EAR_U08 EHC_E01 EHC_E02 EHC_E04 EHC_E10 EHC_E12 EHC_E13 EHC_E15 EHC_E20 EHC_E21
+EHC_E24 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M02 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09 MFN_M10 MFN_M11
+MFN_M12 MFN_M13 MFN_M15 MFN_M16 MFN_M17 MFN_Znn
+
+NMD_N02
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OML_O39 OMN_O07 OMP_O09 OMQ_O42 OMS_O05
+OPL_O37 OPR_O38 OPU_R25 ORA_R33 ORA_R41 ORB_O28 ORD_O04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36
+ORL_O40 ORN_O08 ORP_O10 ORS_O06 ORU_R01 ORU_R30 ORX_O43 OSM_R26 OSU_O41 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1
+
+QBP_E03 QBP_E22 QBP_O33 QBP_O34 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCN_J01 QSB_Q16
+QVR_Q17
+
+RAS_O17 RDE_O11 RDR_RDR RDS_O13 RDY_K15 RDY_Z80 REF_I12 RGV_O15 RPA_I08 RPI_I01 RPI_I04 RPL_I02
+RPR_I03 RQA_I08 RQI_I01 RQP_I04 RRA_O18 RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_E03 RSP_E22 RSP_K11
+RSP_K21 RSP_K22 RSP_K23 RSP_K25 RSP_K31 RSP_K32 RSP_O33 RSP_O34 RSP_Z82 RSP_Z84 RSP_Z86 RSP_Z88
+RSP_Z90 RSP_Znn RTB_K13 RTB_Knn RTB_Z74
+
+SDR_S31 SDR_S32 SIU_S12 SLR_S28 SRM_S01 SRR_S01 SSR_U04 SSU_U03 STC_S33
+
+TCU_U10
+
+UDM_Q05
+
+VXU_V04
+
+## Version 2.8.1
+
+ACK
+
+ADT_A01 ADT_A02 ADT_A03 ADT_A05 ADT_A06 ADT_A09 ADT_A12 ADT_A15 ADT_A16 ADT_A17 ADT_A20 ADT_A21
+ADT_A24 ADT_A37 ADT_A38 ADT_A39 ADT_A43 ADT_A44 ADT_A45 ADT_A50 ADT_A52 ADT_A54 ADT_A60 ADT_A61
+
+BAR_P01 BAR_P02 BAR_P05 BAR_P06 BAR_P10 BAR_P12 BPS_O29 BRP_O30 BRT_O32 BTS_O31
+
+CCF_I22 CCI_I22 CCM_I21 CCQ_I19 CCR_I16 CCU_I20 CQU_I19 CRM_C01 CSU_C09
+
+DBC_O41 DBC_O42 DEL_O46 DEO_O45 DER_O44 DFT_P03 DFT_P11 DPR_O48 DRC_O47 DRG_O43
+
+EAC_U07 EAN_U09 EAR_U08 EHC_E01 EHC_E02 EHC_E04 EHC_E10 EHC_E12 EHC_E13 EHC_E15 EHC_E20 EHC_E21
+EHC_E24 ESR_U02 ESU_U01
+
+INR_U06 INU_U05
+
+LSU_U12
+
+MDM_T01 MDM_T02 MFK_M01 MFN_M02 MFN_M04 MFN_M05 MFN_M06 MFN_M07 MFN_M08 MFN_M09 MFN_M10 MFN_M11
+MFN_M12 MFN_M13 MFN_M15 MFN_M16 MFN_M17 MFN_Znn
+
+NMD_N02
+
+OMB_O27 OMD_O03 OMG_O19 OMI_O23 OML_O21 OML_O33 OML_O35 OML_O39 OMN_O07 OMP_O09 OMQ_O42 OMS_O05
+OPL_O37 OPR_O38 OPU_R25 ORA_R33 ORA_R41 ORB_O28 ORD_O04 ORG_O20 ORI_O24 ORL_O22 ORL_O34 ORL_O36
+ORL_O40 ORL_O41 ORL_O42 ORL_O43 ORL_O44 ORN_O08 ORP_O10 ORS_O06 ORU_R01 ORU_R30 ORX_O43 OSM_R26
+OSU_O41 OUL_R22 OUL_R23 OUL_R24
+
+PEX_P07 PGL_PC6 PMU_B01 PMU_B03 PMU_B04 PMU_B07 PMU_B08 PPG_PCG PPP_PCB PPR_PC1
+
+QBP_E03 QBP_E22 QBP_O33 QBP_O34 QBP_Q11 QBP_Q13 QBP_Q15 QBP_Q21 QBP_Qnn QBP_Z73 QCN_J01 QSB_Q16
+QVR_Q17
+
+RAS_O17 RDE_O11 RDR_RDR RDS_O13 RDY_K15 RDY_Z80 REF_I12 RGV_O15 RPA_I08 RPI_I01 RPI_I04 RPL_I02
+RPR_I03 RQA_I08 RQI_I01 RQP_I04 RRA_O18 RRD_O14 RRE_O12 RRG_O16 RRI_I12 RSP_E03 RSP_E22 RSP_K11
+RSP_K21 RSP_K22 RSP_K23 RSP_K25 RSP_K31 RSP_K32 RSP_O33 RSP_O34 RSP_Z82 RSP_Z84 RSP_Z86 RSP_Z88
+RSP_Z90 RSP_Znn RTB_K13 RTB_Knn RTB_Z74
+
+SDR_S31 SDR_S32 SIU_S12 SLR_S28 SRM_S01 SRR_S01 SSR_U04 SSU_U03 STC_S33
+
+TCU_U10
+
+UDM_Q05
+
+VXU_V04
+---
+
+# HL7 EDI Connector 4.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for HL7 EDI (HL7 EDI Connector) is a collection of features that facilitate
+integration with healthcare systems by providing the tools needed to easily create, read, and
+transform HL7 version v2.x messages within Mule. Health Level Seven International (HL7) is a
+standards development organization that defines a set of standards for the transport and
+communication of healthcare information.
+
+For compatibility information and fixed issues, see the HL7 EDI Connector Release Notes.
+
+Standard schema definitions are included in HL7 EDI Connector for HL7 versions 2.1, 2.2, 2.3.1, 2.3,
+2.4, 2.5, 2.5.1, 2.6, 2.7, 2.7.1, 2.8, 2.8.1. The schemas are provided in two forms:
+
+- Standard HL7
+
+  Uses required or optional status data types, field lengths, and repetition counts (as listed) for
+  each HL7 version.
+
+- Lax HL7
+
+  All segments and value items are optional. These low-level data types are treated as simple
+  strings. Field lengths and repetition counts are not enforced.
+
+Both forms of schemas are available in the connectorâs `classpath`. Standard HL7 schemas use the
+path `/hl7/v2_5_1/ADT_A01.esl`.  
+Lax schemas use the path `/hl7lax/v2_5_1/ADT_A01.esl`.
+
+The schema definitions you need for [HL7 supplied schemas](hl7-schemas) are included.
+
+For complete information about schemas, see
+[EDI Schema Language Reference](../../x12-edi-connector/latest/x12-edi-schema-language-reference).
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+- HL7 EDI Connector
+
+To use HL7 EDI Connector, you must have:
+
+- Purchased a MuleSoft license for HL7. Contact your Account Representative about purchasing a
+  license.
+- Anypoint Studio or Anypoint Code Builder.
+
+### Understanding the EDI Schema Language
+
+HL7 EDI Connector uses a YAML format called EDI Schema Language (ESL) to represent EDI schemas.
+Basic ESLs define the structure of Electronic Data Interchange (EDI) messages in terms of:
+
+- structures (_message structures_, in HL7 terminology)
+- groups
+- segments, composites, and elements
+
+You can customize the HL7 schema definitions to suit your data by copying and editing the schema
+definitions directly or by using a console tool to generate a simplified schema based on one or more
+sample documents. Alternatively, you can use an overlay schema for HL7, as with other EDI formats,
+but this option is not recommended due to the complexity of HL7 definitions.
+
+You can define your own schemas from scratch, or you can copy and edit a base HL7 schema definition
+to suit your data as shown in the
+[EDI Schema Language Reference](../../x12-edi-connector/latest/x12-edi-schema-language-reference).
+
+### Finding the HL7 Schema Location
+
+To use the connector, you must know the locations of the schemas in your project. If youâre using
+the out-of-the-box HL7 schemas and not customizing anything, the standard schema location follows
+the `/hl7/{version}/{message structure}.esl` pattern and the lax schema location follows the
+`/hl7lax/{version}/{message structure}.esl` pattern.
+
+For example, if youâre using the 2.5.1 schema version and the ADT_A01 message structure, your schema
+location is `/hl7/v2_5_1/ADT_A01.esl` for the standard version or `/hl7lax/v2_5_1/ADT_A01.esl` for
+the lax version.
+
+If youâre using one or more custom schemas, put these in a directory in `src/main/mule` and refer to
+the location using `${app.home}`. For example, if you put your ADT_A01 schema under
+``src/main/mule/mypartner/ADT_A01.esl, your schema location is `${app.home}/mypartner/ADT_A01.esl``.
+
+The Mule runtime engine automatically checks `src/main/mule` for any locations that contain the
+`${app.home}` value.
+
+## The Hierarchy of X12 EDI Connector Message Structure
+
+Use this connector to read or write HL7 documents into (or from) the canonical ER7 message
+structure. This structure is a hierarchy of Java Maps and Lists. You use either DataWeave or code to
+manipulate them. Each transaction structure is defined in the schemas.
+
+The message itself contains the following keys, some of which apply only to either the read
+operation or the write operation, as indicated:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key Name</th><th>Description</th></tr></thead><tbody><tr><td><p>ACK (read only)</p></td><td><p>Message generated by the module during the read operation. The <code>MSA-01</code> acknowledgment code value is based on the parser configuration settings.</p></td></tr><tr><td><p>Data (read or write)</p></td><td><p>Wrapper for message data, with a key matching the message structure ID value that links to the actual data. Allows different messages to be included in the metadata and handled in DataWeave mappings.</p></td></tr><tr><td><p>Delimiters (read or write)</p></td><td><p>The delimiters used for the message. The characters in the string of delimiters are interpreted based on their position in string, in the following order: component separator, repetition separator, escape character, and subcomponent separator, with a value of <code>U</code> indicating no value in that position.</p></td></tr><tr><td><p>Errors (read only)</p></td><td><p>A list of errors associated with the input message.</p></td></tr><tr><td><p>Id</p></td><td><p>Message structure ID.</p></td></tr><tr><td><p>MSH (read only)</p></td><td><p>Link that receives MSH segment data.</p></td></tr><tr><td><p>Name (read only)</p></td><td><p>Message structure name.</p></td></tr></tbody></table>
+
+Individual messages have their own maps, with keys matching the segments of the message. For
+example, an ACK message uses the message structure ID ACK, and the data for the sent or received ACK
+message is an ACK value in the data map. The ACK message is itself a map, and the segments and
+groups of the message are represented as maps (in the case of singleton instances) or lists of maps
+(for repeating instances) with positional keys.
+
+In two special cases, use generic handling for data that is not included in a schema definition.
+
+The first case is HL7 values of the `varies` type. Because these values consist of any structure of
+components and subcomponents that can be repeated, the parser uses a list of map representations for
+each `varies` of type. The keys in each map are generated as the value is parsed, matching standard
+HL7 value names with two digits used for each nesting level. For example, a simple text value for an
+`OBX-05 Observation Value` field would use the key `OBX-05` in a map. If there are two components
+present, they use keys `OBX-05-01` and `OBX-05-02`.
+
+The second case is when extension segments have tags that match a pattern configured under parser
+options. These are similar in structure to the `varies` values, with the exception of only being
+within a single map for the entire segment.
+
+The maps containing extension segment data are added to the basic message map in lists with the key
+`ExtensionSegs`. In addition to the actual extension segment data, the map for the extension segment
+contains two other keys:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><p>Ident</p></td><td><p>The extension segment identifier (tag).</p></td></tr><tr><td><p>Position</p></td><td><p>The position of the segment within the message structure, as a two-digit string. This is the same as the position of the immediately preceding defined segment, as defined in the schema. If a <code>ZVN</code> extension segment is used following the <code>EVN</code> segment in an <code>ADT_A01</code> message structure, the <code>ZVN</code> is at position <code>03)</code>.</p></td></tr></tbody></table>
+
+If extension segments are used in nested groups, the list containing those segments are included in
+the map representing that group. Extension segments are ordered by position in the lists created by
+the parser, and must also be ordered by position when writing.
+
+### About Sending Acknowledgments
+
+An ACK (acknowledgment) message is an HL7 message that enables you to acknowledge to a message
+sender that your application has received a message. ACK messages are the same as any other HL7
+message write operations, except that you set the ACK message to what was generated during the read
+operation as the output message under a `Data` key.
+
+Here is an example:
+
+```xml
+    <hl7-edi:read config-ref="HL7_EDI__Configuration1" doc:name="HL7 EDI"/>\
+    ...
+    <dw:transform-message doc:name="Create Outgoing Message">
+      <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+  Name: "ACK",
+  MSH: payload.ACK.MSH,
+  Id: "ACK",
+  Data: {
+    ACK: payload.ACK
+  }
+}]]></dw:set-payload>
+    </dw:transform-message>
+    <hl7-edi:write config-ref="HL7_EDI__Configuration" messageStructure="InMessage" doc:name="ACK"/>
+    ...
+    <file:outbound-endpoint responseTimeout="10000" doc:name="File" path="output" outputPattern="ack.edi"/>
+```
+
+The generated ACK messages have MSH data set up for sending back to the sender of the original
+message, so you donât need to change anything in the data to perform the send.
+
+If you include an ACK message schema in your configuration, that schema is used to both receive and
+generate ACK messages. If you donât specify an ACK schema, the standard `hl7/v2_5_1/ACK.esl` schema
+default is used.
+
+## Exchange Templates and Examples
+
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) provides both templates and examples that
+you can use as starting points for your apps and examples that illustrate a complete solution.
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create your own app and configure the
+connector using [Anypoint Studio](hl7-connector-studio).
+
+## See Also
+
+[Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+[Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+[Salesforce Help](https://help.salesforce.com)
+

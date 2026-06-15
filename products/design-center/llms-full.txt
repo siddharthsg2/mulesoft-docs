@@ -1,0 +1,4412 @@
+﻿# Design Center - Full Documentation
+
+# Add Behavioral Headers to Simulated API Calls
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Behavioral headers enable you to change the behavior of the mocking service. Use behavioral headers
+where you would normally specify other types of header when simulating requests to API
+specifications.
+
+## MS2-Delay
+
+MS2-Delay indicates how many milliseconds the request should take to answer. You might want to use
+this header to simulate load on your server or latency in a network.
+
+You can specify a value for this header as an integer or as a range of integers. If you specify a
+range, the value must have the form `min-max`. For example, given the value `500-1000`, the request
+will take a random time between 500 and 1000 milliseconds.
+
+> [!NOTE] It is possible for the delay to be longer than a single integer value or the high end of a
+> range, depending on the latency of your network.
+
+The MS2-Delay takes a maximum value of 10000 milliseconds (ms), and follows this behavior:
+
+- If the value is set to less than 10000 ms, the mocking service adds a delay of ~5000 ms.
+- If the value is set to greater than 10000 ms, the mocking service adds a delay of ~10000 ms.
+
+Examples: \* If the value is set to a range of 5000 - 9000 ms, the mocking service adds a delay of
+~5000 - ~9000 ms. \* If the value is set to a range of 9000 - 20000 ms, the mocking service adds a
+delay of ~9000 - ~10000 ms. \* If the value is set to a range of 20000 - 30000 ms, the mocking
+service returns this error message:
+
+{ "code": "INVALID_HEADER_VALUE", "message": "Invalid value for header MS2-Delay. Requested range is
+higher than the max value allowed: 10000 ms" }
+
+## MS2-Example
+
+The MS2-Example header enables you to choose a specific response example if your endpoint defines
+more than one example for a single status code.
+
+Using MS2-Example, you can specify multiple examples within a response. This example shows three
+examples for the status code 200:
+
+/examples: get: responses: 200: body: application/json: examples: one: prop1: something prop2: 30
+two: prop1: another prop2: 31 three: prop1: anything prop2: 33
+
+Here, the possible values of the header would be `one`, `two`, and `three`. Sending the value `one`
+as part of the request would return the payload `something` and `30`. Sending a value other than
+`one`, `two`, or `three` would return an error message.
+
+## MS2-Error-Level
+
+MS2-Error-Level indicates which range of error status codes the mocking service is restricted to
+using. You can specify one of the following three case-sensitive values:
+
+- `REQUEST_ONLY`: The mocking service uses only 4XX codes.
+- `SERVER_ONLY`: The mocking service uses only 5XX codes.
+- `ALL`: The mocking service can use both 4XX and 5XX codes. This is the default value.
+
+## MS2-Error-Rate
+
+MS2-Error-Rate indicates the probability of getting an error status code as a response. The value
+for this header must be a decimal between 0 and 1.
+
+This header works together with MS2-Status-Code, MS2-Error-Level, or both at the same time.
+
+<table><caption>Table 1. How the mocking service determines which status code to respond with when you use MS2-Error-Rate</caption> <colgroup><col> <col> <col></colgroup><thead><tr><th>Other header used with MS2-Error-Rate</th><th>Mocking service (MS) responds with an error code</th><th>Mocking service does not respond with an error code</th></tr></thead><tbody><tr><td><p>MS2-Status-Code</p></td><td><p>MS uses the error code specified in MS2-Status-Code.</p></td><td><p>MS uses the non-error status code specified in MS2-Status-Code.</p></td></tr><tr><td><p>MS2-Error-Level</p></td><td><p>MS uses the first error status code that is defined for the method and that falls in the range specified for MS2-Error-Level.</p></td><td><p>MS uses the first non-error status code that is defined for the method.</p></td></tr><tr><td><p>MS2-Error-Level and MS2-Status-Code</p></td><td><p>MS uses the first error status code that is defined for the method and that falls in the range specified for MS2-Error-Level.</p></td><td><p>MS uses the first non-error status code that is specified in MS2-Status-Code.</p></td></tr><tr><td><p>None</p></td><td><p>MS uses the first error status code that is defined for the method.</p></td><td><p>MS uses the first non-error status code that is defined for the method.</p></td></tr></tbody></table>
+
+## MS2-Randomize
+
+When MS2-Randomize is set to `true`, the mocking service auto-generates a payload response if no
+example is defined for the response.
+
+For example, suppose that an API specification contained the definitions of this type:
+
+types: Person: properties: id: integer name: string
+
+If you did not provide an example, but you used the header MS2-Randomize, set to `true`, with the
+mocking service, the payload of the returned message would contain an example with random values
+that matched the data types, like this:
+
+{ "id": 98358, "name": "OVCKr" }
+
+Moreover, the header supports more detailed definition of types. For example, you might change your
+type definition to look like this:
+
+types: Person: properties: id: type: integer minimum: 3 maximum: 30 multipleOf: 3 name: string
+
+If MS2-Randomize were set to `true`, the payload in the response from the mocking service might look
+like this, with the value of `id` conforming to the constraints:
+
+{ "id": 9, "name": "rul68" }
+
+## MS2-Status-Code
+
+MS2-Status-Code specifies the status code or codes that the mocking service can choose from for the
+return message. This header behaves as a filter on the list of status codes that are defined for a
+method. For example, suppose a method has several non-error status codes defined; if you wanted the
+mocking service to respond with only one of those status codes, you would specify it with this
+header.
+
+> [!IMPORTANT] If you use this header together with MS2-Error-Rate, you must specify both a
+> non-error status code and an error status code. Separate the two status codes with a comma. For
+> example, you might want the mocking service to return a 201 message, if there is no error, or a
+> 401 status code, if there is an error; in this case, you would specify `201,401` for the value.
+
+## MS2-Status-Code-Selection
+
+By default, when the mocking service responds to a request, it chooses the minimum status code that
+is defined for the corresponding method. For example, if you make a POST request to an endpoint that
+defines responses for status codes 201, 400, 409, and 500, by default the mocking service sends the
+response message that is defined for the 201 status code. With the MS2-Status-Code-Selection header,
+you can change this default behavior or the mocking service.
+
+You can combine the use of MS2-Status-Code-Selection with the use of MS2-Error-Level. The mocking
+service sorts in ascending numeric order the status codes that are in the range of error status
+codes specified by MS2-Error-Level, and then returns an error status code from that range, according
+to the strategy specified by MS2-Status-Code-Selection.
+
+The possible values of MS2-Status-Code-Selection are:
+
+`FIRST`
+
+The mocking service sorts the list of status codes in ascending numeric order and returns the lowest
+status code. For example, if the specification defines the status codes for a POST method in the
+order 500, 409, 400, 200, the mocking service returns the response for the 200 status code.
+
+`RANDOM`
+
+The mocking service randomly selects one of the status codes to return. For example, if the
+specification defines the status codes for a POST method 500, 409, 400, 200, the mocking service
+returns the response for any one of them.
+
+## MS2-Strict-Model-Validation
+
+This header can be helpful when you are simulating calls to an API with a specification that was
+written before API Designer switched to its stricter parser on January 10, 2019.
+
+When you set this header to `false`, you can use the mocking service even when the API specification
+contains errors.
+
+When you set this header to `true`, the mocking service validates the specification before
+responding. If there is an error in the specification, the mocking service fails with that error.
+Otherwise, the mocking service works as usual.
+
+## See Also
+
+- [Simulate Calls to an API](design-mocking-service)
+---
+
+# API Designer Troubleshooting
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This page describes common issues that sometimes occur when working in API Designer, along with
+their causes and recommended troubleshooting steps.
+
+## Preparing to publish status persists
+
+While working in API Designer, these issues sometimes occur:
+
+- The **Preparing to publish** dialog doesnât complete when publishing to Exchange.
+- API specifications donât display validation errors, warnings, or suggestions.
+- The API Console doesnât render or remains blank.
+- The browser console shows a `NetworkError` related to loading the `anypoint-als.js` library.
+
+These issues typically occur when a required API Designer component fails to load due to network
+restrictions.
+
+API Designer relies on API Language Services, which is a background service, to enable validation
+and rendering. In some environments, corporate firewalls, VPNs, or proxies can block or interrupt
+the download of this component, preventing the editor from functioning correctly.
+
+### Verification and diagnostics
+
+To verify whether your network is correctly delivering the required resources:
+
+- **Compare file delivery via cURL** Run this command and confirm the response is successful and
+  that the file size is approximately 1.5 MB:
+
+```bash
+curl -I https://cdn.anypoint.mulesoft.com/artifacts/api-designer-ui/app/static/js/anypoint-als.01bd90ee2cb9622ee518fcb3e30c444e.js
+```
+
+#### Troubleshooting
+
+To identify and resolve the issue:
+
+- **Test outside restricted networks**: Try accessing API Designer without a corporate VPN or proxy.
+- **Use a clean browser session**: Open a private or incognito window and disable browser
+  extensions.
+- **Try a different browser**: Switch to another browser, such as Chrome, Edge, Firefox, or Safari.
+- **Check local security software**: Ensure antivirus or endpoint protection tools arenât blocking
+  background scripts or service workers.
+---
+
+# Adding Dependencies to an API-Specification Project
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In projects for API specifications or API fragments, you can add dependencies of either RAML
+fragments, OAS components, JSON schemas, or rulesets. Because the dependencies are referenced in
+Anypoint Exchange, you cannot directly edit them in your projects.
+
+If you export your project or someone downloads your project as RAML from Exchange, the resulting
+ZIP file contains the referenced dependencies.
+
+> [!CAUTION] You must not edit the referenced dependencies in an editor other than the API Designer
+> editor. If you export your project to work on it in another editor, edit the referenced
+> dependencies, and then try to import the project back into the text editor, the import fails.  
+> Studio does not support OAS 3.0 fragments.
+
+## Add Dependencies to an API-Specification Project
+
+> [!NOTE] You can add up to **100 dependencies** (Fragments and Rulesets) per project.
+
+To add dependencies to an API-specification project:
+
+1.  In the text editor navigation menu, click the **Exchange dependencies** icon
+    (![manage dependency versions design center d96c7](_images/manage-dependency-versions-design-center-d96c7.png "Exchange Dependencies icon")).
+2.  Click the add icon (+) for the dependency type that you want to add.
+3.  To filter the list of dependencies you can:
+    - Select an organization
+    - Search by keyword
+    - Select **Include versions in Development**
+
+4.  Select the dependency versions you want to add:
+    - To use a version of a dependency other than latest, select the version for that dependency in
+      the **Version** drop-down.
+    - To view only the dependencies youâve selected, click **Show selected only**.
+    - You can see the format of the fragment (RAML, OAS, or JSON schema) next to each fragmentâs
+      name.
+
+5.  Click **Add dependency**.
+
+> [!NOTE] API Designer supports a maximum of 1,000 files for dependencies, with a total file size no
+> greater than 300 MB.
+
+## View Dependency Contents
+
+To view the contents of a dependency, click the more options menu icon
+(![overflow menu icon](_images/overflow-menu-icon.png "Three vertical dots")) for that dependency
+and then select **Show in Files** or **Open in Exchange**.
+
+> [!NOTE] If you select **Show in Files**, the **Files** section expands and the dependencies are
+> shown in the `exchange_modules` section. The subsections correspond to the URI for the referenced
+> dependency, which is its asset identifier, or GAV (group ID, asset ID, and version), in Exchange.
+
+When you are ready to continue work on your API project, click **Files** > API project file name.
+
+## Ruleset Dependencies
+
+If your API has been identified as governed through centralized API governance, a dot or warning
+icon appears on the **Exchange dependencies** icon to indicate you need to take action on the
+dependencies for this project. Click the **Exchange dependencies** icon to view and follow the
+interactive instructions to add rulesets as dependencies to your project.
+
+Even if your projects have not been identified as requiring action, you can proactively check the
+conformance of your APIs by adding published rulesets as dependencies to your API project.
+
+If your API fails to conform to the rulesets that your organization validates against, you get an
+email notification. You can click **Code in Design Center** to open API Designer, or click **API
+Details in Exchange** to be redirected to the API asset Conformance Status page.
+
+1.  If the asset version has an editable branch in API Designer, a pop-up appears where you can see
+    the missing rulesets filtered by tags, category, and lifecycle state. To edit those filters,
+    click **Edit criteria**. When you are done, click **Add all rulesets**.  
+    _Result_: The rulesets are added to your project.
+2.  If the asset version doesnât have an editable branch in API designer, you can either select an
+    editable branch of your project or create a new branch from your current version. You can then
+    add the missing rulesets to that editable branch. When you have your branch, a pop-up appears
+    where you can see the missing ruleset filtered by tags, category, and lifecycle state. To edit
+    those filters, click **Edit criteria**. When you are done, click **Add all rulesets**.  
+    _Result_: The rulesets are added to your project.
+
+## Improving Ruleset Validation
+
+When you add rulesets as dependencies, the rulesets are automatically validated by default. The
+complexity of the API and rulesets might increase the number of diagnostics being computed and
+trigger multiple automatic validations.
+
+The validation takes more time if:
+
+- Your API is modularized, has complex recursive types, or has circular references.
+- You add multiple ruleset dependencies to an API project.
+- You are consuming a significant amount of browser resources.
+
+To improve ruleset validation times:
+
+- Close unnecessary browser tabs or applications.
+- Ensure your device is running efficiently and has enough memory and CPU resources.
+- Switch to manual validation. This runs a single validation for each ruleset rather than triggering
+  multiple automatic validations that might exhaust your available resources.
+
+If the validation process takes too long, a warning message appears informing you that
+auto-validation is disabled for that project.
+
+- To change to manual mode, click **Ok**.
+- To continue using auto-validation, click **Cancel**. Note that if the auto-validation of rulesets
+  still takes too long, you get the warning message again.
+
+You can switch between auto-validation and manual validation in your API project. This changes the
+validation setting for that specification only.
+
+To turn on manual validation of your rulesets:
+
+1.  In the **Project Errors** section of the text editor, select the **Governance** tab.
+2.  Click the **Governance auto-validation** icon
+    (![green governance auto validation](_images/green-governance-auto-validation.png "Governance auto-validation"))
+    to disable auto-validation.
+3.  Click the **Validate for governance** icon
+    (![validate for governance](_images/validate-for-governance.png "Validate for governance")) to
+    enable manual validation.
+
+    This runs a single validation for each ruleset rather than triggering multiple automatic
+    validations that might exhaust your available resources.
+
+To enable auto-validation again:
+
+1.  In the **Project Errors** section of the text editor, select the **Governance** tab.
+2.  Click the auto-validation icon
+    (![red governance auto validation](_images/red-governance-auto-validation.png "Governance auto-validation"))
+    to enable auto-validation again.
+
+> [!NOTE] If the auto-validation still takes too long, you get the warning message again.
+
+## Fix Governance Conformance Issues
+
+After you add the rulesets as dependencies, you can view the conformance messages in the **Project
+Errors** section of the text editor. Use the provided information to fix any conformance issues and
+then republish your API specification.
+
+## See Also
+
+- [Finding API Conformance Issues in API Specifications](../api-governance/find-conformance-issues)
+- [Create an Asset](../exchange/to-create-an-asset)
+---
+
+# Set User Access Permissions
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Design Center provides multiple ways to set up access management to provide collaboration across
+teams.
+
+Depending on your organizationâs permission structure, you can assign permissions using the
+[Teams](../access-management/teams) feature, the [Roles](../access-management/users#roles) feature
+(deprecated), or by assigning an
+[individual user permission](../access-management/users#grant-user-permissions).
+
+## Design Center Permissions
+
+### Business Group Permissions
+
+Design Center Developer
+
+Enables users to view, create, and manage all projects within a business group. Use this permission
+to set up administrators for all the projects within a specific business group.
+
+Design Center Creator
+
+Enables users to create projects in Design Center from the navigation panel and view all projects
+created or shared with the user. Use this permission to invite users to create, edit, and maintain
+your projects.
+
+Design Center Viewer
+
+Enables users to view all Design Center projects within a business group and test projects with the
+Mocking Service. Users with this permission cannot create new projects, edit or rename existing
+projects, or share projects with another user. Assign this permission to those who consume your
+project in a specific business group.
+
+### Project Level Permissions
+
+Project Administrator
+
+Enables users to manage and share a Design Center project within a business group. Use this
+permission to set up administrators for all the projects within a specific business group.
+
+Project Editor
+
+Enables users to edit a Design Center project within a business group. Use this permission to invite
+users to create, edit, and maintain your projects.
+
+Project Viewer
+
+Enables users to view a Design Center project within a business group and test projects with the
+Mocking Service. Users with this permission cannot create a new project, edit or rename the existing
+project, or share the project with another user. Assign this permission to those who consume your
+project in a specific business group.
+
+> [!NOTE] If you grant organization and project permissions, the highest permission level is the one
+> that applies to that specific project.
+
+## Project Views
+
+From the Design Center home page, you can select between three types of views for your project list:
+
+**API Projects**: Lists all the projects you have access to. **Shared with me**: Lists only the
+projects shared with you by other users.
+
+## Sharing Projects from Design Center
+
+> [!NOTE] You canât share Mule applications.
+
+To share your projects and add the corresponding permissions directly from Design Center:
+
+1.  On the Design Center home page, select the project.
+2.  Click the **Share project** icon, or click **Toggle project details** icon and then click
+    **Change access**.
+    1.  In the **Share project** dialog box, enter the name of the user or the team in your
+        organization to give access.
+    2.  Select the permission level from the dropdown list. The available options are âViewerâ,
+        âEditorâ, and âAdminâ.
+    3.  Click **Save** and then click **Close**.
+
+> [!NOTE] This action sends the user an email informing a project has been shared with them.
+
+## Sharing Projects from API Designer
+
+To share your projects and add the corresponding permissions directly from API Designer:
+
+1.  From the Design Center home page, click the project name link to open a project.
+2.  Click the **Share** button.
+    1.  In the **Share project** dialog box, enter the name of the user or the team in your
+        organization to give access.
+    2.  Select the permission level from the dropdown list. The available options are âViewerâ,
+        âEditorâ, and âAdminâ.
+    3.  Click **Save** and then click **Close**.
+
+> [!NOTE] This action sends the user an email informing a project has been shared with them.
+
+## Changing Ownership of Projects from Design Center
+
+If you are a project owner or an organization administrator, you can change the ownership of your
+projects. To change the ownership of your projects directly from Design Center:
+
+1.  On the Design Center home page, select the project.
+2.  Click the **Share project** icon, or click **Toggle project details** icon and then click
+    **Change access**.
+    1.  In the **Share project** dialog box, enter the name of the user in your organization to give
+        ownership of your project.
+    2.  Select **Transfer Ownership** from the dropdown list.
+    3.  Click **Save** and then click **Close**.  
+        _Result_: The new owner appears in the project details, and the previous owner is now
+        granted the Project administrator permissions, as there can only be one owner per project.
+
+## Changing Ownership of Projects from API Designer
+
+If you are a project owner or an organization administrator, you can change the ownership of your
+projects. To change the ownership of your projects directly from API Designer:
+
+1.  From the Design Center home page, click the project name link to open a project.
+2.  Click the **Share** button.
+    1.  In the **Share project** dialog box, enter the name of the user in your organization to give
+        ownership of your project.
+    2.  Select **Transfer Ownership** from the dropdown list.
+    3.  Click **Save** and then click **Close**.  
+        _Result_: The new owner appears in the project details, and the previous owner is now
+        granted the Project administrator permissions, as there can only be one owner per project.
+
+## Removing Access from a Project
+
+1.  Open the **Share project** dialog from API Designer or Design Center.
+2.  For the user or team that you want to remove access to, select **Remove Access** from the
+    dropdown list.
+3.  Click **Close**.
+---
+
+# AsyncAPI Specifications
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can create or import your AsyncAPI specifications in API Designer and then edit, document, and
+publish them.
+
+AsyncAPI is a language that describes messaging interfaces. This open-source, industry-standard
+language is agnostic to any technology. To learn more, see the
+[AsyncAPI documentation](https://www.asyncapi.com/docs/tutorials/getting-started).
+
+AsyncAPI makes it easy to work with event-driven architecture by separating the API into three
+layers:
+
+- Events: Message or data to be shared with other services
+- Channels: Destination of the message to be sent or received
+- Transport: Technology that transports the message, such as RabbitMQ, Kafka, or Anypoint MQ
+
+You can create or import an API specification in API Designer.
+
+## Create an AsyncAPI Specification in API Designer
+
+To create an AsyncAPI specification in API Designer:
+
+1.  In Design Center, click **Create New**.
+2.  Select **New AsyncAPI**.
+3.  In the **New AsyncAPI** dialog, name your project.
+4.  Select the AsyncAPI language under **Specification Language**.
+
+The text editor opens.
+
+For more information about how to use API Designer, refer to
+[Create an API Specification with the Text Editor](design-create-publish-api-raml-editor).
+
+## Import AsyncAPI Specifications
+
+To import AsyncAPI specifications from Anypoint Exchange or from your filesystem:
+
+1.  Click the gear icon at the top right of the text editor.
+2.  Select from the following options:
+    - Select **Import from Exchange** to see the following lists:
+      - API specifications that are available from the business organization that your user ID
+        belongs to in Anypoint Platform
+      - API specifications that are published by MuleSoft
+
+    - Select **Import** to import an API specification from your local filesystem.
+
+3.  As appropriate, continue to work with your AsyncAPI specification in API Designer:
+    - Develop and edit AsyncAPI specifications.
+    - View documentation that is included in AsyncAPI specifications.
+    - Publish AsyncAPI specifications to Anypoint Exchange.
+
+## Example AsyncAPI 2.6 Specification
+
+Following is an example that you can copy into API Designer to get started with event-driven APIs.
+
+The following API specification example defines a typical event-driven process that uses Anypoint MQ
+and Kafka protocols. Sections in the example specification are:
+
+- AsyncAPI
+
+  Identifies the API model as AsyncAPI and specifies the title and version of the API spec
+
+- Servers Defines message brokers that determine the connectors to use (indirectly) when publishing
+  events or subscribing to events through operations in the AsyncAPI module:
+  - `AMQ-prod` configures an Anypoint MQ Broker
+  - `Kafka-prod` configures a locally hosted Kafka broker
+
+- Operation Defines the action that the application takes and whether the event is consumed or
+  published
+- Channels Defines the bindings:
+  - `order-placed`, `order-cancelled`, and `order-confirmed` configures Anypoint MQ channels for
+    publishing and subscribing to orders
+  - `order-backordered` configures a Kafka channel for publishing and subscribing to backorders
+
+- Components
+
+  Defines the structure of messages for the different types of orders, which include `OrderPlaced`,
+  `OrderCancelled`, `OrderConfirmed`, and `BackOrder`
+
+To try the example, create a new AsyncAPI specification in Design Center and copy the following code
+directly into API Designer:
+
+```yaml
+asyncapi: "2.6.0"
+info:
+  title: Async-AMQ-Kafka-Orders
+  version: "1.0.0"
+  description: Orders API
+  license:
+    name: Anypoint MQ
+    url: https://license.com
+  contact:
+    name: Max Muley
+    email: max@salesforce.com
+    url: http://www.salesforce.com
+defaultContentType: application/json
+tags:
+  - name: Orders API
+    description: API for orders
+servers:
+  AMQ-prod:
+    url: https:://your_MQ_server_URL_here
+    protocol: anypointmq
+    protocolVersion: v1
+    description: Anypoint MQ broker
+  Kafka-prod:
+    url: localhost:9092
+    protocol: kafka
+    description: kafka broker
+channels:
+  order-placed:
+    description: new orders channel
+    servers:
+      - AMQ-prod
+    publish:
+      operationId: listen-order-placed
+      description: listen for new order events
+      summary: Order Placed Event
+      message:
+        $ref: "#/components/messages/OrderPlaced"
+    subscribe:
+      operationId: publish-order-placed
+      description: publish new order events
+      summary: Order Placed Event
+      message:
+        $ref: "#/components/messages/OrderPlaced"
+  order-updated:
+    description: updated orders channel
+    servers:
+      - AMQ-prod
+    publish:
+      operationId: listen-order-updated
+      description: listen for updated order events
+      summary: Order updated Event
+      message:
+        $ref: "#/components/messages/OrderPlaced"
+    subscribe:
+      operationId: publish-order-updated
+      description: publish updated order events
+      summary: Order updated Event
+      message:
+        $ref: "#/components/messages/OrderPlaced"
+  order-cancelled:
+    description: orders cancelled channel
+    servers:
+      - AMQ-prod
+    publish:
+      operationId: listen-order-cancellations
+      description: listen for order cancellation events
+      summary: Order Cancelled Event
+      message:
+        $ref: "#/components/messages/OrderCancelled"
+    subscribe:
+      operationId: publish-order-cancellations
+      description: publish order cancellation events
+      summary: Order Cancelled Event
+      message:
+        $ref: "#/components/messages/OrderCancelled"
+  order-confirmed:
+    description: orders confirmed channel
+    servers:
+      - AMQ-prod
+    publish:
+      operationId: listen-order-confirmations
+      description: listen for order confirmation events
+      summary: Order Confirmed Event
+      message:
+        $ref: "#/components/messages/OrderConfirmed"
+    subscribe:
+      operationId: publish-order-confirmations
+      description: publish order confirmation events
+      summary: Order Confirmed Event
+      message:
+        $ref: "#/components/messages/OrderConfirmed"
+  order-backordered:
+    servers:
+      - Kafka-prod
+    description: orders backordered channel
+    publish:
+      operationId: listen-order-backordered
+      description: listen for backorder events
+      summary: Backorder Event
+      message:
+        $ref: "#/components/messages/BackOrder"
+    subscribe:
+      operationId: publish-order-backordered
+      description: publish backorder events
+      summary: Backorder Event
+      message:
+        $ref: "#/components/messages/BackOrder"
+components:
+  messages:
+    OrderPlaced:
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: string
+          customerName:
+            type: string
+          email:
+            type: string
+          items:
+            type: array
+            items:
+              type: object
+              properties:
+                productId:
+                  type: string
+                productName:
+                  type: string
+                quantity:
+                  type: integer
+                price:
+                  type: number
+    OrderConfirmed:
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: string
+          email:
+            type: string
+    OrderCancelled:
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: string
+          email:
+            type: string
+          reason:
+            type: string
+    BackOrder:
+      payload:
+        type: object
+        properties:
+          orderId:
+            type: string
+          email:
+            type: string
+```
+
+## Example AsyncAPI 2.6.0 Specification (Inline Avro)
+
+If you created an AsyncAPI specification project, you can replace the initial API specification with
+following example code to test inlining the API specification fragments:
+
+```yaml
+asyncapi: 2.6.0
+info:
+  title: Example AsyncAPI Spec (Inline Avro)
+  version: "1.0.0"
+channels:
+  myChannel:
+    publish:
+      message:
+        schemaFormat: "application/vnd.apache.avro;version=1.9.0"
+        payload:
+          name: AmericanFlightDataType
+          type: record
+          fields:
+            - name: ID
+              type: int
+              default: 1
+            - name: code
+              type: string
+              default: ER38sd
+            - name: price
+              type: int
+              default: 400
+            - name: departureDate
+              type: string
+              default: 2017/07/26
+            - name: origin
+              type: string
+              default: CLE
+            - name: destination
+              type: string
+              default: SFO
+            - name: emptySeats
+              type: int
+              default: 0
+            - name: plane
+              type:
+                name: Plane
+                type: record
+                fields:
+                  - name: type
+                    type: string
+                  - name: totalSeats
+                    type: int
+```
+
+## Example AsyncAPI Specification Fragment (Avro Schema)
+
+If you created an Avro Schema fragment, you can replace the initial API fragment with following
+example code:
+
+```yaml
+{
+  "name": "AmericanFlightDataType",
+  "type": "record",
+  "fields":
+    [
+      { "name": "ID", "type": "int", "default": 1 },
+      { "name": "code", "type": "string", "default": "ER38sd" },
+      { "name": "price", "type": "int", "default": 400 },
+      { "name": "departureDate", "type": "string", "default": "2017/07/26" },
+      { "name": "origin", "type": "string", "default": "CLE" },
+      { "name": "destination", "type": "string", "default": "SFO" },
+      { "name": "emptySeats", "type": "int", "default": 0 },
+      {
+        "name": "plane",
+        "type":
+          {
+            "name": "Plane",
+            "type": "record",
+            "fields":
+              [{ "name": "type", "type": "string" }, { "name": "totalSeats", "type": "int" }],
+          },
+      },
+    ],
+}
+```
+
+## Example Referencing an Avro Fragment from an Async API
+
+```yaml
+asyncapi: 2.6.0
+info:
+  title: Example AsyncAPI Spec (Inline Avro)
+  version: "1.0.0"
+channels:
+  myChannel:
+    publish:
+      message:
+        schemaFormat: application/vnd.apache.avro;version=1.9.0
+        payload:
+          $ref: AmericanFlightDataType.avsc
+```
+
+> [!NOTE] For AVRO schema documents, `.avsc` is the default extension, but `.json` files are also
+> supported.
+
+## Example AsyncAPI 2.0 Specification
+
+This example is a typical event-driven process that is documented for easy reuse. It has a service
+with two channels, one that books the trade and another that gets the result of the booking
+asynchronously.
+
+Sections in the example specification are:
+
+- AsyncAPI
+
+  Identifies the API model as AsyncAPI and specifies the title and version of the API spec.
+
+- Channels
+  - The book_trade channel enables you to specify the buy/sell order, symbol, and number of shares
+    you would like to purchase.
+  - The trade_result channel returns the result of the transaction.
+
+To try the example, create a new AsyncAPI specification in Design Center and copy the following code
+directly into API Designer:
+
+```yaml
+asyncapi: 2.0.0
+info:
+  title: Async Request/Trade API
+  version: 0.1.0
+
+channels:
+  book_trade:
+    publish:
+      message:
+        payload:
+          type: object
+          properties:
+            trade-id:
+              type: integer
+              minimum: 0
+              description: the order id of the message coming
+            trade-symbol:
+              type: string
+              minimum: 0
+              Description: ticker symbol of the stock.
+            trade-type:
+              type: string
+              format: string
+              description: BUY or SELL
+            trade-amount:
+              type: number
+              format: float
+              description: the number of shares to be traded.
+  trade_result:
+    subscribe:
+      message:
+        payload:
+          type: object
+          properties:
+            trade-id:
+              type: integer
+              minimum: 0
+              description: the order id of the message coming
+            trade-symbol:
+              type: string
+              format: string
+              description: ticker symbol of the stock.
+            trade-time:
+              format: date-time
+              description: date and time of the order.
+            trade-amount:
+              type: number
+              format: float
+              description: the number of shares to be traded.
+            trade-type:
+              type: string
+              format: string
+              description: BUY or SELL
+            trade-status:
+              type: string
+              format: string
+              description: PENDING, PROCESSED and FAILED
+```
+
+For documentation on using API Designer to work with your specification, see
+[API Designer](design-create-publish-api-specs).
+
+## See Also
+
+- [Design APIs in API Designer](design-create-publish-api-specs)
+- [Configure API Instances in Exchange](../exchange/to-configure-api-settings)
+- [AsyncAPI](https://www.asyncapi.com/docs/tutorials/getting-started)
+---
+
+# Best Practices when using API Designer
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+When you perform tasks on Design Center, you might encounter issues. Use the following topics to
+help you resolve them.
+
+## API Designer Best Practices
+
+- Divide your fragments into short, reusable dependencies when possible.
+- Keep only one version of the same dependency.
+- Keep only one browser tab open at a time.
+
+### API Designer Resources
+
+When using API Designer, the required resources to parse the specification depend on the users own
+resources. For API Designer to function properly, ensure your computer has the following minimum
+resources available when using API Designer:
+
+- 8 GB RAM
+- Ryzen series 5 / Intel i5 CPU or higher
+
+To achieve optimal parser performance, keep the total project size for all files in your design
+project below 500 KB.
+
+A project size that exceeds 1.5 MB severely affects validation time.
+
+### OAS Specification Best Practices
+
+- Use the `$ref` property to define reusable components. To improve parsing efficiency, reference
+  each component from the API specification instead of duplicating component definitions, for
+  example:
+
+  components: schemas: User: type: object properties: id: type: integer
+
+  paths: /users: get: responses: '200': description: Successful response content: application/json:
+  schema: $ref: '#/components/schemas/User'
+
+- Use simpler types to represent your data if possible. Avoid unnecessary nesting and complicated
+  types, for example:
+
+  properties: age: type: integer # Prefer simple types over complex types like objects
+
+- Use the `enum` property for fields with a fixed set of values to improve parsing efficiency:
+
+  properties: status: type: string enum: \[active, inactive\]
+
+- Use simple nesting for objects to simplify the structure and improve readability and parsing
+  efficiency:
+
+  \# Good properties: name: type: string address: type: string
+
+  # Avoid
+
+  properties: user: type: object properties: profile: type: object properties: name: type: string
+
+- Use `response` headers instead of the response body to provide additional information, for
+  example:
+
+  responses: '200': description: Successful response headers: X-Rate-Limit-Limit: description: The
+  number of requests allowed in the current period schema: type: integer
+
+- Provide concise and short examples:
+
+  Book: type: string example: "Explain the string with as few words as possible."
+
+- When using union-type properties, use `oneOf` to represent union-type object fields, `allOf` to
+  represent an intersection type and composite objects and fields, and `anyOf` when defining a
+  property with multiple possible data structures.
+
+### RAML Specification Best Practices
+
+- When extracting RAML fragments, import each fragment as a local declaration first:
+
+  Create a fragment file, and before publishing the fragment to Anypoint Exchange, import the local
+  fragment file to validate that the fragment works as expected. If the fragment works, publish the
+  fragment to Exchange so you can reuse the fragment in your API specifications instead of
+  duplicating it.
+
+- Reuse data types as declarations.
+- Use inheritance only when needed:
+
+  Car: description: This is a car properties: brand: string model: string example: brand: Toyota
+  model: Corolla Person: properties: owns: Car
+
+- Use short unions:
+
+  Person: type: Employee | Customer
+
+- Use simple traits, and avoid combining traits with resource type properties:
+
+  /basic: type: {resourceTypes.fhirResourceType: { postExample : !include
+  /examples/requests/post_resource.json, getExample : !include
+  /examples/responses/get_resource.json, bundleName : basic.BasicBundle } } /\_search: get: is: \[
+  searchParams \] post: is: \[ POSTSearchParams \]
+---
+
+# Fork a Project in the Text Editor
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can separate new iterations of a project from previous iterations by branching.
+
+## About this Task
+
+A new branch is a fork of your project and cannot be merged back into the main branch. Anybody who
+has access to your project can also create branches.
+
+Even when there are forks of a project, when you open that project the editor opens it to the main
+branch. If you want to return to a fork that you were working in, you must select that fork.
+
+You can publish any fork of an API specification to Anypoint Exchange.
+
+## Procedure
+
+- To fork a project:
+  1.  Open the project.
+  2.  Click the name of your branch at the top of the text editor.
+  3.  Type a name in the search field and type **Enter**.
+
+      **Result:** The text editor automatically switches to the new fork.
+
+- To work in a fork of a project:
+  1.  Open the project.
+  2.  Click the name of your branch at the top of the text editor.
+  3.  Select the name of the fork that you want to work in.
+---
+
+# Design Center Release Notes
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following release notes are provided for Design Center:
+
+- [API Designer Release Notes](../release-notes/design-center/design-center-release-notes)
+- [API Mocking Service Release Notes](../release-notes/api-mocking-service/api-mocking-service-release-notes)
+---
+
+# Root Files in Projects in the Text Editor in API Designer
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In API-specification projects that you create in the text editor and in API-fragment projects, one
+file is always designated as the "root file." In the **Files** pane, the root file is indicated with
+a rectangle that is labeled **Root file**. When you publish your project to Anypoint Exchange, the
+root file sets the context for the parser that validates the files in the project.
+
+For example, suppose that a RAML API-specification project contains two specifications, each
+including (with the `!include` keyword) a different set of API fragments that are also in the
+project. When you publish the project to Exchange, all of the files in the project are published.
+However, Exchange needs to validate the specification and the files that it includes. Without a root
+file, Exchange cannot ascertain which file to parse first and which set of files to parse.
+
+As another example, suppose that you want to publish an API-fragment project that contains several
+fragments, one of which is independent and the remaining files of which are a library fragment and
+its dependencies. If no root file is specified in the project, Exchange cannot parse the files
+correctly. In this case, you could set the independent fragment as the root file, indicating to
+Exchange that the file can be parsed alone. Alternatively, you could set the library file as the
+root file, indicating to Exchange that parsing should begin with that file and proceed to the
+dependent fragments.
+
+> [!NOTE] The first time that you open in the text editor a project that was created before the
+> February 8, 2020 release of API Designer, you are prompted to set a root file.
+
+## Root Files in API-Specification Projects in the Text Editor
+
+Every API-specification project is created with a default root file. You can switch the root file
+when there is more than one specification in a project.
+
+### The Default Root File
+
+When you create an API-specification project, the file that is created by default is set to be the
+root file:
+
+![The default root file in an API-specification project named "Orders API"](_images/apid-default-root-file-api-spec-project.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The name of the RAML API-specification project is <code>Orders API</code>.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>The default file, which is named <code>orders-api.raml</code> and is set as the root file because every API-specification project must have a root file.</td></tr></tbody></table>
+
+### Setting the Root File in an API-Specification Project That Contains More Than One Specification
+
+When you import a specification into a project, API Designer asks whether you want to set the
+specification as the root file of the project.
+
+You can set any specification in an API-specification project as the root file of that project. For
+example, the following image shows that a project contains two specifications:
+
+![An API-specification project with two specifications. The current root file is the RAML version of the specification.](_images/apid-root-file-api-spec-project-multi-specs.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The OAS version of the Inventory Process API specification.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>The RAML version of the same specification. This version of the specification is currently set as the root file.</td></tr></tbody></table>
+
+When you click the three dots to the right of a specification that is not currently the root file,
+the menu that appears provides an option for setting that specification as the root file:
+
+![The Set as root file option at the top of the menu opened by clicking the three dots.](_images/apid-root-file-api-spec-project-multi-specs-2.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The three dots that open the action menu for a file when clicked.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>The <strong>Set as root file</strong> option at the top of the action menu.</td></tr></tbody></table>
+
+## Root Files in API-Fragment Projects
+
+Every API-fragment project is created with a default root file. You can switch the root file when
+there is more than one fragment in a project.
+
+### The Default Root File in API-Fragment Projects
+
+When you create an API-fragment project, the file that is created by default is set to be the root
+file:
+
+![The default root file in an API-fragment project named "Retail Common."](_images/apid-default-root-file-api-frag-project.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The name of the RAML API-fragment project is Retail Common.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>The default file, which is named <code>retail-common.raml</code> and is set as the root file because every API-fragmentation project must have a root file.</td></tr></tbody></table>
+
+### Setting the Root File in an API-Fragment Project That Contains More Than One Fragment
+
+When you import a fragment into an API-fragment project, API Designer asks whether you want to set
+the fragment as the root file of the project.
+
+You can set any fragment in an API-fragment project as the root file of that project. For example,
+the following image shows that a project contains two fragments, the first of which is set as the
+root file:
+
+![An API-fragment project with two fragments.](_images/apid-root-file-api-frag-project-multi-frags.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The fragment that is set as the root file.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>The other fragment.</td></tr></tbody></table>
+
+When you click the three dots to the right of a fragment that is not currently the root file, the
+menu that appears provides an option for setting that fragment as the root file.
+
+![The Set as root file option at the top of the menu opened by clicking the three dots.](_images/apid-root-file-api-frag-project-multi-frags-2.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The three dots that open the action menu for a file when clicked.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>The <strong>Set as root file</strong> option at the top of the action menu.</td></tr></tbody></table>
+---
+
+# Common Problems Found in RAML 0.8 API Specifications
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following sections describe common errors authors make when writing API specifications in RAML
+0.8, and tips for resolving them.
+
+## Using a reserved name for a schema
+
+If you use a reserved name as the name of a schema, the editor displays this message:
+
+âschemaNameâ cannot be used to name a custom schema
+
+Examples of reserved names are `string`, `integer`, `number`, and `object`. Any name that is used in
+the RAML specification cannot be used as the name for a schema.
+
+For example, this API specification would cause the editor to display the message:
+
+#%RAML 0.8
+
+title: Example API Spec
+
+schemas: string: type: string
+
+To resolve the problem, you would need to use a different name in the schema declaration:
+
+#%RAML 0.8
+
+title: Example API Spec
+
+schemas: customString: type: string
+
+[Back to the top](#bookmark-a)
+
+## Problems when validating examples
+
+### Not using a data type of string for the example of a Boolean enum
+
+Whether the values for a Boolean enum are both strings or Boolean values, the example of the enum
+must be a string. To illustrate the violation, this API specification shows an example using the
+wrong data type.
+
+#%RAML 0.8 title: ExampleRAML /nob: head: responses: 204: headers: X-NOB-Exists: enum: \[true,
+false\] example: true
+
+RAML 0.8 supports enum values as strings only, not as boolean values. Also, in the example RAML
+above, no data type for the enum is declared. In RAML 0.8, when a data type is not declared, it is
+assumed to be `string`.
+
+Therefore, the values in the enum in the incorrect example above must be in quotation marks. Thatâs
+because the data type of an example must be the same as the data type of the element that it is an
+example of.
+
+The last two line of the example RAML above should then be as they are in this correction:
+
+... enum: \["true", "false"\] example: "true"
+
+[Back to the top](#bookmark-a)
+
+### Not using a required property in the example of a schema that defines that property
+
+If a schema defines a required property, the example of that schema must use that property. In this
+example of the problem, the following API specification defines a response for the endpoint
+`/order/{id}`. The definition includes two files: `get_order_response_schema.json` and
+`get_order_response.json`.
+
+#%RAML 0.8 title: ExampleRAML version: 1.0 ... /order: displayName: Orders API /create: ...
+
+/{id}: displayName: Get Order by OrderId description: This operation will get an order by order ID
+from Salesforce. get: description: This operation returns the order from Salesforce by Fulfillment
+Order ID, not by the Salesforce unique ID. responses: 200: body: application/json: schema: !include
+get_order_response_schema.json example: !include get_order_response.json
+
+The file `get_order_response_schema.json` defines the property `sfOrderId` as a required property.
+
+{ "type":"object", "$schema": "http://json-schema.org/draft-03/schema", "id":
+"http://com.mulesoft.demo.orders.get.json.order", "required":false, "properties":{ ... "sfOrderId":
+{ "type":"string", "id": "http://com.mulesoft.demo.orders.create.json.get.sfOrderId",
+"required":true }, ...
+
+The example of the schema is in `get_order_response.json`. However, the name of the required
+property is misspelled as `sOrderId`.
+
+{ "orderId": 14523, "sOrderId": "fadfead3524523", "sfAccountId": "fedfes3653635", "orderName":
+"Order From Manufacturing-Company, Inc.", "total": 174.92, "orderType": "E-Commerce Order",
+"description": "8 widgets", "orderDate": "04-03-2018" }
+
+[Back to the top](#bookmark-a)
+
+### Not using in an example of a schema the data type that the schema defines
+
+For example, the schema in the following API specification defines the data type for the property
+`title` as an object; however, an array is used in the example of the schema.
+
+#%RAML 0.8 title: ExampleRAML schemas:
+
+- presentation: | { "$schema": "http://json-schema.org/draft-03/schema", "type": "object",
+  "properties": { "title": { "type": "string" } } }
+
+/presentations: &presentations type: { typedCollection: { schema: presentation } } get: responses:
+200: body: application/json: example: | \[ { "title": "Presentation Video" }, { "title":
+"Environment Spec Report" } \]
+
+[Back to the top](#bookmark-a)
+
+### Using 0 or 1 as the value of an example of a Boolean
+
+An example for a Boolean must have a value of "true" or "false". In this API specification
+illustrating the violation, the value of the example for the form parameter `is_public` is
+incorrect.
+
+#%RAML 0.8 title: ExampleRAML
+
+/upload: post: description: | Upload a photo body: multipart/form-data: formParameters: title:
+description: The title of the photo. is_public: type: boolean example: 1
+
+### Not including a property in an example
+
+If an example is missing a property of the type that it is exemplifying, the editor displays this
+violation message:
+
+should have required property 'property name'
+
+For example, the property `age` is missing in the example:
+
+#%RAML 0.8 title: Example API Spec
+
+/clients: get: responses: 200: body: application/json: schema: | { "$schema":
+"http://json-schema.org/draft-03/schema", "properties": { "firstName": { "type": "string" },
+"lastName": { "type": "string" }, "age": { "type": "number", "required": true } }, "required":
+false, "type": "object" } example: firstName: John lastName: Smith
+
+Either add the property to the example or, in the type declaration, declare the property as
+optional.
+
+In this case, the property is added to the example:
+
+#%RAML 0.8 title: Example API Spec
+
+/clients: get: responses: 200: body: application/json: schema: | { "$schema":
+"http://json-schema.org/draft-03/schema", "properties": { "firstName": { "type": "string" },
+"lastName": { "type": "string" }, "age": { "type": "number", "required": true } }, "required":
+false, "type": "object" } example: firstName: John lastName: Smith age: 30
+
+In this case, the property is declared as optional:
+
+#%RAML 0.8 title: Example API Spec
+
+/clients: get: responses: 200: body: application/json: schema: | { "$schema":
+"http://json-schema.org/draft-03/schema", "properties": { "firstName": { "type": "string" },
+"lastName": { "type": "string" }, "age": { "type": "number", "required": false } }, "required":
+false, "type": "object" } example: firstName: John lastName: Smith
+
+[Back to the top](#bookmark-a)
+
+[Back to the top](#bookmark-a)
+
+## Not providing a value for the `title` node
+
+The `title` node cannot lack a value, as it does here:
+
+#%RAML 0.8 title:
+
+[Back to the top](#bookmark-a)
+
+## Not using the data type of the RAML element in the example for that element
+
+In all cases, the data type of an example must match the data type of the element that it is an
+example of.
+
+In this incorrect API specification, a query parameter is defined as a string; however, the example
+of the query parameter is an integer.
+
+#%RAML 0.8 title: ExampleRAML /books: get: queryParameters: publicationYear: type: string example:
+2016
+
+[Back to the top](#bookmark-a)
+
+## Using an invalid path for a reference inside a JSON schema
+
+When you use the `$ref` keyword in a JSON schema, the path that you specify with it must start at
+the root of the schema. For example, the `$ref` keyword used for the property `input2` in the
+following schema uses an incorrect path to refer to the property `input`.
+
+#%RAML 0.8 title: ExampleRAML version: v1 schemas:
+
+- authCodeResponse : | {
+  "$schema": "http://json-schema.org/draft-04/schema",
+      "properties": {
+        "input": {
+          "type": "string"
+        },
+        "input2": {
+          "$ref":
+  "input" } }, "type": "object" }
+
+The path must start at the root level of the schema and descend through the tree structure. This
+example of the schema shows the same `$ref` keyword using the correct path.
+
+{
+"$schema": "http://json-schema.org/draft-04/schema",
+      "properties": {
+        "input": {
+          "type": "string"
+        },
+        "input2": {
+          "$ref":
+"#/properties/input" } }, "type": "object" }
+
+[Back to the top](#bookmark-a)
+
+## Declaring a URI parameter that is never used
+
+If an API specification declares a URI parameter, but then does not use that parameter, the editor
+displays this warning message:
+
+unused uri parameter âparameterâ
+
+If the parameter is declared as a base URI parameter, but is not used, then this is the warning
+message:
+
+unused base uri parameter âparameterâ
+
+For example, the following API specification would generate two warning messages:
+
+unused uri parameter "unusedParam"
+
+unused base uri parameter "unusedUriParam"
+
+#%RAML 0.8 title: test
+
+baseUri: http://param.raml/a/{baseUriParam1}/{nonExists}/{baseUriParam2}
+
+baseUriParameters: baseUriParam1: type: string baseUriParam2: type: string unusedParam: type: string
+
+/endpoint/{uriParam1}/{nonExistsUri}: uriParameters: uriParam1: type: string unusedUriParam: type:
+string
+
+To resolve the warning messages, you would simply need to remove the lines that declare these
+parameters:
+
+#%RAML 0.8 title: test
+
+baseUri: http://param.raml/a/{baseUriParam1}/{nonExists}/{baseUriParam2}
+
+baseUriParameters: baseUriParam1: type: string baseUriParam2: type: string
+
+/endpoint/{uriParam1}/{nonExistsUri}: uriParameters: uriParam1: type: string
+
+[Back to the top](#bookmark-a)
+
+## Not declaring a media type for a payload
+
+If the declaration of a payload does not declare a media type, the editor displays this message:
+
+Payload media type is mandatory
+
+For example, the editor would display this message for the following API specification:
+
+#%RAML 0.8 title: Example API Spec /media: get: responses: 200: body: type: string
+
+There are two methods that you can choose from to resolve the problem:
+
+- Declare the media type locally in the payload declaration.
+
+  #%RAML 0.8 title: Example API Spec /media: get: responses: 200: body: application/json: type:
+  string
+
+- Specify the default media type globally for the API specification.
+
+  #%RAML 0.8 title: Example API Spec
+
+  mediaType: application/json
+
+  /media: get: responses: 200: body: type: string
+
+The following example uses both a global and a local declaration. In this case, the `mediaType` node
+defines acceptable media types as `application/json` and `application/xml`. The first type,
+`Person`, returns a body that is in either media type. However, the second type, `Another`,
+overrides the global declaration with a local one, and returns only a JSON body.
+
+#%RAML 0.8 title: New API mediaType: \[ application/json, application/xml \] schemas: Person:
+Another: /list: get: responses: 200: body: Person /send: post: body: application/json: schema:
+Another
+
+[Back to the top](#bookmark-a)
+
+## Not referencing fragments by using the `!include` tag
+
+If an API specification uses the key `uses` to reference fragments, the editor displays this
+message:
+
+Fragments must be imported by using '!include'
+
+[Back to the top](#bookmark-a)
+
+## Not applying libraries by using the `uses` key
+
+If an API specification uses the `!include` tag to apply a library, the editor displays this
+message:
+
+Libraries must be applied by using 'uses'
+
+[Back to the top](#bookmark-a)
+
+## Problems with syntax
+
+### Including a schema that contains invalid JSON
+
+The JSON in files that are included in the value of the `schemas` property must be valid.
+
+The first example includes the schema `appSwitcher.json`. However, the second shows that there is an
+error in the JSON: at the end of the last value, there is a comma, though there should instead be a
+quotation mark.
+
+#%RAML 0.8 title: ExampleRAML schemas:
+
+- appSwitcher: !include schemas/appSwitcher.json
+
+{ "appMenuItems" : \[ { "type" : "Tabset" , "content" : null , "icons" : null , "colors" : null ,
+"label" : "Call Center" , "url" : "/home/home.jsp?tsid=02uxx00000056Sr" } , { "type" : "Tabset" ,
+"content" : null , "icons" : null , "colors" : null , "label" : "Community" , "url" :
+"/home/home.jsp?tsid=02uxx00000056Sw" } , { "type" : "Tabset" , "content" : null , "icons" : null ,
+"colors" : null , "label" : "App Launcher" , "url" :
+"/app/mgmt/applauncher/appLauncher.apexp?tsid=02uxx00000056Sx, } \] }
+
+[Back to the top](#bookmark-a)
+
+### Using invalid JSON in examples of JSON schemas
+
+Examples of JSON schemas must be valid, unlike the example in the following API specification:
+
+#%RAML 0.8 title: ExampleRAML ... /api: get: responses: 200: body: application/json: schema: {
+"type": "object", "required": true, "$schema": "http://json-schema.org/draft-03/schema",
+"properties": { "a": { "type": "boolean", "required": true } } } example: { "a: { "a": "" }
+
+[Back to the top](#bookmark-a)
+
+### Not providing a YAML map when a facet requires one
+
+When a facet is described in the RAML 0.8 specification as requiring a map as a value, but the API
+specification doesnât provide a map, the editor returns the message `YAML map expected`.
+
+Here is an example of the error:
+
+#%RAML 0.8 title: Test version: 1.0 securitySchemes: basic: type: Basic Authentication settings:
+
+There are two ways to fix the error.
+
+- Provide a map as a value.
+
+  #%RAML 0.8 title: Test version: 1.0 securitySchemes: basic: type: Basic Authentication settings:
+  requestTokenUri: https://api.mysampleapi.com/1/oauth/request\_token
+
+- Delete the facetâââin this case, `settings`âââthat requires a map.
+
+  #%RAML 0.8 title: Test version: 1.0 securitySchemes: basic: type: Basic Authentication
+
+[Back to the top](#bookmark-a)
+
+## Using an unsupported property
+
+This error occurs if you use an undefined facet.
+
+Example error message
+
+`Property invalidfacet not supported in a RAML 0.8 webApi node`, where `invalidfacet` is the name of
+a facet that is not defined in the RAML specification.
+
+Here is an example that would generate this error:
+
+<table><caption>Table 1. Incorrect Example vs. Corrected Example</caption> <colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 0.8
+title: Test
+invalidfacet:
+version:</pre></div></div></div></td><td><div><div><div><pre>#%RAML 0.8
+title: Test
+version:</pre></div></div></div></td></tr></tbody></table>
+
+[Back to the top](#bookmark-a)
+
+## Declaring an undefined type in a header
+
+This error occurs when a non-existent type is specified in a header.
+
+Error message
+
+`Cannot declare unresolved parameter`
+
+In the incorrect example below, the value for the header `myHeader` has a typo. It is specified as
+`strang`, not as `string`.
+
+<table><caption>Table 2. Incorrect Example vs. Corrected Example</caption> <colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 0.8
+title: test
+
+/endpoint: post: headers: myHeader:
+strang</pre></div></div></div></td><td><div><div><div><pre>#%RAML 0.8 title: test
+
+/endpoint: post: headers: myHeader: string</pre></div></div></div></td></tr></tbody></table>
+
+[Back to the top](#bookmark-a)
+---
+
+# Common Problems Found in RAML 1.0 API Specifications
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following sections describe common errors authors make when writing API specifications in RAML
+1.0, and tips for resolving them.
+
+## Using the `schema` or `schemas` keyword instead of `type` or `types`
+
+The specification for RAML 1.0 replaced the keywords `schema` and `schemas` with `type` and `types`.
+If you use `schema` or `schemas`, the editor displays one of these warning messages:
+
+âschema' keyword it's deprecated for 1.0 version, should use 'type' instead
+
+'schemas' keyword it's deprecated for 1.0 version, should use 'types' instead
+
+For example, the following API specification generates both warning messages:
+
+#%RAML 1.0 title: Incorrect API with schema and schemas
+
+schemas: User: type: object properties: firstname: string lastname: string age: number
+
+/users/{id}: get: responses: 200: body: application/json: schema: User
+
+To resolve the problem, you would replace `schema` and `schemas` with `type` and `types`:
+
+#%RAML 1.0 title: Correct API with type and types
+
+types: User: type: object properties: firstname: string lastname: string age: number
+
+/users/{id}: get: responses: 200: body: application/json: type: User
+
+[Back to the top](#bookmark-a)
+
+## Using a reserved name for a type
+
+If you use a reserved name as the name of a type, the editor displays this message:
+
+âtypeNameâ cannot be used to name a custom type
+
+Examples of reserved names are `string`, `object`, `integer`, `number`, and `object`. Any name that
+is used in the RAML specification cannot be used as the name for a type.
+
+For example, this API specification would cause the editor to display the message:
+
+#%RAML 1.0
+
+title: Example API Spec
+
+types: string: type: string
+
+To resolve the problem, you would need to use a different name in the type declaration:
+
+#%RAML 1.0
+
+title: Example API Spec
+
+types: customString: type: string
+
+[Back to the top](#bookmark-a)
+
+## Common misconceptions about examples and RAML NamedExample fragments
+
+To avoid common problems with referencing a named example with an `!include` tag, follow these two
+guidelines:
+
+- In your API specification, use the `examples` facet and only one `!include` tag, as in this
+  example:
+
+  #%RAML 1.0 title: test types: A: properties: a: string b: integer examples: !include fragment.raml
+
+- In the fragment, ensure that each example consists of a name and values for each property, as in
+  the fragment below:
+
+  fragment.raml
+
+  #%RAML 1.0 NamedExample myExample1: a: "b1" b: 1
+
+  myExample2: a: "b2" b: 2
+
+For a more detailed discussion of how to use named examples, see
+[Guide to Defining Examples in RAML 1.0](design-named-examples).
+
+[Back to the top](#bookmark-a)
+
+## Appending references with hash symbols to filenames in `!include` statements
+
+A filename cannot be followed by a hash symbol and a reference to a location within the named file.
+In this example, `IncrementType.raml#increment` is not a valid link.
+
+#%RAML 1.0 DataType
+
+type: object properties: startValue: integer endValue: integer exclusiveEndValue: boolean range:
+type: array items: !include IncrementType.raml#increment
+
+If your specification contains an violation of this type, but you meant to write a comment, place an
+empty space before the "#" symbol. If you meant to reference an element that is in the file, such
+references are not allowed. References to inner elements are valid only for XSD and JSON schemas.
+
+[Back to the top](#bookmark-a)
+
+## Not correctly using curly braces and brackets in JSON examples
+
+There are many ways to misuse curly braces and brackets. This example illustrates one of them. An
+array of groups of JSON key/value pairs is improperly enclosed in a pair of curly braces.
+
+#%RAML 1.0 title: ExampleRAML ... /rooms: displayName: rooms get: description: get all rooms
+responses: 200: body: application/json: example: | { \[{ "Name": "Superior King", "Number": "201",
+"Property": "SE030", "Status": "Clean" }, { "Name": "Junior Suite", "Number": "202", "Property":
+"NO131", "Status": "Clean" }\] }
+
+If the example was meant be an object, then a key must be specified for it.
+
+#%RAML 1.0 title: ExampleRAML ... /rooms: displayName: rooms get: description: get all rooms
+responses: 200: body: application/json: example: { "some_key": \[ { "Name": "Superior King",
+"Number": "201", "Property": "SE030", "Status": "Clean" }, { "Name": "Junior Suite", "Number":
+"202", "Property": "NO131", "Status": "Clean" } \] }
+
+If the example was meant be an array, then the outside curly braces must be removed.
+
+#%RAML 1.0 title: ExampleRAML ... /rooms: displayName: rooms get: description: get all rooms
+responses: 200: body: application/json: example: \[ { "Name": "Superior King", "Number": "201",
+"Property": "SE030", "Status": "Clean" }, { "Name": "Junior Suite", "Number": "202", "Property":
+"NO131", "Status": "Clean" } \]
+
+[Back to the top](#bookmark-a)
+
+## Referencing libraries by using the `type` key
+
+As explained in the RAML 1.0 specification, you must apply libraries with the `uses` node:
+
+> Any number of libraries can be applied by using the OPTIONAL `uses` node ONLY at the root of a
+> \["main"\] RAML or RAML fragment file. The value of the \`use\`s node is a map of key-value pairs.
+> The keys are treated as library names, or namespaces, and the value MUST be the location of a RAML
+> library file, usually an external RAML library fragment document.
+
+If you apply a library with a `type` node, the editor displays this message:
+
+Libraries must be applied by using 'uses'
+
+Therefore, the following example is incorrect, given that the file `financeDetail.raml` is a
+library.
+
+#%RAML 1.0 title: ExampleRAML ... /claims: /{claim-id}: patch: body: application/json: type:
+!include financeDetail.raml
+
+This next example is correct.
+
+#%RAML 1.0 title: ExampleRAML uses: lib: financeDetail.raml /claims: /{claim-id}: patch: body:
+application/json: type: lib.myType
+
+[Back to the top](#bookmark-a)
+
+## Problems when validating examples
+
+### Not including a property in an example
+
+If an example is missing a property of the type that it is exemplifying, the editor displays this
+violation message:
+
+should have required property 'property name'
+
+For example, the property `age` is missing in the example:
+
+#%RAML 1.0 title: Example API Spec
+
+types: User: type: object properties: firstName: string lastName: string age: integer example:
+firstName: John lastName: Smith
+
+Either add the property to the example or, in the type declaration, declare the property as
+optional.
+
+In this case, the property is added to the example:
+
+#%RAML 1.0 title: Example API Spec
+
+types: User: type: object properties: firstName: string lastName: string age: integer example:
+firstName: John lastName: Smith age: 49
+
+In this case, the property is declared as optional:
+
+#%RAML 1.0 title: Example API Spec
+
+types: User: type: object properties: firstName: string lastName: string age?: integer example:
+firstName: John lastName: Smith
+
+[Back to the top](#bookmark-a)
+
+### Specifying values for an enum that does not match the enumâs data type
+
+Because of the editorâs strict parsing according to the YAML specification, it does not
+automatically cast values to declared data types. To illustrate the violation, here is an invalid
+declaration of an enum:
+
+type: string enum: \[1,2,3\]
+
+The data type for the enum is `string`; however, the values are all integers. Because the editor
+stricly parses according to the YAML specification, it does not cast the integers to `string` values
+automatically. Therefore, either the type is declared incorrectly in this example and should be
+`integer`, or the enum values need to be in quotation marks.
+
+Here is another invalid declaration:
+
+type: string enum: \[ "a", "b", "c", false, 3.0 \]
+
+The value `false` is a `boolean`, while the value `3.0` is a `float`. Neither is converted to a
+`string` value by the editor.
+
+The next three declarations are valid.
+
+type: string enum: \["1","2","3"\]
+
+type: integer enum: \[1,2,3\]
+
+type: string enum: \[ "a", "b", "c", "false", "3.0" \]
+
+> [!NOTE] \=== This violation can occur not just in enums, but also anywhere an `integer`, `nil`
+> value, or value of some other data type is introduced where the parser expects a `string` value.
+> ===
+
+[Back to the top](#bookmark-a)
+
+### Using, in an example of a numeric type, an incorrect format for that type, if a format is specified
+
+Examples of numeric types must conform to restrictions specified in the `format` node. In this
+example of the violation, the format specified for the numeric type `collection` is int8. However,
+the value of the example is greater than 127.
+
+#%RAML 1.0 title: ExampleRAML types: collection: type: integer format: int8
+
+/search: /code: get: body: application/json: type: collection example: 22342342
+
+[Back to the top](#bookmark-a)
+
+### Including undeclared properties in an example when additionalProperties is set to `false`
+
+If an example for a type includes one or more properties that were not in the type declaration, the
+editor displays this message:
+
+should NOT have additional properties
+
+The editor would display this message for the following API specification:
+
+#%RAML 1.0 title: Example API Spec
+
+types: User: type: object additionalProperties: false properties: firstName: string lastName: string
+example: firstName: John lastName: Smith age: 49
+
+There are three different methods that you can choose from to resolve the problem:
+
+- Delete the extra property from the example
+
+  #%RAML 1.0 title: Example API Spec
+
+  types: User: type: object additionalProperties: false properties: firstName: string lastName:
+  string example: firstName: John lastName: Smith
+
+- Add the property in the type declaration.
+
+  #%RAML 1.0 title: Example API Spec
+
+  types: User: type: object additionalProperties: false properties: firstName: string lastName:
+  string age: integer example: firstName: John lastName: Smith age: 49
+
+- Change the value of `additionalProperties` to `true` or remove the line for `additionalProperties`
+  (because `additionalProperties` is `true` by default).
+
+  #%RAML 1.0 title: Example API Spec
+
+  types: User: type: object properties: firstName: string lastName: string additionalProperties:
+  true example: firstName: John lastName: Smith age: 49
+
+[Back to the top](#bookmark-a)
+
+### Types defined as `nil` in payloads are not valid
+
+You cannot use a type in a payload if its data type is `nil`.
+
+#### Example 1
+
+In this example, the value of `type` must be `string`, not `nil`:
+
+```none
+#%RAML 1.0
+title: test
+
+types:
+  MyType:
+    type: nil
+    example: âtestâ
+```
+
+#### Example 2
+
+In this example, the JSON schema must define `MyType` as a `string` type. However, the schema is
+empty:
+
+```none
+#%RAML 1.0
+title: test
+
+types:
+  MyType:
+    type: !include schema.json # schema.json is an empty file
+    example: âtestâ
+```
+
+The error message in cases like this is `should be null at â¦â`.
+
+[Back to the top](#bookmark-a)
+
+## Not providing a value for the `title` node
+
+The `title` node cannot lack a value, as it does here:
+
+#%RAML 1.0 title:
+
+[Back to the top](#bookmark-a)
+
+## Declaring a URI parameter that is never used
+
+If an API specification declares a URI parameter, but then does not use that parameter, the editor
+displays this warning message:
+
+unused uri parameter âparameterâ
+
+If the parameter is declared as a base URI parameter, but is not used, then this is the warning
+message:
+
+unused base uri parameter âparameterâ
+
+For example, the following API specification would generate two warning messages:
+
+unused uri parameter "unusedParam"
+
+unused base uri parameter "unusedUriParam"
+
+#%RAML 1.0 title: test
+
+baseUri: http://param.raml/a/{baseUriParam1}/{nonExists}/{baseUriParam2}
+
+baseUriParameters: baseUriParam1: type: string baseUriParam2: type: string unusedParam: type: string
+
+/endpoint/{uriParam1}/{nonExistsUri}: uriParameters: uriParam1: type: string unusedUriParam: type:
+string
+
+To resolve the warning messages, you would simply need to remove the lines that declare these
+parameters:
+
+#%RAML 1.0 title: test
+
+baseUri: http://param.raml/a/{baseUriParam1}/{nonExists}/{baseUriParam2}
+
+baseUriParameters: baseUriParam1: type: string baseUriParam2: type: string
+
+/endpoint/{uriParam1}/{nonExistsUri}: uriParameters: uriParam1: type: string
+
+[Back to the top](#bookmark-a)
+
+## Not declaring a media type for a payload
+
+If the declaration of a payload does not declare a media type, the editor displays this message:
+
+Payload media type is mandatory
+
+For example, the editor would display this message for the following API specification:
+
+#%RAML 1.0 title: Example API Spec /media: get: responses: 200: body: type: string
+
+There are two methods that you can choose from to resolve the problem:
+
+- Declare the media type locally in the payload declaration.
+
+  #%RAML 1.0 title: Example API Spec /media: get: responses: 200: body: application/json: type:
+  string
+
+- Specify the default media type globally for the API specification.
+
+  #%RAML 1.0 title: Example API Spec
+
+  mediaType: application/json
+
+  /media: get: responses: 200: body: type: string
+
+The following example uses both a global and a local declaration. In this case, the `mediaType` node
+defines acceptable media types as `application/json` and `application/xml`. The first type,
+`Person`, returns a body that is in either media type. However, the second type, `Another`,
+overrides the global declaration with a local one, and returns only a JSON body.
+
+#%RAML 1.0 title: New API mediaType: \[ application/json, application/xml \] types: Person: Another:
+/list: get: responses: 200: body: Person\[\] /send: post: body: application/json: type: Another
+
+[Back to the top](#bookmark-a)
+
+## Not referencing fragments by using the `!include` tag
+
+If an API specification uses the key `uses` to reference fragments, the editor displays this
+message:
+
+Fragments must be imported by using '!include'
+
+[Back to the top](#bookmark-a)
+
+## Not applying libraries by using the `uses` key
+
+If an API specification uses the `!include` tag to apply a library, the editor displays this
+message:
+
+Libraries must be applied by using 'uses'
+
+[Back to the top](#bookmark-a)
+
+## Problems with syntax
+
+### Including an example response that contains invalid JSON
+
+When a JSON file is included as the example of a response message, the JSON in the file must be
+valid. In this example of the violation, the example of the response for the 200 response code
+contains an `!include` statement. The JSON in the included file incorrectly contains a comma after
+the last key/value pair.
+
+#%RAML 1.0 title: ExampleRAML ... /resume: description: "Gets candidate's resume." get:
+queryParameters: ... headers: ... responses: 200: body: application/json: example: !include
+exampleResumeData-200.json 500: ...
+
+{ ... "assessments.characteristic.focusofattention.data"= "", }
+
+[Back to the top](#bookmark-a)
+
+### Not providing a YAML map when a facet requires one
+
+When a facet is described in the RAML 1.0 specification as requiring a map as a value, but the API
+specification doesnât provide a map, the editor returns the message `YAML map expected`.
+
+Here is an example of the error:
+
+#%RAML 1.0 title: Test version: 1.0 securitySchemes: basic: type: Basic Authentication settings:
+
+There are two ways to fix the error.
+
+- Provide a map as a value.
+
+  #%RAML 1.0 title: Test version: 1.0 securitySchemes: basic: type: Basic Authentication settings:
+  requestTokenUri: https://api.mysampleapi.com/1/oauth/request\_token
+
+- Delete the facetâââin this case, `settings`âââthat requires a map.
+
+  #%RAML 1.0 title: Test version: 1.0 securitySchemes: basic: type: Basic Authentication
+
+[Back to the top](#bookmark-a)
+
+## Not defining a type that is used
+
+When a type is used, but is not first defined, the editor returns the message
+`Unresolved reference`.
+
+In this example of the error, the type `mytype` is not defined.
+
+#%RAML 1.0
+
+title: test /path: post: responses: 200: body: application/json: type: mytype
+
+To resolve the problem, define the type that you are using.
+
+#%RAML 1.0
+
+title: test types: mytype: string /path: post: responses: 200: body: application/json: type: mytype
+
+[Back to the top](#bookmark-a)
+
+## Using an unsupported property
+
+This error occurs when a facet or data type is defined as having a specific set of properties, yet
+an API specification defines the facet with a property that is not in that set. The error can also
+occur if you use an undefined facet.
+
+Example error message \* `Property minimum not supported in a RAML 1.0 stringScalarShape node`,
+where `minimum` is the name of the unsupported property. A `string` does not have a minimum
+value. \* `Property invalidfacet not supported in a RAML 0.8 webApi node`, where `invalidfacet` is
+the name of a facet that is not defined in the RAML specification.
+
+Here are examples that would generate these errors:
+
+<table><caption>Table 1. Incorrect Examples vs. Corrected Examples</caption> <colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 1.0
+title: Test
+types:
+  top:
+    type: string
+    minimum: 1</pre></div></div></div></td><td><div><div><div><pre>#%RAML 1.0
+title: Test
+types:
+  top:
+    type: string
+    minLength: 1</pre></div></div></div></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 1.0
+title: Test
+invalidfacet:
+version:</pre></div></div></div></td><td><div><div><div><pre>#%RAML 1.0
+title: Test
+version:</pre></div></div></div></td></tr></tbody></table>
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 1.0
+title: Test
+types:
+  Prop:
+    type: string
+    required: false
+
+Obj: type: object properties: prop: type:
+Prop</pre></div></div></div></td><td><div><div><div><pre>#%RAML 1.0 title: Test types: Prop: type:
+string
+
+Obj: type: object properties: prop: type: Prop required:
+false</pre></div></div></div></td></tr></tbody></table>
+
+[Back to the top](#bookmark-a)
+
+## Invalid Type Inheritance
+
+Two common occurrences that cause type-inheritance errors are incorrectly merging two types and
+defining a weaker constraint in a subtype.
+
+### Merging Two types incorrectly
+
+This type of error occurs when you try to perform one of these actions:
+
+- Merge a defined type with an undefined type
+- Merge two undefined types
+
+The error also occurs when you try to perform a merge with the wrong syntax.
+
+Example error message
+
+`Resolution error: Incompatible types [class amf.plugins.domain.shapes.models.ScalarShape, class amf.plugins.domain.shapes.models.NodeShape]`
+
+The following example both tries to merge two undefined types and uses incorrect syntax for the
+merge. The resolution of the error involves defining the types before the merge, and also using a
+pipe for the merge syntax, not brackets and a comma.
+
+<table><caption>Table 2. Incorrect Example vs. Corrected Example</caption> <colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 1.0
+title: test
+types:
+  Device:
+    type: [ Phone , Notebook ]
+  Phone: string
+  Notebook:
+    type: object
+    properties:
+      manufacturer:
+        type: string</pre></div></div></div></td><td><div><div><div><pre>#%RAML 1.0
+title: test
+types:
+  Phone: string
+  Notebook:
+    type: object
+    properties:
+      manufacturer:
+        type: string
+  Device:
+    type: Phone | Notebook</pre></div></div></div></td></tr></tbody></table>
+
+[Back to the top](#bookmark-a)
+
+### Defining a Weaker Constraint in a Subtype
+
+A subtype that defines a weaker constraint than one defined by its parent type is invalid.
+
+In this example, the subtype MyType2 has the optional property `name`, defined as a string, even
+though the parent type MyType1 already defines its `name` property as required:
+
+```none
+#%RAML 1.0
+title: test
+
+types:
+  MyType1:
+    properties:
+      name: string
+  MyType2:
+    type: MyType1
+    properties:
+      name?: string #invalid
+```
+
+The error message in cases like this is
+`Resolution error: sub type has a weaker constraint for minItems than base type for minItems.`
+
+[Back to the top](#bookmark-a)
+
+## Declaring an undefined type in a header
+
+This error occurs when a non-existent type is specified in a header. To fix the error, specify a
+type that is defined in the RAML specification.
+
+Error message
+
+`Cannot declare unresolved parameter`
+
+In the incorrect example below, the value for the header `myHeader` has a typo. It is specified as
+`someTypo`, not as `someType`.
+
+<table><caption>Table 3. Incorrect Example vs. Corrected Example</caption> <colgroup><col> <col></colgroup><thead><tr><th>Incorrect</th><th>Correct</th></tr></thead><tbody><tr><td><div><div><div><pre>#%RAML 1.0
+title: test
+types:
+  SomeType: string
+/endpoint:
+  post:
+    headers:
+      MyHeader: someTypo</pre></div></div></div></td><td><div><div><div><pre>#%RAML 1.0
+title: test
+types:
+  SomeType: string
+/endpoint:
+  post:
+    headers:
+      MyHeader: someType</pre></div></div></div></td></tr></tbody></table>
+
+[Back to the top](#bookmark-a)
+
+## Using a Forward Slash in a URI Parameter
+
+A URI parameter that contains a forward slash (/) is invalid.
+
+In this example, the `example` for the URI parameter `transaction-Date` would cause the parser to
+display an error message:
+
+```none
+#%RAML 1.0
+title: test
+
+/endpoint:
+  uriParameters:
+    transaction-Date:
+      example: 01/02/2018
+```
+
+The error message in cases like this is
+`Value '01/02/2018' of uri parameter must not contain '/' character.`
+
+[Back to the top](#bookmark-a)
+
+## Incorrect Formats for `datetime` Types
+
+Formats for `datetime` types that do not use "rfc3339" or "rfc2616" are invalid.
+
+The following example causes the parser to display an error message:
+
+```none
+#%RAML 1.0
+title: test
+types:
+  MyType:
+    type: datetime
+    format: "rfc3338"
+```
+
+The error message in cases like this is
+`Invalid format value for datetime, must be ârfc3339â or ârfc2616â.`
+
+[Back to the top](#bookmark-a)
+
+## Absolute Paths in RAML Fragment Projects
+
+When adding dependencies using absolute paths (for example: `(!include /examples/200.json)`) in RAML
+Fragment projects, you get a validation error: `Resource /examples/200.json not found`.
+
+You must always use relative paths for RAML Fragment Projects, for example:
+`(!include ../examples/200.json)`.
+
+[Back to the top](#bookmark-a)
+---
+
+# Create and Publish an API Fragment in the Text Editor in API Designer
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can create API fragments directly in RAML, OAS 3.0, and JSON Schema with the help of code
+suggestions that appear within the text editor.
+
+## About This Task
+
+An API fragment is a document that has a version and an identifier, but is not in itself a complete
+specification.  
+When creating a RAML API fragment you can choose one of the following types defined by RAML.org. See
+the RAML 0.8 or 1.0 specification (depending on which you want to use) for descriptions of the
+types:
+
+- Trait
+- Resource Type
+- Library
+- Type
+- User Documentation
+- Example
+- Annotation Type
+- Security Scheme
+
+To support OAS 3.0 fragment externalization, API Fragments support OAS 3.0 components and JSON
+Schema:
+
+- Component (YAML)
+- Component (JSON)
+- JSON Schema
+
+OAS 3.0 components should contain only the reusable `component` objects for the different aspects of
+the OAS.
+
+## Procedure
+
+1.  On the **Projects** page in Design Center, click **Create +**.
+2.  Select **New Fragment**.
+3.  In the **New Fragment** dialog, type a name for the Fragment project.
+4.  Select the API specification format.
+
+    You can choose between RAML 1.0, OAS 3.0 and JSON Schema format.
+
+    If you choose RAML 1.0, you can select itâs fragment type.  
+    You can change the name or fragment type later, if necessary.
+
+5.  Select the type of API fragment that you want to create and click **Create Fragment**.
+
+    _Result:_ The text editor opens. The editor is divided into three panels:
+    - The left panel lists the files in your project.
+
+      You can create new files by clicking **+**, and then **New file**. Select the API format of
+      the file between RAML 1.0, OAS 3.0, JSON schema, or other. Select the file type if needed,
+      name your file, and click **Create**.
+
+      By default, the editor creates a file that has the same name as the project. This file is set
+      as the root file of the project.
+
+      You can set YAML, RAML, or JSON schema files as your root file.
+
+      The left panel also lists the file `exchange.json`, which is a file that contains metadata
+      required by Anypoint Exchange at the time that you publish your project to Exchange. This file
+      is read-only.
+
+    - The middle panel displays the editor in which you create your API fragment.
+    - The right panel lists the types and resources that are in the API fragment displayed in the
+      middle panel.
+
+6.  Draft your API fragment.
+
+    The text editor suggests RAML nodes, methods, and other elements that you can add at the
+    location of your cursor.
+
+    You can import files into your project, either separately or bundled in .zip files. The files
+    can be RAML 1.0 files, JSON files, OpenAPI Specification (OAS) 2.0, or OAS 3.0 files. The files
+    can be on your computer or you can specify a URL for them if they are located online.
+
+> [!WARNING] File uploads are restricted to supported formats.
+
+## What to Do Next
+
+You can publish the API fragment to Anypoint Exchange.
+
+1.  Click the **Publish** button that is in the top-right corner of the text editor, and then click
+    **Publish to Exchange**.
+2.  Specify a version number for the project, which Exchange treats as an _asset_. This number is
+    displayed in Exchange in the **Version** section of the right pane in the page for the project.
+
+In Anypoint Exchange, you can see the asset version of your API-fragment project by clicking **View
+versions**.
+
+After you publish the API-fragment project, other developers can include its fragments as
+dependencies in their own API-specification projects.
+
+When you publish the API-fragment project, Exchange automatically creates an API portal for it.
+
+## OAS Components Limitations
+
+The following list displays OAS 3.0 limitations you must consider when writing your API Fragments:
+
+- Valid fields at the document root level are: `openapi`, `info`, `components`, and `paths`.
+- Valid fields in the `info` object are `title` and `version`.
+- The `paths` key must be an empty object.
+
+## See Also
+
+- [Import Files into an API Project](design-import-files)
+- [Exchange Public Portals](../exchange/about-portals)
+- [Root Files in Projects in the Text Editor](design-change-root-file)
+- [Rename an Open Project](design-rename-project)
+- [Delete an Open Project](design-delete-project)
+- [Adding Dependencies to an API-Specification Project](design-add-api-dependency)
+---
+
+# Create an API Specification with the Text Editor
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can use API Designerâs text editor to create API specifications directly in RAML 0.8, RAML 1.0,
+OAS 2.0, OAS 3.0, AsyncAPI 2.6, and AsyncAPI 2.0. You can create OAS and AsyncAPI API specifications
+as JSON or YAML files.
+
+## Before You Begin
+
+Within Anypoint Platform, your user ID must be assigned the _Design Center Developer_ permission.
+
+## Procedure
+
+1.  On the **Projects** page in Design Center, click **Create new**.
+2.  Select **New API Specification** to create a REST API or **New AsyncAPI** to create an AsyncAPI.
+3.  In the **New API Specification** or **New AsyncAPI** dialog, name your project.
+
+    You can change the name (but not the extension) later, if you want to.
+
+4.  To start creating a REST API specification:
+    1.  Select the **Iâm comfortable designing it on my own** option.
+    2.  Choose either the RAML or OAS specification.
+
+        API Designer creates the stubs of your API specification using the specification type and
+        version you choose.
+
+        By default, API Designer creates a RAML 1.0 file. You can change the file to RAML 0.8 or OAS
+        after the project is created. Projects for creating API specifications can contain a mix of
+        RAML, OAS, and other types of files.
+
+5.  To start creating an AsyncAPI specification:
+    - Select either YAML or JSON as the project language.
+
+The text editor opens.
+
+The API Designer text editor is divided into panels:
+
+- The left panel lists the files and dependencies in your project.
+
+  The stub specification file is listed and set as the root file of the project. You can change the
+  name (but not the extension) of this file by clicking the overflow menu icon
+  (![manage dependency versions design center 018a5](_images/manage-dependency-versions-design-center-018a5.png "Screenshot of the overflow menu icon"))
+  beside the specification name and selecting **Rename**.
+
+  The left panel also lists the file `exchange.json`, which is a file that contains metadata
+  required by Anypoint Exchange at the time that you publish your project to Exchange. This file is
+  read-only.
+
+  > [!TIP] You can create more than one API specification or related file in a single project. Click
+  > the plus sign in the Files panel to create a new file.
+  >
+  > If you do create more than one specification file, you must specify one of them as the root file
+  > of your project.
+
+  For more information about adding Exchange dependencies, see "Adding Dependencies to an
+  API-Specification Project", which is linked to from the **See also** section at the end of this
+  topic.
+
+- The middle panel displays the editor in which you create the API specification. Appearing in the
+  editor when you create a project or start a new API specification are the first two lines of an
+  API specification file, depending on which type of specification you select when you created the
+  project. You can change these lines (as well as the file extension) if you want to switch from
+  RAML to OAS or vice-versa.
+- The right panel lists the types and resources that are in the API specification that is in the
+  middle panel.
+- The bottom panel expands to show any project errors. The **Project Errors** panel shows any
+  functional errors for your API specifications and any conformance messages if you are using API
+  Governance and the API specification you are editing has rulesets applied to it as dependencies.
+
+## The Editor
+
+While working in the editor, you can use a large number of commands to navigate through and
+manipulate the content of your API specification. Press **F1** to see a list of these commands,
+along with keyboard shortcuts for most of the commands.
+
+You can also perform these tasks:
+
+- **Import files and API fragments into your project**
+
+  You can import either separate files or files bundled in .zip files. The files can be on your
+  computer or you can specify a URL for them if they are located online.
+
+  For more information about importing files and steps for how to import them, see "Import Files
+  into an API Project", which is linked to from the **See also** section at the end of this topic.
+
+  For information about adding API fragments to your project, see "Add a RAML API Fragment to an
+  API-Specification Project as a Dependency", which is linked to from the **See also** section at
+  the end of this topic.
+
+> [!WARNING] File uploads are restricted to supported formats.
+
+- **Simulate calls to your API**
+
+  When you draft a REST API specification, you can simulate calls to the specified endpoints.
+
+  For more information, view the topic "Simulate Calls to an API", which is linked to from the **See
+  also** section at the end of this topic.
+
+- **Export your API project or specification**
+
+  At any time, you can export your project as a ZIP file. Click the gear icon in the top-right
+  corner of the text editor and select **Download Project**.
+
+- **Download files**
+
+  Click the dots to the right of the file name and select **Download**.
+
+- **Download files in a different format**
+
+  Click the dots to the right of the file name of a specification and select **Download as**. You
+  can download your specification in one of the other supported formats. If your specification is in
+  RAML, you can download it in OAS YAML or in OAS JSON. If your specification is in OAS, you can
+  download it in RAML 0.8 or in RAML 1.0.
+
+  The files downloaded through this option are not guaranteed to be valid. This option is intended
+  to provide the basis for the development of a new specification or the continuation of the
+  development of the original specification in a new format.
+
+## What to Do Next
+
+If you are satisfied with your API specification, you can publish it to Exchange. See
+[Publish an API Specification](design-publish).
+
+## See Also
+
+- [Import Files into an API Project](design-import-files)
+- [AsyncAPI Specifications](design-async-api)
+- [Add a RAML API Fragment to an API-Specification Project as a Dependency](design-add-api-dependency)
+- [Simulate Calls to an API](design-mocking-service)
+- [Root Files in Projects in the Text Editor](design-change-root-file)
+- [Publish an API Specification](design-publish)
+- [Rename an Open Project](design-rename-project)
+- [Delete an Open Project](design-delete-project)
+- [API Governance Documentation](../api-governance/)
+---
+
+# Create and Publish an API Specification or Fragment from an External File
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use API Designer to create a new API specification or an API fragment from an existing external
+file. API Designer supports importing from JSON, RAML, or YML files. You can also import API
+specifications and fragments from an existing project.
+
+## Procedure
+
+1.  On the **Projects** page of Design Center, click the **Create new** button and then click
+    **Import from File**.
+2.  Specify a name to give to the imported project.
+3.  Click **Choose file**, then browse your filesystem for the you want to import.
+
+    You can create a new project from one following file types:
+    - JSON
+    - RAML
+    - YAML
+    - a ZIP file that contains an existing project.
+
+4.  Click **Import asâ¦â** then choose either **API Specification** or **API Fragment**.
+
+API Designer opens the API specification or fragment in a new project using the text editor. API
+Designer uses the existing name for each file of the project. You can change these names as
+necessary.
+
+## Modifying Your API Specification or Fragment
+
+While you are working in the editor, you can navigate through and manipulate the content of your
+specification. Press F1 at any time to see a list of them. This list also displays keyboard
+shortcuts for most of the commands.
+
+You can also perform these tasks:
+
+Import files and API fragments into your project
+
+You can import files, either separately or bundled in ZIP files. The files can be RAML 1.0 files,
+JSON files, or OpenAPI Specification (OAS) 2.0 or 3.0 files (either JSON or YAML). The files can be
+on your computer or you can specify a URL for them if they are located online.
+
+For more information about importing files and steps for how to import them, see "Import Files into
+an API Project", which is linked to from the **See also** section at the end of this topic.
+
+For information about adding API fragments to your project, see "Add a RAML API Fragment to an
+API-Specification Project as a Dependency", which is linked to from the **See also** section at the
+end of this topic.
+
+Simulate calls to your API
+
+Even while you are drafting an API specification, you can simulate calls to endpoints for which you
+have specified:
+
+- An HTTP status code the API returns, if successful
+- An example of data the actual implementation would return
+
+  For more information, see [Simulate Calls to an API](design-mocking-service).
+
+Export your API project or specification
+
+At any time, you can export your project as a ZIP file. Click the gear icon in the top-right corner
+of the text editor and select **Download Project**.
+
+Download files
+
+Click the dots to the right of the file name and select **Download**.
+
+Download files in a different format
+
+Click the dots to the right of the file name of a specification and select **Download as**. You can
+download your specification in one of the other supported formats. If your specification is in RAML,
+you can download it in OAS YAML or in OAS JSON. If your specification is in OAS, you can download it
+in RAML 0.8 or in RAML 1.0.
+
+The files downloaded through this option are not guaranteed to be valid. This option is intended to
+provide the basis for the development of a new specification or the continuation of the development
+of the original specification in a new format.
+
+## What to Do Next
+
+If you are satisfied with your API specification, you can publish it to Exchange. See
+[Publish an API Specification](design-publish).
+---
+
+# Getting Started with API Designer
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can use the API Designer web UI to design API specifications in:
+
+- RESTful API Modeling Language (RAML) version 0.8 or 1.0
+- OpenAPI Specification (OAS) version 2.0 or 3.0
+- AsyncAPI 2.6 and AsyncAPI 2.0
+
+You can also design API fragments in RESTful API Modeling Language (RAML) version 0.8 or 1.0.
+
+## Add and View Documentation
+
+As you add descriptions in your specifications and fragments, you can view them in auto-generated,
+interactive documentation in the right pane of the text editor.
+
+## Test Using the Mocking Service
+
+You can use the mocking service for RAML or OAS APIs to:
+
+- Preview API functionality before writing a single line of code.
+- Send requests to a specification and receive defined responses.
+- Use behavioral headers to simulate different scenarios, such as timeouts and errors.
+
+## Share in Exchange and API Manager
+
+You can publish an API specification to Anypoint Exchange for use in API Manager, or Anypoint
+Studio. You can also add an API specification directly to API Manager.
+
+## Use Specifications and Fragments Across MuleSoft Products
+
+You can use the specifications and fragments that you design in API Designer with integrated
+MuleSoft products:
+
+- Use API Designer to design API specifications and RAML fragments.
+- Use assets that are hosted in Exchange in your RAML specifications.
+- Publish iterations and final versions of the API specifications to Anypoint Exchange.
+- Import specifications that were designed in API Designer into Anypoint Studio and API Manager.
+- Import specifications into Anypoint Studio directly from API Designer.
+
+## See Also
+
+- [Create and Publish an API Specification with the Text Editor in API Designer](design-create-publish-api-raml-editor)
+- [Create and Publish an API Specification with the Visual Text Editor in API Designer](design-create-publish-api-visual-editor)
+- [Create and Publish an API Fragment in the Text Editor in API Designer](design-create-publish-api-fragment)
+---
+
+# Create an API Specification with the Visual API Editor
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can use API Designerâs visual API editor to scaffold API specifications in RAML 1.0 or in OAS
+2.0 or 3.0 (JSON). You do so by populating language-neutral forms.
+
+## Before You Begin
+
+Within Anypoint Platform, your user ID must be assigned the _Design Center Developer_ permission.
+
+## About this task
+
+The visual API editor is divided into three panels:
+
+### The Left Panel
+
+This panel displays the name of the API specification being developed. It also provides controls
+that allow you to create resources, data types, and security schemes. These components all are
+included within the body of the specification and are not created as separate files.
+
+### The Middle Panel
+
+This panel presents the forms in which you specify the properties of the components of the
+specification. When the editor first opens, it displays a form for specifying the main properties of
+the specification and for documenting it. Click on the name of an item in the left panel to open its
+form in the middle panel.
+
+### The Right Panel
+
+This displays the RAML Viewer and the OAS Viewer, both of which are read-only. Click the tabs at the
+bottom of the panel to switch between them. These viewers display the current draft of the
+specification in either RAML 1.0 or OAS 3.0. As you enter values in the forms that appear in the
+middle panel, the draft is updated with the values.
+
+This panel also lets you run the mocking service to test endpoints that you have set up.
+
+## Procedure
+
+1.  On the **Projects** page in Design Center, click **Create new**.
+2.  Select **New API Specification**.
+3.  In the **New API Specification** dialog, name your project.
+
+    You can change the name later, if you want to.
+
+4.  Select the option **Guide me through it** to use the visual API editor.
+5.  Click **Create API Spec.**
+
+    _Result:_ The visual API editor opens.
+
+    As you make progress, you can run the mocking service to simulate calls to your API
+    specification. For more information, view the topic "Simulate Calls to an API", which is listed
+    in the **See Also** section at the end of this topic.
+
+    If at any time you want to edit the specification directly or customize it (import RAML
+    fragments and more), click **Edit RAML** or **Edit OAS** to switch to the API editor. After you
+    switch, however, you cannot switch back to the visual API editor to continue creating the API
+    specification.
+
+## What to Do Next
+
+If you are satisfied with your API specification, you can publish it to Exchange in RAML 1.0. See
+[Publish an API Specification](design-publish).
+
+Alternatively, you can customize the specification in the API editor by clicking **Edit RAML** or
+**Edit OAS**.
+
+## See Also
+
+- [Simulate Calls to an API](design-mocking-service)
+- [Publish an API Specification](design-publish)
+- [Rename an Open Project](design-rename-project)
+- [Delete an Open Project](design-delete-project)
+---
+
+# Delete a Project
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can delete an API-specification project or an API-fragment project. If you have already
+published a project, deleting it in API Designer does not delete it from Anypoint Exchange.
+
+> [!IMPORTANT] The deletion of a project is final. Deleting a project does _not_ move it to a
+> **Trash** folder from which you can restore the project if you change your mind.
+
+## Procedure
+
+To delete a project, use one of these methods:
+
+- If the project is not open, select the project in Design Centerâs **Projects** page, and then
+  click the Delete icon in the top-right corner of the page.
+- If the project is open, click the gear icon in API Designerâs top-right corner and then select
+  **Delete**.
+---
+
+# Designing API Specs and Fragments
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use API Designer to create, design, test, and publish new API Specifications.
+
+## Design Using the Text or Visual Editor
+
+You can use either [the text editor](design-create-publish-api-raml-editor) or
+[the Visual Editor](design-create-publish-api-visual-editor) to create API specifications.
+
+With the text editor, you can:
+
+- Design according to best practices with a context-aware shelf that auto-populates with the
+  appropriate methods, resources, parameters, and security components.
+- Include RAML API fragments, such as security schemas and data types, from Exchange or write your
+  own.
+- Apply rulesets from Exchange to validate the governance conformance of your projects.
+- Import existing API specifications.
+
+With the visual editor, you can:
+
+- Create a specification for use cases in which you do not need to include RAML fragments.
+- Scaffold a specification that you can complete and customize in the text editor.
+---
+
+# Differences for OAS 3.0 in Rendered Documentation
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The right pane of the text editor in API Designer displays the documentation that is written into
+API specifications. Documentation is rendered identically for REST API specifications written in
+RAML or OAS 2.0. However, documentation for API specifications written in OAS 3.0 can include
+multiple server definitions as well as links and callbacks.
+
+## Documentation for Definitions of Multiple Servers
+
+OAS 3.0 enables you to define servers by using the `servers` field. You can define servers globally
+at the top of a specification, locally for endpoints, and locally for methods. Local definitions
+override the definitions set at the next higher level in the specificationâs hierarchy. Definitions
+set locally for methods override definitions set at endpoints and globally. Definitions set locally
+for endpoints override definitions set globally.
+
+The following example API specification demonstrates different ways, indicated by ten callouts
+(1-10), that you can set server definitions. After the example API specification, the documentation
+for the portion of the API at each callout is illustrated with a screenshot.
+
+openapi: '3.0.2' info: title: Multi-server Cemo API version: '1.0' servers: **(1)**
+
+- url: https://{customerId}.saas-app.com:{port}/v2 variables: customerId: default: demo description:
+  Customer ID assigned by the service provider port: enum: - '443' - '8443' default: '443'
+- url: https://{region}.api.company.com variables: region: default: westus enum: - westus -
+  eastus2 - westcentralus - westeurope - southeastasia
+- url: https://api.company.org/data/2.5/ description: Production server
+- url: http://beta.api.company.org/data/2.5/ description: Beta server paths: /default:**(2)**
+  description: A default path to the API get:**(3)** summary: "The get method for /default"
+  responses: 200: description: Successful response /duplicated:**(4)** description: Has some of the
+  default servers servers: - url: https://api.company.org/data/2.5/ description: Production server -
+  url: http://beta.api.company.org/data/2.5/ description: Beta server get:**(5)** summary: "The get
+  method for /duplicated" responses: 200: description: Successful response /files:**(6)**
+  description: File upload and download operations servers: - url: https://files.example.com
+  description: Override base path for all operations with the /files path get:**(7)** summary: "The
+  get method for /files" responses: 200: description: Successful response /ping:**(8)** servers: -
+  url: https://endpoint.example.com description: Override base path servers get:**(9)** servers: -
+  url: https://echo.example.com description: Override base path for the GET /ping operation - url:
+  https://echo2.example.com description: Also overrides base path for the GET /ping operation
+  summary: "The get method for /ping" responses: 200: description: Successful response post:**(10)**
+  summary: "The post method for /ping" responses: 201: description: Successful create
+
+1.  The Summary page of the documentation for this API lists the four servers that are defined in
+    this `servers` field:
+
+    ![A list of API servers and endpoints with their available methods.](_images/apid-apic-oas-3-summary.png)
+
+2.  The `/default` endpoint does not override the base `servers` definition at the top of the API.
+    On the Overview page for the endpoint, you can select a server to see the URI for this endpoint
+    at that server:
+
+    ![A dialog box with a server selection dropdown and a GET button.](_images/apid-apic-oas-3-default.png)
+
+3.  The GET method for the `/default` endpoint also inherits the four servers in the base `servers`
+    definition. On the page for this method, you can select a server to see the URI for this method
+    at that server:
+
+    ![An API documentation page with code examples and responses.](_images/apid-apic-oas-3-default-get.png)
+
+4.  The `/duplicated` endpoint overrides the base `servers` definition, its local `servers`
+    definition including only the last two servers of the original four. On the Overview page for
+    the endpoint, you can select a server to see the URI for this endpoint at that server:
+
+    ![A dropdown menu for choosing your server.](_images/apid-apic-oas-3-duplicated.png)
+
+5.  The GET method for the `/duplicated` endpoint inherits the two servers in the local `servers`
+    definition. On the page for this method, you can select a server to see the URI for this method
+    at that server:
+
+    ![An API documentation page demonstrating the GET method for duplicate data.](_images/apid-apic-oas-3-duplicated-get.png)
+
+6.  The `/files` endpoint overrides the base `servers` definition, its local `servers` definition
+    including only one server. On the Overview page for this endpoint, there are no servers to
+    choose from, as there were for the previous two endpoints:
+
+    ![An API documentation page with instructions for file upload and download actions.](_images/apid-apic-oas-3-files.png)
+
+7.  The GET method for the `/files` endpoint inherits the one server in the local `servers`
+    definition. On the page for this method, there is no list of servers to choose from:
+
+    !["An API documentation page illustrating the GET method for file retrieval](_images/apid-apic-oas-3-files-get.png)
+
+8.  The `/ping` endpoint overrides the base `servers` definition, its local `servers` definition
+    including only one server. On the Overview page for this endpoint, there are no servers to
+    choose from:
+
+    ![An arrow points to a URL.](_images/apid-apic-oas-3-ping.png)
+
+9.  The `GET` method for the `/ping` endpoint overrides both the base `servers` definition and the
+    `/ping` endpointâs local `servers` definition. The `GET` methodâs local `servers` definition
+    includes two servers. On the page for this method, you can select a server to see the URI for
+    this method at that server:
+
+    !["A form with a server selection dropdown](_images/apid-apic-oas-3-ping-get.png)
+
+10. The POST method for the `/ping` endpoint inherits the one server in the `/ping` endpointâs local
+    `servers` definition. On the Overview page for this endpoint, there is no list of servers to
+    choose from:
+
+    ![a code snippet that demonstrates the post method for /ping.](_images/apid-apic-oas-3-ping-post.png)
+
+## Documentation for Links and Callbacks
+
+OAS 3.0 enables you to define links and callbacks. For an explanation of these features, see the
+specification for openAPI 3.0 at https://swagger.io/.
+
+The following example API specification demonstrates how to set links and callbacks. The callouts
+indicate parts of the API specification that are rendered as documentation in the screenshots that
+follow.
+
+openapi: 3.0.0
+
+info: version: 1.0.0 title: Callback Demo API
+
+servers:
+
+- url: https://{customerId}.saas-app.com:{port}/v2 variables: customerId: default: demo description:
+  Customer ID assigned by the service provider port: enum: - '443' - '8443' default: '443'
+
+components: requestBodies: callbackMessage1: description: Callback message \`1\` required: true
+content: application/json: schema:
+$ref: '#/components/schemas/Clb1'
+    callbackMessage2:
+      description: Callback message \`2\`
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Clb2'
+    callbackMessage3:
+      description: Callback message \`3\`
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Clb3'
+  schemas:
+    Clb1:
+      title: Event 1
+      type: object
+      properties:
+        text:
+          type: string
+          description: Message text
+    Clb2:
+      title: Event 2
+      type: object
+      properties:
+        productId:
+          type: string
+          description: Order product id
+    Clb3:
+      title: Event 3
+      type: object
+      properties:
+        eventId:
+          type: string
+          description: Event internal ID
+        triggerAuthor:
+          type: string
+          description: A person triggered the event
+    paymentRequest:
+      title: Payment
+      type: object
+      properties:
+        token:
+          type: string
+          description: Payment token generated for this request
+        amount:
+          type: number
+          description: The payment amount.
+paths:
+  /subscribe:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inProgressUrl:
+                  type: string
+                failedUrl:
+                  type: string
+                successUrl:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          links:**(1)**
+            unsubscribeOp:
+              operationId: unsubscribeOperation
+              parameters:
+                Id: $response.body#/subscriberId
+            otherOp:
+              parameters:
+                one: $response.body#/one
+                two: $response.body#/two
+        402:
+          description: Not OK. Payment is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/paymentRequest'
+          links:**(2)**
+            paymentUrl:
+              parameters:
+                paymentUrl: $response.body#/info.paymentUri
+                paymentToken: $response.body#/info.token
+      callbacks:
+        inProgress:
+          '{$request.body#/inProgressUrl}':**(3)**
+post: requestBody:
+$ref: '#/components/requestBodies/callbackMessage1'
+              responses:
+                '200':
+                  description: OK
+          '{$request.body#/failedUrl}':**(4)**
+post: requestBody:
+$ref: '#/components/requestBodies/callbackMessage2'
+              responses:
+                '200':
+                  description: OK
+          '{$request.body#/successUrl}':**(5)**
+post: requestBody: $ref: '#/components/requestBodies/callbackMessage3' responses: '200':
+description: OK /unsubscribe: post: operationId: unsubscribeOperation parameters: - in: query name:
+Id required: true schema: type: string responses: '200': description: OK
+
+1.  The links for the 200 response for the `POST` method of the `/subscribe` endpoint appear at the
+    bottom of the methodâs documentation:
+
+    !["Two tables with variable and expression columns.](_images/apid-apic-oas-3-links-1.png)
+
+2.  The links for the 402 response for the `POST` method of the `/subscribe` endpoint appear at the
+    bottom of the methodâs documentation:
+
+    ![A table that displays variables and their expressions.](_images/apid-apic-oas-3-links-2.png)
+
+The documentation for callouts 3-5 appear in the **Callbacks** section of the documentation for the
+`POST` method of the `/subscribe` endpoint:
+
+![A list of API calls, including parameters, body, and responses.](_images/apid-apic-oas-3-callbacks.png)
+---
+
+# Duplicate a Project
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can duplicate projects in API Designer. You might want to duplicate a project if you need to
+make extensive changes to the project without losing the original on which the duplicate project is
+based.
+
+Any dependencies that are listed in the original project are retained in the duplicate project.
+
+## Before You Begin
+
+- Ensure that the mocking service is not turned on.
+- Ensure that the project is not in read-only mode.
+
+## Procedure
+
+1.  Open the project.
+2.  Click the gear icon in the top-right corner of the editor.
+3.  Select **Duplicate**.
+4.  Name the duplicate project and click **Duplicate**.
+
+## Result
+
+API Designer opens a new browser tab that displays the new project. If the original project is in
+the text editor, the duplicate project is opened in the text editor. If the original project is in
+the visual editor, the duplicate project is opened in the visual editor.
+
+If the original was in a sub-branch, the duplicate is on the same sub-branch.
+
+The duplicate project is listed in Design Centerâs project list.
+---
+
+# Edit in Multiple Tabs in the Text Editor
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can have multiple files open simultaneously in API Designerâs text editor. Each file can be open
+in its own tab.
+
+## Opening Files in New Tabs
+
+There are four ways that you can open a file in a new tab:
+
+- Open the context menu for a file in the file tree by clicking the three dots to its right, and
+  then select **Open in new tab**.
+- Press the Command key (MacOS) or the Control key (Windows) and click the name of the file in the
+  file tree. +\[NOTE\]
+
+Clicking a filename in the file tree without first pressing either of these keys replaces the file
+that is open in the current tab.
+
+- Place your cursor in the name of a file in a file reference such as an `include` tag in RAML or a
+  `$ref` keyword in OAS.
+
+  Then, press the Command key (MacOS) or the Control key (Windows) and click the filename.
+
+- Click a filename in the **Location** column in the errors view at the bottom of the screen.
+
+## Navigating to Different Tabs
+
+The tab bar appears at the top of the editor only when at least two files are open.
+
+To switch to the tab to the left of the one currently open, follow either of these steps: \* Press
+Option + Shift + Tab (MacOS) or Alt + Shift + Tab (Windows). \* Open the menu on the tab bar by
+clicking the ellipsis and select **Previous Tab**.
+
+To switch to the tab to the right of the one currently open, follow either of these steps: \* Press
+Option + Tab (MacOS) or Alt + Tab (Windows). \* Open the menu on the tab bar by clicking the
+ellipsis and select **Next Tab**.
+
+## Closing Tabs
+
+To close a single tab, click the X icon that appears on it.
+
+To close all tabs but the currently open one, click the ellipsis on the right side of the tab bar
+and select **Close All Other Tabs**.
+---
+
+# GitHub Synchronization
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+API specification designers often use multiple authoring and version control tools. This can result
+in maintaining several different specification versions.
+
+GitHub Synchronization is a version control tool that maintains API specifications existing in
+several locations. Use GitHub Synchronization to enable two-way synchronization between API Designer
+and your GitHub repository and to automatically capture changes to API projects and send the changes
+to a synchronized GitHub repository of your choice. Similarly, the application automatically
+propagates to your API project any changes made in a synchronized GitHub repository.
+
+This bidirectional flow extends API Designer into a collaborative environment where the single
+source of truth is always GitHub. Unlimited collaborators can share and contribute to the same
+content.
+
+Using GitHub synchronization with API Designer enables you to:
+
+- Create new GitHub repositories that synchronize with existing API projects.
+- Create new API projects that synchronize with new GitHub repositories.
+- Create new API projects that synchronize with existing remote GitHub repositories.
+
+To perform GitHub-specific actions, such as opening pull requests, viewing branch diffs, or viewing
+synchronization status, use the GitHub UI.
+
+## See Also
+
+- [Install and Authorize GitHub Synchronization](design-ghs-install-authorize)
+- [Create a New Project Synchronized with a New GitHub Repository](design-ghs-new-project-new-repo)
+- [Create a New Project Synchronized From an Existing GitHub Repository](design-ghs-new-project-existing-repo)
+- [Create a New GitHub Repository Synchronized from an Existing Project](design-ghs-new-repo-existing-project)
+---
+
+# Installing and Authorizing GitHub Synchronization
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Installing the GitHub Synchronization application in an organization is the first step in making the
+organizationâs repositories accessible to API Designer.
+
+Install the GitHub Synchronization application within the GitHub user interface. Perform this action
+either as a GitHub organization administrator or as a GitHub user. Then, authorize the application
+when performing a GitHub Synchronization action for the first time within API Designer.
+Synchronization actions include creating new GitHub repositories for existing API specifications and
+creating new API specifications that are synchronized with existing GitHub repositories.
+
+## Install the GitHub Synchronization Application as a GitHub Organization Administrator
+
+To get started, first install the GitHub Synchronization application within the GitHub user
+interface.
+
+### Before You Begin
+
+To install the GitHub Synchronization application as a GitHub organization administrator, you must
+have:
+
+- A GitHub account
+- A membership in the GitHub organization in which you want to install the application
+- The administrator permission to access the GitHub organization (as configured through your GitHub
+  account settings)
+
+> [!IMPORTANT]
+>
+> - You cannot install and use GitHub Synchronization if your GitHub account uses an IP allow list.
+> - In the email settings for the GitHub account you want to use with GitHub Synchronization, if you
+>   select **Keep my email addresses private**, ensure you do not select **Block command line pushes
+>   that expose my email**. The block setting prevents you from pushing commits in your synchronized
+>   project.
+> - The GitHub integration supports only non-enterprise accounts. See
+>   [Types of Github Accounts](https://docs.github.com/en/enterprise-cloud@latest/get-started/learning-about-github/types-of-github-accounts).
+
+### Install the GitHub Synchronization application
+
+1.  Navigate to the
+    [US GitHub Synchronization application page](https://github.com/apps/mulesoft-github-integration)
+    or
+    [EU Github Synchronization application page](https://github.com/apps/mulesoft-github-integration-eu)
+    depending on your region.
+2.  Click **Install**.
+3.  In the **Install MuleSoft GitHub Integration** dialog, select an organization in which to
+    install the application.
+4.  Click **All repositories** to make all repositories available, or click **Only select
+    repositories** and specify individual repositories.
+5.  Click **Install**.
+
+The application must be authorized in API Designer to complete the integration with GitHub. See
+[Authorize the GitHub Sync Application in API Designer](#authorize-the-github-synchronization-application-in-api-designer).
+
+## Install the GitHub Synchronization Application as a GitHub User
+
+Installing the GitHub Synchronization application in a GitHub user account enables you to sync your
+individual GitHub user repositories.
+
+### Before You Begin
+
+To install the GitHub Synchronization application as a GitHub user, you must have:
+
+- A GitHub account
+- A membership in the GitHub organization in which you want to install the application
+
+> [!IMPORTANT] In the email settings for the GitHub account you want to use with GitHub
+> Synchronization, if you select **Keep my email addresses private**, ensure you do not select
+> **Block command line pushes that expose my email**. The block setting will prevent you from
+> pushing commits in your synchronized project.
+
+### Install the GitHub Synchronization Application
+
+1.  Navigate to the
+    [US GitHub Synchronization application page](https://github.com/apps/mulesoft-github-integration)
+    or
+    [EU Github Synchronization application page](https://github.com/apps/muesoft-github-integration-eu)
+    depending on your region.
+2.  Click **Install**.
+3.  In the **Install MuleSoft GitHub Integration** dialog, select a GitHub user account (typically
+    the first items in the displayed list).
+4.  Click **All repositories** to make all repositories available or click **Only select
+    repositories** and specify individual repositories.
+5.  Click **Install**.
+
+The application must be authorized in API Designer to complete the integration with GitHub. See
+[Authorize the GitHub Synchronization Application in API Designer](#authorize-the-github-synchronization-application-in-api-designer).
+
+## Authorize the GitHub Synchronization Application in API Designer
+
+To authorize the GitHub Synchronization application, ensure your user ID is assigned the Design
+Center Developer permission.
+
+1.  Sign in to the Anypoint Platform.
+2.  On the Design Center **Projects** page, click **Create +**.
+3.  Select **New API Specification**.
+4.  In the **New API Specification** panel, click **Authorize the MuleSoft app now to get started**.
+5.  Click **Authorize**.
+6.  In the subsequent dialog, click **Authorize MuleSoft GitHub Integration**.
+
+You are redirected to API Designer, which displays an **Authorized Successfully** message. You can
+now complete the process that originally triggered the application authorization.
+
+## Troubleshooting GitHub Synchronization Application Installation
+
+If you encounter errors when attempting to authorize the GitHub Synchronization application, try
+deauthorizing and then reauthorizing the GitHub Synchronization application:
+
+1.  Click **Revoke** in the GitHub user interface (**Settings** > **Applications** > **Authorized
+    GitHub Apps**).
+2.  [Authorize the GitHub Synchronization Application](#authorize-the-github-synchronization-application-in-api-designer).
+
+If you see an empty list, ensure youâve installed the application either in a GitHub organization or
+in a GitHub user account before performing any sync action.
+
+## Disabling the GitHub Integration
+
+Your organization administrator can disable the Github Integration:
+
+1.  On the Design Center **Projects** page, click **Settings**.
+2.  Under **Integrations**, unselect **Enable Github Integration**.
+3.  A confirmation dialog box appears.
+4.  Click **Disable GitHub**.
+
+The integration is now disabled. If your organization has sub-organizations, the organization
+administrator can enable or disable the integration for each sub-organization as needed.
+
+> [!WARNING] This action disables source syncing for all users and projects in your organization. If
+> the integration is re-enabled, all past synchronizations are lost even when the repositories still
+> exist on GitHub.
+---
+
+# Managing Projects Synchronized with GitHub
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can manage and interact with GitHub-synchronized projects in API Designer and Design Center.
+
+In the Design Center **Projects** list, a projectâs **Details** pane enables you to view both GitHub
+sync status and repository URL, which is useful for troubleshooting connectivity issues. The
+**Details** pane also enables you to disable GitHub synchronization (you can also disable GitHub
+synchronization via the **Publish** options menu).
+
+## Use The Branch Selector Component in API Designer
+
+Access the branch selector component by clicking the project title (with the current GitHub branch
+name) located at the top of the code panel.
+
+The branch selector component enables you to access your GitHub repository page and to:
+
+- Select a branch
+
+  The current GitHub branch appears first (with its commit hash), followed by a list of previously
+  created feature branches. Click a branch name to switch to branch.
+
+- View differences between branches
+
+  To view differences between a branch and the current branch, click **View Diff**.
+
+  > [!NOTE] The **View in GitHub** button, **View Diff** button, and commit hash do not appear for
+  > non-GitHub-synchronized projects.
+
+- View the default branch
+
+  The default branch is indicated by the default icon.
+
+- Delete a branch
+
+  To delete a branch, click the **Delete branch** button (**X**).
+
+- Open a pull request
+
+  To open a pull request, switch to a branch (other than the main branch), open the branch component
+  selector, and click **Open Pull Request**.
+
+- Rename a branch
+
+  To rename a branch, click the pencil icon, add a new name, and click **Rename**.
+
+- Create a new branch
+
+  Create a new feature branch from the current branch. Specify the new branch name in the **Create
+  Branch** text field and click the create branch button (**+**). API Designer switches to the new
+  branch and redirects you to the text editor. The new branch name displays above the code panel.
+
+## Use The Projects Page and Details Panel in Design Center
+
+In Design Center, the **Projects** list and a projectâs **Details** panel enable you to:
+
+- Determine if project is synchronized with GitHub
+
+  The Design Center **Projects** page lists your specifications, fragments, and applications.
+  Projects that are synchronized with GitHub contain the GitHub icon in the **Name** column.
+
+- View the GitHub repository URL
+
+  View the GitHub repository URL in a selected projectâs **Detail** panel. Click the **Copy** button
+  to copy the URL contents into the clipboard.
+
+- View GitHub Synchronization status
+
+  View GitHub synchronization status in a selected projectâs **Details** panel. The indicator
+  displays **Not Available** if you have not authorized the GitHub Synchronization application in
+  your GitHub account, or if you are not a member of a GitHub synchronized-authorized GitHub
+  organization. In these cases, you can view the project in API Designer as read-only.
+
+  See [Install and Authorize the MuleSoft GitHub Sync Application](design-ghs-install-authorize).
+
+- Change the default branch name for a new project
+
+  To change the default branch for a new project, you must have admin permissions. Open a project
+  from the Projects Page, click **Settings**, and rename the branch. This applies to new projects
+  only, not existing projects. Note that if youâre using GitHub synchronization, the default branch
+  name is specified by GitHub.
+
+- Change the default branch for an existing project
+
+  To change the default branch for an existing project, open a project from the Projects Page, click
+  **Settings** > **Branch Settings** and select a new branch. Note that if youâre using GitHub
+  synchronization, the default branch name is specified by GitHub.
+
+- Disable GitHub Synchronization
+
+  To disable GitHub synchronization status from a selected projectâs **Details** panel, click the
+  **Disable Sync** button.
+
+  In the **Disable GitHub Sync** dialog, confirm that you want to disable sync between your project
+  and GitHub. Enter the project name in the confirmation text field and click **Disable Sync**. This
+  action cannot be undone.
+
+## See Also
+
+- [Merge Branches](design-ghs-merge-branches)
+---
+
+# Merging Branches
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+When you merge branches, you combine a target branch with changes from a forked source branch, often
+called a _feature branch_. The target branch reflects these changes, and the source branch remains
+unmodified. You can merge branches within the API Designer interface.
+
+## Merge A Branch
+
+1.  In the Design Center **Projects** list, click a project name to open the text editor. The
+    **Merge** button appears next to the branch selector component button (if branches have already
+    been created).
+2.  Click Merge.
+3.  In the **Merge branch** dialog, select the target branch in the dropdown list of branches.
+4.  Expand **Advanced Settings**.
+5.  Select **Squash commits**.
+
+    Squashing commits compacts the source branchâs commits into a single commit for merging and
+    keeps the target branchâs commit history clean and concise.
+
+6.  To automatically delete the source branch after merging, select **Delete branch**.
+7.  Click **Merge**.
+
+    After merging, the merge target branch becomes the current branch.
+
+## Resolving Merge Conflicts
+
+Merge conflicts arise when either the source branch or the target branch contain changes (commits)
+that are not in the other branch. When merge conflicts occur, you must choose which branch to bring
+forward. You can specify the source branch or the target branch.
+---
+
+# Creating New Projects Synchronized from Existing GitHub Repositories
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can create a new API Designer project and synchronize it with an existing GitHub repository.
+
+## Before You Begin
+
+Before you create and synchronize a project, ensure you have:
+
+- The Design Center Developer permission within Anypoint Platform
+- [Installed and authorized](design-ghs-install-authorize) the GitHub Synchronization application
+- Signed into GitHub
+
+## Synchronize A New Project
+
+1.  On the Design Center **Projects** page, click **Create new**.
+2.  Select **Sync from existing GitHub Repo**.
+3.  In the **New Project** dialog, specify a name in the **Project Name** field.
+4.  Select an organization and repository from which to synchronize your new project.
+
+    > [!NOTE] The **GitHub Organization** dropdown list displays GitHub organizations that have the
+    > GitHub Synchronization application installed. No organizations or repositories are listed if
+    > the application is not installed.
+
+5.  Click **Import As**.
+6.  Choose the type of API project to sync: **API Specification** or **API Fragment**.
+
+    You are navigated to the new projectâs text editor.
+
+## See Also
+
+- [Create an API Specification with the Text Editor](design-create-publish-api-raml-editor)
+- [Helpful Features in the Text Editor](design-helpful-features-text-editor)
+- [Publish an API Specification](design-publish)
+---
+
+# Creating New Projects Synchronized with New GitHub Repositories
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+When creating an API Designer project, you can also create a GitHub repository and synchronize the
+repository with your project.
+
+## Before You Begin
+
+Before you create and synchronize a project, ensure you have:
+
+- The Design Center Developer permission within Anypoint Platform
+- [Installed and authorized](design-ghs-install-authorize) the GitHub Synchronization application
+- Signed into GitHub
+
+## Synchronize A New Project
+
+1.  On the Design Center **Projects** page, click **Create new**.
+2.  Select **New API Spec**.
+3.  In the **New API Spec** dialog, specify an API title.
+4.  Select **Iâm comfortable with designing it on my own**.
+5.  Click the **Sync this project with an external GitHub repository** checkbox.
+6.  In the expanded dialog, select an organization from the **GitHub Organization** list.
+
+    > [!NOTE] The **GitHub Organization** list remains empty if the GitHub Synchronization
+    > application is not installed.
+
+7.  If necessary, specify a new name for the repository.
+8.  Click **Create API Spec**.
+
+    You are navigated to the new projectâs text editor.
+
+In addition to synchronizing GitHub repositories when creating API specifications, you can
+synchronize a new GitHub repository when creating fragments and importing APIs.
+
+## See Also
+
+- [Create an API Specification with the Text Editor](design-create-publish-api-raml-editor)
+- [Helpful Features in the Text Editor](design-helpful-features-text-editor)
+- [Publish an API Specification](design-publish)
+---
+
+# Creating New GitHub Repositories Synchronized from an Existing Projects
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can create a new GitHub repository and synchronize it with an existing API Designer project.
+
+## Before You Begin
+
+Before you synchronize a new repository and a project, ensure you have:
+
+- The Design Center Developer permission within Anypoint Platform
+- [Installed and authorized](design-ghs-install-authorize) the GitHub Synchronization application
+- Signed into GitHub
+
+## Synchronize A New Repository and A Project
+
+1.  In the Design Center **Projects** list, click the table row containing a project to synchronize
+    with GitHub.
+2.  In the details panel, click the **Sync with GitHub** button.
+3.  In the **Enable Sync with GitHub** dialog, select an organization from the **GitHub
+    Organization** list dropdown.
+
+    > [!NOTE] The **GitHub Organization** list remains empty if the GitHub Synchronization
+    > application is not installed. See
+    > [Install and Authorize the MuleSoft GitHub Synchronization Application](design-ghs-install-authorize).
+
+4.  Specify a name for the new repository.
+5.  Click **Sync**.
+
+    You are navigated to the Design Center **Projects** page. A **Sync Status** indicator appears in
+    the **Details** pane along with buttons that enable you to manage a GitHub repository and
+    disable synchronizing.
+
+## See Also
+
+- [Create an API Specification with the Text Editor](design-create-publish-api-raml-editor)
+- [Helpful Features in the Text Editor](design-helpful-features-text-editor)
+- [Publish an API Specification](design-publish)
+---
+
+# Helpful Features in the Text Editor
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The text editor makes it easy to perform the following:
+
+- Rename declarable objects
+- Find the names of declarable objects by highlighting them
+- Find locations where a definition is referenced
+- Select code ranges
+- Navigate to a symbol
+- Extract an element to a declaration
+
+## Rename Declarable Objects
+
+Using only one action, you can rename declarable objects everywhere they are used in a project.
+
+You can right-click the name of an object where it is declared, select **Rename Symbol**, and
+provide a new name. The object is thereby renamed wherever it is used in all of the files of the
+current project that are associated with the root file of the project, but the object is not renamed
+where only mentioned.
+
+For example, in the following example API specification `product_name` is declared as a type on line
+5 at callout 1, mentioned at callout 2, and used on line 17 at callout 3. If you right-click
+`product_name` at callout 1 and use the **Rename Symbol** option to change its name, `product_name`
+is changed only at callout 3.
+
+#%RAML 1.0 title: Test Renaming
+
+types: product_name: **(1)** type: object properties: name: string
+
+/test: get: responses: 200: description: product_name **(2)** body: application/json: type:
+product_name **(3)**
+
+## Highlight the Names of Declarable Objects
+
+You can highlight the names of declarable objects where they are used in a file.
+
+To see all of the locations in a file where an object is used, click the cursor in the name of the
+object where that object is declared.
+
+For example, the type `person` is declared on line 5 at the first callout in the following example
+API specification. That type is subsequently used on line 16 at the second callout. If you click
+`person` on line 5, the text editor highlights `person` on line 16.
+
+#%RAML 1.0 title: Test Highlighting
+
+types: person: **(1)** type: object properties: name: string
+
+/test: get: responses: 200: body: application/json: type: person **(2)**
+
+This highlighting works for all declarable objects, such as types, security schemes, resource types,
+and traits.
+
+Highlighting appears only where the object is used, not every location where its name appears. For
+example, in the following example API specification, `person` is declared as a type on line 5 at
+callout 1, mentioned on line 14 at callout 2, and used on line 17 at callout 3. When you click in
+`person` at callout 1, `person` is highlighted only at callout 3.
+
+#%RAML 1.0 title: Test Highlighting
+
+types: person: **(1)** type: object properties: name: string
+
+/test: get: responses: 200: description: person **(2)** body: application/json: type: person **(3)**
+
+## Find Locations Where a Definition is Referenced
+
+You can navigate to locations where a given definition is referenced by right-clicking the
+definition and selecting **Go to References**.
+
+For example, the type `person` is declared on line 5 at the first callout in the following example
+API specification. That type is subsequently used on line 14 at the second callout, and on line 22
+at the third callout.
+
+#%RAML 1.0 title: Test References
+
+uses: lib: library.raml
+
+types: person: **(1)** description: this is person's description properties: firstname: string
+manager: type: lib.manager Alertable: manager | person **(2)**
+
+/person: get: responses: 200: body: application/json: type: person\[\] **(3)**
+
+If you right-click `person` on line 5 and select **Go to References**, a list of the `person`
+locations (callouts two and three) appears. Double clicking a listed location navigates you to the
+relevant line.
+
+**Go to References** also supports the following:
+
+- RAML resource types and traits
+- RAML type expressions
+- Library aliases
+- References linked in JSON path navigation
+- References to nodes that apply macros, such as `annotationTypes`, `securitySchemes`,
+  `resourceTypes`, and `traits`
+
+## Select Code Ranges
+
+âSelection Rangesâ enable you to select and to expand the selection of code blocks.
+
+To select a range, click an element and press Control + Shift + \[Left Arrow | Right Arrow\]. The
+Right Arrow key increases the range. The Left Arrow key decreases the range.
+
+For example, clicking `body:` in the following code, and pressing Control + Shift + Right Arrow
+creates a selection range that includes only `body:`:
+
+![Example of a JSON response containing a personâs first name.](_images/apid-helpful-text-editor-1.png)
+
+Pressing Control + Shift + Right Arrow again results in the following selection range:
+
+![A code snippet that demonstrates a JSON object with a key named firstname.](_images/apid-helpful-text-editor-2.png)
+
+Pressing Control + Shift + Left Arrow collapses the selection range, leaving only `body:` selected
+again.
+
+## Navigate to a Symbol
+
+You can right-click anywhere in the document and select **Go to Symbol**, which presents the list of
+defined symbols:
+
+![A RAML code that defines a type and resource for a person.](_images/apid-helpful-text-editor-3.png)
+
+Selecting a symbol navigates you to its location in the document.
+
+## Extract an Element to a Declaration
+
+You can take advantage of refactoring helpers to ease the continuous improvement of the design. One
+such helper is the ability to extract an inline declarable element to a top-level declaration, with
+the result being reusability.
+
+When you select a range that matches an inline declarable element, an icon appears to the left of
+the element:
+
+![A code that shows the definition of a ](_images/apid-helpful-text-editor-4.png)
+
+Click the icon and select **Extract to Declaration**, which results in the following two changes to
+the document:
+
+![Code showcasing RAML for a test refactoring project.](_images/apid-helpful-text-editor-5.png)
+
+The first callout shows that `type: lib.manager` is replaced with `type: newtype`. A `newtype`
+declaration now exists outside of the `manager` scope (as shown at the second callout), thereby
+making `newtype` reusable.
+
+The extracted declaration name is based on the original name. If the name is already being used by
+another declaration of the same kind, an automatically incremented number is added at the end of the
+name. You can rename the declaration.
+
+Along with `types` declarations, you can also extract `resourceTypes` declarations and `traits`
+declarations.
+---
+
+# Import Files into an API-Fragment Project
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!WARNING] File uploads are restricted to supported formats.
+
+You can import RAML fragments, OAS components and JSON Schemas into an API-fragment project. The
+fragments that you import can be written in RAML 0.8, RAML 1.0, and OAS 3.0. You can import
+annotation types, data types, examples of JSON response payloads, libraries, resource types,
+security schemes, traits, and OAS components. You must set one of the fragments in your project as
+the root file of the project.
+
+There are three locations that you can import from: your computer, a location at a URL, and Anypoint
+Exchange.
+
+## Procedures
+
+- Import a file or the content of a ZIP file that is stored on your computer, if you are using the
+  text editor:
+  1.  Click the gear icon in the top-right corner of the text editor and select **Import**.
+  2.  In the **Import** dialog, select **File or Zip**.
+
+  **Result:** The file or files are listed in the left pane of the editor. If you imported a ZIP
+  file that contains files that are in a folder structure, the folder structure is represented in
+  the pane.
+
+- Import a file that is available through a URL, if you are using the text editor:
+  1.  Click the gear icon in the top-right corner of the text editor and select **Import**.
+  2.  In the **Import** dialog, select **URL**.
+
+      **Result:** The file is listed in the left pane of the editor.
+
+      > [!NOTE] With this method of importing a file, you can import only one file at a time. If you
+      > import a library fragment, you must also import separately each file that the library uses.
+
+- To import an API fragment from Exchange, together with its dependencies:
+  1.  Open the **Import Asset from Exchange** dialog by using either of these methods:
+      - If your project contains only the default file that API Designer created together with the
+        project, click the linked text that appears in the **Files** pane.
+      - If your project already contains files other than the default project file, click the gear
+        icon in the top-right corner of the text editor and select **Import from Exchange**.
+
+  2.  In the drop-down menu in the top-left corner of the dialog, select the business group that
+      owns the asset.
+  3.  Select one of the assets, which are listed in a table that has these columns:
+
+      **Name**
+
+      The name of an API specification or RAML fragment.
+
+      **Version**
+
+      The version of a specification or fragment.
+
+      Select the **Include snapshots** checkbox in the bottom-left corner of the dialog to include
+      snapshots in this column.
+
+      **Type**
+
+      The type of asset.
+
+      The value must be **API Fragment**.
+
+      **Language**
+
+      You can choose between RAML, OAS, or JSON Schema.
+
+      **Date modified**
+
+      The date that the currently selected version of the currently selected asset was published.
+
+      **Created by**
+
+      The user ID of the person who published the currently selected version of the currently
+      selected asset.
+
+  4.  Click **Import asset**.
+
+  **Result:** The file or files are listed in the left pane of the editor.
+
+## See Also
+
+- [Root Files in Projects in the Text Editor](design-change-root-file)
+---
+
+# Import Files into an API-Specification Project
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!WARNING] File uploads are restricted to supported formats.
+
+You can import RAML fragments, OAS components, and JSON schemas into an API-specification project.
+
+You can include more than one API specification in an API-specification project. You might want to
+have more than one specification in a project if the specifications are closely related in
+functionality. You must set one of the specifications as the root file of the project. However, you
+can change which file is the root file whenever you need to.
+
+The fragments that you import can be written in RAML 0.8, RAML 1.0, or OAS 3.0. You can import
+annotation types, data types, examples of JSON response payloads, libraries, resource types,
+security schemes, and traits.
+
+There are three locations that you can import from: your computer, a location at a URL, and Anypoint
+Exchange.
+
+## Procedure
+
+- Import a file or the content of a `.zip` file that is stored on your computer, if you are using
+  the text editor:
+  1.  Click the gear icon in the top-right corner of the text editor and select **Import**.
+  2.  In the **Import** dialog, select **File or Zip**.
+  3.  Browse to your file or ZIP file and select it.
+
+  **Result:** The file or files are listed in the left pane of the editor. If you imported a ZIP
+  file that contains files that are in a folder structure, the folder structure is represented in
+  the pane.
+
+- Import a file that is available through a URL, if you are using the text editor:
+  1.  Click the gear icon in the top-right corner of the text editor and select **Import**.
+  2.  In the **Import** dialog, select **URL**.
+
+      > [!NOTE]
+      >
+      > - If you import a file that is available online by providing its URL, be sure that the file
+      >   contains no `!include` statements (RAML) or `$ref` statements (OAS). The editor imports
+      >   only the file that is at the URL.
+
+  **Result:** The file is listed in the left pane of the editor.
+
+- To import an API specification or API fragment from Exchange, together with its dependencies:
+  1.  Open the **Import Asset from Exchange** dialog by using either of these methods:
+      - If you are using the text editor and your project contains only the default file that API
+        Designer created together with the project, you can click the linked text that appears in
+        the **Files** pane.
+      - If you are using the text editor, you can click the gear icon in the top-right corner of the
+        text editor and select **Import from Exchange**.
+      - If you are using the visual editor and your project does not yet contain any resources or
+        data types, you can click the linked text that appears in the **New API** pane.
+
+  2.  In the drop-down menu in the top-left corner of the dialog, select the business group that
+      owns the asset.
+  3.  Select one of the assets, which are listed in a table that has these columns:
+
+      **Name**
+
+      The name of an API specification or API fragment.
+
+      **Version**
+
+      The version of a specification or fragment.
+
+      Select the **Include snapshots** checkbox in the bottom-left corner of the dialog to include
+      snapshots in this column.
+
+      **Type**
+
+      The type of asset.
+
+      The value can be either **REST API** or **API Fragment**.
+
+      **Language** (for API specifications being imported into the text editor)
+
+      The language is either RAML or OAS.
+
+      The value displayed by default is the language in which the specification was written. The
+      non-default value is the language in which Exchange created a copy when the specification was
+      published.
+
+      If you want to import the copy, you might need to correct errors in it after you import it.
+      The process that Exchange uses to create copies, which converts RAML to OAS or vice versa, is
+      not guaranteed to produce error-free specifications.
+
+      **Language** (for API specifications being imported into the visual editor)
+
+      The language is always RAML.
+
+      API Designer imports the RAML version of a specification, displays the RAML version in the
+      **RAML** pane, and displays the OAS version in the **OAS** pane.
+
+      **Language** (for fragments)
+
+      You can choose between RAML, OAS, or JSON Schema.
+
+      **Date modified**
+
+      The date that the currently selected version of the currently selected asset was published.
+
+      **Created by**
+
+      The user ID of the person who published the currently selected version of the currently
+      selected asset.
+
+  4.  Click **Import Asset**.
+
+  **Result:** The file or files are listed in the left pane of the editor.
+
+## See Also
+
+- [Root Files in Projects in the Text Editor](design-change-root-file)
+- [Design, Create, and Publish API Specifications](design-create-publish-api-specs)
+---
+
+# Importing and Publishing API Specs
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use API Designer for importing and Publishing your API Specifications.
+
+With API Designer, you can:
+
+- [Import Files into an API-Specification Project](design-import-files)
+- [Import Files into an API-Fragment Project](design-import-files-api-fragment-projects)
+- [Add Dependencies to an API-Specification Project](design-add-api-dependency)
+- [View the Source Project for Assets Published to Exchange](design-view-source-from-exchange)
+- [Publish an API Specification](design-publish)
+- [Share an OAS 3.0 API Specification as RAML](design-share-oas3-as-raml)
+---
+
+# Specifying Required Fields in JSON Schema Drafts
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Design Center supports JSON Schema Draft 3, Draft 4, and Draft 7. The way you specify `required`
+differs across drafts. You see an error if the draft you declare doesnât match the syntax youâre
+using.
+
+## Draft 3
+
+In Draft 3, you specify that a field is `required` inside the definition of each field:
+
+{ "$schema": "http://json-schema.org/draft-03/schema#", "type": "object", "properties": { "pageNum":
+{ "type": "integer", "title": "Page number", "description": "The number of the page to retrieve",
+"default": 1, "required": true }, "pageSize": { "type": "integer", "title": "Page size",
+"description": "The number of items per page", "default": 50, "enum": \[10, 20, 30, 40, 50\],
+"required": true } } }
+
+## Draft 4
+
+In Draft 4, you specify that fields are `required` by creating an array at the same level as the
+`properties` definition:
+
+{ "$schema": "http://json-schema.org/draft-04/schema#", "type": "object", "properties": { "pageNum":
+{ "type": "integer", "title": "Page number", "description": "The number of the page to retrieve",
+"default": 1 }, "pageSize": { "type": "integer", "title": "Page size", "description": "The number of
+items per page", "default": 50, "enum": \[10, 20, 30, 40, 50\] } }, "required": \["pageNum",
+"pageSize"\] }
+
+If you have used the Draft 3 method after declaring that the schema uses Draft 4, or vice versa, in
+most cases you can simply change the schema declaration. For example, if you declared that your
+schema uses Draft 3, but the schema uses the method from Draft 4, you can change your schema
+declaration to point to Draft 4.
+
+## Draft 7
+
+In Draft 7, the `required` syntax is the same as in Draft 4. You create an array at the same level
+as the `properties` definition:
+
+{ "$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": { "pageNum":
+{ "type": "integer", "title": "Page number", "description": "The number of the page to retrieve",
+"default": 1 }, "pageSize": { "type": "integer", "title": "Page size", "description": "The number of
+items per page", "default": 50, "enum": \[10, 20, 30, 40, 50\] } }, "required": \["pageNum",
+"pageSize"\] }
+---
+
+# Manage API Specs and Fragments
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use API Designer for managing your API Specifications and API fragments.
+
+With API Designer, you can:
+
+- [Rename a Project](design-rename-project)
+- [Delete a Project](design-delete-project)
+- [Merge Branches](design-ghs-merge-branches)
+- [Duplicate a Project](design-duplicate-project)
+- [API Specification for MuleSoft Connectivity Ecosystem](spec-api-public-exchange)
+---
+
+# Simulate API Calls with the Mocking Service
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The API mocking service enables you simulate the behavior of an API specification. The mocking
+service provides a test link to an API. The mocking service returns the responses (both HTTP status
+codes and example payloads) that are defined in your API specification, and is valuable for testing
+or for simply exploring how your API behaves.
+
+When you add an endpoint to your API specification, API Designer automatically generates a link to
+the API that you can use in a browser. You can also enable a public link that can be shared with
+users outside of Anypoint Platform.
+
+The mocking service is a feature of Anypoint Platform and runs continuously. You can run the mocking
+service from the text editor, the visual editor, and from Anypoint Exchange. You can simulate calls
+to the API in API Designer before publishing the API specification to Exchange or in Exchange after
+publishing the API specification.
+
+If you specified a base URI (RAML) or base path (OAS), API Designer enables you to use either the
+base URI or the mocking service when simulating an API call. API Designer does not make any changes
+to your APIs.
+
+## Before You Begin
+
+You must have a project containing an API specification in API Designer. Also, you must define at
+least one endpoint in your API specification and each endpoint must have at least one method.
+
+## Simulate a Call to an API using an Internal URL
+
+> [!IMPORTANT] To access the internal URL, you must specify the authorization headers as part of the
+> request URL. To test an API without supplying authorization headers, generate a mocking service
+> public URL for this project.
+
+1.  From API Designer, open the project containing the API you want to test.
+
+    You can use either the text editor or the visual editor.
+
+2.  Select the root file of your project.
+3.  Click the **Documentation** icon in the right-hand tool bar.
+4.  From the drop-down menu, select **Summary**.
+5.  Click on the name of an end point.
+6.  If you have defined `baseURL` in your API specification:
+    - Click the **Select server** dropdown and select one of the following:
+      - `baseUri`: uses the baseUri as defined in your API specification
+      - Mocking Service: uses the API mocking service
+
+7.  Click one of the methods of your API, then click **Try it**.
+8.  (Optional) Provide and query paramaters you want to test.
+
+    You can enter query parameters as name/value pairs.
+
+9.  Click **Send.**
+
+    API Designer displays the HTTP return code as specified in your API. Alternately, you can test
+    the API by copying the **Request URL** and paste it into a web browser or Postman.
+
+    When using the mocking service internal URL, you must provide authorization headers as part of
+    the URL. To avoid this, use the mocking service public url.
+
+## Setting the Mocking Service as the Default Server
+
+You can set the Mocking Service as the default server used in the **Documentation** panel. This is
+the default value that appears in the **Select server** drop-down.
+
+1.  Click **Mocking Service Configuration**.
+2.  Click the **Select by Default** slider.
+
+## Simulate a Call to an API using an Public URL
+
+Use a public URL to test calls to your API without having to provide an authorization header. This
+is useful when you want to share the API with someone outside of Anypoint Platform.
+
+1.  From API Designer, open the project containing the API you want to test.
+
+    You can use either the text editor or the visual editor.
+
+2.  Select the root file of your project.
+3.  Click the **Mocking Service Configuration** icon in the right-hand tool bar.
+4.  Click the **Make Public** slider.
+
+    API Designer generates a public URL for your API. When you disable the public URL it becomes
+    invalid. Re-enabling this option generates a different URL.
+
+5.  (Optional) Set an expiration date for the public URL
+    1.  Click **Set expiration date for public link**.
+    2.  Using the date selector, select the day you want the public link to expire.
+
+## See Also
+
+- [Add Behavioral Headers to Simulated API Calls](apid-behavioral-headers)
+---
+
+# Guide to Defining Examples in RAML 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+When defining examples in external files for a type, trait, or resource type in your RAML 1.0 API
+specification, follow these rules:
+
+- For a single example, either use the `example` facet and include a .yaml file or use the
+  `examples` facet and include a .raml NamedExample fragment file.
+- For multiple examples, always use the `examples` facet and either:
+  - Define multiple examples, each pointing to individual .yaml files, with a single example per
+    file
+  - Include a .raml file containing two or more examples defined in a single NamedExample fragment
+
+## Using a Single Example That Is in a .yaml File
+
+In your specification, include the file with an `example` facet. In your .yaml file, ensure that the
+example is at the root level.
+
+The files api.raml and fragment.yaml illustrate the correct way to use a single example that is in a
+.yaml file:
+
+api.raml
+
+#%RAML 1.0 title: test types: A: properties: givenName: string familyName: string example: !include
+fragment.yaml
+
+fragment.yaml
+
+givenName: âChiakiâ familyName: "Mukai"
+
+## Using a Single Example That Is in a .raml NamedExample Fragment File
+
+In your specification, include the file with an `example` facet. In your NamedExample fragment,
+ensure that the example is not at the root level of the file. The fragment must contain a key that
+is the name of the example.
+
+The files api.raml and fragment.raml illustrate the correct way to use a single example that is in a
+.raml file:
+
+api.raml
+
+#%RAML 1.0 title: test types: A: properties: givenName: string familyName: string examples: !include
+fragment.raml
+
+fragment.raml
+
+#%RAML 1.0 NamedExample fullName: givenName: âChiakiâ familyName: "Mukai"
+
+Do not use a fragment that looks like this:
+
+fragment.raml
+
+#%RAML 1.0 NamedExample givenName: âChiakiâ familyName: "Mukai"
+
+In this case, API Designer ignores the header and uses the example. However, if you validate a
+specification with any other RAML processors, NamedExample fragments that define only one example
+should generate errors, in accordance with the RAML 1.0 specification.
+
+## Naming Two Examples That Are in .yaml Files
+
+In your specification, include the file with the `examples` facet and name each example. In your
+.yaml files, ensure that each example is at the root level.
+
+The files api.raml, fragment1.yaml, and fragment2.yaml illustrate the correct way to use two
+examples that are in .yaml files:
+
+api.raml
+
+#%RAML 1.0 title: test types: A: properties: givenName: string familyName: string examples:
+fullName: !include fragment1.yaml otherFullName: !include fragment2.yaml
+
+fragment1.yaml
+
+givenName: âChiakiâ familyName: "Mukai"
+
+fragment2.yaml
+
+givenName: "Kyung-won" familyName: "Park"
+
+## Naming Two Examples That Are in a NamedExample Fragment
+
+In your specification, include the file with an `examples` facet. In your NamedExample fragment,
+ensure that neither example is at the root level of the file. The fragment must contain two keys
+that are each the name of an example.
+
+The files api.raml, and fragment.raml illustrate the correct way to use a two examples that are in a
+.raml file:
+
+api.raml
+
+#%RAML 1.0 title: test types: A: properties: givenName: string familyName: string examples: !include
+fragment.raml
+
+fragment.raml
+
+#%RAML 1.0 NamedExample fullName: givenName: âChiakiâ familyName: "Mukai"
+
+otherFullName: givenName: "Kyung-won" familyName: "Park"
+---
+
+# Publishing API Specifications
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+When you want to share your API specification with other developers, you can publish it to Anypoint
+Exchange.
+
+## Before You Begin
+
+It is a good practice to remove unreferenced files before publishing a project to Anypoint Exchange.
+An _unreferenced_ file is not referenced from the projectâs root file, either directly or
+indirectly.
+
+For example, if the file `example.raml` is among the files in a project but the root file of the
+project does not reference `example.raml` with an `!include` tag, the root file doesnât reference
+`example.raml` directly. If none of the files in the chain of references from the root file directly
+references `example.raml`, it is not referenced indirectly from the root file. Therefore,
+`example.raml` is unreferenced and should probably not be among the files in the project.
+
+If you do not remove them before you begin, unreferenced files are detected when you select the
+option to publish to Exchange, and you are given options on whether or not to publish them.
+
+## Publish an API Specification
+
+1.  In API Designer, open the API-specification project that you want to publish.
+2.  If the specification has dependencies, click the refresh button beside `Exchange Dependencies`
+    to ensure that Design Center has the latest status and content from all dependencies.
+3.  Click **Publish** and then click **Publish to Exchange**.
+
+    ![The publish dialog shown when you publish from API Designer to Exchange](_images/apid-publish-dialog-api-specs.png)
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td><strong>Asset version</strong>: The version number to be displayed in the <strong>Version</strong> section of the page that Anypoint Exchange creates for the project. For a description of this field, see <a href="#asset-version">Asset Version</a>.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td><strong>API version</strong>: The version number of the API specification. For a description of this field, see <a href="#api-version">API Version</a>.<div><ul><li><p>the <strong>Asset version</strong> and <strong>API version</strong> fields are now pre-populated using the following criteria</p><div><ul><li><p>If no version is defined in the API spec, the suggested asset version and API version fields are pre-filled with default values: <code>1.0.0</code> and <code>v1</code>.</p></li><li><p>If the version defined in the API spec matches asset version field recommendations (for example, <code>1.0.3</code>), the value is pre-filled in the asset version field, and the API version field is pre-filled with a <code>v</code> and the major asset version (for example, <code>v1</code>).</p></li><li><p>If the version defined in the API spec matches API version field recommendations (for example, <code>v2</code>), the value is pre-filled in the API version field, and the asset version field is pre-filled with its major value extracted (for example, <code>2.0.0</code>).</p></li><li><p>If the version defined in the API spec is a different string (for example, <code>7.4</code>), the value is pre-filled in the API version field, and the asset version field is pre-filled with its default value: <code>1.0.0</code>.</p></li><li><p>If the API has a version already published to Exchange (for example,<code>3.2.5</code>), when publishing a new version without changing the one defined in the API spec, the asset version field is pre-filled with its previous value incremented by one (for example, <code>3.2.6</code>), and the API version field stays the same.</p></li></ul></div></li></ul></div></td></tr><tr><td><i data-value="3"></i><b>3</b></td><td><strong>LifeCycle State</strong>: The lifecycle state of the asset. Assets can be published from API Designer as <strong>Development</strong> or <strong>Stable</strong>. Assets cannot be deprecated from API Designer.</td></tr><tr><td><i data-value="4"></i><b>4</b></td><td><strong>Business group ID</strong>: The ID of the business unit in Anypoint Platform to which the project belongs.</td></tr><tr><td><i data-value="5"></i><b>5</b></td><td><strong>Asset name</strong>: The name that Anypoint Exchange uses to identify the published project.</td></tr><tr><td><i data-value="6"></i><b>6</b></td><td><strong>Asset ID</strong>: A unique ID that Anypoint Exchange uses to identify the published project. You should use the default unless there is a published asset with the same ID.</td></tr></tbody></table>
+
+4.  After completing the required fields, click **Publish to Exchange**.
+
+    If your project includes files that are not referenced by the root file either directly or
+    indirectly, a dialog asks you to confirm that you want to publish the project including the
+    unreferenced files. By default, API Designer excludes them from the published project in
+    Anypoint Exchange.
+
+> [!NOTE] If you are using a version of Anypoint Platform released prior to April 2017 and want to
+> add the asset to API Manager while publishing to Exchange, select **Add to API Manager**. This
+> functionality is not available in later versions and instead you can link API instances in API
+> Manager to assets in Exchange.
+
+## Asset Version
+
+Anypoint Exchange requires an asset version number for each API specification published. The asset
+version must be specified using semantic versioning rules. For details, see
+[Change the Version of an Asset](../exchange/to-change-raml-version).
+
+The content of the **Asset version** field on the publish dialog depends on the following:
+
+- If you are publishing the specification for the first time, you can use any valid number based on
+  the semantic versioning scheme. A typical starting version is `1.0.0`.
+- If you are republishing the specification, API Designer automatically populates the **Asset
+  version** field with the existing patch level number incremented by 1. You can change this number,
+  but the republish fails if you use a version number that has already been used to publish a stable
+  version of this API.
+- If you are republishing the specification and select `Development`, you can use the same number as
+  a previously published development version of the API, but not the same number as a previously
+  published stable version.
+
+## API Version
+
+Anypoint Exchange requires an API version number for each API specification published.
+
+The content and state of the **API version** field in the publish dialog depends on the following:
+
+- If the specification already includes a version, you cannot update it in the publish dialog.
+- If the specification does not include a version, you must enter the version in the **API version**
+  field.
+
+## See Also
+
+- [Publish Assets Workflow](../exchange/workflow-sharing-assets)
+- [Explore Asset Information](../exchange/asset-details)
+- [Change the Version of an Asset](../exchange/to-change-raml-version)
+- [API Instances](../api-manager/latest/api-instance-landing-page)
+---
+
+# Rename a Project
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can rename an API-specification project or an API-fragment project. If you have already
+published a project, renaming it does not create a new asset in Exchange when you publish the
+project again.
+
+## Procedure
+
+To rename a project, use one of these methods:
+
+- If the project is not open, select the project in Design Centerâs **Projects** page, and then
+  click the Edit icon in the top-right corner of the page.
+- If the project is open. click the gear icon in API Designerâs top-right corner and then select
+  **Rename**.
+---
+
+# Sharing an OAS 3.0 API Specification as a RAML 1.0 Specification
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can share an OAS 3.0 API specification in Anypoint Exchange as a RAML API specification. Other
+developers can then download the RAML version for use in Anypoint Studio or third-party IDEs or for
+implementation with API Manager.
+
+1.  Import the OAS 3.0 API specification into API Designer.
+2.  Click the three dots next to the filename in the **Files** pane and select **Duplicate**.
+3.  In the **Duplicate As** dialog, select **RAML**.
+4.  Set the root file of the project to the RAML version of the API specification.
+5.  Publish the project to Anypoint Exchange.
+
+> [!NOTE] If you want to share an OAS 3.0 specification in OAS 2, download your OAS 3.0
+> specification from API Designer as-is and then convert it to OAS 2.0 by using a tool such as
+> APIMatic transformer.
+---
+
+# Troubleshooting
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Troubleshoot errors you recieve when using API Designer:
+
+- [Common Problems in Conforming to RAML 0.8](design-common-problems-raml-08)
+- [Common Problems in Conforming to RAML 1.0](design-common-problems-raml-10)
+- [Guide to Defining Examples in RAML 1.0](design-named-examples)
+- [Best Practices when using API Designer](design-best-practices)
+- [Common Errors in Specifying Required Fields in JSON Schemas](design-json-schema-required-error)
+- [Differences for OAS 3.0 in Rendered Documentation](design-documentation)
+- [Simulate Calls to an API](design-mocking-service)
+- [Add Behavioral Headers to Simulated API Calls](apid-behavioral-headers)
+- [API Designer Troubleshooting](apid-general-troubleshooting)
+---
+
+# View the Source Project for Assets Published to Exchange
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+After publishing an asset to Anypoint Exchange, you can view the source files in the API Designer.
+Exchange provides a direct link to the API Designer project containing the source files.
+
+When you publish a project to Exchange via a ZIP file or other resource outside of API Designer, you
+can only view the contents of the project. To edit the files, create a new project based on the
+contents of the file. If you delete a project from API Designer after publishing it to Exchange, you
+can only view it in read-only mode.
+
+## Procedure
+
+1.  Open your API specification or fragment in Anypoint Exchange.
+2.  Next to the version of the specifcation or fragment you want to view, click the **ï¸** drop-down
+    menu.
+
+    > [!NOTE] You can only view older published versions of a specification or fragment published to
+    > Exchange. You cannot edit them.
+
+    Alternatively, you can the most recent version of a specifcation or fragment by clicking **ï¸**
+    in the asset toolbar and selecting **View code**.
+
+3.  Select **View code in API Designer**.
+
+    API Designer opens the project containing the specification or fragment in read-only view.
+
+4.  To edit the files in the project, click **Edit spec**.
+
+    This option is only available if you have edit permissions on the project and the project exists
+    in API Designer.
+
+    If the project was edited after being published to Exchange, API Designer gives you the option
+    to continue edit the newer version or view the version published to Exchange.
+
+## See Also
+
+- [Publish an API Specification](design-publish)
+---
+
+# About Design Center
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Design Center is a development environment that includes
+[API Designer](design-create-publish-api-specs), a tool that enables you to create API
+specifications in several modeling languages and create RAML API fragments. After you create a
+specification or fragment, publish it to Anypoint Exchange for anyone in your MuleSoft organization
+to use.
+
+> [!NOTE] Flow Designer is
+> [end of life](https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/versioning-back-support-policy.pdf)
+> and its documentation is now located at
+> [Flow Designer archive site](https://archive.docs.mulesoft.com/design-center/index).
+
+## Prerequisites for Using Design Center
+
+You must meet the following requirements for accessing Design Center, using its features, running
+and deploying apps, and publishing designs to Exchange:
+
+- Be assigned the Design Center Developer permission or be the Organization Owner.
+- Be assigned the CloudHub Admin role for the Design environment.
+- Be assigned the Exchange Contributor role.
+- Belong to an Anypoint organization that has at least one CloudHub Design Environment with 0.2
+  vCores of available capacity.
+
+To deploy to the production environment from Design Center, your user account also needs to be
+assigned to a CloudHub Developer role specifically for the production environment.
+
+## Where to Start Using Design Center
+
+To start using Design Center, click Design Center after signing into Anypoint Platform. The Projects
+list appears. See the documentation for API Designer for the steps to create projects for those
+tools.
+
+## See Also
+
+- [Roles](../access-management/roles)
+- [CloudHub Environments](../access-management/environments)
+---
+
+# API Specification for MuleSoft Connectivity Ecosystem
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you are an independent software vendor (ISV), you can participate in the MuleSoft Connectivity
+Ecosystem by auto-generating a connector from a REST API specification. These steps explain how to
+prepare your API specification in Anypoint Platform and how to work with your MuleSoft BD
+counterpart to do the rest.
+
+1.  In Anypoint Platform, follow these steps to prepare your API specification:
+    1.  Sign up for Anypoint Platform:
+
+        [https://anypoint.mulesoft.com/login/#/signup](https://anypoint.mulesoft.com/login/#/signup)
+
+    2.  Log into Anypoint Platform and click **Design Center**.
+    3.  Create a new API specification project by clicking **Create new** in the top-right corner
+        and then clicking **New API Specification**.
+    4.  In the **New API Specification** window, specify the name of the project, select **Iâm
+        comfortable designing it on my own**, and select the language of the specification. Then,
+        click **Create API**.
+    5.  Delete the file that is automatically generated by hovering over its name, clicking the
+        three dots to its right, and selecting **Delete**.
+    6.  On the left side of the screen, click the action menu (the three-dot icon) at the top of the
+        file list and select **Import**. You can import a RAML or `.oas` file, a `.zip` file, or a
+        specification that is at a URL.
+    7.  After importing, test your API to make sure it works as you expect it to.
+        1.  In the top-right corner of the screen, switch on the mocking service.
+        2.  In the file list, select your API specification.
+        3.  In the API summary on the right side of the screen, expand the **Resources** entry until
+            you see the methods for your resources.
+        4.  Click one of the methods.
+        5.  Review the information about the method.
+        6.  Click **Try It**.
+        7.  If the endpoint requires parameters, specify values for them.
+        8.  Click **Send**.
+
+    The results of the test of the method appear on the right side of the screen under the **Send**
+    button.
+
+2.  After your API specification is ready, save it in a git-compatible repository, such as GitHub or
+    Bitbucket.
+3.  Contact your MuleSoft BD counterpart and follow these steps:
+    1.  Sign the Technology Partner Agreement (provided by your MuleSoft BD counterpart)
+    2.  Ask for an extension to the expiration date of your trial of Anypoint Platform.
+    3.  Ask for an invitation to the Connectivity Assets Manager tool, a self-service certification
+        tool for connectivity assets, and create a new Anypoint Platform account based on the
+        invitation.
+    4.  Schedule a short demonstration to help MuleSoft understand your APIs and how they work in
+        Anypoint Platform.
+---
+
+# Upload an API Specification Created Outside of API Designer
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You cannot publish an API specification to Anypoint Exchange without going through API Designer. If
+you want to publish a specification that you have already authored outside of API Designer, you must
+create an API-specification project in API Designer, import your specification, and then publish to
+Anypoint Exchange.
+
+> [!WARNING] File uploads are restricted to supported formats.
+
+## Before You Begin
+
+Within Anypoint Platform, your user ID must be assigned the Design Center Developer permission.
+
+## Procedure
+
+1.  Open Design Center from the homepage of Anypoint Platform.
+2.  Create an API-specification project that you can work in.
+    1.  On the **Projects** page in Design Center, click **Create** and then click **New API
+        Specification**.
+    2.  In the **New API Specification** dialog, name your project. You can change the name later,
+        if you want to.
+    3.  Select **Iâm comfortable designing it on my own**.
+    4.  In the **Specification Language** field, select the language in which your API specification
+        is written.
+    5.  Click **Create API**. + **Result**: Design Center creates an API-specification project. In
+        that project are two files:
+        - A default, blank specification that has the same name as the project.
+
+          You can delete this file in a later step. Currently, it is set as the root file of the
+          project, and it is not possible to delete a file that is set as the root file.
+
+        - A file named `exchange.json` that includes metadata that is required for Anypoint
+          Exchange.
+
+          This file is read-only.
+
+3.  Import your API specification.
+    1.  Click the gear icon in the top-right corner of the text editor and select **Import**.
+    2.  In the **Import** dialog, select **File or Zip**.
+    3.  Browse to your file or ZIP file and select it. + **Result:** The file or files are listed in
+        the left pane of the editor. If you imported a ZIP file that contains files that are in a
+        folder structure, the folder structure is represented in the pane.
+
+4.  Set the root file of the project by right-clicking the specification and selecting **Set as root
+    file**.
+5.  Delete the blank specification that API Designer created by default.
+
+## What To Do Next
+
+Publish the API-specification project to Anypoint Exchange. See
+[Publish an API Specification](design-publish).
+
+## See Also
+
+[Anypoint Exchange](../exchange/)
+

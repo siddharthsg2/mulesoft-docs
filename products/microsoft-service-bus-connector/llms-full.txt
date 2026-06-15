@@ -1,0 +1,1637 @@
+﻿# Microsoft Service Bus Connector - Full Documentation
+
+# Microsoft Service Bus Connector 2.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Service Bus (Microsoft Service Bus Connector) enables message
+integration with Windows Service Bus on-premises. The connector supports communication with queues
+and topics through Advanced Message Queuing Protocol (AMQP) 1.0. In addition, dynamic discovery and
+provisioning of Service Bus objects is possible using the built-in management API.
+
+To implement message integration scenarios with Microsoft Azure, use the Microsoft Azure Service Bus
+Connector instead of this connector.
+
+Release Notes:
+[Microsoft Service Bus Connector Release Notes](../../release-notes/connector/ms-service-bus-connector-release-notes-mule-4)  
+Exchange:
+[Microsoft Service Bus Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-microsoft-service-bus-connector/)
+
+> [!NOTE] This connector supports connecting only to the Microsoft Windows Service Bus on-premises
+> solution. To connect to Microsoft Azure Service Bus, use
+> [Anypoint Connector for Azure Service Bus](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-azure-service-bus-connector).
+
+## Before You Begin
+
+To use this connector, you should be familiar with Microsoft Service Bus, Mule runtime engine
+(Mule), Anypoint Connectors, Anypoint Studio, Mule concepts, elements in a Mule flow, and Global
+Elements.
+
+You need one of the following credential types to test your connection to your target resource:
+
+- Windows credentials type
+- SAS (shared access signature) - **Deprecated**
+- Username and password - **Deprecated**
+
+For software requirements and compatibility information, see the
+[Connector Release Notes](../../release-notes/connector/ms-service-bus-connector-release-notes-mule-4).
+
+To use this connector with Apache Maven, click the **Dependency Snippets** link in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-microsoft-service-bus-connector/).
+
+The connector supports the Microsoft Windows Service Bus on-premises.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-microsoft-service-bus-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Verify that the connector `version` corresponds to the one you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `SAP S/4HANA OData`.
+4.  Click **Dependency Snippets**.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type `service bus` in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+### Configure in Studio
+
+1.  Drag a connectorâs operation to the Studio Canvas.
+2.  Configure the Global element for the connector.
+
+![Microsoft Service Bus connector global elements properies config window on General tab](_images/ms-service-bus-studio-1.png)
+
+## Get Queue List Use Case
+
+This use case retrieves a list of existing queues in a specific namespace. It returns the list in
+JSON format.
+
+![Studio flow for retrieving a list of existing queues](_images/ms-service-bus-flow.png)
+
+1.  Create a new Mule application in Studio and select **HTTP > Listener** as a source in the new
+    flow.
+2.  Add a new HTTP Listener configuration global element:
+3.  Specify the Host and Port parameters with the following values:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>0.0.0.0</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>8081</p></div></div></td></tr></tbody></table>
+
+4.  Click **Save**.
+5.  Assign the new global configuration to HTTP Listener.
+6.  Complete the HTTP Listener path with the value `/servicebus`.
+7.  Drag a new Service Bus component operation into the flow.
+8.  Configure the Service Bus connector global element with its environment values.
+9.  Add a transform message before the connector and add an output like this:
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+10. Save and run the project as a Mule application.
+
+    To test the app, navigate to `http://127.0.0.1:8081/servicebus`.
+
+XML flow:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:servicebus="http://www.mulesoft.org/schema/mule/servicebus"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/servicebus
+http://www.mulesoft.org/schema/mule/servicebus/current/mule-servicebus.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties file="mule-app.properties" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<servicebus:config name="Servicebus_Config" doc:name="Servicebus Config" >
+		<servicebus:windows-connection
+		namespace="${config.namespace}"
+		username="${config.username}"
+		password="${config.password}"
+		fqdn="${config.fqdn}" />
+	</servicebus:config>
+	<flow name="servicebusFlow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config"
+		path="/servicebus"/>
+		<servicebus:queues-list doc:name="Queues list" config-ref="Servicebus_Config"/>
+		<ee:transform doc:name="Object to JSON">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+```
+
+## SSL Issues
+
+If you get one of the following errors when performing a connectivity test or starting a Mule app,
+you must configure the truststore in insecure mode:
+
+- `SSL certificate error`
+- `General SSLEngine problem`
+
+To configure the truststore in insecure mode:
+
+1.  Navigate to the **Security** tab in the global element configuration.
+2.  In the **Security** field, select **Edit inline**.
+3.  In the **Trust Store Configuration** section, select the **Insecure** checkbox.
+4.  Click **OK**.
+
+![Insecure truststore configuration](_images/ms-service-bus-truststore-insecure.png)
+
+Figure 1. The graphic shows how to configure the truststore in insecure mode.
+
+The first item shows where to select **Edit inline** and the second item shows where to select the
+**Insecure** checkbox.
+
+For more information, see
+[Failed Connectivity Test](service-bus-troubleshooting#failed-connectivity-test).
+
+## Service Bus Authentication
+
+For sending and receiving messages through Microsoft Service Bus Connector, the authentication is
+performed through AMQP.
+
+For the REST Management API, the authentication scheme differs based on the Microsoft Service Bus
+version. Windows Service Bus uses OAuth.
+
+> [!NOTE] Windows Service Bus uses a self-signed SSL certificate to secure the communication using
+> AMQP and HTTPS. The connector wonât run if this certificate is not locally imported in the box
+> running Mule, unless the **Ignore SSL warning** check is enabled.
+
+To enable the SSL checks, follow these steps to import the certificate:
+
+1.  Use the PowerShell cmdlet
+    [Get-SBAutoGeneratedCA](<https://learn.microsoft.com/en-us/previous-versions/azure/jj248762(v=azure.10)?redirectedfrom=MSDN>)
+    to download the certificate locally in the machine running the Windows Service Bus.  
+    For this example, the certificate file is exported to `%temp%\AutoGeneratedCA.cer`.
+2.  Running as Administrator, go to `%programfiles%\Java\jre7`.  
+    You must be running as Administrator to perform a certificate import with `Keytool.exe`.
+3.  Verify that the `bin\keytool.exe` tool and `lib\security\cacerts` exists.
+4.  Enter the following command:  
+    `bin\keytool.exe âlist âkeystore lib\security\cacerts`
+5.  Import the autogenerated Service Bus certificate by running the following command: +
+    `bin\keytool.exe âimportcert âalias AppServerGeneratedSBCA âfile %temp%\AutoGeneratedCA.cer âkeystore lib\security\cacerts âv`
+6.  Enter the password when prompted (the default is âchangeitâ).
+7.  When the tool asks you whether to trust the certificate, enter `Y` (Yes).
+
+## Using Restricted Access Policies
+
+If you have restricted access to your resources, such as having a security policy with permissions
+at the resource level, the connector cannot perform the connectivity test when it starts. This
+occurs because the connectivity test targets the root level of your namespace, which might be
+forbidden due to the customized policy applied to the `shared access key`. For these scenarios, skip
+the connectivity test with the configuration option available for this purpose, otherwise, the
+connector fails to start.
+
+## Log Requests and Responses
+
+To log requests and responses when using the connector, configure a logger by adding this line to
+the `Loggers` element of the `log4j2.xml` configuration file for the Mule app:
+
+```xml
+<AsyncLogger name="org.springframework.web.client"
+   level="DEBUG"/>
+```
+
+The following example shows the `Loggers` element with the `AsyncLogger` line added:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+	<Appenders>
+	    <Console name="Console" target="SYSTEM_OUT">
+	    	<PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+		</Console>
+	</Appenders>
+	<Loggers>
+		<AsyncLogger name="org.springframework.web.client" level="DEBUG" additivity="false">
+			<appender-ref ref="Console" level="debug"/>
+		</AsyncLogger>
+	</Loggers>
+</Configuration>
+```
+
+You can view the app log as follows:
+
+- If youâre running the app from the Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path was customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in this default location:
+
+`MULE_HOME/logs/<app-name>.log`
+
+For more information about the app log, see
+[Configuring Logging](../../mule-runtime/latest/logging-in-mule).
+
+## Windows Service Bus AMQP Use Case
+
+This use case contains the following flows that send and receive messages for topics and queues:
+
+- `load-http-form-flow`
+
+  Provides a web form for entering the parameters for messages.
+
+- `topic-endpoint-flow`
+
+  Receives messages through the `load-http-form-flow`, stores each message as the payload, converts
+  each message to a Java object, and sends each message to the destination topic.
+
+- `queue-endpoint-flow`
+
+  Receives messages through the `load-http-form-flow`, stores each message as the payload, converts
+  each message to a Java object, and sends each message to the destination queue.
+
+- `queue-receive-flow`
+
+  Listens for, receives, and logs messages from the specified queue.
+
+- `topic-receive-flow`
+
+  Listens for, receives, and logs messages from the specified topic.
+
+![Studio flows for the Windows Service Bus AMQP use case](_images/ms-service-bus-demo-1.png)
+
+XML for this flow:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:servicebus="http://www.mulesoft.org/schema/mule/servicebus"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/servicebus
+http://www.mulesoft.org/schema/mule/servicebus/current/mule-servicebus.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties file="mule-app.properties" doc:name="Configuration properties"/>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<servicebus:config name="Microsoft_Service_Bus_Config" doc:name="Microsoft Service Bus Config">
+		<servicebus:windows-connection
+			namespace="${windows.namespace}"
+			username="${windows.username}"
+			password="${windows.password}"
+			fqdn="${windows.fqdn}"
+			port="${windows.port}"/>
+	</servicebus:config>
+	<flow name="load-http-form-flow">
+		<http:listener doc:name="Root Endpoint" config-ref="HTTP_Listener_config"
+			path="/" />
+		<parse-template doc:name="Web Form" location="form.html" />
+	</flow>
+	<flow name="queue-endpoint-flow">
+		<http:listener doc:name="Queue Endpoint" config-ref="HTTP_Listener_config"
+			path="/pushMessageQueue" />
+		<ee:transform doc:name="Convert Payload to Java Object">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<servicebus:queue-send doc:name="Queue send" config-ref="Microsoft_Service_Bus_Config"
+			destinationQueue="#[payload.queue]">
+			<servicebus:message >
+				<servicebus:body ><![CDATA[#[payload.message]]]></servicebus:body>
+			</servicebus:message>
+		</servicebus:queue-send>
+	</flow>
+	<flow name="topic-endpoint-flow">
+		<http:listener doc:name="Topic Endpoint" config-ref="HTTP_Listener_config"
+			path="/pushMessageTopic"/>
+		<ee:transform doc:name="Convert Payload to Java Object">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<servicebus:topic-send doc:name="Topic send" config-ref="Microsoft_Service_Bus_Config"
+			destinationTopic="#[payload.topic]"
+			transactionalAction="NOT_SUPPORTED"
+			sendCorrelationId="AUTO">
+			<servicebus:message >
+				<servicebus:body ><![CDATA[#[payload.message]]]></servicebus:body>
+			</servicebus:message>
+		</servicebus:topic-send>
+	</flow>
+	<flow name="queue-receive-flow">
+		<servicebus:listener
+			sourceType="Queue"
+			destination="${queue.name}"
+			doc:name="Queue receive"
+			config-ref="Microsoft_Service_Bus_Config"
+			ackMode="AUTO" subscription="NONE"
+			numberOfConsumers="1"/>
+		<logger level="INFO" doc:name="Log the message" message="#[payload]"/>
+	</flow>
+	<flow name="topic-receive-flow">
+		<servicebus:listener sourceType="Topic" doc:name="Topic receive"
+			config-ref="Microsoft_Service_Bus_Config"
+			ackMode="AUTO" destination="${topic.name}"
+			subscription="${subscription.name}"/>
+		<logger level="INFO" doc:name="Log the message" message="#[payload]"/>
+	</flow>
+</mule>
+```
+
+## Windows Service Bus Management Use Case
+
+This use case contains flows that create topics, subscriptions, and rules:
+
+- `service-bus-management-demoFlow`
+
+  Creates a topic by following these steps:
+  1.  Creates the topic description as specified and stores it as the payload.
+  2.  Creates the topic using the stored configuration from the previous step and the topic
+      namespace, obtained from variable `topic.name`.
+  3.  Converts the newly created topic to a JSON object.
+  4.  Logs the JSON object.
+
+- `service-bus-management-demoFlow1`
+
+  Creates a subscription by following these steps:
+  1.  Creates the subscription description as specified and stores it as the payload.
+  2.  Creates the subscription using the stored configuration from the previous step, the
+      subscription name from the variable `subscription.name`, and the topic name from the variable
+      `topic.name`.
+  3.  Converts the newly created subscription to a JSON object.
+  4.  Logs the JSON object.
+
+- `service-bus-management-demoFlow2`
+
+  Creates a rule by following these steps:
+  1.  Creates a rule with the specified configuration and stores it as the payload.
+  2.  Creates the rule using the stored configuration from the previous step, the rule name from the
+      variable `rule.name`, the subscription name from the variable `subscription.name`, and the
+      topic name from the variable `topic.name`.
+  3.  Converts the newly created rule to a JSON object.
+  4.  Logs the JSON object.
+
+![Studio flows for Windows Service Bus Management use case](_images/ms-service-bus-demo-2.png)
+
+XML flow:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:servicebus="http://www.mulesoft.org/schema/mule/servicebus"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/servicebus
+http://www.mulesoft.org/schema/mule/servicebus/current/mule-servicebus.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration-properties file="mule-app.properties"
+	doc:name="Configuration properties"/>
+	<http:listener-config name="HTTP_Listener_config"
+	doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<servicebus:config name="Microsoft_Service_Bus_Config" doc:name="Microsoft Service Bus Config">
+		<servicebus:windows-connection
+			namespace="${windows.namespace}"
+			username="${windows.username}"
+			password="${windows.password}"
+			fqdn="${windows.fqdn}"
+			port="${windows.port}"/>
+	</servicebus:config>
+	<flow name="service-bus-management-demoFlow">
+		<http:listener doc:name="Topic Create Endpoint"
+		config-ref="HTTP_Listener_config"
+		path="/topic"/>
+		<ee:transform doc:name="Set ServiceBusTopicDescription">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	defaultMessageTimeToLive: "P10675199DT2H48M5.4775807S",
+	duplicateDetectionHistoryTimeWindow: "PT10M",
+	enableBatchedOperations: false,
+	maxSizeInMegabytes: 1024,
+	requiresDuplicateDetection: false,
+	sizeInBytes: null
+} as Object {
+	class : "com.mulesoft.connectors.microsoft.servicebus.extension.api.entity.ServiceBusTopicDescription"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<servicebus:topic-create doc:name="Topic create"
+		config-ref="Microsoft_Service_Bus_Config"
+		topicPath="${topic.name}">
+		</servicebus:topic-create>
+		<ee:transform doc:name="Object to Json">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	author: payload.author,
+	id: payload.id,
+	title: payload.title
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+	<flow name="service-bus-management-demoFlow1">
+		<http:listener doc:name="Subscription Create Endpoint"
+		config-ref="HTTP_Listener_config"
+		path="/subscription"/>
+		<ee:transform doc:name="Set ServiceBusSubscriptionDescription">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	lockDuration: "PT4M",
+	requiresSession: false,
+	deadLetteringOnMessageExpiration: false,
+	deadLetteringOnFilterEvaluationExceptions: null,
+	enableBatchedOperations: false,
+	defaultMessageTimeToLive: "P10675199DT2H48M5.4775807S",
+	maxDeliveryCount: null
+} as Object {
+	class : "com.mulesoft.connectors.microsoft.servicebus.extension.api.entity.ServiceBusSubscriptionDescription"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<servicebus:subscription-create
+		topicPath="${topic.name}"
+		doc:name="Subscription create"
+		config-ref="Microsoft_Service_Bus_Config"
+		subscriptionPath="${subscription.name}"/>
+		<ee:transform doc:name="Object to Json">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	linik: payload.link,
+	id: payload.id,
+	title: payload.title
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+	<flow name="service-bus-management-demoFlow2">
+		<http:listener doc:name="Rule Create Endpoint"
+		config-ref="HTTP_Listener_config"
+		path="/rule"/>
+		<ee:transform doc:name="Set ServiceBusRuleDescription">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	action: {
+		sqlExpression: "set MyProperty2 = 'ABC'",
+		"type": "SqlRuleAction"
+	},
+	filter: {
+		correlationId: null,
+		sqlExpression: "property1 = 'ok'",
+		"type": "SqlFilter"
+	}
+} as Object {
+	class : "com.mulesoft.connectors.microsoft.servicebus.extension.api.entity.ServiceBusRuleDescription"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<servicebus:rule-create topicPath="${topic.name}" doc:name="Rule create"
+		config-ref="Microsoft_Service_Bus_Config" rulePath="${rule.name}"
+		subscriptionPath="${subscription.name}"/>
+		<ee:transform doc:name="Object to Json">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	link: payload.link,
+	id: payload.id,
+	title: payload.title
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" message="#[payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Microsoft Service Bus Connector on Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-microsoft-service-bus-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Service Bus Connector 2.2 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Release Notes:
+[Microsoft Service Bus Connector Release Notes](../../release-notes/connector/ms-service-bus-connector-release-notes-mule-4)
+
+> [!NOTE] This connector supports connecting only to the Microsoft Windows Service Bus on-premises
+> solution. To connect to Microsoft Azure Service Bus, use
+> [Anypoint Connector for Azure Service Bus](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-azure-service-bus-connector).
+
+## Configurations
+
+---
+
+### Default Configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#config_shared-access-signature">Shared Access Signature</a></p></li><li><p><a href="#config_username-password">Username Password</a></p></li><li><p><a href="#config_windows">Windows</a></p></li></ul></div></div></td><td><p>Connection types to provide to this configuration</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Default encoding of the Message body to use if the message doesnât communicate it</p></td><td></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Default contentType of the Message body to use if the message doesnât communicate it</p></td><td><p><code>/</code></p></td><td></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr><tr><td><p>Ack Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li><li><p>DUPS_OK</p></li></ul></div></div></td><td><p>The <code>org.mule.jms.commons.api.config.ConsumerAckMode</code> to use when consuming a message. Override this setting at the message source level. This attribute must be <code>IMMEDIATE</code> if <code>transactionType</code> is <code>LOCAL</code> or <code>MULTI</code></p></td><td><p><code>AUTO</code></p></td><td></td></tr><tr><td><p>Consumer Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#topic-consumer">Topic Consumer</a></p></li><li><p><a href="#ServiceBusQueueConsumer">Service Bus Queue Consumer</a></p></li></ul></div></div></td><td><p>The ConsumerType to use by default when consuming a Message. Override this setting at the message source level.</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Sets the default value for the Message#getJMSDeliveryMode. If true, the DeliveryMode#PERSISTENT mode is used, which instructs the JMS provider to take extra care to insure the message is not lost in transit due to a JMS provider failure.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default Message#getJMSPriority to use when sending messages</p></td><td><p>4</p></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A TimeUnit which qualifies the #timeToLive attribute. Defaults to MILLISECONDS</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Defines the default value to use when producing messages, for disabling the Message#getJMSMessageID generation in the broker. Depending on the provider it may or may not have effect</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Defines the default value to use, when producing messages, for disable Message#getJMSTimestamp generation in the broker. Depending on the provider it may or may not have effect.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Determines the Message delivery delay time which is calculated by adding the deliveryDelay value specified on the send method to the time the message was sent. Only used in JMS_2_0</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A TimeUnit which qualifies the #deliveryDelay attribute. Defaults to MILLISECONDS</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Jms Type</p></td><td><div><div><p>String</p></div></div></td><td><p>A message JMSType identifier supplied by a client when a message is sent.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Shared Access Signature (Deprecated)
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Skip connectivity test</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>(Optional) Skips the connectivity test at connector startup (use this if your access policy is restricted).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections to keep in pool for the producer to reuse. If set to <code>-1</code>, a new connection is created every time.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Caching Strategy</p></td><td><div><div><p>One of:</p></div><div><ul><li><p>no-caching</p></li><li><p><a href="#default-caching">Default Caching</a></p></li></ul></div></div></td><td><p>Strategy to use for caching sessions and connections</p></td><td></td><td></td></tr><tr><td><p>Service Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Namespace for the Azure Service Bus service in your subscription.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Storage Account Name</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) The account name of the Blob Storage to use to store large messages.</p></td><td></td><td></td></tr><tr><td><p>Storage Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) The account key of the Blob Storage to use to store large messages.</p></td><td></td><td></td></tr><tr><td><p>Container Name</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) The container name in the Blob Storage to use to store large messages. If this parameter is not provided, a default container is created.</p></td><td></td><td></td></tr><tr><td><p>Shared Access Signature</p></td><td><div><div><p>String</p></div></div></td><td><p>Unique security token that sets up one security profile for access to all your service resources. When the token expires, the connector cannot reconnect automatically, so you must stop the flow to update this configuration setting with a new token.</p></td><td></td><td></td></tr><tr><td><p>SAS tokens provider</p></td><td><div><div><p>SharedAccessSignatureProvider</p></div></div></td><td><p>Provider instance that provides SAS tokens when required.</p></td><td></td><td></td></tr><tr><td><p>SAS tokens list</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of SAS tokens to use when required.</p></td><td></td><td></td></tr><tr><td><p>Max redeliveries</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls when an incoming message is rejected based on the number of times it was redelivered. The default value is -1 (disabled). A value of <code>0</code> means that no message redeliveries are accepted. A value of <code>5</code> means that a message is redelivered five times, and so forth.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Outcome</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ACCEPTED</p></li><li><p>REJECTED</p></li><li><p>RELEASED</p></li><li><p>MODIFIED_FAILED</p></li><li><p>MODIFIED_FAILED_UNDELIVERABLE</p></li></ul></div></div></td><td><p>Controls the outcome to apply to a message that is rejected due to exceeding the configured maxRedeliveries value.</p></td><td><p>MODIFIED_FAILED_UNDELIVERABLE</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+##### Username Password (Deprecated)
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Skip connectivity test</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>(Optional) Skips the connectivity test at connector startup (use this if your access policy is restricted).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections to keep in pool for the producer to reuse. If set to <code>-1</code>, a new connection is created every time.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Caching Strategy</p></td><td><div><div><p>One of:</p></div><div><ul><li><p>no-caching</p></li><li><p><a href="#default-caching">Default Caching</a></p></li></ul></div></div></td><td><p>The strategy to use for caching sessions and connections</p></td><td></td><td></td></tr><tr><td><p>Service Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Namespace for the Azure Service Bus service in your subscription.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Storage Account Name</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) The account name of the Blob Storage to use to store large messages</p></td><td></td><td></td></tr><tr><td><p>Storage Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) The account key of the Blob Storage to use to store large messages.</p></td><td></td><td></td></tr><tr><td><p>Container Name</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) The container name in the Blob Storage to use to store large messages. If this parameter is not provided, a default container is created.</p></td><td></td><td></td></tr><tr><td><p>Shared Access Key Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the access key configured on the namespace. Any access key created at a lower level, such as a topic level shared key, does not work with this option, unless you disable the connectivity test at startup.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>256-bit primary key.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Proxy</p></td><td><div><div><p><a href="#Proxy">Proxy</a></p></div></div></td><td><p>Points to the <a href="#Proxy">Proxy</a> type.</p></td><td></td><td></td></tr><tr><td><p>Security</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Points to the <a href="#Tls">TLS</a> type.</p></td><td></td><td></td></tr><tr><td><p>Advanced</p></td><td><div><div><p><a href="#Advanced">Advanced</a></p></div></div></td><td><p>Points to the <a href="#Advanced">Advanced</a> type.</p></td><td></td><td></td></tr><tr><td><p>Max redeliveries</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls when an incoming message is rejected based on the number of times it was redelivered. The default value is -1 (disabled). A value of <code>0</code> means that no message redeliveries are accepted. A value of <code>5</code> means that a message is redelivered five times, and so forth.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Outcome</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ACCEPTED</p></li><li><p>REJECTED</p></li><li><p>RELEASED</p></li><li><p>MODIFIED_FAILED</p></li><li><p>MODIFIED_FAILED_UNDELIVERABLE</p></li></ul></div></div></td><td><p>Controls the outcome to apply to a message that is rejected due to exceeding the configured maxRedeliveries value.</p></td><td><p>MODIFIED_FAILED_UNDELIVERABLE</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+##### Windows
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Skip connectivity test</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>(Optional) Skips the connectivity test at connector startup (use this if your access policy is restricted).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of connections to keep in pool for the producer to reuse. If set to <code>-1</code>, a new connection is created every time.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Caching Strategy</p></td><td><div><div><p>One of:</p></div><div><ul><li><p>no-caching</p></li><li><p><a href="#default-caching">Default Caching</a></p></li></ul></div></div></td><td><p>The strategy to use for caching sessions and connections</p></td><td></td><td></td></tr><tr><td><p>Service Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Namespace for the Azure Service Bus service in your subscription.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username used for authentication.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used for authentication.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Fully Qualified Domain Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Fully qualified domain name of your Windows Service Bus server.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Port</p></td><td><div><div><p>String</p></div></div></td><td><p>Server port number.</p></td><td><p>9355</p></td><td></td></tr><tr><td><p>Disable SSL certificate validation</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Set to <code>true</code> when using a self-signed SSL certificate.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Idle timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The idle timeout in milliseconds after which the connection fails if the peer sends no AMQP frames.</p></td><td><p>60000</p></td><td></td></tr><tr><td><p>Proxy</p></td><td><div><div><p><a href="#Proxy">Proxy</a></p></div></div></td><td><p>Points to the <a href="#Proxy">Proxy</a> type.</p></td><td></td><td></td></tr><tr><td><p>Security</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Points to the <a href="#Tls">TLS</a> type.</p></td><td></td><td></td></tr><tr><td><p>Advanced</p></td><td><div><div><p><a href="#Advanced">Advanced</a></p></div></div></td><td><p>Points to the <a href="#Advanced">Advanced</a> type.</p></td><td></td><td></td></tr><tr><td><p>Max redeliveries</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls when an incoming message is rejected based on the number of times it was redelivered. The default value is -1 (disabled). A value of <code>0</code> means that no message redeliveries are accepted. A value of <code>5</code> means that a message is redelivered five times, and so forth.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Outcome</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ACCEPTED</p></li><li><p>REJECTED</p></li><li><p>RELEASED</p></li><li><p>MODIFIED_FAILED</p></li><li><p>MODIFIED_FAILED_UNDELIVERABLE</p></li></ul></div></div></td><td><p>Controls the outcome to apply to a message that is rejected due to exceeding the configured maxRedeliveries value.</p></td><td><p>MODIFIED_FAILED_UNDELIVERABLE</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+## Associated Operations
+
+- [Ack](#ack)
+- [Queue Create](#queueCreate)
+- [Queue Delete](#queueDelete)
+- [Queue Get](#queueGet)
+- [Queue Send](#queueSend)
+- [Queue Update](#queueUpdate)
+- [Queues](#queues)
+- [Recover Session](#recoverSession)
+- [Rule Create](#ruleCreate)
+- [Rule Delete](#ruleDelete)
+- [Rule Get](#ruleGet)
+- [Rule Update](#ruleUpdate)
+- [Rules](#rules)
+- [Subscription Create](#subscriptionCreate)
+- [Subscription Delete](#subscriptionDelete)
+- [Subscription Get](#subscriptionGet)
+- [Subscription Update](#subscriptionUpdate)
+- [Subscriptions](#subscriptions)
+- [Topic Create](#topicCreate)
+- [Topic Delete](#topicDelete)
+- [Topic Get](#topicGet)
+- [Topic Send](#topicSend)
+- [Topic Update](#topicUpdate)
+- [Topics](#topics)
+
+## Associated Sources
+
+- [Listener](#listener)
+
+## Operations
+
+### Ack
+
+`<servicebus:ack>`
+
+Allows the user to perform an ACK when the JmsAckMode#MANUAL mode is elected while consuming the
+Message. As per JMS Spec, performing an ACK over a single Message automatically works as an ACK for
+all the Messages produced in the same JmsSession.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The AckId of the Message to ACK</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Queue Create
+
+`<servicebus:queue-create>`
+
+Creates a queue in the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the queue</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue Description</p></td><td><div><div><p><a href="#ServiceBusQueueDescription">Service Bus Queue Description</a></p></div></div></td><td><p>An InternalQueueDescription object containing the desired values of the queueâs properties to create</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusQueue">Service Bus Queue</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Queue Delete
+
+`<servicebus:queue-delete>`
+
+Deletes the specified queue in the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the queue</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Queue Get
+
+`<servicebus:queue-get>`
+
+This operation retrieves the specified queue from the Service Bus instance.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the queue</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusQueue">Service Bus Queue</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Queue Send
+
+`<servicebus:queue-send>`
+
+This operation sends a message to a queue.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination Queue</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the queue.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>Type of transactional action.</p></td><td><p>NOT_SUPPORTED</p></td><td></td></tr><tr><td><p>Send Correlation Id</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Correlation strategy id for operation.</p></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>The body of the Message</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>JMS Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSType identifier header of the Message</p></td><td></td><td></td></tr><tr><td><p>Correlation ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSCorrelationID header of the Message</p></td><td></td><td></td></tr><tr><td><p>Send Content Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body content type should be sent as a property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The content type of the messageâs body</p></td><td></td><td></td></tr><tr><td><p>Send Encoding</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body outboundEncoding should be sent as a Message property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the messageâs body</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#ServiceBusJmsDestination">Service Bus JMS Destination</a></p></div></div></td><td><p>The destination where a reply to this Message should be sent</p></td><td></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>The custom user properties to set for this message</p></td><td></td><td></td></tr><tr><td><p>JMSX Properties</p></td><td><div><div><p><a href="#JmsxProperties">JMSX Properties</a></p></div></div></td><td><p>The JMSX properties to set for this message</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is sent using the PERSISTENT JMSDeliveryMode.</p></td><td></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default JMSPriority value to use when sending the message.</p></td><td></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded.</p></td><td></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, flags the message to avoid generating its MessageID.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, flags the message to avoid generating its sent Timestamp.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0. Sets the delivery delay to apply to postpone the message delivery.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the deliveryDelay configurations.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Queue Update
+
+`<servicebus:queue-update>`
+
+This operation updates the specified queue in the Service Bus instance.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the queue</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue Description</p></td><td><div><div><p><a href="#ServiceBusQueueDescription">Service Bus Queue Description</a></p></div></div></td><td><p>An InternalQueueDescription oject containing the desired values of the queueâs properties that will be updated</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusQueue">Service Bus Queue</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Queues
+
+`<servicebus:queues>`
+
+This operation retrieves all existing queues from the Service Bus instance.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#ServiceBusQueue">Service Bus Queue</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Recover Session
+
+`<servicebus:recover-session>`
+
+Allows the user to recover a session when the JmsAckMode#MANUAL mode is elected while consuming the
+message. Per the JMS Spec, performing a session recover automatically redelivers all the consumed
+messages that were not acknowledged before the recover.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The AckId of the Message Session to recover</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Rule Create
+
+`<servicebus:rule-create>`
+
+This operation creates a rule for the specified topic and subscription.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the rule to create</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule Description</p></td><td><div><div><p><a href="#ServiceBusRuleDescription">Service Bus Rule Description</a></p></div></div></td><td><p>An InternalRuleDescription object containing the desired values of the new ruleâs properties</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the topic that contains the subscription for which to create a rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subscription that contains the new rule</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusRule">Service Bus Rule</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Rule Delete
+
+`<servicebus:rule-delete>`
+
+This operation deletes a rule from the specified topic and subscription.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the topic that contains the subscription from which to delete the rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subscription from which to delete the rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the rule to delete</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Rule Get
+
+`<servicebus:rule-get>`
+
+This operation retrieves a rule from the specified topic and subscription.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the topic that contains the subscription from which to retrieve the rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subscription from which to retrieve the rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the rule to retrieve</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusRule">Service Bus Rule</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Rule Update
+
+`<servicebus:rule-update>`
+
+This operation updates a rule from the specified topic and subscription.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule Description</p></td><td><div><div><p><a href="#ServiceBusRuleDescription">Service Bus Rule Description</a></p></div></div></td><td><p>An InternalRuleDescription object containing the desired values for the ruleâs updated properties</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic that contains the subscription for which to update the rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the subscription for which to update the rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the rule to update</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusRule">Service Bus Rule</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Rules
+
+`<servicebus:rules>`
+
+Retrieves all rules from the specified topic and subscription
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic that contains the subscription from which to retrieve all rules</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the subscription from which to retrieve all rules</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#ServiceBusRule">Service Bus Rule</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Subscription Create
+
+`<servicebus:subscription-create>`
+
+Creates a subscription in the specified topic
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic to contain the new subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the subscription to create</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Description</p></td><td><div><div><p><a href="#ServiceBusSubscriptionDescription">Service Bus Subscription Description</a></p></div></div></td><td><p>An InternalSubscriptionDescription object containing the desired values of the new subscriptionâs properties</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusSubscription">Service Bus Subscription</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Subscription Delete
+
+`<servicebus:subscription-delete>`
+
+Deletes a subscription from the specified topic
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic from which to delete the subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the subscription to delete</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Subscription Get
+
+`<servicebus:subscription-get>`
+
+Retrieves a subscription from the specified topic
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic from which to retrieve the subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the subscription to retrieve</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusSubscription">Service Bus Subscription</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Subscription Update
+
+`<servicebus:subscription-update>`
+
+Updates a subscription from the specified topic
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Description</p></td><td><div><div><p><a href="#ServiceBusSubscriptionDescription">Service Bus Subscription Description</a></p></div></div></td><td><p>An InternalSubscriptionDescription object containing the desired values of the subscriptionâs updated properties</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic from which to update the subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the subscription to update</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusSubscription">Service Bus Subscription</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Subscriptions
+
+`<servicebus:subscriptions>`
+
+Retrieves all subscriptions from the specified topic
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic from which to retrieve all subscriptions</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#ServiceBusSubscription">Service Bus Subscription</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Topic Create
+
+`<servicebus:topic-create>`
+
+Creates a topic in the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Description</p></td><td><div><div><p><a href="#ServiceBusTopicDescription">Service Bus Topic Description</a></p></div></div></td><td><p>An InternalTopicDescription object containing the desired values of the topicâs properties that will be created.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusTopic">Service Bus Topic</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Topic Delete
+
+`<servicebus:topic-delete>`
+
+Deletes the specified topic from the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Topic Get
+
+`<servicebus:topic-get>`
+
+Retrieves the specified topic from the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusTopic">Service Bus Topic</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Topic Send
+
+`<servicebus:topic-send>`
+
+Sends a message to a Topic
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>Type of transactional action.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Send Correlation Id</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Correlation strategy id for operation.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>The body of the Message</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>JMS Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSType identifier header of the Message</p></td><td></td><td></td></tr><tr><td><p>Correlation ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSCorrelationID header of the Message</p></td><td></td><td></td></tr><tr><td><p>Send Content Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body content type should be sent as a property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The content type of the messageâs body</p></td><td></td><td></td></tr><tr><td><p>Send Encoding</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body outboundEncoding should be sent as a Message property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the messageâs body</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#ServiceBusJmsDestination">Service Bus JMS Destination</a></p></div></div></td><td><p>The destination where a reply to this Message should be sent</p></td><td></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>The custom user properties to set for this message</p></td><td></td><td></td></tr><tr><td><p>JMSX Properties</p></td><td><div><div><p><a href="#JmsxProperties">JMSX Properties</a></p></div></div></td><td><p>The JMSX properties to set for this message</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is sent using the PERSISTENT JMSDeliveryMode.</p></td><td></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default JMSPriority value to use when sending the message.</p></td><td></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded.</p></td><td></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, flags the message to avoid generating its MessageID.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, flags the message to avoid generating its sent Timestamp.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0. Sets the delivery delay to apply to postpone the message delivery.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the deliveryDelay configurations.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Topic Update
+
+`<servicebus:topic-update>`
+
+Updates the specified topic from the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the topic</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Description</p></td><td><div><div><p><a href="#ServiceBusTopicDescription">Service Bus Topic Description</a></p></div></div></td><td><p>An InternalTopicDescription object containing the desired values of the topicâs properties that will be updated.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#ServiceBusTopic">Service Bus Topic</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+### Topics
+
+`<servicebus:topics>`
+
+Retrieves all existing topics from the service bus instance
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#ServiceBusTopic">Service Bus Topic</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- SERVICEBUS:INVALID_TOKEN
+- SERVICEBUS:RETRY_EXHAUSTED
+- SERVICEBUS:CONNECTION_EXCEPTION
+- SERVICEBUS:UNKNOWN
+- SERVICEBUS:AMQP_ERROR
+- SERVICEBUS:CONNECTIVITY
+- SERVICEBUS:REST_ERROR
+
+## Sources
+
+### Listener
+
+`<servicebus:listener>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li><li><p>DUPS_OK</p></li></ul></div></div></td><td><p>The Session ACK mode to use when consuming a message</p></td><td></td><td></td></tr><tr><td><p>Number Of Consumers</p></td><td><div><div><p>Number</p></div></div></td><td><p>The number of concurrent consumers to use to receive JMS Messages</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should be executed only on the primary node when running in a cluster</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message</p></td><td></td><td></td></tr><tr><td><p>Source Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates whether to retrieve messages from a queue or topic.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the destination queue, topic, or custom destination type from which to retrieve messages.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subscription used when subscribing to topics. If the destination is a queue, select&nbsp;<code>NONE</code>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>The body of the Message</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>JMS Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSType identifier header of the Message</p></td><td></td><td></td></tr><tr><td><p>Correlation ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSCorrelationID header of the Message</p></td><td></td><td></td></tr><tr><td><p>Send Content Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body content type should be sent as a property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Content type of the message body.</p></td><td></td><td></td></tr><tr><td><p>Send Encoding</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body outboundEncoding should be sent as a Message property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding of the message body.</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#ServiceBusJmsDestination">Service Bus JMS Destination</a></p></div></div></td><td><p>The destination where a reply to this Message should be sent</p></td><td></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>The custom user properties to set for this message</p></td><td></td><td></td></tr><tr><td><p>JMSX Properties</p></td><td><div><div><p><a href="#JmsxProperties">JMSX Properties</a></p></div></div></td><td><p>The JMSX properties to set for this message</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the delivery should be done with a persistent configuration</p></td><td></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default JMSPriority value to use when sending the message</p></td><td></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded</p></td><td></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations</p></td><td></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, flags the message to avoid generating its MessageID</p></td><td></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, flags the message to avoid generating its sent Timestamp</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0. Sets the delivery delay to apply to postpone the message delivery.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the deliveryDelay configurations</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Message</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ServiceBusJmsAttributes">Service Bus JMS Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Default Configuration](#config)
+
+## Types
+
+### Proxy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname or IP address of the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Port of the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Advanced
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Read Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long a client waits for a response before timing out. <code>0</code> specifies that the client waits indefinitely.</p></div></div></td><td><div><div><p>60000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Read Timeout</strong> field.</p></div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long the connector waits before timing out when establishing a connection to the remote service.</p></div></div></td><td><div><div><p>60000</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p>MILLISECONDS</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><div><div><p>Configures the TLS truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><div><div><p>Configures the TLS keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p>custom-ocsp-responder</p></li><li><p>crl-file</p></li></ul></div></div></td><td><div><div><p>Configures a revocation checking mechanism.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system, if possible.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the truststore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Keystore
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system, if possible.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the keystore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Verify only the last element in the certificate chain.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Verify all elements in the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Do not use the secondary method to check certificate validity.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p></li></ul></div><div><p>Avoid verification failure.</p></div><div><ul><li><p><code>false</code></p></li></ul></div><div><p>Allow the verification to fail.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus JMS Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Properties</p></td><td><div><div><p><a href="#JmsMessageProperties">JMS Message Properties</a></p></div></div></td><td><p>Container element for all the properties present in a JMS Message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Headers</p></td><td><div><div><p><a href="#JmsHeaders">JMS Headers</a></p></div></div></td><td><p>All the possible headers of a JMS message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Session ackID that acknowledges the current message if available. If not, the ackID is null.</p></td><td></td><td></td></tr></tbody></table>
+
+### JMS Message Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>All</p></td><td><div><div><p>Object</p></div></div></td><td><p>All the properties of the JMS message as a flattened map.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>User-provided properties of the JMS message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Jms Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>JMS message broker and provider properties.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Jmsx Properties</p></td><td><div><div><p><a href="#JmsxProperties">JMSX Properties</a></p></div></div></td><td><p>JMSX properties of the JMS message.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### JMSX Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Jmsx User ID</p></td><td><div><div><p>String</p></div></div></td><td><p>User identity that sends the message.</p></td><td></td><td></td></tr><tr><td><p>Jmsx App ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Identity of the application that sends the message.</p></td><td></td><td></td></tr><tr><td><p>Jmsx Delivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of message delivery attempts.</p></td><td></td><td></td></tr><tr><td><p>Jmsx Group ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Message group identity of the message.</p></td><td></td><td></td></tr><tr><td><p>Jmsx Group Seq</p></td><td><div><div><p>Number</p></div></div></td><td><p>Sequence number of the message in the group.</p></td><td></td><td></td></tr><tr><td><p>Jmsx Producer TXID</p></td><td><div><div><p>String</p></div></div></td><td><p>Identifier of the transaction that produced the message.</p></td><td></td><td></td></tr><tr><td><p>Jmsx Consumer TXID</p></td><td><div><div><p>String</p></div></div></td><td><p>Identifier of the transaction that consumed the message.</p></td><td></td><td></td></tr><tr><td><p>Jmsx Rcv Timestamp</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time JMS delivered the message to the consumer.</p></td><td></td><td></td></tr></tbody></table>
+
+### JMS Headers
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Destination</p></td><td><div><div><p><a href="#ServiceBusJmsDestination">Service Bus JMS Destination</a></p></div></div></td><td><p>Destination of the sent message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Delivery Mode</p></td><td><div><div><p>Number</p></div></div></td><td><p>Delivery mode of the message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration</p></td><td><div><div><p>Number</p></div></div></td><td><p>Expiration time of the message, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC. If set to <code>0</code>, the message does not expire.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>Priority of the message, from 0-9. Higher numbers signify a higher priority.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Unique ID of the message.</p></td><td></td><td></td></tr><tr><td><p>Timestamp</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time a message is handed to a JMS provider to be sent, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Correlation Id</p></td><td><div><div><p>String</p></div></div></td><td><p>JMSCorrelationID header of the message.</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#ServiceBusJmsDestination">Service Bus JMS Destination</a></p></div></div></td><td><p>Destination of where a reply to this message is sent.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of this destination.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Redelivered</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Set to <code>true</code> when the JMS provider has delivered the message at least once before.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Delivery Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time the message is delivered.</p></td><td></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The secure hashing algorithm to use.</p></td><td><p>SHA-256</p></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>Defines one or more expressions used to determine when a message has been redelivered. This property can be set only when useSecureHash is false.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>Object Store</p></div></div></td><td><p>The object store where the redelivery counter for each message is going to be stored.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus JMS Destination
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>Name that identifies the destination of where to send a reply to the message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>QUEUE</p></li><li><p>TOPIC</p></li></ul></div></div></td><td><p>Type of this destination.</p></td><td><p>QUEUE</p></td><td></td></tr></tbody></table>
+
+### Service Bus Queue
+
+The queue is represented by an object containing the following fields:
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Author</p></td><td><div><div><p>String</p></div></div></td><td><p>Author of the ServiceBusQueue object.</p></td><td></td><td></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Unique identifier of the ServiceBusQueue object.</p></td><td></td><td></td></tr><tr><td><p>Link</p></td><td><div><div><p>String</p></div></div></td><td><p>Link of the ServiceBusQueue object.</p></td><td></td><td></td></tr><tr><td><p>Published</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusQueue object is published, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr><tr><td><p>Queue Description</p></td><td><div><div><p><a href="#ServiceBusQueueDescription">Service Bus Queue Description</a></p></div></div></td><td><p>ServiceBusQueueDescription object containing the desired values of the queueâs properties that is created.</p></td><td></td><td></td></tr><tr><td><p>Title</p></td><td><div><div><p>String</p></div></div></td><td><p>Title of the ServiceBusQueue object.</p></td><td></td><td></td></tr><tr><td><p>Updated</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusQueue object is updated, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Queue Description
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Lock Duration</p></td><td><div><div><p>String</p></div></div></td><td><p>Determines the amount of time in seconds in which a message should be locked for processing by a receiver. After this period, the message is unlocked and available for consumption by the next receiver. Settable only at queue creation time. Valid values: Range: 0 - 5 minutes. 0 means that the message is not locked. Format: PTx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT5M (5 minutes), PT1M30S (1 minute, 30 seconds)).</p></td><td><p>PT1M</p></td><td></td></tr><tr><td><p>Max Size In Megabytes</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the maximum queue size in megabytes. Any attempt to enqueue a message that causes the queue to exceed this value fails. Valid values are: 1024, 2048, 3072, 4096, 5120</p></td><td><p>1024</p></td><td></td></tr><tr><td><p>Requires Duplicate Detection</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Settable only at queue creation time.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Requires Session</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Settable only at queue creation time. If set to true, the queue will be session-aware and only SessionReceiver will be supported. Session-aware queues are not supported through REST.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Dead Lettering On Message Expiration</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>This field controls how the Service Bus handles a message with an expired TTL. If it is enabled and a message expires, Service Bus moves the message from the queue into the queueâs dead-letter sub-queue. If disabled, message is permanently deleted from the queue. Settable only at queue creation time.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Enable Batched Operations</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables service-side batching behavior when performing operations for the specific queue. When enabled, Service Bus collects or batches multiple operations to the back end, to be more efficient with the connection. If you want lower operation latency, you can disable this feature.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Default Message Time To Live</p></td><td><div><div><p>String</p></div></div></td><td><p>Depending on whether DeadLettering is enabled, a message is automatically moved to the DeadLetterQueue or deleted if it has been stored in the queue for longer than the specified time. This value is overwritten by a TTL specified on the message if and only if the message TTL is smaller than the TTL set on the queue. This value is immutable after the queue has been created. Format: Px1DTx2Hx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT10M (10 minutes), P1DT2H (1 day, 2 hours)</p></td><td><p>P10675199DT2H48M5.4775807S</p></td><td></td></tr><tr><td><p>Duplicate Detection History Time Window</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies the time span during which Service Bus detects message duplication Valid values: Range: 1 second - 7 days. Format: Px1DTx2Hx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT10M (10 minutes), P1DT2H (1 day, 2 hours)).</p></td><td><p>PT10M</p></td><td></td></tr><tr><td><p>Max Delivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of times Service Bus tries to deliver a message before being dead-lettered or discarded.</p></td><td><p>10</p></td><td></td></tr></tbody></table>
+
+### Service Bus Rule
+
+Represents a rule for processing messages. Service Bus matches messages with the filter represented
+by its `Filter` property and performs actions represented by its `Action` property, against the
+messages that match the filter.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Unique identifier of the ServiceBusRule object.</p></td><td></td><td></td></tr><tr><td><p>Link</p></td><td><div><div><p>String</p></div></div></td><td><p>Link of the ServiceBusRule object.</p></td><td></td><td></td></tr><tr><td><p>Published</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusRule object is published, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr><tr><td><p>Rule Description</p></td><td><div><div><p><a href="#ServiceBusRuleDescription">Service Bus Rule Description</a></p></div></div></td><td><p>ServiceBusRuleDescription object containing the desired values of the properties of the rule that is created.</p></td><td></td><td></td></tr><tr><td><p>Title</p></td><td><div><div><p>String</p></div></div></td><td><p>Title of the ServiceBusRule object.</p></td><td></td><td></td></tr><tr><td><p>Updated</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusRule object is updated, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Rule Description
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Action</p></td><td><div><div><p><a href="#ServiceBusRuleAction">Service Bus Rule Action</a></p></div></div></td><td><p>The action that the rule performs</p></td><td></td><td></td></tr><tr><td><p>Filter</p></td><td><div><div><p><a href="#ServiceBusRuleFilter">Service Bus Rule Filter</a></p></div></div></td><td><p>The filter for the associated subscription</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Rule Action
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Sql Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>The SQL expression for the action to perform</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SqlRuleAction</p></li></ul></div><div><p>A type of FilterAction that represents an SQL expression.</p></div><div><ul><li><p>EmptyRuleAction</p></li></ul></div><div><p>A type of FilterAction that represents an empty action.</p></div></div></td><td><p>Type of the ServiceBusRuleAction object.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Rule Filter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Correlation Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The ID to match if this filter is a correlation filter</p></td><td></td><td></td></tr><tr><td><p>Sql Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>The SQL expression for the action to perform</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SqlFilter</p></li></ul></div><div><p>A type of filter that represents an SQL expression.</p></div><div><ul><li><p>TrueFilter</p></li></ul></div><div><p>Shortcut for returning <code>true</code>. It is a type of SqlFilter.</p></div><div><ul><li><p>FalseFilter</p></li></ul></div><div><p>Shortcut for returning <code>false</code>. It is a type of SqlFilter.</p></div><div><ul><li><p>CorrelationFilter</p></li></ul></div><div><p>A type of filter that matches the correlationId property of BrokeredMessage.</p></div></div></td><td><p>Type of the ServiceBusRuleFilter object.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Subscription
+
+The subscription is represented by an object containing the following fields:
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Unique identifier of the ServiceBusSubscription object.</p></td><td></td><td></td></tr><tr><td><p>Link</p></td><td><div><div><p>String</p></div></div></td><td><p>Link of the ServiceBusSubscription object.</p></td><td></td><td></td></tr><tr><td><p>Published</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusSubscription object is published, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr><tr><td><p>Subscription Description</p></td><td><div><div><p><a href="#ServiceBusSubscriptionDescription">Service Bus Subscription Description</a></p></div></div></td><td><p>ServiceBusSubscriptionDescription object containing the desired values of the properties of the subscription that is created.</p></td><td></td><td></td></tr><tr><td><p>Title</p></td><td><div><div><p>String</p></div></div></td><td><p>Title of the ServiceBusSubscription object.</p></td><td></td><td></td></tr><tr><td><p>Updated</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusSubscription object is updated, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Subscription Description
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Lock Duration</p></td><td><div><div><p>String</p></div></div></td><td><p>The default lock duration is applied to subscriptions that do not define a lock duration. You can only set this property at subscription creation time. Valid values: Range: 0 - 5 minutes. 0 means that the message is not locked. Format: PTx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT5M (5 minutes), PT1M30S (1 minute, 30 seconds)).</p></td><td><p>PT1M</p></td><td></td></tr><tr><td><p>Requires Session</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>You can only set this property at subscription creation time. If set to true, the subscription will be session-aware and only SessionReceiver will be supported. Session-aware subscriptions are not supported through REST.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Dead Lettering On Message Expiration</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>This field controls how Service Bus handles a message with an expired TTL. If it is enabled and a message expires, Service Bus moves the message from the queue into the subscriptionâs dead-letter sub-queue. If disabled, message is permanently deleted from the subscriptionâs main queue. Settable only at subscription creation time.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Dead Lettering On Filter Evaluation Exceptions</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines how Service Bus handles a message that causes an exception during a subscriptionâs filter evaluation. If the value is set to true, the message that caused the exception is moved to the subscriptionâs dead-letter queue. Otherwise, it is discarded. By default, this parameter is set to true, enabling you to investigate the cause of the exception. It can occur from a malformed message or some incorrect assumptions being made in the filter about the form of the message. Settable only at subscription creation time.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Enable Batched Operations</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables service-side batching behavior when performing operations for the specific queue. When enabled, Service Bus will collect/batch multiple operations to the backend to be more connection efficient. If you want lower operation latency, then you can disable this feature.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Default Message Time To Live</p></td><td><div><div><p>String</p></div></div></td><td><p>Determines how long a message lives in the subscription. Based on whether dead-lettering is enabled, a message whose Time To Live (TTL) has expired is either moved to the subscriptionâs associated DeadLetterQueue, or permanently deleted. If the topic specifies a smaller TTL than the subscription, the topic TTL is applied. Format: Px1DTx2Hx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT10M (10 minutes), P1DT2H (1 day, 2 hours)</p></td><td><p>P10675199DT2H48M5.4775807S</p></td><td></td></tr><tr><td><p>Max Delivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of times Service Bus tries to deliver a message before that message is dead lettered or discarded.</p></td><td><p>10</p></td><td></td></tr></tbody></table>
+
+### Service Bus Topic
+
+The topic is represented by an object containing the following fields:
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Author</p></td><td><div><div><p>String</p></div></div></td><td><p>Author of the ServiceBusTopic object.</p></td><td></td><td></td></tr><tr><td><p>Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Unique identifier of the ServiceBusTopic object.</p></td><td></td><td></td></tr><tr><td><p>Link</p></td><td><div><div><p>String</p></div></div></td><td><p>Link of the ServiceBusTopic object.</p></td><td></td><td></td></tr><tr><td><p>Published</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusTopic object is published, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr><tr><td><p>Title</p></td><td><div><div><p>String</p></div></div></td><td><p>Title of the ServiceBusTopic object.</p></td><td></td><td></td></tr><tr><td><p>Topic Description</p></td><td><div><div><p><a href="#ServiceBusTopicDescription">Service Bus Topic Description</a></p></div></div></td><td><p>ServiceBusTopicDescription object containing the desired values of the properties of the topic that is created.</p></td><td></td><td></td></tr><tr><td><p>Updated</p></td><td><div><div><p>Date</p></div></div></td><td><p>Date when the ServiceBusTopic object is updated, expressed in number of milliseconds elapsed since midnight January 1, 1970, UTC.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Topic Description
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Size In Megabytes</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the maximum queue size in megabytes. Any attempt to enqueue a message that will cause the queue to exceed this value fails. Valid values are: 1024, 2048, 3072, 4096, 5120</p></td><td><p>1024</p></td><td></td></tr><tr><td><p>Requires Duplicate Detection</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If enabled, the topic detects duplicate messages within the time span specified by the DuplicateDetectionHistoryTimeWindow property. Settable only at topic creation time.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Enable Batched Operations</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enables or disables service side batching behavior when performing operations for the specific queue. When enabled, Service Bus collects/batches multiple operations to the back end to be more connection efficient. If you want lower operation latency, you can disable this feature.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Default Message Time To Live</p></td><td><div><div><p>String</p></div></div></td><td><p>Determines how long a message lives in the associated subscriptions. Subscriptions inherit the TTL from the topic unless they are created explicitly with a smaller TTL. Based on whether dead-lettering is enabled, a message whose TTL has expired will either be moved to the subscriptionâs associated DeadLetterQueue or will be permanently deleted. Format: Px1DTx2Hx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT10M (10 minutes), P1DT2H (1 day, 2 hours)).</p></td><td><p>P10675199DT2H48M5.4775807S</p></td><td></td></tr><tr><td><p>Duplicate Detection History Time Window</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies the time span during which Service Bus detects message duplication Valid values: Range: 1 second - 7 days. Format: Px1DTx2Hx3Mx4S, where x1 number of days, x2 number of hours, x3 number of minutes, x4 number of seconds (Examples: PT10M (10 minutes), P1DT2H (1 day, 2 hours)).</p></td><td><p>PT10M</p></td><td></td></tr></tbody></table>
+
+### Default Caching
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Session Cache Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of sessions to cache.</p></td><td></td><td></td></tr><tr><td><p>Cache Producers</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>true if the ConnectionFactory should cache the MessageProducers</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Cache Consumers</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>true if the ConnectionFactory should cache the MessageConsumers</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Topic Consumer
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Topic Consumer</p></td><td><div><div><p><a href="#topic-consumer">Topic Consumer</a></p></div></div></td><td><p>Points to the <a href="#topic-consumer">Topic Consumer</a> type.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic Subscription</p></td><td><div><div><p><a href="#TopicSubscription">Topic Subscription</a></p></div></div></td><td><p>Points to the <a href="#TopicSubscription">Topic Subscription</a> type.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Topic Subscription
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Topic Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the topic where the subscription is created.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the subscription that is created.</p></td><td></td><td></td></tr></tbody></table>
+
+### Service Bus Queue Consumer
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Queue Consumer</p></td><td><div><div><p>queue-consumer</p></div></div></td><td><p>ConsumerType that marks the consumed destination as a queue.</p></td><td></td><td></td></tr><tr><td><p>Source Queue</p></td><td><div><div><p>String</p></div></div></td><td><p>Queue that receives events.</p></td><td></td><td></td></tr><tr><td><p>Number Of Consumers</p></td><td><div><div><p>Number</p></div></div></td><td><p>The number of concurrent consumers to use to receive JMS Messages</p></td><td><p>4</p></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Microsoft Service Bus Connector Troubleshooting
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Timeout Error
+
+If the Mule app includes the **Listener** source, you might receive an error like this:
+
+`javax.jms.JMSException: The operation did not complete within the allocated time 00:00:14.9951934 for object connection`
+
+If you receive this error when starting the app or calling an operation, check whether the Service
+Bus server has the `Redirect` feature enabled. If so, disable this feature by following the steps
+documented in the Known Issues section on this page:
+[AMQP Java clients (and all non .NET clients) cannot send or receive to/from Service Bus](<https://learn.microsoft.com/en-us/previous-versions/service-bus-archive/dn282143(v=azure.100)>).
+
+## Failed Connectivity Test
+
+If a connectivity test fails during application startup and you see the following statement in the
+stack trace, configure a reconnection strategy for the connector:
+
+```xml
+org.mule.runtime.api.connection.ConnectionException: SSL certificate error
+  org.mule.runtime.api.connection.ConnectionException: SSL certificate error
+  Caused by: javax.net.ssl.SSLHandshakeException: java.security.cert.CertificateException: No subject alternative names matching IP address 99.99.99.99 found
+  Caused by: javax.net.ssl.SSLHandshakeException: java.security.cert.CertificateException: No subject alternative names matching IP address 99.99.99.99 found
+  Caused by: javax.net.ssl.SSLHandshakeException: java.security.cert.CertificateException: No subject alternative names matching IP address 99.99.99.99 found
+  	at sun.security.ssl.Alerts.getSSLException(Alerts.java:192)
+  	at sun.security.ssl.SSLSocketImpl.fatal(SSLSocketImpl.java:1946)
+  	at sun.security.ssl.Handshaker.fatalSE(Handshaker.java:316)
+  	at sun.security.ssl.Handshaker.fatalSE(Handshaker.java:310)
+  	at sun.security.ssl.ClientHandshaker.serverCertificate(ClientHandshaker.java:1639)
+  	at sun.security.ssl.ClientHandshaker.processMessage(ClientHandshaker.java:223)
+  	at sun.security.ssl.Handshaker.processLoop(Handshaker.java:1037)
+  	at sun.security.ssl.Handshaker.process_record(Handshaker.java:965)
+  	at sun.security.ssl.SSLSocketImpl.readRecord(SSLSocketImpl.java:1064)
+  	at sun.security.ssl.SSLSocketImpl.performInitialHandshake(SSLSocketImpl.java:1367)
+  	at sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:1395)
+  	at sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:1379)
+  	at sun.net.www.protocol.https.HttpsClient.afterConnect(HttpsClient.java:559)
+  	at sun.net.www.protocol.https.AbstractDelegateHttpsURLConnection.connect(AbstractDelegateHttpsURLConnection.java:185)
+  	at sun.net.www.protocol.http.HttpURLConnection.getOutputStream0(HttpURLConnection.java:1340)
+  	at sun.net.www.protocol.http.HttpURLConnection.getOutputStream(HttpURLConnection.java:1315)
+  	at sun.net.www.protocol.https.HttpsURLConnectionImpl.getOutputStream(HttpsURLConnectionImpl.java:264)
+  	at com.mulesoft.connectors.microsoft.servicebus.extension.internal.connection.provider.WindowsConnectionProvider.doRequestToSTS(WindowsConnectionProvider.java:179)
+  	at com.mulesoft.connectors.microsoft.servicebus.extension.internal.connection.provider.WindowsConnectionProvider.getSASToken(WindowsConnectionProvider.java:163)
+  	at com.mulesoft.connectors.microsoft.servicebus.extension.internal.connection.provider.WindowsConnectionProvider.createRestFacade(WindowsConnectionProvider.java:200)
+  	at com.mulesoft.connectors.microsoft.servicebus.extension.internal.connection.provider.WindowsConnectionProvider.connect(WindowsConnectionProvider.java:133)
+  	at com.mulesoft.connectors.microsoft.servicebus.extension.internal.connection.provider.WindowsConnectionProvider.connect(WindowsConnectionProvider.java:67)
+  	at org.mule.runtime.module.extension.internal.runtime.config.ClassLoaderConnectionProviderWrapper.connect(ClassLoaderConnectionProviderWrapper.java:60)
+  	at org.mule.runtime.core.internal.connection.ConnectionUtils.connect(ConnectionUtils.java:49)
+  	at org.mule.runtime.core.internal.connection.AbstractConnectionProviderWrapper.connect(AbstractConnectionProviderWrapper.java:64)
+  	at org.mule.runtime.core.internal.connection.ErrorTypeHandlerConnectionProviderWrapper.connect(ErrorTypeHandlerConnectionProviderWrapper.java:64)
+  	at org.mule.runtime.core.internal.connection.ConnectionUtils.connect(ConnectionUtils.java:49)
+  	at org.mule.runtime.core.internal.connection.AbstractConnectionProviderWrapper.connect(AbstractConnectionProviderWrapper.java:64)
+  	at org.mule.runtime.core.internal.connection.DefaultConnectionProviderWrapper.connect(DefaultConnectionProviderWrapper.java:52)
+  	at org.mule.runtime.core.internal.connection.CachedConnectionManagementStrategy.createConnection(CachedConnectionManagementStrategy.java:95)
+  	at org.mule.runtime.core.api.util.func.CheckedSupplier.get(CheckedSupplier.java:25)
+  	at org.mule.runtime.api.util.LazyValue.get(LazyValue.java:77)
+  	at org.mule.runtime.core.internal.connection.CachedConnectionManagementStrategy.getConnectionHandler(CachedConnectionManagementStrategy.java:63)
+  	at org.mule.runtime.core.internal.connection.DefaultConnectionManager.getConnection(DefaultConnectionManager.java:241)
+  	at org.mule.runtime.core.internal.connection.DefaultConnectionManager.lambda$testConnectivity$1(DefaultConnectionManager.java:160)
+  	at org.mule.runtime.core.internal.connection.DefaultConnectionManager.doTestConnectivity(DefaultConnectionManager.java:176)
+  	at org.mule.runtime.core.internal.connection.DefaultConnectionManager.testConnectivity(DefaultConnectionManager.java:152)
+  	at org.mule.runtime.core.internal.connection.DelegateConnectionManagerAdapter$EagerConnectionManagerAdapter.testConnectivity(DelegateConnectionManagerAdapter.java:176)
+  	at org.mule.runtime.core.internal.connection.DelegateConnectionManagerAdapter.testConnectivity(DelegateConnectionManagerAdapter.java:98)
+  	at org.mule.runtime.module.extension.api.tooling.ExtensionConnectivityTestingStrategy.testConnectivity(ExtensionConnectivityTestingStrategy.java:82)
+  	at org.mule.runtime.core.internal.connectivity.DefaultConnectivityTestingService.testConnection(DefaultConnectivityTestingService.java:88)
+  	at org.mule.runtime.config.internal.LazyConnectivityTestingService.testConnection(LazyConnectivityTestingService.java:57)
+  	at com.mulesoft.agent.services.tooling.MuleAgentConnectivityTestingService.testConnection(MuleAgentConnectivityTestingService.java:77)
+  	at com.mulesoft.agent.external.handlers.tooling.ToolingRequestHandler.lambda$applicationTestConnection$19(ToolingRequestHandler.java:482)
+  	at com.mulesoft.agent.util.ResponseHelper.response(ResponseHelper.java:88)
+  	at com.mulesoft.agent.external.handlers.tooling.ToolingRequestHandler.applicationTestConnection(ToolingRequestHandler.java:481)
+  	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+  	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+  	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+  	at java.lang.reflect.Method.invoke(Method.java:498)
+  	at org.glassfish.jersey.server.model.internal.ResourceMethodInvocationHandlerFactory$1.invoke(ResourceMethodInvocationHandlerFactory.java:81)
+  	at org.glassfish.jersey.server.model.internal.AbstractJavaResourceMethodDispatcher$1.run(AbstractJavaResourceMethodDispatcher.java:151)
+  	at org.glassfish.jersey.server.model.internal.AbstractJavaResourceMethodDispatcher.invoke(AbstractJavaResourceMethodDispatcher.java:171)
+  	at org.glassfish.jersey.server.model.internal.JavaResourceMethodDispatcherProvider$ResponseOutInvoker.doDispatch(JavaResourceMethodDispatcherProvider.java:152)
+  	at org.glassfish.jersey.server.model.internal.AbstractJavaResourceMethodDispatcher.dispatch(AbstractJavaResourceMethodDispatcher.java:104)
+  	at org.glassfish.jersey.server.model.ResourceMethodInvoker.invoke(ResourceMethodInvoker.java:387)
+  	at org.glassfish.jersey.server.model.ResourceMethodInvoker.apply(ResourceMethodInvoker.java:331)
+  	at org.glassfish.jersey.server.model.ResourceMethodInvoker.apply(ResourceMethodInvoker.java:103)
+  	at org.glassfish.jersey.server.ServerRuntime$1.run(ServerRuntime.java:271)
+  	at org.glassfish.jersey.internal.Errors$1.call(Errors.java:271)
+  	at org.glassfish.jersey.internal.Errors$1.call(Errors.java:267)
+  	at org.glassfish.jersey.internal.Errors.process(Errors.java:315)
+  	at org.glassfish.jersey.internal.Errors.process(Errors.java:297)
+  	at org.glassfish.jersey.internal.Errors.process(Errors.java:267)
+  	at org.glassfish.jersey.process.internal.RequestScope.runInScope(RequestScope.java:297)
+  	at org.glassfish.jersey.server.ServerRuntime.process(ServerRuntime.java:254)
+  	at org.glassfish.jersey.server.ApplicationHandler.handle(ApplicationHandler.java:1028)
+  	at org.glassfish.jersey.servlet.WebComponent.service(WebComponent.java:372)
+  	at org.glassfish.jersey.servlet.ServletContainer.service(ServletContainer.java:381)
+  	at org.glassfish.jersey.servlet.ServletContainer.service(ServletContainer.java:344)
+  	at org.glassfish.jersey.servlet.ServletContainer.service(ServletContainer.java:221)
+  	at org.eclipse.jetty.servlet.ServletHolder.handle(ServletHolder.java:876)
+  	at org.eclipse.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1623)
+  	at com.mulesoft.agent.rest.RequestLoggingFilter.doFilter(RequestLoggingFilter.java:95)
+  	at org.eclipse.jetty.servlet.ServletHandler$CachedChain.doFilter(ServletHandler.java:1610)
+  	at org.eclipse.jetty.servlet.ServletHandler.doHandle(ServletHandler.java:540)
+  	at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:146)
+  	at org.eclipse.jetty.security.SecurityHandler.handle(SecurityHandler.java:548)
+  	at org.eclipse.jetty.server.handler.HandlerWrapper.handle(HandlerWrapper.java:132)
+  	at org.eclipse.jetty.server.handler.ScopedHandler.nextHandle(ScopedHandler.java:257)
+  	at org.eclipse.jetty.server.session.SessionHandler.doHandle(SessionHandler.java:1711)
+  	at org.eclipse.jetty.server.handler.ScopedHandler.nextHandle(ScopedHandler.java:255)
+  	at org.eclipse.jetty.server.handler.ContextHandler.doHandle(ContextHandler.java:1347)
+  	at org.eclipse.jetty.server.handler.ScopedHandler.nextScope(ScopedHandler.java:203)
+  	at org.eclipse.jetty.servlet.ServletHandler.doScope(ServletHandler.java:480)
+  	at org.eclipse.jetty.server.session.SessionHandler.doScope(SessionHandler.java:1678)
+  	at org.eclipse.jetty.server.handler.ScopedHandler.nextScope(ScopedHandler.java:201)
+  	at org.eclipse.jetty.server.handler.ContextHandler.doScope(ContextHandler.java:1249)
+  	at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:144)
+  	at org.eclipse.jetty.server.handler.HandlerWrapper.handle(HandlerWrapper.java:132)
+  	at org.eclipse.jetty.server.Server.handle(Server.java:505)
+  	at org.eclipse.jetty.server.HttpChannel.handle(HttpChannel.java:370)
+  	at org.eclipse.jetty.server.HttpConnection.onFillable(HttpConnection.java:267)
+  	at org.eclipse.jetty.io.AbstractConnection$ReadCallback.succeeded(AbstractConnection.java:305)
+  	at org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:103)
+  	at org.eclipse.jetty.io.ChannelEndPoint$2.run(ChannelEndPoint.java:117)
+  	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.runTask(EatWhatYouKill.java:333)
+  	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.doProduce(EatWhatYouKill.java:310)
+  	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.tryProduce(EatWhatYouKill.java:168)
+  	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.produce(EatWhatYouKill.java:132)
+  	at org.eclipse.jetty.util.thread.QueuedThreadPool.runJob(QueuedThreadPool.java:781)
+  	at org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.run(QueuedThreadPool.java:917)
+  	at java.lang.Thread.run(Thread.java:748)
+  Caused by: java.security.cert.CertificateException: No subject alternative names matching IP address 99.99.99.99 found
+  	at sun.security.util.HostnameChecker.matchIP(HostnameChecker.java:168)
+  	at sun.security.util.HostnameChecker.match(HostnameChecker.java:94)
+  	at sun.security.ssl.X509TrustManagerImpl.checkIdentity(X509TrustManagerImpl.java:462)
+  	at sun.security.ssl.X509TrustManagerImpl.checkIdentity(X509TrustManagerImpl.java:442)
+  	at sun.security.ssl.X509TrustManagerImpl.checkTrusted(X509TrustManagerImpl.java:209)
+  	at sun.security.ssl.X509TrustManagerImpl.checkServerTrusted(X509TrustManagerImpl.java:132)
+  	at sun.security.ssl.ClientHandshaker.serverCertificate(ClientHandshaker.java:1621)
+  	... 98 more----
+```
+
+You need to setup the TlsContext to setup a trust store with the flag insecure to "true" For the
+Windows Connection Provider:
+
+```xml
+<servicebus:config name="Microsoft_Service_Bus_Config" doc:name="Microsoft Service Bus Config">
+		<servicebus:windows-connection namespace="$namespace" username="$username" password="$password" fqdn="$fqdn" >
+			<tls:context >
+				<tls:trust-store insecure="true" />
+			</tls:context>
+		</servicebus:windows-connection>
+	</servicebus:config>
+```
+
+For the Username Connection Provider:
+
+<servicebus:config name="Username" doc:name="Microsoft Service Bus Config"
+doc:id="1392344d-9e91-4c51-847c-cb14496a5d63" > <servicebus:username-password-connection >
+<tls:context > <tls:trust-store insecure="true" /> </tls:context>
+</servicebus:username-password-connection> </servicebus:config>
+
+For the Shared Access Signature provider Connection Provider:
+
+<servicebus:config name="SampleSharedAccess" doc:name="Microsoft Service Bus Config"
+doc:id="dca6896c-bab7-4f00-b8a3-0ea4a6efa732" > <servicebus:shared-access-signature-connection >
+<tls:context > <tls:trust-store insecure="true" /> </tls:context>
+</servicebus:shared-access-signature-connection> </servicebus:config>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+

@@ -1,0 +1,1708 @@
+﻿# IBM MQ Connector - Full Documentation
+
+# Handling Message Acknowledgement
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+There are different acknowledgement configurations provided by the JMS connector.
+
+## Automatic Acknowledgement On Success
+
+The `AUTO ackMode` can be used in the `ibm-mq:listener` component, causing the automatic ACK of the
+received message **if and only if** the flow execution completes successfully. If an error occurs
+during the flow execution that causes it to terminate prematurely, then the message is not
+acknowledged and redelivery occurs.
+
+Another `ackMode` similar to `AUTO` is `DUPS_OK`. With `DUPS_OK` the message is acknowledged
+automatically upon the success of the flow execution but in a lazy fashion which may lead to
+duplicates since the message may be redelivered before the ACK is performed.
+
+## Immediate Acknowledgement
+
+Setting the `ackMode` to `IMMEDIATE` either in `ibm-mq:listener` or `ibm-mq:consume` operations
+causes the message to be automatically acknowledged once it is consumed, and prior to any processing
+of the message by the application. Having the message automatically acknowledged after it is
+received means that the message wonât be redelivered if any error occurs during the processing of
+the message, so application logic like a dead letter queue has to be created to handle errors
+without losing messages.
+
+## Manual Acknowledgement
+
+As you may expect, the `MANUAL` `ackMode` delegates all the responsibility of performing the ACK on
+the message to the application logic.
+
+With this configuration, every message received by either the `listener` or `consume` operations has
+an `ackId` available in the Mule Message `attributes` which identifies this message uniquely for a
+given connection.
+
+The `ackId` that identifies the message passes to the `ibm-mq:ack` operation:
+
+```xml
+<flow name="consumerWithManualAck">
+    <ibm-mq:consume config-ref="JMS_config" destination="openTickets" ackMode="MANUAL"/>
+
+    <!--Do message processing-->
+    <logger message="#[payload]">
+
+    <ibm-mq:ack ackId="#[attributes.ackId]"/>
+</flow>
+```
+
+### Manual Session Recovery
+
+When using the `MANUAL ackMode`, all messages that are received but not acknowledged wonât be
+redelivered by the broker. If an error occurs during the message processing that prevents it from
+being acknowledged, the user is responsible for manually recovering all the messages in the session
+that have to be redelivered using the `recover-session` operation:
+
+```xml
+<flow name="consumerWithManualAck">
+    <ibm-mq:consume config-ref="JMS_config" destination="${destination}"
+                 ackMode="MANUAL" target="consumedMessage" targetValue="#[message]"/>
+
+    <!--Do message processing-->
+    <logger message="#[payload]">
+
+    <ibm-mq:ack ackId="#[vars.consumedMessage.attributes.ackId]"/>
+
+    <error-handler>
+        <on-error-propagate>
+            <!--In case of error, recover the session-->
+            <ibm-mq:recover-session ackId="#[vars.consumedMessage.attributes.ackId]"/>
+        </on-error-continue>
+    </error-handler>
+</flow>
+```
+
+Same as before, the connection used for recovering the session has to be the same as the one used
+for receiving the message.
+
+## See Also
+
+- [Using Topic Subscriptions](ibm-mq-topic-subscription)
+- [How To Listen For New Messages](ibm-mq-listener)
+---
+
+# Using ADMIN.QUEUE to Refresh Connections
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+IBM MQ Connector provides a special administrative queue, `ADMIN.QUEUE`, that allows you to refresh
+the connection or reconnect listeners during runtime. This can be useful for maintenance or error
+recovery without stopping the Mule application.
+
+## Triggering Connection Refreshes
+
+The `ADMIN.QUEUE` destination can be used within the **Publish** operation to initiate a connection
+refresh. This operation helps you dynamically manage connection disruptions and improves the
+resilience of your application.
+
+```xml
+<flow name="trigger-refresh-flow">
+    <ibm-mq:publish config-ref="IBMMQ_Config"
+                    destination="ADMIN.QUEUE"
+                    destinationType="QUEUE">
+        <ibm-mq:message-builder>
+            <ibm-mq:text-payload value="Trigger connection refresh"/>
+        </ibm-mq:message-builder>
+    </ibm-mq:publish>
+</flow>
+```
+
+## Configuration Requirements
+
+Ensure you have a valid IBM MQ configuration that includes the correct connection details:
+
+```xml
+<ibm-mq:config name="IBMMQ_Config" host="your-mq-host" port="1414" queue-manager="QM1" channel="YOUR.CHANNEL" user="mq_user" password="mq_password"/>
+```
+
+This configuration is referenced in the **Publish** operation that targets the `ADMIN.QUEUE`.
+
+## Important Considerations
+
+- The `ADMIN.QUEUE` is reserved for administrative purposes and must be secured.
+- Only trusted users or applications must be allowed to publish messages to this queue.
+- Refreshing the connection might temporarily interrupt message processing but helps recover from
+  network failures or other runtime issues.
+
+## See Also
+
+- [To Send Messages to Queues](ibm-mq-publish)
+- [To Listen for New Messages](ibm-mq-listener)
+---
+
+# To Consume IBM MQ Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Consume operation in the IBM MQ connector provides the ability to consume a message at any given
+time of the flow, from any given Destination.
+
+## Consuming a Message
+
+The syntax to consume a message from a queue is:
+
+```xml
+<ibm-mq:consume config-ref="IBM_MQ_config" destination="#[vars.destination]"/>
+```
+
+The operation above consumes the first available message in the queue identified by the destination,
+and then converts it to a Mule Message resulting in the following structure:
+
+- The messageâs content as the payload.
+- The messageâs metadata in the message attributes.
+
+Once received, the message is immediately acknowledged by default. If you want to control the ACK of
+the message after some processing, then set `ackMode` to `MANUAL`. For more information regarding a
+Message ACK, see [Handling Message Acknowledgment](ibm-mq-ack).
+
+## Waiting for a Message
+
+By default, the maximum wait time is configured to 10 seconds, producing a `IBM-MQ:TIMEOUT` error if
+no message is available in that period. To configure a timeout that fits better your use case,
+customize the `maximumWait` and `maximumWaitUnit` parameters.
+
+To wait indefinitely for a message to arrive, the `maximumWait` value has to be set to `-1`. In this
+case, no TIMEOUT error is thrown.
+
+## Filtering Incoming Messages
+
+The IBM MQ connector provides full support for filtering which messages should be consumed based on
+the standard **JMS selector language**.
+
+For example, if you have a priority queue with messages that need to be processed faster than the
+others, we can do:
+
+```xml
+<ibm-mq:consume config-ref="IBM_MQ_config"
+destination="openTickets"
+selector="JMSPriority=8"/>
+```
+
+When a selector is configured, only the Messages matching it will be received, ignoring if any other
+Message is in the destination.
+
+## MIME Types and Encoding
+
+The IBM MQ Connector does its best to automatically determine a messageâs MIME type (`contentType`)
+based on the MM_MESSAGE_CONTENT_TYPE property. However, there are cases in which that best guess is
+not enough, and you need first-hand knowledge of the messageâs content.
+
+In such cases, you can force that content type to a particular value by using the `contentType`
+parameter.
+
+The same process works for encoding. By default, the connector assumes that the Mule runtimeâs
+default encoding matches the one in the message if no other information is provided. You can set
+this by using the `encoding` parameter.
+
+> [!WARNING] This MIME type propagation only works when the IBM MQ Target Client is selected as
+> `JMS_COMPLIANT`.
+
+## Consuming a Message Using Topic Subscriptions
+
+Consuming messages from a topic destination is very similar to consuming them from a queue, but with
+the extra functionality of being able to use topic subscriptions to share state between consumers.
+
+The syntax for consuming messages from a topic is:
+
+```xml
+<ibm-mq:consume config-ref="IBM_MQ_config" destination="#[vars.destination]">
+    <ibm-mq:consumer-type>
+        <ibm-mq:topic-consumer/>
+    </ibm-mq:consumer-type>
+</ibm-mq:consume>
+```
+
+All the consume operation parameters remain the same, but now you can handle the subscription
+configuration in the `topic-consumer` parameter.
+
+For details on how to configure the topic subscriptions see
+[Using Topic Subscriptions](ibm-mq-topic-subscription).
+
+## Incoming Message Metadata
+
+Each received message consists of two parts:
+
+- Payload: The content of the message.
+- Attributes: The metadata regarding the message.
+
+This metadata has three parts that map all the information available in a JMS message:
+
+- AckId
+- Headers
+- Properties
+
+See [JMS Reference](ibm-mq-xml-ref) for details regarding the attributes structure.
+
+## See Also
+
+- [Using Topic Subscriptions](ibm-mq-topic-subscription)
+- [To Listen For New Messages](ibm-mq-listener)
+---
+
+# IBM MQ Connector Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To fully benefit from using Anypoint Connector for IBM MQ (IBM MQ Connector), see the following
+examples of configuring the connector operations:
+
+- [Manage Message Acknowledgments](ibm-mq-ack)  
+  Configure IBM MQ Connector to manage different acknowledgment configurations, such as automatic
+  acknowledgment on success, immediate acknowledgment, and manual acknowledgment.
+- [Listen for New Messages](ibm-mq-listener)  
+  Configure the **Listener** source with the JMS Connector to consume messages as they arrive at the
+  destination.
+- [Publish New Messages](ibm-mq-publish)  
+  Configure the **Publish** operation to create a new JMS message and send it to the specified
+  destination.
+- [Consume Messages](ibm-mq-consume)  
+  Configure the **Consume** operation to consume a message at any given time in the flow, from any
+  given destination.
+- [Publish Messages and Listen for Replies](ibm-mq-publish-consume)  
+  Configure the **Publish consume** operation to publish a message to any exchange, and then wait
+  for a reply on a different destination.
+- [Manage Transactions](ibm-mq-transactions)  
+  Configure IBM MQ Connector to manage transactional connections to execute a series of operations.
+- [Configure Topic Subscription](ibm-mq-topic-subscription)  
+  Configure topic subscriptions in IBM MQ Connector to control how subscriptions behave regarding
+  the connection of the consumers and also how these consumers interact with each other.
+- [Configure ADMIN.QUEUE to Refresh Connections](ibm-mq-connection-refresh)  
+  Configure the use of `ADMIN.QUEUE` in IBM MQ Connector to control how connections and listeners
+  are refreshed during runtime. This allows you to programmatically trigger connection resets or
+  listener reconnections to recover from failures or perform maintenance without stopping the
+  application.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Listening For New Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Listener source in the IBM MQ and its use of the JMS connector provides the ability to consume
+messages as they arrive at the destination.
+
+## Listening for New Messages
+
+The syntax to listen for new messages from a queue is:
+
+```xml
+<ibm-mq:listener config-ref="config" destination="#[vars.destination]"/>
+```
+
+The source listens for new messages in the queue identified by the destination, returning a Mule
+Message each time a JMS message is available in the queue.
+
+The message contains:
+
+- The messageâs content as a payload.
+- The messageâs metadata in the message attributes.
+
+By default, the message consumed is acknowledged only when the execution of the flow receiving the
+message completes successfully. If instead, an error occurs during the execution of the flow, the
+session is recovered, and the JMS message is redelivered.
+
+For more information regarding a message ACK, see [Handling Message Acknowledgement](ibm-mq-ack).
+
+## Configuring Message Throughput
+
+When extra processing power is needed, the JMS Listener allows you to configure the
+`numberOfConsumers` that a given Listener uses to consume messages concurrently. By default, each
+Listener uses four consumers to produce messages concurrently. Since each consumer waits for the
+message to be processed, that means that you can have a maximum of four messages in-flight at the
+same time. If you need to increase the concurrent message processing, just increase the
+`numberOfConsumers` in the Listener.
+
+## Filtering Incoming Messages
+
+The JMS connector provides full support for filtering which Messages should be consumed based on the
+standard JMS `selector` language.
+
+For example, if you have a priority Queue with Messages that need to be processed faster than the
+others, we can do:
+
+```xml
+<flow name="consumer">
+    <ibm-mq:listener config-ref="JMS_config"
+    destination="openTickets"
+    selector="JMSPriority=8"/>
+</flow>
+```
+
+When a selector is configured, only the messages matching it are received, ignoring any other
+message in the destination.
+
+## MIME Types and Encoding
+
+The JMS connector does its best to automatically determine a messageâs MIME type (`contentType`)
+based on the MM_MESSAGE_CONTENT_TYPE property. However, there are cases in which that best guess is
+not enough, and you need first-hand knowledge of the messageâs content. In such cases, you can force
+the content type to a particular value by using the `inboundContentType` parameter.
+
+The same process works for encoding. By default, the connector assumes that the runtimeâs default
+encoding matches the one in the message if no other information is provided. You can set this by
+using the `inboundEncoding` parameter.
+
+## Replying to Incoming Messages
+
+When an incoming JMS message declares a **Reply to** destination, the **On new message** source
+automatically produces a response when the message is processed successfully, meaning that no error
+occurs during the flow execution. In this case, when the flow completes, a response is published to
+the destination specified in the processed message header.
+
+You can configure IBM MQ responses in the **On New message** source with the following XML syntax:
+
+```xml
+<ibm-mq:listener config-ref="config" destination="#[vars.destination]">
+  <ibm-mq:response priority="8" persistentDelivery="true">
+      <ibm-mq:body>#['Message received was: ' ++ payload]</ibm-mq:body>
+      <ibm-mq:properties>#[{'processedAt': now}]</ibm-mq:properties>
+  </ibm-mq:response>
+</ibm-mq:listener>
+```
+
+The **Reply to** field of the **On New Message** source is not to overwrite the reply to field of
+the original message, but to set the reply to field of the message that is being sent as a reply.
+
+This response builder allows you to configure not only the `body` and `properties` of the response
+message but also allows you to specify any header like `priority` and `persistentDelivery`. All
+these configurations impact the outbound message and can be built using all the information
+available in the flow when the processing is completed.
+
+Disable the automatic reply by using the `ignoreReplyTo` attribute in the `ibm-mq:response` element:
+
+```xml
+<ibm-mq:listener config-ref="config" destination="#[vars.destination]">
+  <ibm-mq:response priority="8" persistentDelivery="true" ignoreReplyTo="true"/>
+</ibm-mq:listener>
+```
+
+## Listening for Messages with a Topic Subscription
+
+Listening for messages from a topic destination is very similar to listening for them from a queue,
+but with the extra functionality of being able to use topic subscriptions to share state between
+consumers. The syntax for subscribing to a topic is:
+
+```xml
+<ibm-mq:listener config-ref="JMS_config" destination="#[vars.destination]">
+    <ibm-mq:consumer-type>
+        <ibm-mq:topic-consumer/>
+    </ibm-mq:consumer-type>
+</ibm-mq:listener>
+```
+
+All the `listener` parameters remain the same, but now you can handle the subscription configuration
+in the `topic-consumer` parameter.
+
+For details on how to configure the topic subscriptions see
+[Using Topic Subscriptions](ibm-mq-topic-subscription).
+
+## See Also
+
+- [To Consume Messages](ibm-mq-consume)
+- [Using Topic Subscriptions](ibm-mq-topic-subscription)
+---
+
+# IBM MQ Tuning For Performance
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Performance can be a significant factor when processing many messages, which means that you probably
+want to check the following configurations to ensure you get the most out of the IBM MQ connector.
+
+## Donât Disable Connections Reuse
+
+Connections are expensive to create, so itâs important to reuse them as much as possible.
+
+**Notes:**
+
+- By default, the IBM MQ connector uses an aggressive `caching-strategy` that reuses as many
+  consumers and producers as possible. We recommend that you keep this configuration untouched since
+  any modification can reduce the performance of your application.
+- Disabling connections caching reduces the performance of your application.
+
+## Increasing Concurrent Messages Processing
+
+A good way to improve the performance of your application is to increase the number of concurrent
+consumers that receive messages from the same destination. This can be done easily in the IBM MQ
+connector by configuring the `numberOfConsumers` parameter.
+
+Out of the box, the `listener` uses four consumers concurrently at the same destination, but you can
+increase this number to a value that better fits your needs:
+
+```xml
+<ibm-mq:listener config-ref="config"
+     destination="#[vars.destination]"
+     numberOfConsumers="20"/>
+```
+
+Increasing the `numberOfConsumers` is the easiest way to improve the throughput of your listeners.
+
+For resilience and stability, use a dedicated configuration for the listener (`ibm-mq:listener`)
+separate from configurations used for Publish or Consume operations. This isolates the listener from
+connection failures in other operations and enables clearer monitoring of inbound listener health.
+See
+[Isolate Listener Configuration for Resilience](ibm-mq-troubleshooting#isolate-listener-configuration-for-resilience)
+in the troubleshooting guide.
+
+## Optimize Your Configuration For Clusters
+
+For applications running in clusters, keep in mind the concept of **primary node** and how the
+connector behaves. When running in a cluster, the IBM MQ `listener` default behavior is to receive
+messages only at the primary node, no matter what kind of destination you are consuming from.
+
+In case of consuming messages from a queue, change this configuration to receive messages in all the
+nodes of the cluster, not just the primary.
+
+This can be done with the `primaryNodeOnly` parameter:
+
+```xml
+<ibm-mq:listener config-ref="config"
+     destination="${inputQueue}"
+     primaryNodeOnly="false"/>
+```
+
+Consuming messages from a topic is a bit different, since the default behavior of receiving messages
+only in the primary node is the most common use case, given that it avoids processing the same
+message multiple times across the cluster.
+
+If you are using the JMS 2.0 shared subscriptions mechanism, then you want to change the cluster
+configuration to consume from all the nodes, again setting `primaryNodeOnly` to `false`:
+
+```xml
+<ibm-mq:listener config-ref="JMS_20_config"
+      destination="${inputTopic}"
+      primaryNodeOnly="false">
+     <ibm-mq:consumer-type>
+         <ibm-mq:topic-consumer
+         shared="true"
+         subscriptionName="clusteredEventListener"/>
+     </ibm-mq:consumer-type>
+ </ibm-mq:listener>
+```
+
+> [!TIP] When listening from a queue in a cluster, change the `primaryNodeOnly` configuration to
+> `false`.
+
+> [!WARNING] When listening from a topic in a cluster, not using the `primaryNodeOnly` configuration
+> causes the cluster to process the same message more than once unless shared-subscriptions is used.
+
+## See Also
+
+- [To Consume Messages](ibm-mq-consume)
+- [Using Topic Subscriptions](ibm-mq-topic-subscription)
+---
+
+# Listen For A Reply
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Request and reply is a widespread pattern between applications, thus the new IBM MQ connector
+provides an operation for that called `publish-consume`. The publish-consume operation allows you to
+publish a message to any destination, and then wait for a reply on a different destination.
+
+When using the publish-consume operation, the JMSReplyTo header of the outgoing message contains the
+ID of the destination at which an application waits for a response. This destination may be a
+well-known destination, or it may be a temporary destination created on the fly with the only
+purpose of receiving a single response message.
+
+The result of the operation is the message received as a response, with the same structure as if a
+consume operation was invoked.
+
+## Wait For A Reply On A Temporary Queue
+
+Using a temporary queue to wait for a response is very simple, just configure the message being sent
+and the operation automatically waits for a response in a temporary queue:
+
+```xml
+<ibm-mq:publish-consume
+     config-ref="config"
+     destination="targetDestination"
+     maximumWait="20"
+     maximumWaitUnit="SECONDS"/>
+```
+
+In this example, the operation publishes a message with the current payload as its body and the
+JMSReplyTo header configured to a temporary destination, to the `targetDestination`. Then, it
+automatically tries to consume the response from that temporary queue until a message is consumed or
+the maximumWait is reached (in which case the operation fails with a IBM-MQ:TIMEOUT error).
+
+## Receive a Reply On a Known Queue
+
+In many cases, reply queues do not need to be created for each request, but instead a well-known
+queue can be used for replies. For this case, all you have to do is to configure the `reply-to`
+parameter on the outgoing message:
+
+```xml
+<ibm-mq:publish-consume config-ref="config"
+     destination="targetDestination">
+    <ibm-mq:message>
+        <ibm-mq:reply-to destination="replyToDestination"/>
+    </ibm-mq:message>
+</ibm-mq:publish-consume>
+```
+
+The operation publishes a message to the `targetDestination` with the current payload as its body
+and the JMSReplyTo header configured with the `replyToDestination`.
+
+The operation automatically tries to consume the response from the replyToDestination queue until a
+message is consumed or the maximumWait is reached (in which case the operation fails with a
+IBM-MQ:TIMEOUT error).
+
+## Request Reply Patterns
+
+As of IBM MQ connector v1.5.0:
+
+In JMS, there exists two well known request-reply patterns for how request and reply messages are
+correlated. This means how to ensure that the incoming message is the proper reply of the outgoing
+message.
+
+### Correlation ID Pattern
+
+This pattern is the default for the Publish Consume Operation, the usage of this pattern implies
+that the operation after publishing a message to the destination queue, will consume a message using
+a selector that expects a message with the same Correlation ID to be used to publish the request
+message.
+
+Client and Listener IBM MQ Correlation ID pattern implementation
+
+```xml
+<flow name="publish-consume-correlation-id">
+  <ibm-mq:publish-consume config-ref="config"
+    destination="targetDestination"
+    requestReplyPattern="CORRELATION_ID">
+    <ibm-mq:message >
+      <ibm-mq:reply-to destination="replyToDestination" />
+    </ibm-mq:message>
+  </ibm-mq:publish-consume>
+  <logger message="Received message from 'replyToDestination' with Correlation ID: #[attributes.headers.correlationId]"/>
+</flow>
+
+<flow name="ibm-mq-listener-correlation-id" >
+  <ibm-mq:listener config-ref="config" destination="targetDestination">
+    <ibm-mq:reply-to-response requestReplyPattern="CORRELATION_ID" />
+  </ibm-mq:listener>
+  <logger level="INFO" message="About to reply to 'targetDestination' with Correlation ID: #[attributes.headers.correlationId]"/>
+</flow>
+```
+
+### Message ID Pattern
+
+Different from the Correlation ID pattern is the Message ID pattern which implies that the operation
+after publishing a message to the destination queue, will consume a message using a selector
+expecting a message with the a Correlation ID of the same value as the Message ID of the request
+message.
+
+Client and Listener IBM MQ Message ID pattern implementation
+
+```xml
+<flow name="publish-consume-message-id">
+  <ibm-mq:publish-consume config-ref="config"
+   destination="targetDestination"
+   requestReplyPattern="MESSAGE_ID">
+    <ibm-mq:message >
+      <ibm-mq:reply-to destination="replyToDestination" />
+    </ibm-mq:message>
+  </ibm-mq:publish-consume>
+  <logger message="Received message from 'replyToDestination' with Correlation ID: #[attributes.headers.correlationId]"/>
+</flow>
+
+<flow name="ibm-mq-listener-message-id" >
+  <ibm-mq:listener config-ref="config" destination="targetDestination">
+    <ibm-mq:reply-to-response requestReplyPattern="MESSAGE_ID" />
+  </ibm-mq:listener>
+  <logger level="INFO" message="About to reply to 'targetDestination' with Correlation ID: #[attributes.headers.messageId]"/>
+</flow>
+```
+
+### None
+
+Also the operation can be configured to not use any of above patterns, and the consumer will try to
+consume from the reply queue without using a selector to correlate messages.
+
+This option is useful when working with temporal queues where itâs ensured that the queue will have
+only one message.
+
+## See Also
+
+- [Publish Messages](ibm-mq-publish)
+---
+
+# To Publish Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This operation allows you to create a new JMS Message and send it to the specified destination, be
+it a Queue or a Topic. With it, you can configure not only the content of the message but also all
+the headers that may be needed.
+
+## Sending a Message to a Queue
+
+When used in its default form, the connector will publish whatever is in the payload:
+
+```xml
+<ibm-mq:publish destination="invoiceQueue" config-ref="IBM_MQ_config"/>
+```
+
+But what happens if the payload is not in the correct format, and you need to make a transformation?
+You could place a DataWeave transformation before the `publish` operation, but that would cause the
+message payload to change and impact the operation placed after the `publish` operation.
+
+To avoid this undesired impact, you can now place the transformation inside the `publish` operation:
+
+```xml
+<ibm-mq:publish destination="invoiceQueue" config-ref="IBM_MQ_config">
+  <ibm-mq:message>
+    <ibm-mq:body>#[%dw 2.0
+   output application/json
+   ---
+   payload.payments
+   ]</ibm-mq:body>
+  </ibm-mq:message>
+</ibm-mq:publish>
+```
+
+Now, the transformation can be used for generating the content that will be published, without
+producing a side effect on the message in transit.
+
+## Publishing a Message to a Topic
+
+The `publish` operation can also be used to publish a Message to a given Topic destination. All the
+configurations of the operation and the Message are identical, but the `destinationType` parameter
+has to be declared as a `TOPIC` destination:
+
+For the same example seen before, if instead of sending a message to the Queue we want to publish it
+to a Topic, we\`ll do:
+
+```xml
+<ibm-mq:publish destination="invoiceEvents" destinationType="TOPIC" config-ref="IBM_MQ_config">
+  <ibm-mq:message>
+    <ibm-mq:body>#[%dw 2.0
+   output application/json
+   ---
+   payload.payments
+   ]</ibm-mq:body>
+  </ibm-mq:message>
+</ibm-mq:publish>
+```
+
+## Customizing Message Delivery
+
+Each JMS Message has a set of headers that enables you to communicate metadata like the time to
+live, or the priority of the Message. This kind of metadata regarding the Message being published
+can be configured from the `publish` operation parameters.
+
+### Implementing a Priority Queue
+
+In order to implement a priority queue, we need to assign a priority different than the default to
+some messages. We can do so using the `priority` parameter in the operation:
+
+```xml
+<ibm-mq:publish priority="#[attributes.queryParams.priority]" destination="priorityQueue" config-ref="IBM_MQ_config"/>
+```
+
+### How to Control Message Time To Live
+
+Every JMS Message being published is sent with a timeToLive header that declares for how long the
+Message should be available for someone to consume it before it evicts. The `timeToLive` and
+`timeToLiveUnit` parameters in the `publish` operation allow you to configure the value of that JMS
+header for each Message published:
+
+```xml
+<ibm-mq:publish  timeToLive="#[vars.timeToLive]" timeToLiveUnit="SECONDS"
+              destination="#[vars.destination]" config-ref="IBM_MQ_config"/>
+```
+
+If you are using JMS 2.0, you can also control the `deliveryDelay` of the Message, which is how long
+to wait before making the Message available to consumers:
+
+```xml
+<ibm-mq:publish  deliveryDelay="${msgInitialDelay}" deliveryDelayUnit="MILLISECONDS"
+              destination="#[vars.destination]" config-ref="IBM_MQ_config"/>
+```
+
+## Declaring a Reply Destination
+
+For the cases where you need an asynchronous reply to the Message being sent, the JMS `publish`
+operation allows us to declare any `reply-to` destination. This destination will be communicated as
+a JMS Header to the consumer of the Message and is the destination where is expected a reply to be
+sent.
+
+To declare the `reply-to` destination, we add it to the Message definition:
+
+```xml
+<ibm-mq:publish config-ref="IBM_MQ_config" destination="#[vars.invoiceProcessorDestination]">
+    <ibm-mq:message>
+        <ibm-mq:reply-to destination="${completionEventsDestination}" destinationType="TOPIC"/>
+    </ibm-mq:message>
+</ibm-mq:publish>
+```
+
+## Propagating The Correlation ID
+
+The `publish` operation allows you to configure what is the `correlationId` for the outgoing
+Message.
+
+First, you need to configure whether or not you want to send the `correlationId` when publishing the
+Message using the `sendCorrelationId` parameter. This parameter can be set to `ALWAYS` (always send
+the header), `NEVER` (never send the header) or `AUTO` (the default, use the application
+configuration). Then, you can either use the `correlationId` of the Event that is sending the
+Message, or you can configure your own custom `correlationId` in the message builder:
+
+```xml
+<ibm-mq:publish config-ref="IBM_MQ_config" sendCorrelationId="ALWAYS" destination="#[attributes.headers.replyTo.destination]">
+    <ibm-mq:message correlationId="#[attributes.headers.correlationId]"/>
+</ibm-mq:publish>
+```
+
+## Configuring Message Properties
+
+Every JMS Message can have a set of properties, which can be used in many different ways, like to
+provide compatibility with other messaging systems or create custom message selectors. Some of these
+properties are well-known JMS standards, but others depend on the implementation or custom user
+configurations. The `publish` operation allows you to configure all these properties directly in the
+Message.
+
+### Setting User Properties
+
+Whenever you need to set a property for an outgoing Message, all you have to do is use the
+`properties` element in the Message and do an inline declaration of a Map using DataWeave:
+
+```xml
+<ibm-mq:publish config-ref="IBM_MQ_config" destination="${bridgeDestination}" destinationType="TOPIC">
+    <ibm-mq:message>
+        <ibm-mq:body>#["bridged_" ++ payload]</ibm-mq:body>
+        <ibm-mq:properties>#[{
+            AUTH_TYPE: 'jwt'
+            AUTH_TOKEN: attributes.queryParams.token
+        }]</ibm-mq:properties>
+    </ibm-mq:message>
+</ibm-mq:publish>
+```
+
+### Setting JMSX Properties
+
+The JMSX properties are a set of well-known properties defined in the JMS spec, containing metadata
+regarding the Message. In order to configure this properties, you can declare them inline as part of
+the Message element:
+
+```xml
+<ibm-mq:publish config-ref="IBM_MQ_config" destination="${bridgeDestination}" destinationType="TOPIC">
+    <ibm-mq:message>
+        <ibm-mq:body>#["bridged_" ++ payload]</ibm-mq:body>
+        <ibm-mq:jmsx-properties jmsxGroupID="#[vars.currentGroup]" jmsxUserID="${username}"/>
+    </ibm-mq:message>
+</ibm-mq:publish>
+```
+
+## See Also
+
+[To Listen For A Reply](ibm-mq-publish-consume)
+---
+
+# Using Topic Subscriptions
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Topics in IBM MQ allow you to configure how the subscription behaves regarding the connection of the
+consumer and also how these consumers interact with each other.
+
+Using IBM MQ Connector, you can handle of the aspects of a Topic subscription using the
+`topic-consumer` configuration in both the `consumer` and `listener` operations.
+
+## Registering Durable Subscriptions
+
+Durable subscriptions allows to receive messages that were published to the topic while the consumer
+was offline. Once a durable subscription registered, each time a consumer is available it will
+receive all the messages published before the connection was established:
+
+```xml
+<ibm-mq:consume config-ref="JMS_config" destination="#[vars.destination]">
+    <ibm-mq:consumer-type>
+        <ibm-mq:topic-consumer durable="true" subscriptionName="SampleSub"/>
+    </ibm-mq:consumer-type>
+</ibm-mq:consume>
+```
+
+Then IBM MQ stores the messages published to the topic, as it would store messages sent to a queue.
+If this or another application creates a `topic-consumer` using the same connection and its client
+ID, the same topic, and the same subscription name, the subscription is reactivated, and IBM MQ
+delivers the messages that were published while the subscriber was inactive.
+
+## Allowing Multiple Consumers on the Same Subscription
+
+In JMS 1.1, a subscription on a topic was not permitted to have more than one consumer at a time,
+meaning that the work of processing messages on a topic subscription could not be shared, thereby
+limiting the scalability of the application. This restriction has been removed in JMS 2.0 by the
+introduction of **shared subscriptions**.
+
+The IBM MQ Connector, **when configured with a JMS 2.0 connection**, allows you to declare any
+`topic-consumer` as part of a `shared` subscription:
+
+```xml
+<ibm-mq:listener config-ref="config" destination="InvoiceEventsTopic">
+    <ibm-mq:consumer-type>
+        <ibm-mq:topic-consumer shared="true" subscriptionName="ClusterSubscription"/>
+    </ibm-mq:consumer-type>
+</ibm-mq:listener>
+```
+
+With this configuration on two different `listener` instances, when a Message is published to the
+invoices destination, it will be delivered only to one of the listeners and not the other.
+
+## How to Ignore Self Published Messages
+
+There are cases in which you may not want to receive the Messages that were published to a Topic by
+the same application. For this cases, you can use the `noLocal` parameter in the `topic-consumer`,
+thus preventing the Consumer to receive Messages published to the Topic **by the same Connection**:
+
+```xml
+<ibm-mq:listener config-ref="config" destination="${notificationsChannel}">
+    <ibm-mq:consumer-type>
+        <ibm-mq:topic-consumer noLocal="true"/>
+    </ibm-mq:consumer-type>
+</ibm-mq:listener>
+```
+
+Consumers configured as `noLocal` **canât** be part of a `shared` subscription.
+
+## See Also
+
+- [To Listen For New Messages](ibm-mq-listener)
+- [To Consume Messages](ibm-mq-consume)
+---
+
+# Handling Transactions in IBM MQ
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Transactional connections in IBM MQ allow you to execute a series of operations that are actually
+performed only when the transaction is committed. This has two main scenarios:
+
+- Publishing a message as part of a transaction: When publishing, a message is sent to the
+  destination after the transaction commits. If for some reason the transaction fails and a rollback
+  occurs, then the message is not sent.
+- Consuming a message as part of a transaction: When consuming a message, either with the listener
+  or consume, the message is acknowledged only after the transaction is committed, and instead itâs
+  returned to the destination for redelivery if the transaction is rolled-back.
+
+The IBM MQ connector provides support for executing its operations in a transactional way out of the
+box using Muleâs transactionalAction configuration.
+
+To execute an operation as part of the transaction, we have the following two options.
+
+## Processing New Messages With Transactional Session
+
+If you want a IBM MQ `On New Message` Listener to use a transactional session when dispatching the
+messages, you should set the transactionalAction to ALWAYS_BEGIN:
+
+```xml
+<ibm-mq:listener
+     config-ref="IBM_MQ_Config"
+     destination="${originQueue}"
+     transactionalAction="ALWAYS_BEGIN"/>
+```
+
+With this configuration, each new message is processed in a transaction that is propagated to all
+the flowâs components and is committed once the flow execution is completed successfully. The
+transaction is rolled back if the flow execution completes with an error.
+
+**Note:** By default, other components in the flow do not join the transaction created by the
+listener. To execute other operations using the listenerâs transaction, you must declare them either
+with ALWAYS_JOIN, or JOIN_IF_POSSIBLE.
+
+## Execute Operations As Part Of A Transaction
+
+To execute an operation like publish or consume as part of a transaction, set transactionalAction to
+ALWAYS_JOIN or JOIN_IF_POSSIBLE:
+
+This operations can join a transaction initiated by the listener:
+
+```xml
+<flow name="joiningToListenerTransaction">
+    <ibm-mq:listener config-ref="IBM_MQ_Config"
+      destination="${originQueue}"
+      transactionalAction="ALWAYS_BEGIN"/>
+    <ibm-mq:publish config-ref="IBM_MQ_Config"
+      destination="#[attributes.properties.userProperties.redirectDestination]"
+      transactionalAction="JOIN_IF_POSSIBLE"/>
+    <ibm-mq:consume config-ref="IBM_MQ_Config"
+      destination="#[attributes.properties.userProperties.callbackDestination]"
+      transactionalAction="JOIN_IF_POSSIBLE"/>
+</flow>
+```
+
+Or join a scoped transaction:
+
+```xml
+<flow name="nonTxPublishMustNotJoinCurrentTx">
+    <http:listener config-ref="HTTP_Config" path="/orders"/>
+    <try transactionalAction="ALWAYS_BEGIN">
+        <ibm-mq:publish config-ref="config"
+	destination="${billingService}"
+	transactionalAction="ALWAYS_JOIN"/>
+        <ibm-mq:publish config-ref="config"
+	destination="${shipmentService}"
+	transactionalAction="ALWAYS_JOIN"/>
+        <ibm-mq:publish-consume config-ref="IBM_MQ_Config"
+	destination="${invoicesVerificationService}"/>
+        <validation:is-true expression="#[payload]"/>
+    </try>
+</flow>
+```
+
+## XA Transactions
+
+IBM MQ Connector supports a create and join XA transactions feature that enables the connector to
+participate in a transaction with multiple resources. This also enables the connector to execute
+transactional actions with other connections of IBM MQ or other connectors such as Database
+Connector or VM Connector.
+
+> [!NOTE] IBM MQ Connector does not support nested XA transactions because of an IBM MQ driver
+> limitation. When you work with nested transactions, outer transactions get suspended and then
+> resume after the inner transactions finish. The failure occurs when the outer transactions are
+> resumed, due to the driver implementation.
+
+To enable XA transactions:
+
+1.  Create an XA enabled connection: set `enableXa` to true.
+
+    ```xml
+    <ibm-mq:config name="IBM_MQ_Config" >
+    		<ibm-mq:connection enableXa="true" >
+    			<ibm-mq:connection-mode >
+    				<ibm-mq:client host="0.0.0.0" queueManager="QM1" />
+    			</ibm-mq:connection-mode>
+    		</ibm-mq:connection>
+    	</ibm-mq:config>
+    ```
+
+2.  Configure to create a XA Transaction: Set transactionType to XA:
+
+    ```xml
+    <flow name="joiningToListenerTransaction">
+        <ibm-mq:listener config-ref="IBM_MQ_Config"
+        destination="${originQueue}"
+        transactionalAction="ALWAYS_BEGIN"
+        transactionType="XA"/>
+        <ibm-mq:publish config-ref="IBM_MQ_Config"
+        destination="#[attributes.properties.userProperties.redirectDestination]"
+        transactionalAction="JOIN_IF_POSSIBLE"/>
+        <ibm-mq:consume config-ref="IBM_MQ_Config"
+        destination="#[attributes.properties.userProperties.callbackDestination]"
+        transactionalAction="JOIN_IF_POSSIBLE"/>
+    </flow>
+    ```
+
+    Or join a scoped transaction:
+
+    ```xml
+    <flow name="nonTxPublishMustNotJoinCurrentTx">
+        <http:listener config-ref="HTTP_Config" path="/orders"/>
+        <try transactionalAction="ALWAYS_BEGIN" transactionType="XA">
+            <ibm-mq:publish config-ref="config"
+    	destination="${billingService}"
+    	transactionalAction="ALWAYS_JOIN"/>
+            <ibm-mq:publish config-ref="config"
+    	destination="${shipmentService}"
+    	transactionalAction="ALWAYS_JOIN"/>
+
+            <ibm-mq:publish-consume config-ref="IBM_MQ_Config"
+    	destination="${invoicesVerificationService}"/>
+            <validation:is-true expression="#[payload]"/>
+        </try>
+    </flow>
+    ```
+---
+
+# Troubleshooting IBM MQ Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for IBM MQ (IBM MQ Connector), become familiar with the
+information about enabling verbose logging, troubleshooting acknowledgment issues, troubleshooting
+MQ stopped consuming messages, isolating listener configuration for resilience, troubleshooting
+redeployment errors when using binding mode, and interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+Sometimes you are not sure why the application is failing and you require a better understanding of
+what is going on in the appâs interaction with the MQ server.
+
+To gather detailed logs:
+
+- Use the configuration file to increase the logging level on the server side.
+- Enable verbose logging for JMS Connector and MQ packages:
+  1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+  2.  Open your applicationâs project name.
+  3.  Open the `src/main/resources` path folder.
+  4.  Open the `log4j2.xml` file inside the folder.
+  5.  If the following line is already in the `log4j2.xml` file, uncomment it to enable it;
+      otherwise, add it:
+
+      ```xml
+          <AsyncLogger name="com.mulesoft.connectors.ibmmq" level="DEBUG"/>
+          <AsyncLogger name="org.mule.jms.commons" level="DEBUG"/>
+      ```
+
+## Troubleshoot Acknowledgment Issues
+
+There are several ways an application setup can be inconsistent in terms of message acknowledgment.
+You can configure the session acknowledgment for an application as:
+
+- **IMMEDIATE**
+- **AUTO**
+- **MANUAL**
+- **DUPS_OK**
+
+When you set the session acknowledgment to **IMMEDIATE**, the message gets acknowledged as soon as
+itâs received. Do not mix **IMMEDIATE** acknowledgment with **Ack** or **Recovery session**
+operations.
+
+When you set the session acknowledgment to **AUTO**, the **On New Message** source takes control of
+the acknowledgment when the event finishes, or the session recovers when an error is thrown while
+processing the event. Adding a manual acknowledgment or session recover in an application with
+**AUTO** acknowledgment leads to duplicate operations on a channel.
+
+When you set the session acknowledgment to either **MANUAL** or **DUPS_OK**, check that every path
+of the flow execution gets a message acknowledgment or a session recover. Otherwise, a message can
+leak and lead to an unresponsive consumer when the max depth of the unit of work is reached.
+
+To resolve this issue:
+
+Take a detailed look at the flow design and be sure that every message is acknowledged or the
+session recovers.
+
+## Troubleshoot MQ Stopped Consuming Messages
+
+Usually when MQ stopped consuming messages is related to a large number of unacknowledged messages.
+When your Mule app that has an **On New Message** source or **Consume** operation with manual
+acknowledgement of messages, and not every path of the message has the proper acknowledgement or
+session recovery configuration, the Mule app can lead to an unresponsive consumer.
+
+To resolve this error:
+
+Check the depth of unacknowledged messages on the broker side and review the application logic.
+
+## Troubleshoot Isolate Listener Configuration for Resilience
+
+When the **On New Message** (`ibm-mq:listener`) uses the same configuration as other IBM MQ
+operations (such as **Publish** or **Consume**), a connection failure during an unrelated operation
+can directly impact or cause the Listener to hang. This reduces the stability of event-driven flows
+that depend on continuous inbound message processing. A shared configuration also makes it harder to
+monitor connection health for the critical inbound listener separately from outbound operations.
+
+To resolve this issue:
+
+Use a dedicated configuration for the listener, separate from the configuration used for **Publish**
+or **Consume** operations. With a dedicated listener configuration, connection failures during
+**Publish** or **Consume** will not directly impact or hang the listener, improving the stability of
+event-driven flows. Separate configurations also allow for clearer, isolated monitoring of
+connection health for the inbound listener versus outbound operations.
+
+## Troubleshoot Redeployment Errors When Using Binding Mode
+
+When using binding mode for connections, the driver loads a JNI resource. Because the JNI resource
+can be loaded only once, when the application is redeployed, an error is thrown.
+
+To resolve this error:
+
+Add the driver dependency at the domain level, which enables application redeployment.
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them.
+
+- IBM-MQ:ACK
+
+  There was an error in the context of the acknowledgment of an inflight message.
+
+- IBM-MQ:CONNECTIVITY
+
+  The connection is no longer valid. It is disposed of, but you can apply a reconnection policy if
+  defined in the application setup.
+
+- IBM-MQ:CONSUMING
+
+  An error occurred while consuming messages from WMQ. This error might relate to the absence of a
+  pending message.
+
+- IBM-MQ:DESTINATION_NOT_FOUND
+
+  IBM MQ Connector is not able to find or create the destination.
+
+- IBM-MQ:RETRY_EXHAUSTED
+
+  The maximum number of retries for the operation is reached.
+
+- IBM-MQ:SECURITY
+
+  The thrown exception in due to of security-related errors.
+
+- IBM-MQ:TIMEOUT
+
+  The timeout for the requested operation is exceeded.
+
+- IBM-MQ:ILLEGAL_BODY
+
+  The message body is invalid or cannot be converted to a supported type.
+
+- IBM-MQ:PUBLISHING
+
+  There is an error while publishing to the target queue or topic.
+
+## See Also
+
+- [IBM MQ Connector Reference](ibm-mq-xml-ref)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# IBM MQ Connector XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/ibm-mq
+http://www.mulesoft.org/schema/mule/ibm-mq/current/mule-ibm-mq.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:ibm-mq="http://www.mulesoft.org/schema/mule/ibm-mq"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/ibm-mq
+	http://www.mulesoft.org/schema/mule/ibm-mq/current/mule-ibm-mq.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-ibm-mq-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `ibm mq`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# IBM MQ Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+IBM MQ Connector v1.8
+
+Provides the main class of this connector, which is the entry point where configurations, connection
+providers, operations, and sources are declared.
+
+Release Notes: [IBM MQ Connector Release Notes](../../release-notes/connector/connector-ibm-mq)
+
+## Configurations
+
+---
+
+### Config
+
+Default configuration.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The default encoding of the message body if the message doesnât communicate it.</p></td><td></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The default content type of the message body is the message doesnât communicate it.</p></td><td><div><div><p><code>/</code></p></div></div></td><td></td></tr><tr><td><p>Send Correlation Id</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>Whether to specify a <code>correlationId</code> when publishing messages. This applies both for custom correlation IDs specified at the operation level and for default correlation IDs taken from the current event.</p></div></div></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances when it sees fit.</p></td><td></td><td></td></tr><tr><td><p>Ack Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li><li><p>DUPS_OK</p></li></ul></div></div></td><td><p>The Session ACK mode to use when consuming a message.</p></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Consumer Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#topic-consumer">Topic Consumer</a></p></li><li><p>queue-consumer</p></li></ul></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Selector</p></td><td><div><div><p>String</p></div></div></td><td><p>Default JMS selector to use for filtering incoming messages.</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If true, the message is sent using the PERSISTENT <code>JMSDeliveryMode</code>.</p></div></div></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The default <code>JMSPriority</code> value to use when sending the message.</p></div></div></td><td><p><code>4</code></p></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded.</p></td><td><p><code>0</code></p></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations.</p></td><td><p><code>MILLISECONDS</code></p></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its MessageID.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its sent Timestamp.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0: Sets the delivery delay to be applied to postpone the Message delivery.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Only used by JMS 2.0: Time unit to use in the deliveryDelay configurations.</p></td><td><p><code>MILLISECONDS</code></p></td><td></td></tr><tr><td><p>Jms Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The message type identifier to be set in the JMSType Header when a message is sent.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Connection Mode</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#binding">Binding</a></p></li><li><p><a href="#client">Client</a></p></li></ul></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to use to connect to the IBM MQ Server.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password of the used username.</p></td><td></td><td></td></tr><tr><td><p>Client ID</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the JMS Client used to identify the current client.</p></td><td></td><td></td></tr><tr><td><p>CSS ID</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number to use when connecting to the queue manager. The default value (819) is suitable in most situations.</p></td><td></td><td></td></tr><tr><td><p>Additional Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Additional properties to configure the IBM MQ client.</p></td><td></td><td></td></tr><tr><td><p>Caching Strategy</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#default-caching">Default Caching</a></p></li><li><p>no-caching</p></li></ul></div></div></td><td><p>The strategy to use for caching of sessions and connections.</p></td><td></td><td></td></tr><tr><td><p>Enable XA Transactions</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Supports creating and joining XA transactions which enables the connector to participate in a transaction with multiple resources.</p><p>Note that IBM MQ Connector does not support nested XA transactions due to IBM MQ driver limitations.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Specification</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>JMS_2_0</p></li><li><p>JMS_1_1</p></li></ul></div></div></td><td><p>Version of the JMS specification for the JMS Client.</p></td><td><p><code>JMS_2_0</code></p></td><td></td></tr><tr><td><p>Target Client</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>JMS_COMPLIANT</p></li><li><p>NO_JMS_COMPLIANT</p></li></ul></div></div></td><td><div><div><p>Describes the way to create the IBM MQ JMS Client. When using <code>JMS_COMPLIANT</code>, indicates that the RFH2 format is used to send information. The RFH2 header carries JMS-specific data that is associated with the message content. When not using <code>JMS_COMPLIANT</code>, features like User Properties and Media Type propagation stop working.</p></div></div></td><td><p><code>JMS_COMPLIANT</code></p></td><td></td></tr><tr><td><p>Application Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Application name to be registered in the connection factory. By default this is the application name. Max 27 characters are allowed.</p></td><td></td><td></td></tr><tr><td><p>Read Message Descriptor (MD)</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ENABLED</p></li><li><p>DISABLED</p></li></ul></div></div></td><td><p>Indicates if this is enabled to read the message descriptor properties.</p></td><td><p>ENABLED</p></td><td></td></tr><tr><td><p>Write Message Descriptor (MD)</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ENABLED</p></li><li><p>DISABLED</p></li></ul></div></div></td><td><p>Indicates if this is enabled to write the message descriptor properties.</p></td><td><p>ENABLED</p></td><td></td></tr><tr><td><p>Message Context</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DEFAULT</p></li><li><p>SET_ALL_CONTEXT</p></li><li><p>SET_IDENTITY_CONTEXT</p></li></ul></div></div></td><td><div><div><p>Indicates the message context to configure message options.</p></div><div><ul><li><p>DEFAULT: No options can be set.</p></li><li><p>SET_ALL_CONTEXT: All options can be set.</p></li><li><p>SET_IDENTITY_CONTEXT: Only Identity options can be set.</p></li></ul></div></div></td><td><p>DEFAULT</p></td><td></td></tr><tr><td><p>Temporary Model</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the IBM MQ model queue that refers to a model queue that can be used to create a permanent dynamic queue.</p></td><td></td><td></td></tr><tr><td><p>Temporal Queue Prefix</p></td><td><div><div><p>String</p></div></div></td><td><p>The prefix to use when creating temporary queue names. The last non-blank character must be an asterisk (<code>*</code>).</p></td><td></td><td></td></tr><tr><td><p>Temporal Topic Prefix</p></td><td><div><div><p>String</p></div></div></td><td><p>The prefix to use when creating temporary topic names. The last non-blank character must be an asterisk (<code>*</code>).</p></td><td></td><td></td></tr><tr><td><p>Receive Exit Handler</p></td><td><div><div><p>String</p></div></div></td><td><p>The receive exit handler class. When writing exits for use with IBM MQ Java, each object must also have a constructor that takes a single string argument. When IBM MQ creates an instance of the exit, it passes any initialization data into the exit using this constructor.</p></td><td></td><td></td></tr><tr><td><p>Receive Exit Handler Init</p></td><td><div><div><p>String</p></div></div></td><td><p>Initialization string for the receive exit.</p></td><td></td><td></td></tr><tr><td><p>Send Exit Handler</p></td><td><div><div><p>String</p></div></div></td><td><p>The send exit handler class. When writing exits for use with IBM MQ Java, each object must also have a constructor that takes a single string argument. When IBM MQ creates an instance of the exit, it passes any initialization data into the exit using this constructor.</p></td><td></td><td></td></tr><tr><td><p>Send Exit Handler Init</p></td><td><div><div><p>String</p></div></div></td><td><p>Initialization string for the send exit.</p></td><td></td><td></td></tr><tr><td><p>Security Exit Handler</p></td><td><div><div><p>String</p></div></div></td><td><p>The security exit handler class. When writing exits for use with IBM MQ Java, each object must also have a constructor that takes a single string argument. When IBM MQ creates an instance of the exit, it passes any initialization data into the exit using this constructor.</p></td><td></td><td></td></tr><tr><td><p>Security Exit Handler Init</p></td><td><div><div><p>String</p></div></div></td><td><p>Initialization string for the security exit.</p></td><td></td><td></td></tr><tr><td><p>Min Pool Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The minimum size of the XA connection pool.</p></td><td><p><code>4</code></p></td><td></td></tr><tr><td><p>Max Pool Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum size of the XA connection pool.</p></td><td><p><code>32</code></p></td><td></td></tr><tr><td><p>Max Idle Seconds</p></td><td><div><div><p>Number</p></div></div></td><td><p>The number of seconds an XA transaction can remain idle before itâs eligible for eviction.</p></td><td><p><code>60</code></p></td><td></td></tr><tr><td><p>IBM MQ CipherSpec Mapping</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ORACLE_CIPHER_SUITES</p></li><li><p>IBM_CIPHER_SUITES</p></li><li><p>NONE</p></li></ul></div></div></td><td><p>Defines which CipherSuite mapping to use: Oracle JDK or IBM JDK. Configure this parameter depending on the host JDK. For more information, see <a href="https://www.ibm.com/docs/en/ibm-mq/8.0.0?topic=SSFKSJ_8.0.0/com.ibm.mq.dev.doc/q113220_.html">SSL/TLS CipherSpecs and CipherSuites</a>.</p></td><td><p><code>ORACLE_CIPHER_SUITES</code></p></td><td></td></tr><tr><td><p>IBM Cipher Suite</p></td><td><div><div><p>String</p></div></div></td><td><p>CipherSuite to use to connect to the IBM MQ Server.</p></td><td></td><td></td></tr><tr><td><p>Reset Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>This property represents the total number of bytes sent and received by a connection before the secret key that is used for encryption is renegotiated. Integer value between 0 (disabled) and 999999999.</p></td><td></td><td></td></tr><tr><td><p>Peer Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies a distinguished name pattern, to ensure that your JMS application connects to the correct queue manager.</p></td><td></td><td></td></tr><tr><td><p>FIPS Required</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enable it if is required a connection to use a CipherSuite that is supported by the IBM Java JSSE FIPS provider (IBMJSSEFIPS).</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Cert Stores</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies a list of LDAP servers to use for certificate revocation list (CRL) checking.</p></td><td></td><td></td></tr><tr><td><p>TLS Context</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+> [!NOTE] You can also configure Client Channel Definition Tables (CCDT) connection by going to the
+> **Advanced** tab and adding the `XMSC_WMQ_CCDTURL` and `XMSC_WMQ_QUEUE_MANAGER` properties in the
+> **Additional properties** section. If you use the `XMSC_WMQ_CCDTURL` property, ensure **Connection
+> mode** is set to `Client` in the **General** tab.
+
+## Operations
+
+- [Consume](#consume)
+- [Publish](#publish)
+- [Publish Consume](#publishConsume)
+
+## Sources
+
+- [On New Message](#listener)
+
+### Consume
+
+`<ibm-mq:consume>`
+
+Allows a user to consume a single message from a given destination.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the destination from where the message should be consumed.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Consumer Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#topic-consumer">Topic Consumer</a></p></li><li><p>queue-consumer</p></li></ul></div></div></td><td><p>The type of the MessageConsumer that is required for the given destination, along with any extra configurations that are required based on the destination type.</p></td><td></td><td></td></tr><tr><td><p>Ack Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><p>The ConsumerAckMode to configure over the message and session.</p></td><td></td><td></td></tr><tr><td><p>Selector</p></td><td><div><div><p>String</p></div></div></td><td><p>A custom JMS selector for filtering the messages.</p></td><td></td><td></td></tr><tr><td><p>Maximum Wait</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum time to wait for a message before timing out.</p></td><td><p>10000</p></td><td></td></tr><tr><td><p>Maximum Wait Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the maximumWaitTime configurations.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take regarding transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets the ContentType of the received message. If the message already have one, this one is overridden.</p></td><td></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets the Encoding of the received message. If the message already have one, this one is overridden.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#IBM-MQ-Attributes">IBM MQ Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- IBM-MQ:ACK
+- IBM-MQ:CONNECTIVITY
+- IBM-MQ:CONSUMING
+- IBM-MQ:DESTINATION_NOT_FOUND
+- IBM-MQ:RETRY_EXHAUSTED
+- IBM-MQ:SECURITY
+- IBM-MQ:TIMEOUT
+
+### Publish
+
+`<ibm-mq:publish>`
+
+Allows a user to send a Message to a JMS destination.
+
+> [!NOTE] When using multiple MUnit test suites with the **Publish** operation, set the
+> `avoid.dispose.mq.threads` system property to `true`. This property prevents the connector from
+> cleaning up IBM MQ threads that are needed for the next test suite to run.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the Destination where the Message should be sent</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>QUEUE</p></li><li><p>TOPIC</p></li></ul></div></div></td><td><p>The MQDestinationType of the destination.</p></td><td><p>QUEUE</p></td><td></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>Transactional Action for the operation. Indicates if the publish must be executed or not in a transaction.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Send Correlation Id</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Options on whether to include an outbound correlation ID or not.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>The body of the Message</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>JMS Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSType identifier header of the Message.</p></td><td></td><td></td></tr><tr><td><p>Correlation ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSCorrelationID header of the Message.</p></td><td></td><td></td></tr><tr><td><p>Send Content Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body content type should be sent as a property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The content type of the messageâs body.</p></td><td></td><td></td></tr><tr><td><p>Send Encoding</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body outboundEncoding should be sent as a Message property.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the messageâs body.</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#MQJmsDestination">MQ JMS Destination</a></p></div></div></td><td><p>The destination where a reply to this Message should be sent</p></td><td></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>The custom user properties that should be set to this Message.</p></td><td></td><td></td></tr><tr><td><p>JMSX Properties</p></td><td><div><div><p><a href="#MQJmsxProperties">MQ JMSX Properties</a></p></div></div></td><td><p>The JMSX properties that should be set to this Message.</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is sent using the PERSISTENT JMSDeliveryMode.</p></td><td></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default JMSPriority value to use when sending the message.</p></td><td></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded.</p></td><td></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations</p></td><td></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its MessageID.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its sent Timestamp.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0. Sets the delivery delay to be applied to postpone the Message delivery.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the deliveryDelay configurations.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- IBM-MQ:CONNECTIVITY
+- IBM-MQ:DESTINATION_NOT_FOUND
+- IBM-MQ:ILLEGAL_BODY
+- IBM-MQ:PUBLISHING
+- IBM-MQ:RETRY_EXHAUSTED
+- IBM-MQ:SECURITY
+
+### Publish Consume
+
+`<ibm-mq:publish-consume>`
+
+Allows a user to send a message to a JMS destination and wait for a response either to the provided
+ReplyTo destination or to a temporary destination created dynamically.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the Destination where the Message should be sent</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Request-Reply Pattern</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CORRELATION_ID</p></li><li><p>MESSAGE_ID</p></li><li><p>NONE</p></li></ul></div></div></td><td><p>Indicates how requests and reply messages are correlated, which ensures that the incoming message is the proper reply to the outgoing message.</p><p>* The <code>CORRELATION_ID</code> pattern value is used with the <strong>Publish Consume</strong> operation. After the operation publishes a request message to the destination queue, it expects a message with the same correlation ID as the request message. It then consumes that correlated response message.</p><p>* The <code>MESSAGE_ID</code> pattern value is used with the <strong>Publish Consume</strong> operation. After the operation publishes a request message to the destination queue, it expects a message with a correlation ID of the same value as the message ID of the request message. It then consumes that correlated response message.</p></td><td><p>CORRELATION_ID</p></td><td></td></tr><tr><td><p>Send Correlation ID</p></td><td><div><div><p>Enumeration, one of: <strong>AUTO </strong>ALWAYS ** NEVER</p></div></div></td><td><p>Options on whether to include an outbound correlation ID or not.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>The body of the Message.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>JMS Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSType identifier header of the Message.</p></td><td></td><td></td></tr><tr><td><p>Correlation ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSCorrelationID header of the Message.</p></td><td></td><td></td></tr><tr><td><p>Send Content Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body content type should be sent as a property.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The content type of the messageâs body.</p></td><td></td><td></td></tr><tr><td><p>Send Encoding</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body outboundEncoding should be sent as a Message property.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the messageâs body</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#MQJmsDestination">MQ JMS Destination</a></p></div></div></td><td><p>The destination where a reply to this Message should be sent.</p></td><td></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>The custom user properties that should be set to this Message</p></td><td></td><td></td></tr><tr><td><p>JMSX Properties</p></td><td><div><div><p><a href="#MQJmsxProperties">MQ JMSX Properties</a></p></div></div></td><td><p>The JMSX properties that should be set to this Message</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is sent using the PERSISTENT JMSDeliveryMode.</p></td><td></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default JMSPriority value to use when sending the message.</p></td><td></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded</p></td><td></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations</p></td><td></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its MessageID.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its sent Timestamp</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0. Sets the delivery delay to be applied to postpone the Message delivery</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the deliveryDelay configurations</p></td><td></td><td></td></tr><tr><td><p>Ack Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><p>The Session ACK mode to use when consuming the message</p></td><td><p>IMMEDIATE</p></td><td></td></tr><tr><td><p>Maximum Wait</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum time to wait for a message to arrive before timeout</p></td><td><p>10000</p></td><td></td></tr><tr><td><p>Maximum Wait Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the maximumWaitTime configuration</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The content type of the message body to be consumed.</p></td><td></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the message body to be consumed.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#IBM-MQ-Attributes">IBM MQ Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- IBM-MQ:ACK
+- IBM-MQ:CONNECTIVITY
+- IBM-MQ:CONSUMING
+- IBM-MQ:DESTINATION_NOT_FOUND
+- IBM-MQ:ILLEGAL_BODY
+- IBM-MQ:PUBLISHING
+- IBM-MQ:RETRY_EXHAUSTED
+- IBM-MQ:SECURITY
+- IBM-MQ:TIMEOUT
+
+### Ack
+
+`<ibm-mq:ack>`
+
+Allows the user to perform an ACK when the AckMode#MANUAL mode is elected while consuming the
+Message. As per JMS Spec, performing an ACK over a single Message automatically works as an ACK for
+all the Messages produced in the same JmsSession.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Ack Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The AckId of the Message to ACK.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+#### Throws
+
+- IBM-MQ:ACK
+
+### Recover Session
+
+`<ibm-mq:recover-session>`
+
+Allows a user to perform a session recover when the AckMode#MANUAL mode is elected while consuming
+the Message. As per JMS Spec, performing a session recover automatically redelivers all the consumed
+messages that had not being acknowledged before this recover.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Ack Id</p></td><td><div><div><p>String</p></div></div></td><td><p>The AckId of the Message Session to recover.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+#### Throws
+
+- IBM-MQ:SESSION_RECOVER
+
+## Sources
+
+### On New Message
+
+`<ibm-mq:listener>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the Destination from where the Message should be consumed.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Consumer Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#topic-consumer">Topic Consumer</a></p></li><li><p>queue-consumer</p></li></ul></div></div></td><td><p>The Type of the Consumer that should be used for the provided destination.</p></td><td></td><td></td></tr><tr><td><p>Ack Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li><li><p>DUPS_OK</p></li></ul></div></div></td><td><p>The Session ACK mode to use when consuming a message.</p></td><td></td><td></td></tr><tr><td><p>Selector</p></td><td><div><div><p>String</p></div></div></td><td><p>JMS selector to use for filtering incoming messages.</p></td><td></td><td></td></tr><tr><td><p>Number Of Consumers</p></td><td><div><div><p>Number</p></div></div></td><td><p>The number of concurrent consumers to use to receive JMS Messages.</p></td><td><p><code>4</code></p></td><td></td></tr><tr><td><p>Inactivity Timeout Minutes</p></td><td><div><div><p>Number</p></div></div></td><td><p>Inactivity timeout in minutes. If no message is received within this period, the listener triggers a reconnection.</p></td><td><p><code>0</code></p></td><td></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_BEGIN</p></li><li><p>NONE</p></li></ul></div></div></td><td><p>The type of beginning action that sources can take regarding transactions.</p></td><td><p><code>NONE</code></p></td><td></td></tr><tr><td><p>Transaction Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LOCAL</p></li><li><p>XA</p></li></ul></div></div></td><td><p>The type of transaction to create. Availability depends on the runtime version.</p></td><td><p><code>LOCAL</code></p></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should only be executed on the primary node when running in a cluster.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets the content type of the received message. If the message already has a content type, it is overridden.</p></td><td></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets the encoding of the received message. If the message already has one, it is overridden.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr><tr><td><p>Ignore JMS replyTo header</p></td><td><p>Boolean</p></td><td><p>True if no automatic response is needed for messages with destination header</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Any</p></div></div></td><td><p>The body of the Message</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>JMS Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSType identifier header of the message.</p></td><td></td><td></td></tr><tr><td><p>Correlation ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The JMSCorrelationID header of the message.</p></td><td></td><td></td></tr><tr><td><p>Send Content Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not to send the body content type as a property.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The content type of the messageâs body.</p></td><td></td><td></td></tr><tr><td><p>Send Encoding</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the body outboundEncoding should be sent as a Message property.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the messageâs body</p></td><td></td><td></td></tr><tr><td><p>Reply To</p></td><td><div><div><p><a href="#MQJmsDestination">MQ JMS Destination</a></p></div></div></td><td><p>The destination where a reply to this Message should be sent</p></td><td></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>The custom user properties that should be set to this Message</p></td><td></td><td></td></tr><tr><td><p>JMSX Properties</p></td><td><div><div><p><a href="#MQJmsxProperties">MQ JMSX Properties</a></p></div></div></td><td><p>The JMSX properties that should be set to this Message.</p></td><td></td><td></td></tr><tr><td><p>Persistent Delivery</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not the delivery should be done with a persistent configuration.</p></td><td></td><td></td></tr><tr><td><p>Priority</p></td><td><div><div><p>Number</p></div></div></td><td><p>The default JMSPriority value to use when sending the message.</p></td><td></td><td></td></tr><tr><td><p>Time To Live</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the default time the message is in the broker before it expires and is discarded.</p></td><td></td><td></td></tr><tr><td><p>Time To Live Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the timeToLive configurations,</p></td><td></td><td></td></tr><tr><td><p>Disable Message Id</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its MessageID.</p></td><td></td><td></td></tr><tr><td><p>Disable Message Timestamp</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, the Message is flagged to avoid generating its sent Timestamp.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Only used by JMS 2.0. Sets the delivery delay to be applied to postpone the Message delivery.</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the deliveryDelay configurations.</p></td><td></td><td></td></tr><tr><td><p>Send Correlation ID</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Options on whether to include an outbound correlation ID or not.</p></td><td></td><td></td></tr><tr><td><p>Request Reply Pattern</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CORRELATION_ID</p></li><li><p>MESSAGE_ID</p></li><li><p>NONE</p></li></ul></div></div></td><td><p>Indicates how requests and reply messages are correlated, which ensures that the incoming message is the proper reply to the outgoing message.</p><p>* The <code>CORRELATION_ID</code> pattern value is used with the <strong>Publish Consume</strong> operation. After the operation publishes a request message to the destination queue, it expects a message with the same correlation ID as the request message. It then consumes that correlated response message.</p><p>* The <code>MESSAGE_ID</code> pattern value is used with the <strong>Publish Consume</strong> operation. After the operation publishes a request message to the destination queue, it expects a message with a correlation ID of the same value as the message ID of the request message. It then consumes that correlated response message.</p></td><td><p>CORRELATION_ID</p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#IBM-MQ-Attributes">IBM MQ Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+## Types
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of CipherSuites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location of the trust store which resolves relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the trust store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the trust store.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, no certificate validations are performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location of the key store which resolves relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the key store contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file is used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the key store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the key store.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Only verify the last element of the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method (the one not selected before).</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server cannot be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance can be idle before itâs considered eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute.</p></td><td></td><td></td></tr></tbody></table>
+
+### IBM MQ Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Properties</p></td><td><div><div><p><a href="#JMS-Message-Properties">JMS Message Properties</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Headers</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### JMS Message Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>All</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Jms Properties</p></td><td><div><div><p>Any</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Jmsx Properties</p></td><td><div><div><p><a href="#jmsx-properties">JMSX Properties</a></p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### JMSX Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Jmsx User ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx App ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Delivery Count</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Group ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Group Seq</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Producer TXID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Consumer TXID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Rcv Timestamp</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The secure hashing algorithm to use.</p></td><td><p><code>SHA-256</code></p></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>Defines one or more expressions to use to determine when a message has been redelivered. This property may only be set if useSecureHash is false.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>Object Store</p></div></div></td><td><p>The object store where the redelivery counter for each message is going to be stored.</p></td><td></td><td></td></tr></tbody></table>
+
+### MQ JMS Destination
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>The name that identifies the destination where a message should be sent.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>QUEUE</p></li><li><p>TOPIC</p></li></ul></div></div></td><td><p>The type of this destination.</p></td><td><p>QUEUE</p></td><td></td></tr></tbody></table>
+
+### MQ JMSX Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Jmsx User ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx App ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Delivery Count</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Group ID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Group Seq</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Producer TXID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Consumer TXID</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Jmsx Rcv Timestamp</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Topic Consumer
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Durable</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Shared</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>No Local</p></td><td><div><div><p>Boolean</p></div></div></td><td></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Subscription Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Binding
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Queue Manager</p></td><td><div><div><p>String</p></div></div></td><td><p>The queue manager name.</p></td><td></td><td></td></tr></tbody></table>
+
+### Client
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Host where the IBM MQ Broker is.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Queue Manager listener port.</p></td><td><p><code>1414</code></p></td><td></td></tr><tr><td><p>Queue Manager</p></td><td><div><div><p>String</p></div></div></td><td><p>The queue manager which is used when selecting a channel definition.</p></td><td></td><td></td></tr><tr><td><p>Channel</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the channel to connect to.</p></td><td></td><td></td></tr><tr><td><p>Connection Name List</p></td><td><div><div><p>String</p></div></div></td><td><p>Hosts to which the client attempts to reconnect to after its connection is broken. The connection name list is a comma-separated list of host and IP port pairs.</p></td><td></td><td></td></tr><tr><td><p>Client Reconnect Options</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>RECONNECT</p></li><li><p>RECONNECT_Q_MGR</p></li><li><p>AS_DEF</p></li><li><p>DISABLED</p></li></ul></div></div></td><td><p>Controls the reconnection behavior for the IBM MQ client. <code>RECONNECT</code> allows reconnection to any queue manager in the cluster, which is required for IBM MQ Uniform Cluster automatic application balancing. <code>RECONNECT_Q_MGR</code> restricts reconnection to the same queue manager. Applies when a Connection Name List or CCDT is configured.</p></td><td><p><code>RECONNECT</code></p></td><td></td></tr><tr><td><p>Client Reconnect Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum time in seconds that the client spends attempting to reconnect. Applies when Connection Name List is configured with multiple hosts.</p></td><td><p><code>20</code></p></td><td></td></tr></tbody></table>
+
+### Default Caching
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Session Cache Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the session cache.</p></td><td></td><td></td></tr><tr><td><p>Cache Producers</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether or not to cache the producer.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Cache Consumers</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether or not to cache the consumer.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# IBM MQ Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+IBM MQ Connector v1.8
+
+Anypoint Connector for IBM MQ (IBM MQ Connector) enables an app to do messaging to a IBM MQ Broker
+using the IBM MQ JMS implementation. The main features include:
+
+- Pub/Sub pattern support on any given destination.
+- Listen/Reply pattern support on any given destination.
+- Publish-Consume pattern support on any given destination, with fixed or temporary reply Queue.
+- Non-blocking publishing and consumption of messages.
+
+Release Notes: [IBM MQ Connector Release Notes](../../release-notes/connector/connector-ibm-mq)  
+Exchange: [IBM MQ Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-ibm-mq-connector/)
+
+## Connection Mode
+
+When creating the IBM configuration, choose is the
+[IBM connection mode](https://www.ibm.com/docs/en/ibm-mq/9.0.x?topic=SSFKSJ_9.0.0/com.ibm.mq.dev.doc/q031720_.html)
+to use.
+
+As of IBM MQ 8, there are only two available connection modes, **Client** and **Binding**.
+
+### Client Connection Mode
+
+The client connection mode lets you connect to the IBM MQ Queue Manager running in the same system
+that is being run the Mule Application or in other system. In both cases the IBM MQ Connector will
+connect to the IBM MQ Queue Manager over TCP/IP.
+
+For this connection mode are available the following configurations:
+
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Required</th><th>Default Value</th><th>Description</th></tr></thead><tbody><tr><td><p>Host</p></td><td><p>TRUE</p></td><td></td><td><p>Host containing the IBM MQ Broker.</p></td></tr><tr><td><p>Port</p></td><td><p>FALSE</p></td><td><p>1414</p></td><td><p>Queue manager listener port.</p></td></tr><tr><td><p>Queue Manager</p></td><td><p>FALSE</p></td><td></td><td><p>The queue manager used when selecting a channel definition.</p></td></tr><tr><td><p>Channel</p></td><td><p>FALSE</p></td><td></td><td><p>Name of the channel to connect to.</p></td></tr><tr><td><p>Connection Name List</p></td><td><p>FALSE</p></td><td></td><td><p>Hosts to which the client attempts to reconnect after its connection is broken.<br>The connection name list is a comma separated list of host and IP port pairs.<br><strong>Example:</strong> <code>0.0.0.0(1414),somehost.domain.com(1415)</code></p></td></tr></tbody></table>
+
+![Client Connection](_images/ibm-mq-client-connection-mode.png)
+
+Figure 1. Client Connection Configuration on Studio
+
+Client Connection Configuration on XML
+
+```xml
+<ibm-mq:config name="IBM_MQ_Config">
+ <ibm-mq:connection >
+   <ibm-mq:connection-mode >
+	 	<ibm-mq:client host="0.0.0.0" port="1414" queueManager="QM1" channel="DEV.ADMIN.SVRCONN" />
+		</ibm-mq:connection-mode>
+	</ibm-mq:connection>
+</ibm-mq:config>
+```
+
+### Binding Connection Mode
+
+The binding connection mode connects automatically to the IBM MQ broker running in the same system.
+
+The unique parameter that is optionally configurable is the Queue Manager to connect to. If the IBM
+MQ broker has a default Queue Manager, this configuration is not required.
+
+![Client Connection](_images/ibm-mq-binding-connection-mode.png)
+
+Figure 2. Binding Connection Configuration on Studio
+
+Binding Connection Configuration on XML
+
+```xml
+<ibm-mq:config name="IBM_MQ_Config">
+  <ibm-mq:connection >
+    <ibm-mq:connection-mode >
+      <ibm-mq:binding queueManager="QM1" />
+    </ibm-mq:connection-mode>
+  </ibm-mq:connection>
+</ibm-mq:config>
+```
+
+## Define Global Defaults
+
+The IBM MQ `config` allows you to define multiple parameters to use as a default while consuming or
+publishing messages. This way, you can define a global default behavior for all the operations
+associated with the config and override each parameter only in the operations that require a custom
+behavior.
+
+For example, we can define a default `selector` behavior when consuming a Message in any of the
+operations that are associated to this config, and also a default.
+
+```xml
+<ibm-mq:config name="IBM_MQ_Config">
+  <ibm-mq:connection/>
+  <ibm-mq:consumer-config selector="JMSType = `INVOICE`"/>
+  <ibm-mq:producer-config timeToLive="60000"/>
+</ibm-mq:config>
+```
+
+In this case, every consume or listener operation associated with this configuration uses the
+`selector` by default, while every time a publish or publish-consume occurs, the outgoing message
+has a TTL of 60 seconds.
+
+All of these properties can be overridden at operation level when required. To publish a message
+with a shorter TTL, use this example configuration that overrides the parameter:
+
+```xml
+<ibm-mq:publish config-ref="IBM_MQ_Config" timeToLive="10000"/>
+```
+
+## Select the JMS Spec
+
+The main common parameter is the JMS specification used to select between all the supported
+specifications, which are 2.0 and 1.1. This specification must be supported by the broker
+implementation associated to this connection, otherwise the connection fails.
+
+> [!WARNING] Features available only in JMS 2.0 wonât work with any other specification.
+
+## Provide Credentials For Authentication
+
+To establish an authenticated connection, you need to configure the username and password in the
+connection element:
+
+```xml
+<ibm-mq:config name="IBM_MQ_Config">
+	<ibm-mq:connection username="<username>" password="<password>" >
+		<ibm-mq:connection-mode >
+			<ibm-mq:client
+			host="0.0.0.0"
+			port="1414"
+			queueManager="QM1"
+			channel="DEV.ADMIN.SVRCONN" />
+		</ibm-mq:connection-mode>
+	</ibm-mq:connection>
+</ibm-mq:config>
+```
+
+## Configure Connections Caching
+
+To connect with a broker and execute the required operations, the JMS connector creates multiple
+sessions, consumers, and producers that can be cached and reused to increase the performance of the
+application. Because of this capability, the IBM MQ connector allows you to configure which caching
+strategy to use when creating new connections, caching by default both consumers and producers, and
+preserving as many instances as possible in memory at the same time.
+
+Customizing the cache configuration can be done directly in the connection declaration:
+
+```xml
+<ibm-mq:config name="IBM_MQ_Config">
+  <ibm-mq:connection>
+    <ibm-mq:caching-strategy>
+      <ibm-mq:default-caching sessionCacheSize="100" consumersCache="false" producersCache="true"/>
+    </ibm-mq:caching-strategy>
+  </ibm-mq:connection>
+</ibm-mq:config>
+```
+
+## Identify the Connection Client
+
+The client identifier associates a connection and its objects with a state maintained on behalf of
+the client by a provider, and it is **mandatory** for identifying an unshared durable subscription.
+
+```xml
+<ibm-mq:config name="IBM_MQ_Config">
+  <ibm-mq:connection clientId="${env.clientId}"/>
+</ibm-mq:config>
+```
+
+> [!WARNING] By definition, the client state identified by a `clientId` can be "in use" by only one
+> connection at a time.
+
+## Set Up the Connection Required Libraries
+
+**Important:** No matter what type of connection you are using, you always need to configure a
+library containing the JMS client implementation, since the connector is not bound to any particular
+implementation.
+
+### IBM MQ External Libraries
+
+To use the IBM MQ Connector, configure the external IBM MQ library, The IBM MQ Client library must
+provide the `com.ibm.mq.jms.MQConnectionFactory` implementation.
+
+> [!TIP] Use the IBM MQ Allclient library.
+
+For example, you can use:
+
+```xml
+<dependency>
+    <groupId>com.ibm.mq</groupId>
+    <artifactId>com.ibm.mq.allclient</artifactId>
+    <version>9.0.5.0</version>
+</dependency>
+```
+
+## See Also
+
+- [Consume Messages](ibm-mq-consume)
+- [Publish Messages](ibm-mq-publish)
+- [Listen For New Messages](ibm-mq-listener)
+- [Listen For A Reply](ibm-mq-publish-consume)
+- [Handle Message Acknowledgement](ibm-mq-ack)
+- [Handle Transactions in IBM MQ](ibm-mq-transactions)
+- [Tune For Performance](ibm-mq-performance)
+- [Connector Reference](ibm-mq-xml-ref)
+- [Salesforce Help](https://help.salesforce.com)
+

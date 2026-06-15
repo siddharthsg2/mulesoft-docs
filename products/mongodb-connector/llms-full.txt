@@ -1,0 +1,1743 @@
+﻿# MongoDB Connector - Full Documentation
+
+# MongoDB Connector 6.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for MongoDB (MongoDB Connector) is a closed-source connector that provides a
+connection between the Mule runtime engine (Mule) and third-party software on a MongoDB server.
+
+Release Notes:
+[MongoDB Connector Release Notes](../../release-notes/connector/mongodb-connector-release-notes-mule-4)  
+Exchange:
+[MongoDB Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-mongodb-connector/)
+
+## Before You Begin
+
+To use this connector, you must be familiar with MongoDB, Mule runtime engine (Mule), Anypoint
+Connectors, Anypoint Studio, elements in a Mule flow, and global elements.
+
+Before creating an app, you must have access to the MongoDB target resource and Anypoint Platform.
+You must also understand how to create a Mule app using Anypoint Studio.
+
+To use the this connector, you need:
+
+- A MongoDB instance
+- A set of valid credentials, including the required MongoDB endpoints that point to your instance
+
+## Common Use Cases for the Connector
+
+Common use cases for MongoDB Connector include:
+
+- **Single View of Data**
+
+  Create a single view of your most important data and aggregate your siloed data from multiple
+  enterprise systems, transform the data, and write the data to MongoDB. For example, you can import
+  data into a CSV format from a local directory into MongoDB.
+
+- **Mainframe Offloading**
+
+  Mirror or synchronize your operational data from mainframes into MongoDB to offload workloads from
+  your mainframes while enabling the ability to meet your customer where they are.
+
+- **Real-time Analytics**
+
+  Leverage MongoDBâs rich query language to make real-time decisions on shipping, inventory, and
+  pricing, and analyze any data using documents in MongoDB.
+
+- **Personalization**
+
+  Create personalized omnichannel retail experiences by collecting and synchronizing data across
+  your retail channels and your backend systems into MongoDB.
+
+For examples of these use cases, refer to [MongoDB Connector Examples](mongodb-connector-examples).
+
+## Authentication
+
+This connector does not validate all possible authentication types.
+
+## Exchange Example
+
+[Anypoint Exchange](https://www.mulesoft.com/exchange/org.mule.examples/importing-a-CSV-file-into-Mongo-DB/)
+has an example that shows how to import data in a CSV format from a local directory into MongoDB.
+
+## Important Date Handling Considerations
+
+When using MongoDB Connector, consider the following date-handling behavior:
+
+- **Automatic conversion to UTC**
+
+  MongoDB Connector converts dates (whether sent to or retrieved from MongoDB) to UTC before storage
+  for consistent date handling in distributed environments.
+
+- **ISO 8601 format**
+
+  Dates (whether they are sent to or retrieved from MongoDB) in JSON documents are transformed to
+  the ISO 8601 format. Additionally, any String values in JSON documents that match the ISO 8601
+  format are automatically transformed and stored as Date types in MongoDB. This change ensures more
+  consistent and standardized date handling in a distributed environment.
+
+- **Millisecond truncation**
+
+  Dates (whether sent to or retrieved from MongoDB) that include milliseconds with a value of `.000`
+  are not shown in connector output.
+
+Here is an example of date handling in a Mule app:
+
+Input:
+
+```json
+{
+  "timeStamp": "2024-06-17T16:44:17.000+01:00"
+}
+```
+
+Mule 4:
+
+```json
+{
+  "timeStamp": "2024-06-17T15:44:17+00:00"
+}
+```
+
+Because of these changes in date handling, it is important to:
+
+- **Review flows involving dates**
+
+  If your Mule apps rely on specific timezones of dates stored in MongoDB, you must review and
+  possibly adjust flows to correctly handle the UTC conversion.
+
+- **Test thoroughly**
+
+  Conduct thorough testing in a controlled environment to ensure that the changes in date handling
+  do not negatively impact the expected behavior of the Mule app.
+
+- **Document the behavioral differences**
+
+  Review these date-handling details to ensure correct behavior in your application.
+
+## Next Steps
+
+After you complete the prerequisites and experiment with the example, you are ready to create an app
+with [Studio](mongodb-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# MongoDB Connector Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Additional Results in the Response of the Execute Command Operation
+
+The **Execute Command** operation returns one page of results. If an execution returns a cursor
+reference, invoke the `getMore` command as needed to traverse subsequent pages of results.
+
+Suppose `executeCommand` is invoked with the following command value:
+
+```dataweave
+{
+	"find": ("test"),
+	"skip": 0,
+	"batchSize": 10
+}
+```
+
+The `executeCommand` returns a result like this:
+
+```dataweave
+{
+  "cursor": {
+    "firstBatch": [
+      {
+        "_id": {
+          "$oid": "..."
+        },
+        "meta": {
+          "view": {
+            "id": 1,
+//            ...
+           }
+//         ,{ ... }, ...
+        }
+//....
+      }
+    ],
+    "id": 9041685167132828464,
+    "ns": "test.test"
+  },
+  "ok": 1.0
+}
+```
+
+To get additional results until there are none left, use the
+[`getMore` command](https://www.mongodb.com/docs/v4.4/reference/command/getmore/) to retrieve the
+next page of results:
+
+```dataweave
+{
+	"getMore": 9041685167132828464,
+	"collection" : "test",
+	"batchSize": 10
+}
+```
+
+The results of the `getMore` command include a cursor ID to use in subsequent `getMore` commands.
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# MongoDB Connector 6.3 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Invoke an Operation
+
+To invoke a simple operation, such as the **Insert Document** operation, follow these steps:
+
+1.  In Studio, click **HTTP** and drag the **Listener** operation to the canvas.
+2.  From the palette, select **MongoDB** and drag the Insert Document operation into your flow by
+    placing it to the right of **HTTP Listener**.
+3.  Configure the connector by selecting the **Connector Configuration** you created in the previous
+    section, choosing the operation to invoke, and setting the **Collection name**.
+4.  From the palette, drag the **Transform Message** component to the left of MongoDB Connector.
+5.  Click **Transform Message** and enter two key-value pairs:
+
+    ```dataweave
+    %dw 2.0
+    %output application/json
+    ---
+    {
+    	name:"Peter",
+    	age:"42"
+    }
+    ```
+
+6.  From the Mule Palette view, drag other **Transform Message** components to the right of MongoDB
+    Connector.
+7.  Click **Transform Message** and set the output to `application/json`:
+
+    ```dataweave
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+### XML for Invoke an Operation
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:mongo="http://www.mulesoft.org/schema/mule/mongo"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/mongo
+	http://www.mulesoft.org/schema/mule/mongo/current/mule-mongo.xsd">
+
+	<configuration-properties file="mule-app.properties" />
+	<http:listener-config name="HTTP_Listener_config"
+		doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0"
+			port="8081" />
+	</http:listener-config>
+	<mongo:config name="MongoDB_Config" doc:name="MongoDB Config">
+		<mongo:connection database="${database}">
+			<mongo:server-addresses >
+				<mongo:server-address host="${host}" port="${port}"/>
+			</mongo:server-addresses>
+		</mongo:connection>
+    </mongo:config>
+
+    <flow name="create-mongo-record-flow" >
+        <http:listener
+				  config-ref="HTTP_Listener_config" path="/create"
+              doc:name="Listener" />
+        <ee:transform doc:name="Set Payload and Document Content">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	name:"Pity",
+	age:"31"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <mongo:insert-document config-ref="MongoDB_Config"
+               doc:name="Insert document"
+               collectionName="${collection}" />
+        <logger level="INFO" doc:name="Logger"
+	  message="New document:  #[payload]" />
+    </flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# MongoDB Connector 6.3 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for MongoDB (MongoDB Connector) is a closed-source connector that provides a
+connection between the Mule runtime engine (Mule) and third-party software on a MongoDB server.
+
+## Configuration
+
+Default Configuration for MongoDB Connector.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#config_connection">Connection</a></p></li><li><p><a href="#config_connection-string">Connection String</a></p></li></ul></div></div></td><td><div><div><p>Connection types for this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Read Concern</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LOCAL</p></li><li><p>AVAILABLE</p></li><li><p>MAJORITY</p></li><li><p>LINEARIZABLE</p></li><li><p>SNAPSHOT</p></li></ul></div></div></td><td><div><div><p>Enables you to control the consistency and isolation properties of the data read from replica sets and replica set shards.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Preference</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>PRIMARY</p></li><li><p>PRIMARY_PREFERED</p></li><li><p>SECONDARY</p></li><li><p>SECONDARY_PREFERRED</p></li><li><p>NEAREST</p></li></ul></div></div></td><td><div><div><p>Specifies the read preferences for this connection.</p></div></div></td><td><div><div><p><code>PRIMARY</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Staleness Seconds</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies, in seconds, how stale a secondary node on a MongoDB cluster is before the client stops using the secondary node for read operations.</p></div></div></td><td><div><div><p><code>-1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Read Preference Tags</strong></p></td><td><div><div><p>Array of <a href="#ReadPreferenceTag">Read Preference Tag</a></p></div></div></td><td><div><div><p>If replica set members are associated with tags, you can specify a tag set (array of tag specification documents) in the read preference to target those members.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the encoding to use in the connector. If unspecified, the default for Mule is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Acknowledgement</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Level of acknowledgment requested from MongoDB for write operations propagated to the specified number of MongoDB instances. You can specify a number of instances, for example, <code>n&gt;0</code>, or use a value from the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a time limit, in milliseconds, for <strong>Write Concern Acknowledgement</strong>. The value must be greater than <code>1</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Write Concern Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Connection Type
+
+Uses a database, a username, and a password for connection.
+
+> [!NOTE] This connector does not validate all possible authentication types.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Servers (host:port)</strong></p></td><td><div><div><p>Array of <a href="#ServerAddress">Server Address</a></p></div></div></td><td><div><div><p>Server in which your MongoDB instance is located. You can specify multiple servers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Database</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Database name to which you want to connect.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to use for authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authentication. If you do not want to use authentication, the password and the username must both be empty.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Replica Set Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the replica set to which to connect. Use this field to connect to a MongoDB cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Authentication Source</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Authentication source.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Compressors</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>List of compressors to enable network compression for communication between the client and a mongod or mongos instance. If you specify multiple compressors, then the order in which you list the compressors matters. The driver uses the first compressor in the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Zlib Compression Level</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Integer that specifies the compression level if using zlib for network compression. <code>0</code> means no compression. <code>1</code> through <code>9</code> are the compression levels, with <code>1</code> being the lowest compression level, and <code>9</code> being the highest compression level. Higher compression levels take more time to process than lower compression levels.</p></div></div></td><td><div><div><p><code>-1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long the connector waits before timing out when establishing a connection to the remote service.</p></div></div></td><td><div><div><p><code>30</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Local Threshold</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Size of the latency window for selecting among multiple suitable MongoDB instances.</p></div></div></td><td><div><div><p><code>15</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Local Threshold Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Local Threshold</strong> field.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Server Selection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long to block for server selection before throwing an exception.</p></div></div></td><td><div><div><p><code>30</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Server Selection Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Server Selection Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Socket Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Socket timeout. Used for I/O socket read and write operations. Set this field to <code>0</code> if you do not want socket read and write operations to time out.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Socket Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Socket Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Retry Writes</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Enable retryable writes.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Authentication Mechanism</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>PLAIN</p></li><li><p>SCRAM_SHA_1</p></li><li><p>SCRAM_SHA_256</p></li></ul></div></div></td><td><div><div><p>Authentication mechanism used for this connection.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Tls Context</strong></p></td><td><div><div><p><a href="#Tls">Tls</a></p></div></div></td><td><div><div><p>Configures TLS. If using the HTTPS protocol, you must configure TLS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Min Connection Pool Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Minimum size for the connection pool.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connection Pool Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size for the connection pool.</p></div></div></td><td><div><div><p><code>100</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait Queue Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum wait queue time for the connection pool.</p></div></div></td><td><div><div><p><code>120</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait Queue Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Wait Queue Time</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connection Life Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum connection lifetime for the connection pool.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connection Life Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Connection Life Time</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connection Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum connection idle time for the connection pool.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connection Idle Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Connection Idle Time</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Connection String Connection Type
+
+Uses a connection string for connection.
+
+> [!NOTE] This connector does not validate all possible authentication types.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Connection String</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URI that describes the hosts to use and their options.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Tls Context</strong></p></td><td><div><div><p><a href="#Tls">Tls</a></p></div></div></td><td><div><div><p>Configures TLS. If using the HTTPS protocol, you must configure TLS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Sources
+
+- [On Object Listener](#object-listener)
+
+### On Object Listener
+
+`<mongo:object-listener>`
+
+Source for object events.
+
+> [!NOTE] This source (listener) uses Object Store to save watermarks. You might experience
+> limitations that are specific to the Object Store implementation you are using (Object Store for
+> CloudHub deployments or Object Store for on-premises deployments), so configure Object Store to
+> suit your needs.  
+> For more information, see
+> [The Different Types of Object Stores Explained](https://help.salesforce.com/s/articleView?id=001123185&type=1).
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Collection that is watched to detect the matching documents.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Watermark Field</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Field that is queried to detect the objects that match the trigger condition.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduling Strategy</strong></p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Configures the scheduler that triggers the polling.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+## Operations
+
+- [Add User](#addUser)
+- [Collection Exists](#collectionExists)
+- [Count Documents](#countDocuments)
+- [Create Collection](#createCollection)
+- [Create File](#createFile)
+- [Create Index](#createIndex)
+- [Drop Collection](#dropCollection)
+- [Drop Database](#dropDatabase)
+- [Drop Index](#dropIndex)
+- [Dump](#dump)
+- [Execute Command](#executeCommand)
+- [Find Documents](#findDocuments)
+- [Find Files](#findFiles)
+- [Get File Content](#getFileContent)
+- [Insert Document](#insertDocument)
+- [Insert Documents](#insertDocuments)
+- [List Collections](#listCollections)
+- [List Indexes](#listIndexes)
+- [Map Reduce](#mapReduce)
+- [Remove Documents](#removeDocuments)
+- [Remove Files](#removeFiles)
+- [Restore From Directory](#restoreFromDirectory)
+- [Restore From File](#restoreFromFile)
+- [Update Documents](#updateDocuments)
+
+### Add User
+
+`<mongo:add-user>`
+
+Adds a new user for this database.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the user.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to use for authentication.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Collection Exists
+
+`<mongo:collection-exists>`
+
+Returns `true` if the specified collection exists.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Boolean</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Count Documents
+
+`<mongo:count-documents>`
+
+Counts the number of documents that match the given query. If no query is passed, the operation
+returns the number of elements in the collection.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Target collection.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Query for counting documents. Only documents matching the query are counted. If unspecified, all documents are counted. Values can be <code>{"field1": "value1"}</code> or can contain operators <code>{"field1": {$gte: 1, $lt: 10}}</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Acknowledgement</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Level of acknowledgment requested from MongoDB for write operations propagated to the specified number of MongoDB instances. You can specify a number of instances, for example, <code>n&gt;0</code>, or use a value from the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a time limit, in milliseconds, for <strong>Write Concern Acknowledgement</strong>. The value must be greater than <code>1</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Write Concern Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Create Collection
+
+`<mongo:create-collection>`
+
+Creates a new collection. If the collection already exists, a `MongoException` is thrown.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection to create.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Max Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of documents the new collection contains.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Collection Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the new collection.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Collection Size Data Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Data unit of the <strong>Collection Size</strong> field.</p></div></div></td><td><div><div><p><code>BYTE</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Create File
+
+`<mongo:create-file>`
+
+Creates a new file in the database, saving the specified content, file name, content type, and extra
+data.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Content of the new file. This content is an InputStream.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Filename</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the new file.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Metadata</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>JSON object that holds information to store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Create Index
+
+`<mongo:create-index>`
+
+Creates a new index.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection in which the index is created.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Field Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the field that is indexed.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Sort Order</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASC</p></li><li><p>DESC</p></li></ul></div></div></td><td><div><div><p>Indexing order.</p></div></div></td><td><div><div><p><code>ASC</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Drop Collection
+
+`<mongo:drop-collection>`
+
+Deletes a collection and all the objects it contains. If the collection does not exist, the
+operation throws a `NOT_FOUND` error.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection to drop.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Drop Database
+
+`<mongo:drop-database>`
+
+Drop the current database.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Database Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the database to drop.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Drop Index
+
+`<mongo:drop-index>`
+
+Drops an existing index.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Index Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the index to drop.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Dump
+
+`<mongo:dump>`
+
+Executes a dump of the database to the specified output directory. If no output directory is
+provided, the default /dump directory is used.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Output Directory</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Output directory in which dump files are created.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Output Name Prefix</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Output file name prefix. If unspecified, the database name is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Oplog</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Point in time backup (requires an oplog).</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Operation Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum wait time for the dump.</p></div></div></td><td><div><div><p><code>60</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Operation Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Operation Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Execute Command
+
+`<mongo:execute-command>`
+
+Executes a command on the database.
+
+The **Execute Command** operation results are not paginated.
+
+If an execution returns a cursor reference, use the `getMore` command to retrieve the next page of
+results. Refer to [Additional Configuration Information](mongodb-connector-additional-configuration)
+for more details.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Command</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Command to execute on the database as a document.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Find Documents
+
+`<mongo:find-documents>`
+
+Finds all documents that match a given query. If no query is specified, all documents of the
+collection are retrieved. If no fields object is specified, all fields are retrieved.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Query for finding documents. If unspecified, all documents are retrieved. Values can be <code>{"field1": "value1"}</code> or can contain operators <code>{"field1": {$gte: 1, $lt: 10}}</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sort By</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Indicates the document used to sort the results. Use <code>[{"yourField":"ASC"}]</code> to sort by ascending, or <code>[{"yourField":"DESC"}]</code> to sort by descending.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Page Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Size of the documents of each page to return.</p></div></div></td><td><div><div><p><code>100</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Limit</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Limit of the documents to return.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Acknowledgement</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Level of acknowledgment requested from MongoDB for write operations propagated to the specified number of MongoDB instances. You can specify a number of instances, for example, <code>n&gt;0</code>, or use a value from the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a time limit, in milliseconds, for <strong>Write Concern Acknowledgement</strong>. The value must be greater than <code>1</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Write Concern Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-iterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#repeatable-file-store-iterable">Repeatable File Store Iterable</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Collection name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Fields</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of fields to return from each document. To return all fields, type a single comma character.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Find Files
+
+`<mongo:find-files>`
+
+Lists all files that match the given query.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Query for listing all files. Values can be <code>{"field1": "value1"}</code> or can contain operators <code>{"field1": {$gte: 1, $lt: 10}}</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sort</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Enables you to sort the result list. A file is sorted by file ID or upload date.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT-FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Get File Content
+
+`<mongo:get-file-content>`
+
+Gets an InputStream to the content of the file specified by **File Id**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Id</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Mandatory file ID.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Any</p></div></div></td></tr><tr><td><p><strong>Attributes Type</strong></p></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Insert Document
+
+`<mongo:insert-document>`
+
+Inserts a document in a collection. If you do not use the `id` field to specify an object, MongoDB
+automatically generates an ID.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection in which to insert the given document.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Document</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Document to insert.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Acknowledgement</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Level of acknowledgment requested from MongoDB for write operations propagated to the specified number of MongoDB instances. You can specify a number of instances, for example, <code>n&gt;0</code>, or use a value from the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a time limit, in milliseconds, for <strong>Write Concern Acknowledgement</strong>. The value must be greater than <code>1</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Write Concern Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Insert Documents
+
+`<mongo:insert-documents>`
+
+Inserts a document in a collection. If you donât use the `id` field to specify an object, MongoDB
+automatically generates an ID.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection in which to insert the given document.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Documents</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>List of the documents to insert.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Ordered</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether the list of documents are executed in order. If set to <code>true</code> and an error occurs during the processing of one of the write operations, MongoDB returns without processing any remaining write operations in the list.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Acknowledgement</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Level of acknowledgment requested from MongoDB for write operations propagated to the specified number of MongoDB instances. You can specify a number of instances, for example, <code>n&gt;0</code>, or use a value from the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a time limit, in milliseconds, for <strong>Write Concern Acknowledgement</strong>. The value must be greater than <code>1</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Write Concern Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BulkOperationResult">Bulk Operation Result</a></p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### List Collections
+
+`<mongo:list-collections>`
+
+Lists names of collections available on this database.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### List Indexes
+
+`<mongo:list-indexes>`
+
+Lists existent indexes in a collection.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#Index">Index</a></p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Map Reduce
+
+`<mongo:map-reduce>`
+
+Transforms a collection into a collection of aggregated groups, as follows:
+
+1.  Applies a supplied element-mapping function to each element, which transforms each element into
+    a key-value pair.
+2.  Groups the resulting pairs by key.
+3.  Reduces values in each group by applying a supplied 'reduce' function coded in JavaScript.
+
+Refer to the MongoDB documentation for more information.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection to map and reduce.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mapping Function</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>JavaScript-encoded mapping function.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reduce Function</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>JavaScript-encoded reducing function.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Output Collection</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the output collection to which to write the results. This replaces an existing collection, if any exists. This field is mandatory if the resulting objects are larger than 16 MB. If <strong>Output Collection</strong> is unspecified, the computation is performed in-memory and is not persisted.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Remove Documents
+
+`<mongo:remove-documents>`
+
+Removes all the documents that match the specified query. If a query is not specified, all documents
+are removed. It is more efficient to drop a connection and re-create it than to use this operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Collection for which to remove elements.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Query for detecting the elements to delete. Values can be <code>{"field1": "value1"}</code> or can contain operators <code>{"field1": {$gte: 1, $lt: 10}}</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Remove Files
+
+`<mongo:remove-files>`
+
+Removes the file that matches the given file ID. If no file ID is specified, all files are removed.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>File Id</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>ID of the file to delete.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Restore From Directory
+
+`<mongo:restore-from-directory>`
+
+Takes the output from the **Dump** operation, restores the output, and generates indexes. This
+operation inserts records only when the IDs do not already exist in the database.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Input path of the dump files. This path must be a directory.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Drop Collections</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether to drop existing collections before performing the restore.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Oplog Replay</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Replay oplog used for point-in-time restore.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Restore From File
+
+`<mongo:restore-from-file>`
+
+Restores a single .bson file or a zip file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection to restore.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Input</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>InputStream that points to the dump file. It can be a .bson file or a zip file.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Drop Collection</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether to drop existing collections before performing the restore.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+### Update Documents
+
+`<mongo:update-documents>`
+
+Updates documents that match the specified query. If a query is not specified, all documents are
+retrieved. If the multi parameter is set to `false`, only the first document matching the query is
+updated. Otherwise, all documents matching the query are updated.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Collection Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the collection to update.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Query</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Query for detecting the element to update. Values can be <code>{"field1": "value1"}</code> or can contain operators <code>{"field1": {$gte: 1, $lt: 10}}</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content To Update</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Object to replace the document that matches the query.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Multiple Update</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether only the first document matching the query is updated.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Upsert</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If set to <code>true</code>, creates a new document when no document matches the query criteria. The default value is <code>false</code>, which does not insert a new document when no match is found.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Acknowledgement</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Level of acknowledgment requested from MongoDB for write operations propagated to the specified number of MongoDB instances. You can specify a number of instances, for example, <code>n&gt;0</code>, or use a value from the list.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies a time limit, in milliseconds, for <strong>Write Concern Acknowledgement</strong>. The value must be greater than <code>1</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Write Concern Timeout Timeunit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Write Concern Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- MONGO:DUPLICATE_ERROR
+- MONGO:CONSISTENCY_ERROR
+- MONGO:RETRY_EXHAUSTED
+- MONGO:NOT_FOUND
+- MONGO:PERMISSIONS_DENIED
+- MONGO:TIMEOUT
+- MONGO:INVALID_INPUT
+- MONGO:CONNECTIVITY
+
+## Object Types
+
+- [Bulk Item](#BulkItem)
+- [Bulk Operation Result](#BulkOperationResult)
+- [Crl File](#crl-file)
+- [Custom Ocsp Responder](#custom-ocsp-responder)
+- [Expiration Policy](#ExpirationPolicy)
+- [Index](#Index)
+- [Key Store](#KeyStore)
+- [Read Preference Tag](#ReadPreferenceTag)
+- [Reconnect](#reconnect)
+- [Reconnect Forever](#reconnect-forever)
+- [Reconnection](#Reconnection)
+- [Redelivery Policy](#RedeliveryPolicy)
+- [Repeatable File Store Iterable](#repeatable-file-store-iterable)
+- [Repeatable File Store Stream](#repeatable-file-store-stream)
+- [Repeatable In Memory Iterable](#repeatable-in-memory-iterable)
+- [Repeatable In Memory Stream](#repeatable-in-memory-stream)
+- [Server Address](#ServerAddress)
+- [Standard Revocation Check](#standard-revocation-check)
+- [Tls](#Tls)
+- [Trust Store](#TrustStore)
+
+### Bulk Item
+
+Bulk item type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Exception</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>Exception.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Payload</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Payload.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Status Code</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Status code.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Successful</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates success.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Bulk Operation Result
+
+Bulk operation result type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Items</strong></p></td><td><div><div><p>Array of <a href="#BulkItem">Bulk Item</a></p></div></div></td><td><div><div><p>Array of items.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Successful</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates success.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Crl File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom Ocsp Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Index
+
+Index type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Field Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Field name.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the index.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Order</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASC</p></li><li><p>DESC</p></li></ul></div></div></td><td><div><div><p>Order of the index.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Key Store
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the keystore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Read Preference Tag
+
+Read preference tag type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name Value</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Name value.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p><code>true</code></p><div><p>Allow the deployment to fail.</p></div></li><li><p><code>false</code></p><div><p>Ignore the results of the connectivity test.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a <code>REDELIVERY_EXHAUSTED</code> error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions that determine if a message is redelivered. This property can be set only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>ObjectStore</p></div></div></td><td><div><div><p>Configures the object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+Repeatable file store iterable type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of instances to keep in memory. If more than that is required, content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+Repeatable in memory iterable type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount of instances to initially keep in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the <strong>Buffer Size Increment</strong> attribute, with an upper limit of <strong>Max In Memory Size</strong>. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower means that the buffer must not expand, meaning that a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised when the buffer gets full. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory to use. If more than that is used, a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value lower than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Server Address
+
+Server address type.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Host to which you want to connect.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the host to which you want to connect.</p></div></div></td><td><div><div><p><code>27017</code></p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p><div><p>Verify only the last element in the certificate chain.</p></div></li><li><p><code>false</code></p><div><p>Verify all elements in the certificate chain.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div></li><li><p><code>false</code></p><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p><div><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p></div></li><li><p><code>false</code></p><div><p>Do not use the secondary method to check certificate validity.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p><div><p>Avoid verification failure.</p></div></li><li><p><code>false</code></p><div><p>Allow the verification to fail.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Tls
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td><div><div><p>Configures the TLS truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td><div><div><p>Configures the TLS keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom Ocsp Responder</a></p></li><li><p><a href="#crl-file">Crl File</a></p></li></ul></div></div></td><td><div><div><p>Configures a revocation checking mechanism.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Trust Store
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the truststore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure MongoDB Connector 6.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[MongoDB Connector Reference](mongodb-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add <connector name> to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `mongodb` in the search field.
+3.  Click **MongoDB** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source for the Connector
+
+Configure an input source for the connector, such as the Object Listener operation, HTTP Listener,
+or Scheduler. The Object Listener operation polls the given MongoDB collection for new documents
+that apply to the filter and invokes your app when it finds one.
+
+For example, to configure `HTTP Listener`, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP** > **Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for MongoDB, follow these steps:
+
+1.  In the **Mule Palette** view, select **MongoDB** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target MongoDB system.
+
+To configure the global element for MongoDB Connector, follow these steps:
+
+1.  On the **Global Elements** tab, click **Create**.
+2.  Expand **Connector Configuration** and search for `MongoDB config`.
+3.  Click **OK**.
+4.  Enter a value for the following properties:
+    - **Servers (host:port)**
+
+      Servers where your MongoDB instance is located, as specified by one or more host:port pairs.
+      The default value is `localhost:27017`. Follow these steps to add one or more host:port
+      instances:
+      1.  Select **Edit inline**.
+      2.  Click the green plus sign (+).
+      3.  Add the host:port instance and click **Finish**.
+      4.  Repeat steps 2 and 3 for each host:port instance you want to add.
+
+    - **Database**
+
+      Database that sends and retrieves data from the MongoDB instance
+
+    - **Username**
+
+      Username to access the MongoDB instance
+
+    - **Password**
+
+      Corresponding password
+
+Use the MongoDB configuration with Spring property placeholders for the **Connection** field values
+when you plan to deploy your application to CloudHub or to Mule runtime engine. You can hard code
+your connection credentials in the global element properties if you are in the development stage and
+want to accelerate the development process.
+
+## Global Configuration with SSL (Optional)
+
+MongoDB Connector v6.0.0 and later supports the use of SSL, if your MongoDB instance supports it. To
+set up the global configuration for SSL, select the **TLS context** field in the **Security** tab in
+your MongoDB connection.
+
+## Logging
+
+By default, logging is enabled via SLF4J API. The driver uses the following logger names:
+
+- `org.mongodb.driver`, the root logger
+  - `cluster`, for logs related to monitoring of the MongoDB servers to which the driver connects
+  - `connection`, for logs related to connections and connection pools
+  - `protocol`, for logs related to protocol message sent to and received from a MongoDB server
+    - `insert`, for logs related to insert messages and responses
+    - `update`, for logs related to update messages and responses
+    - `delete`, for logs related to delete messages and responses
+    - `query`, for logs related to query messages and responses
+    - `getmore`, for logs related to getmore messages and responses
+    - `killcursor`, for logs related to killcursor messages and responses
+    - `command`, for logs related to command messages and responses
+
+  - `uri`, for logs related to connection string parsing
+  - `management`, for logs related to JMX
+
+## Next Steps
+
+After configuring Studio, see the [Examples](mongodb-connector-examples) topic for more
+configuration ideas.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting MongoDB Connector 6.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for MongoDB (MongoDB Connector), become familiar with the
+information about interpreting commonly thrown exception messages.
+
+## Enable SSL Logging
+
+Enable SSL logs to investigate an issue related to TLS communications.
+
+Set your SSL log level depending on your required level of detail:
+
+1.  Enable only SSL log details:
+
+    `javax.net.debug=ssl`
+
+2.  Enable only handshaking details. (The handshake protocol is a series of messages exchanged over
+    the record protocol.)
+
+    `javax.net.debug=ssl:handshake`
+
+3.  Enable handshaking details and SSL details at the same time:
+
+    `javax.net.debug=ssl, handshake`
+
+4.  Enable the dumping of all details and traffic data:
+
+    `javax.net.debug=all`
+
+    > [!NOTE] This option is very verbose and under normal circumstances is not necessary.
+
+> [!WARNING] SSL logging results in a performance impact for HTTPS or other TLS connections. Enable
+> SSL logging only to troubleshoot a specific issue and do not enable it for extended periods. SSL
+> logging produces a significant amount of log messages and can inundate your log file if it is left
+> enabled and unattended.
+
+To enable SSL logs:
+
+Set the debug parameter as an argument in the runtime configuration for the application.
+
+1.  In Studio, right-click on the project and select **Run > Run Configurations**.
+2.  Go to the **Arguments** tab and add `-M-Djavax.net.debug=ssl` in the **VM arguments** section.
+
+## Enable Verbose Exception Logging
+
+Enable verbose exception logs to show a complete stack trace of the error instead of the default
+truncated output:
+
+1.  In Studio, right-click on the project and select **Run > Run Configurations**.
+2.  Go to the **Arguments** tab and append the arguments in the **VM arguments** section to add the
+    `mule.verbose.exceptions` property. For example:
+
+    `-XX:PermSize=128M -XX:MaxPermSize=256M -Dmule.verbose.exceptions=true`
+
+## Enable Verbose Logging
+
+To get a better understanding of why an applicationâs interaction with MongoDB Connector is failing,
+temporarily enable verbose logging for the connector.
+
+Remember to always disable enhanced verbosity after troubleshooting, because it can affect your Mule
+applicationâs performance.
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="com.mulesoft.connectors.mongodb" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Understand Commonly Thrown Exceptions
+
+Here is a list of commonly thrown exception messages and how to interpret them:
+
+- MONGO:CONNECTIVITY
+
+  Either a connection could not be established or there is a connectivity error.
+
+- MONGO:CONSISTENCY_ERROR
+
+  The data is not consistent because the client cannot find a read after performing a write.
+
+- MONGO:DUPLICATE_ERROR
+
+  There is a duplicate key.
+
+- MONGO:INVALID_INPUT
+
+  The provided input data for an operation is not valid.
+
+- MONGO:NOT_FOUND
+
+  The server could not find the requested resource.
+
+- MONGO:PERMISSIONS_DENIED
+
+  A permission error occurred while accessing a collection in a database.
+
+- MONGO:RETRY_EXHAUSTED
+
+  The maximum number of retries for the operation is reached.
+
+- MONGO:TIMEOUT
+
+  A specific request takes longer than the configuration timeout values.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [MongoDB Connector Reference](mongodb-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Upgrading and Migrating MongoDB Connector to version 6.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for MongoDB (MongoDB Connector) from version 5.3.x to version 6.x.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>5.3.x</p></div></div></td><td><div><div><p>6.x.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+MongoDB 6.x.x contains the following changes:
+
+- Changed connection types and configuration
+- Changed operation names, metadata, fields, and values
+- Changed input sources
+- Added the ability to specify which MongoDB Java driver to use
+- At runtime, you can overwrite the **Write concern acknowledgement** and **Write concern timeout**
+  fields in the global element of the following operations:
+  - Find documents
+  - Insert document
+  - Insert documents
+  - Update Documents
+  - Count documents operations
+
+### Changes in Connection Types and Configuration
+
+MongoDB 6.x contains the following changes to connection types and configuration:
+
+- Removed the Connection String connection type (reintroduced in 6.3.0 version to support MongoDB
+  Atlas)
+- Removed the Metadata configuration section
+
+  MongoDB automatically generates the metadata.
+
+#### Config Advanced Tab
+
+The following optional changes apply to the **Advanced** tab in the global configuration:
+
+- Added the following read concern options:
+  - Read concern: Enables the control of the consistency and isolation properties of the data read
+    from replica sets and replica set shards.
+  - Read preference: Specifies the read preferences for this connection.
+  - Maximum staleness seconds: Specifies how stale a secondary MongoDB cluster can be before the
+    client stops using it for read operations.
+
+    A value of -1 means that there is no maximum staleness threshold.
+
+  - Read preference tags: Enables you to specify a tag set in the read preference to target those
+    members associated with a tag in the set.
+
+- Added the following write concern options:
+  - Write concern acknowledgment: Requests an acknowledgment that the write operation was propagated
+    to the specified number of instances.
+  - Write concern timeout: Specifies a time limit for the write concern.
+  - Write concern timeout timeunit: Specifies a time unit for the Write concern timeout field.
+
+#### Connection Section
+
+The following changes apply to the tabs in the **Connection** section of the global configuration:
+
+- Added the following fields to the General tab:
+  - Required Libraries: Reference to the MongoDB Driver.The version must be 3.11 or later.
+  - Server Addresses: This field is now is a list of server addresses to use for the connection.
+
+- Added a Security tab for optional TLS context configuration.
+- Added the following optional fields to the Advanced tab:
+  - Authentication mechanism: Authentication mechanism used for this connection
+  - Replica set name: Name of the replica set to which to connect
+  - Authentication source: Database name associated with the userâs credentials
+  - Compressors: List of compressors for which to enable network compression for communication
+    between this client and a mongod/mongos instance
+  - Zlib compression level: Integer that specifies the compression level if using zlib for network
+    compression.
+
+    Set this field to 0 for no compression or from 1 through 9 for compression, with 1 being the
+    lowest compression level and 9 the highest. High compression levels require more processing time
+    than low compression levels.
+
+  - Connection timeout: Connection timeout used when establishing the socket connections
+  - Connection timeout time unit: Time unit for the Connection timeout field
+  - Local threshold: Size of the latency window for selecting among multiple suitable MongoDB
+    instances
+  - Local threshold time unit: Time unit for the Local threshold time unit field
+  - Server selection timeout: How long to block for server selection before throwing an exception
+  - Server selection timeout time unit: Time unit for the Server selection timeout field
+  - Socket timeout: Maximum time to wait for a send or receive operation on a socket before the
+    attempt times out
+  - Socket timeout unit: Time unit for the Socket timeout field
+  - Min connection pool size: Minimum size for the connection pool
+  - Max connection pool size: Maximum size for the connection pool
+  - Max wait queue time: Maximum wait queue time for the connection pool
+  - Max wait queue time unit: Time unit for the Maximum wait queue time field
+  - Max connection life time: Maximum connection lifetime for the connection pool
+  - Max connection life time time unit: Time unit for the Maximum connection life time field
+  - Max connection idle time: Maximum connection idle time for the connection pool
+  - Max connection idle time unit: Time unit for the Maximum connection idle time field
+
+## Changed Operations, Parameters, and Return Types
+
+The following table shows changes to operation names, input parameters, and return types:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>MongoDB 5.x Operation</th><th>Changes in MongoDB 6.0</th></tr></thead><tbody><tr><td><p>Count documents</p></td><td><div><div><p>Input parameters are now:</p></div><div><ul><li><p><code>Collection name</code> (String)</p></li><li><p><code>Query</code> (JSON)</p></li></ul></div><div><p>Return type is now Long with the count result.</p></div></div></td></tr><tr><td><p>Create Collection</p></td><td><div><div><p>Input parameters are now:</p></div><div><ul><li><p><code>Collection name</code> (String)</p></li><li><p><code>Max objects</code> (Integer)</p></li><li><p><code>Collection size</code> (Integer)</p></li><li><p><code>Collection size data unit</code> (TimeUnit)</p></li></ul></div></div></td></tr><tr><td><p>Exists collection</p></td><td><p>Operation is now called Collection exists.</p></td></tr><tr><td><p>Create file from payload</p></td><td><div><div><ul><li><p>Operation is now called Create file.</p></li><li><p>Return type is now JSON.</p></li></ul></div></div></td></tr><tr><td><p>Create index</p></td><td><div><div><p>Input parameters are now:</p></div><div><ul><li><p><code>Collection name</code> (String)</p></li><li><p><code>Field name</code> (String)</p></li><li><p><code>Sort order</code> (Enum: ASC or DESC)</p></li></ul></div></div></td></tr><tr><td><p>Dump</p></td><td><div><div><p>Input parameters are now:</p></div><div><ul><li><p><code>Output directory</code> (String)</p></li><li><p><code>Output name prefix</code> (String)</p></li><li><p><code>Oplog</code> (no change)</p></li><li><p><code>Operation timeout</code> (Integer)</p></li><li><p><code>Operation timeout unit</code> (TimeUnit)</p></li></ul></div><div><p>Return type is now a List&lt;String&gt; type that points to the created files. Each string is a filePath type.</p></div></div></td></tr><tr><td><p>Execute command</p></td><td><div><div><ul><li><p>Input parameter is <code>Command</code> (JSON).</p></li><li><p>Return type is now a JSON type that contains the result of the command.</p></li></ul></div></div></td></tr><tr><td><p>Find documents</p></td><td><div><div><p>Input parameters are now:</p></div><div><ul><li><p><code>Collection name</code> (String)</p></li><li><p><code>Query</code> (JSON)</p></li><li><p><code>Fields</code> (String)</p></li><li><p><code>Sort by</code> (JSON)</p></li><li><p><code>Page size</code> (Integer)</p></li><li><p><code>Limit</code> (Integer)</p></li></ul></div><div><p>This operation supports pagination. Each item returned as a JSON type.</p></div></div></td></tr><tr><td><p>Find files</p></td><td><div><div><ul><li><p>Input parameters are now:</p><div><ul><li><p><code>Query</code> (JSON)</p></li><li><p><code>Sort</code> (JSON)</p></li></ul></div></li><li><p>Return type is now a JSON list.</p></li></ul></div></div></td></tr><tr><td><p>Get file content</p></td><td><div><div><ul><li><p>Input parameter is now <code>File id</code> (JSON).</p></li><li><p>Return type is now a stream with the binary file content. This operation also returns the file information as attributes.</p></li></ul></div></div></td></tr><tr><td><p>Insert document</p></td><td><p>Return type is now an entire JSON object with the <code>_id</code> object of the created document.</p></td></tr><tr><td><p>Insert documents</p></td><td><p>Return type is now a Bulk Operation Result, which contains a JSON file that lists each created record and its status.</p></td></tr><tr><td><p>List collections</p></td><td><p>Return type is now a List&lt;String&gt; type that contains the names of the collections.</p></td></tr><tr><td><p>List indices</p></td><td><p>Operation is now called List indexes.</p></td></tr><tr><td><p>Map reduce objects</p></td><td><div><div><ul><li><p>Operation is now called Map reduce.</p></li><li><p>Return type is now a JSON type that represents the output specified in the reduce function.</p></li></ul></div></div></td></tr><tr><td><p>Remove documents</p></td><td><div><div><ul><li><p>Input parameters are now:</p><div><ul><li><p><code>Collection name</code> (String)</p></li><li><p><code>Query</code> (JSON)</p></li></ul></div></li><li><p>Return type is now a Long with the count result.</p></li></ul></div></div></td></tr><tr><td><p>Remove files</p></td><td><p>Input parameter is now <code>File id</code> (JSON).</p></td></tr><tr><td><p>Update documents</p></td><td><div><div><ul><li><p>Input parameters are now:</p><div><ul><li><p><code>Collection name</code> (String)</p></li><li><p><code>Query</code> (JSON)</p></li><li><p><code>Content to update</code> (JSON)</p></li><li><p><code>Multiple update</code> (Boolean: moved to the Advanced tab)</p></li><li><p><code>Upsert</code> (Boolean)</p></li></ul></div></li><li><p>Return type is now a JSON type that contains the following structure:</p><div><ul><li><p>Int Matched</p></li><li><p>Int Modified</p></li><li><p>String Upserted Id</p></li></ul></div></li></ul></div></div></td></tr></tbody></table>
+
+## Changed Operations Metadata
+
+MongoDB 5.x generated operations metadata when the user provided a set of documents per collection
+from which to take the attributes. MongoDB 6.0 generates metadata automatically, based on the latest
+document in each collection.
+
+### Metadata in MongoDB v6.0
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Operation Name</th><th>Input Metadata</th><th>Output Metadata</th></tr></thead><tbody><tr><td><p>Insert Document</p></td><td><p>Document</p></td><td><p>Resolved dynamically based on the selected value of the collection parameter. The connector adds the latest document of the given collection and uses the documentâs structure as input/output metadata.</p></td></tr><tr><td><p>Insert Documents</p></td><td><p>Document</p></td><td><p>Resolved dynamically based on the selected value of the collection parameter. The connector adds the latest document of the given collection and uses the documentâs structure as input/output metadata.</p></td></tr><tr><td><p>Update Documents</p></td><td><p>Not applicable</p></td><td><div><div><p>JSON that contains the following structure:</p></div><div><ul><li><p>Int Matched</p></li><li><p>Int Modified</p></li><li><p>JSON upsertedId</p></li></ul></div></div></td></tr><tr><td><p>Remove Documents</p></td><td><p>Query: JSON Object</p></td><td><p>Not applicable</p></td></tr><tr><td><p>Count Documents</p></td><td><p>Query: JSON Object</p></td><td><p>Not applicable</p></td></tr><tr><td><p>Find Documents</p></td><td><p>Query: JSON Object</p></td><td><p>Resolved dynamically based on the selected value of the collection parameter. The connector uses the structure of the last document in the given collection.</p></td></tr><tr><td><p>Create File</p></td><td><p>Not applicable</p></td><td><div><div><p>A JSON object with the following attributes:</p></div><div><ul><li><p>JSON Id</p></li><li><p>String fileName</p></li><li><p>Long Length</p></li><li><p>Int ChunkSize</p></li><li><p>Datetime uploadDate</p></li><li><p>JSON Metadata</p></li></ul></div></div></td></tr><tr><td><p>Find Files</p></td><td><p>Not applicable</p></td><td><div><div><p>List of JSON objects with the following attributes:</p></div><div><ul><li><p>JSON Id</p></li><li><p>String fileName</p></li><li><p>Long Length</p></li><li><p>Int ChunkSize</p></li><li><p>Datetime uploadDate</p></li><li><p>JSON Metadata</p></li></ul></div></div></td></tr></tbody></table>
+
+## Removed Operations
+
+The following operations were removed from the MongoDB connector:
+
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th colspan="2">Removed from MongoDB 5.x</th><th colspan="2">Can be reproduced in MongoDB 6.0.0 through</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>Description</p></td><td><p>Name</p></td><td><p>Description</p></td></tr><tr><td><p>Incremental dump</p></td><td><p>Executes an incremental dump of the database</p></td><td><p>Dump</p></td><td><p>Use the Dump operation.</p></td></tr><tr><td><p>Restore</p></td><td><p>Takes the output from the dump and restores it</p></td><td><p>Restore from file or Restore from directory</p></td><td><p>Restore from file or Restore from directory take the output from the dump file or directory and restore it.</p></td></tr><tr><td><p>Update documents by function</p></td><td><p>Update documents using a Mongo function</p></td><td><p>Not applicable</p></td><td><p>Not applicable</p></td></tr><tr><td><p>Update documents by functions</p></td><td><p>Update documents using one or more Mongo functions</p></td><td><p>Not applicable</p></td><td><p>Not applicable</p></td></tr><tr><td><p>Find one and update document</p></td><td><p>Finds and updates the first document that matches a given query</p></td><td><p>Not applicable</p></td><td><p>This operationâs functionality can be reproduced by combining other operations.</p><p>For example, you can invoke the Find documents operation with a limit of 1 document. Then you can invoke the Update documents operation using the ID of the document returned previously.</p></td></tr><tr><td><p>Save document</p></td><td><p>Inserts or updates a document based on its object ID</p></td><td><p>Not applicable</p></td><td><p>Not applicable</p></td></tr><tr><td><p>Find one document</p></td><td><p>Finds the first document that matches a given query</p></td><td><p>Find documents</p></td><td><p>Set the Limit=1 to return one document.</p></td></tr><tr><td><p>Execute generic command</p></td><td><p>Executes a generic command on the database</p></td><td><p>Execute command</p></td><td><p>Executes a command on the database</p></td></tr><tr><td><p>List files</p></td><td><p>Lists all files that match the given query and sorts them by filename</p></td><td><p>Not applicable</p></td><td><p>Not applicable</p></td></tr><tr><td><p>Find one file</p></td><td><p>Returns the first file that matches the given query</p></td><td><p>Find files</p></td><td><p>Specify a specific file to query</p></td></tr></tbody></table>
+
+## Removed Parameters
+
+The **Num To Skip** field in the **Find Documents** operation is removed from MongoDB Connector 6.x.
+The `skip()` method in MongoDB, which is used internally by the **Num To Skip** field, can lead to
+performance issues, especially as the offset increases. This is because the server scans through the
+results from the beginning to the specified offset before returning any documents, which adds
+unnecessary load and slows down the operation.
+
+To optimize pagination and improve performance when migrating to MongoDB Connector 6.x, the
+following approaches are recommended:
+
+- Avoid using `skip()` for large offsets.
+
+  Instead of using the **Num To Skip** field, it is more efficient to refine query conditions to
+  exclude unwanted documents directly.
+
+- Use range queries.
+
+  Use existing indexes to perform range queries. For example, if your documents have a timestamp or
+  a unique ID field (indexed), you can use these fields to filter results directly to avoid scanning
+  through unwanted documents.
+
+  ```json
+  { "timestamp": { "$gt": ISODate("2024-01-01T00:00:00Z") } }
+  ```
+
+- Apply `limit()` for pagination.
+
+  Use the `limit()` method in combination with range queries to control the number of documents
+  returned, effectively implementing pagination without the performance issues associated with
+  `skip()`.
+
+  ```json
+  { "timestamp": { "$gt": ISODate("2024-01-01T00:00:00Z") } }
+  .limit(10)
+  ```
+
+- Combine filters and sorting.
+
+  Consider ordering documents by an indexed field, which allows for more efficient queries when
+  paginating through results.
+
+## Changes in Input Sources
+
+MongoDB 6.0.0 has one input source, Object Listener, which retrieves all of the created documents
+that belong to a specific collection.
+
+The Delete Sources and Update Sources input sources were removed.
+
+### Metadata in Object Listener
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Input Metadata</th><th>Output Metadata</th></tr></thead><tbody><tr><td><p>Not applicable</p></td><td><p>The connector resolves output metadata dynamically based on the selected value of the Collection Name parameter. The connector reads the last document of the given collection and uses the documentâs structure as output metadata.</p></td></tr></tbody></table>
+
+## Requirements and Limitations
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Software</th><th>Version</th></tr></thead><tbody><tr><td><p>Mule</p></td><td><p>4.1.1 and later</p></td></tr><tr><td><p>MongoDB</p></td><td><p>MongoDB Java driver 3.11 and later</p></td></tr></tbody></table>
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, you must:
+
+1.  Create a backup of your files, data, and configuration in case you need to restore to the
+    previous version.
+2.  Install MongoDB v6.0 to replace the MongoDB operations that were previously included in MongoDB
+    Connector v5.x.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade from MongoDB Connector v5.3.x to MongoDB Connector v6.0:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In the Mule Palette view, click **Search in Exchange**.
+3.  In the **Add Dependencies to Project** window, enter `MongoDB` in the search field.
+4.  In the **Available modules** section, select **MongoDB Connector** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the salesforce-connector dependency version is 6.0.0 in the `pom.xml` file in the
+    Mule project.
+
+Studio upgrades the connector automatically.
+
+## Verify the Upgrade
+
+After you install the latest version of the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Check the project `pom.xml` file and verify that there are no problems.
+3.  Test the connection and verify that the operations work.
+
+## Troubleshooting
+
+If there are problems with caching the parameters and metadata, try restarting Studio.
+
+## Revert the Upgrade
+
+If it is necessary to revert to the previous version of MongoDB Connector, change the
+mule-mongodb-connector dependency version 6.0.0 in the projectâs `pom.xml` to the previous version.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# MongoDB Connector 6.3 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you manually code a Mule app in XML either from the Anypoint Studio XML editor or from a text
+editor, you can get access to Anypoint Connector for MongoDB (MongoDB Connector) in your app by
+adding reference statements to your XML Mule flow and in the Apache Maven `pom.xml` file.
+
+You can avoid the manual process described in this topic by using Studio. When you install MongoDB
+Connector in Studio, Studio automatically populates the XML code with the MongoDB Connector
+namespace and schema location, and adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/mongodb
+http://www.mulesoft.org/schema/mule/mongodb/current/mule-mongo.xsd
+```
+
+This example shows how the namespace statements are placed in the <mule> XML block:
+
+```xml
+<mule xmlns:mongodb="http://www.mulesoft.org/schema/mule/mongodb"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/mongodb
+	http://www.mulesoft.org/schema/mule/mongodb/current/mule-mongo.xsd">
+```
+
+## Add a POM File Dependency
+
+The `pom.xml` Maven file generated by Studio contains dependencies for a Mule app. When you code a
+Mule app manually, include this XML snippet in your `pom.xml` file to enable access to this
+connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-mongodb-connector</artifactId>
+  <version>6.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**. Replace
+`6.x.x` in the `<version>` element with your MongoDB version.
+
+## Next Steps
+
+After completing your namespace and `pom.xml` file, you can try the MongoDB
+[Examples](mongodb-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

@@ -1,0 +1,1738 @@
+﻿# Object Store - Full Documentation
+
+# Object Store v2 Overview
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Object Store v2 lets CloudHub applications store data and states across batch processes, Mule
+components and applications, from within an application or by using the Object Store REST API.
+
+You can select Object Store v2 as the implementation for Mule 4 in CloudHub by checking the **Object
+Store V2** checkbox in Runtime Manager at deployment time.
+
+See the [FAQ](osv2-faq) for Object Store information.
+
+![A diagram illustrating how Mule and user-defined components connect to a central data store](_images/osv2-architecture.png)
+
+On-premises Mule applications can access Object Store v2 only via the Object Store REST API.
+
+You can configure a Mule app to use the Object Store REST API to store and retrieve values from an
+object store in another Mule app.
+
+## Object Store v2 Features
+
+- Supports both static and rolling [TTL](#time-to-live) (time to live) for data persistence.
+- Supports using the Connected Apps feature to authenticate with Anypoint Platform using APIs.
+
+  See [Configuring Connected Apps](osv2-connected-apps).
+
+- Allows for an unlimited number of entries. There is no limit on the total size of v2
+  object-stores.
+- Stores values up to 10 MB (when Base64 encoded) in size. You can estimate base64 size of a payload
+  as follows: CEILING(base10size \* 1024/3) \* 4, where base10size is object size in bytes. +
+  Example: A base10 payload size of 7.5 MB converts to 10.24 MB base64.
+- Is available in all supported regions and availability zones within each region.
+- Is co-located in the same region as your workers. For example, workers hosted in Singapore would
+  use Object Store v2 hosted in Singapore.
+- Provides a Mule connector and REST interface for access by external applications.
+- Provides end-to-end secure TLS-transport.
+- Encrypts persistent storage to FIPS 140-2 compliant standards.
+
+You can use the existing Object Store connector to write to the object store, regardless of whether
+you are using v1 or v2.
+
+The Object Store v2 user interface is available in the Anypoint Platform > Runtime Manager.
+
+## Object Store v2 Permissions
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Toâ¦â</th><th>Required Permission</th><th>Notes</th></tr></thead><tbody><tr><td><div><div><p>Create, read, update, and delete stores.</p></div></div></td><td><div><div><p>Manage stores</p></div></div></td><td><div></div></td></tr><tr><td><div><div><p>Perform all store operations including data, partition, and confirmation APIs.</p></div></div></td><td><div><div><p>Manage stores data</p></div></div></td><td><div></div></td></tr><tr><td><div><div><p>Read store details.</p></div></div></td><td><div><div><p>View stores</p></div></div></td><td><div></div></td></tr><tr><td><div><div><p>Manage all clients of a cloud store.</p></div></div></td><td><div><div><p>Manage store clients</p></div></div></td><td><div><div><p>This permission doesnât apply to Object Store v2.</p></div></div></td></tr><tr><td><div><div><p>View all clients of a cloud store.</p></div></div></td><td><div><div><p>View store clients (object store only)</p></div></div></td><td><div><div><p>This permission doesnât apply to Object Store v2.</p></div></div></td></tr><tr><td><div><div><p>Retrieve Object Store v2 metrics using the Object Store v2 Stats API.</p></div></div></td><td><div><div><p>Store Metrics Viewer</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+To assign user permissions, follow the steps in
+[Grant Permissions to Users](../access-management/users#grant-user-permissions).
+
+To use teams to assign permissions, follow the steps in
+[Using Teams to Manage User Permissions](../access-management/teams).
+
+## Time to Live (TTL)
+
+The TTL can be either [_rolling_](#rolling-ttl) or [_static_](#static-ttl).
+
+The `entryTtl` value, specified in the global configuration parameters for the connector, determines
+when to evict key-value pairs from the store.
+
+If the app doesnât specify a value for `entryTtl`, the default value depends on the Mule version for
+the app:
+
+- Mule versions 4.2.1 and later:
+
+  Object stores have a rolling TTL by default.
+
+  Accessing the data during the last seven days of a 30-day window extends the TTL for another 30
+  days.
+
+- Mule versions earlier than 4.2.1:
+
+  Object stores have a static TTL of 30 days by default.
+
+  Updating the data (for example, by overwriting the key) resets the TTL.
+
+To configure TTL, see
+[Configure a Custom Time to Live Period](osv2-guide#configure-a-custom-time-to-live-period).
+
+### Rolling TTL
+
+When you configure rolling TTL, accessing the data during the last seven days of a 30-day window
+extends the TTL for another 30 days.
+
+Rolling TTL applies to individual key-value pairs. Each key in a partition tracks its own TTL
+window. Accessing one key doesnât extend the TTL for other keys in the same partition, and keys
+expire independently based on their last access time.
+
+If you donât access the data during that time, the object store evicts the data in the next seven to
+30 days from the most recent expiration date.
+
+The Object Store Connector operations that extend TTL are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Extends TTL</th><th>Doesnât Extend TTL</th></tr></thead><tbody><tr><td><p>Retrieve</p></td><td><p>Contains</p></td></tr><tr><td><p>Retrieve All</p></td><td><p>Clear</p></td></tr><tr><td><p>Retrieve All Keys</p></td><td><p>Remove</p></td></tr><tr><td><p>Store</p></td><td></td></tr></tbody></table>
+
+- The minimum rolling TTL is 30 days (2592000 seconds).
+- The maximum rolling TTL is unlimited if you continue to access the data in the last seven days of
+  the 30-day window.
+
+### Static TTL
+
+When you configure static TTL, the value of `entryTtl` determines when to evict the data:
+
+- The minimum static TTL is one second.
+- The maximum (and default) static TTL is 2592000 seconds (30 days).
+
+If the `entryTtl` value is less than one second or greater than 30 days, TTL is set to the maximum
+value of 2592000 seconds (30 days) without returning an error.
+
+Updating the data (for example, by overwriting the key) resets the TTL.
+
+## Upgrade to Object Store v2
+
+- Back up all the data in your current object store.
+
+  > [!IMPORTANT] Data doesnât carry over from Object Store v1 to v2. Any data in a v1 object store,
+  > including watermarks and other Mule component states, doesnât move to v2. If you revert to
+  > Object Store v1, your Object Store v1 data is still there.
+
+- To access Object Store v2, in Anypoint Platform, click **Runtime Manager**. Click the name of your
+  application to view the applicationâs dashboard, and click **Manage Application**. In the
+  **Settings** screen, click **Use Object Store v2**. Accept the prompt. The **Application Data**
+  section of the Runtime Managerâs dashboard changes to **Object Store**.
+
+## Object Store Notes
+
+- For Object Store v2 region availability see
+  [Where is Object Store v2 available?](osv2-faq#where-is-object-store-v2-available)
+- The Object Store Connector works for both Object Store version 1 and 2.
+- Object Store v2 enforces a maximum data persistence of 30 days from time of creation.
+- Premium add-on customers are allowed up to 100 TPS per app.
+
+  The free Object Store v2 limits usage to 10 transactions per second (TPS) per application. To
+  upgrade to premium and increase your TPS limit, contact the MuleSoft account team.
+
+- For CloudHub applications using Mule 4, if you choose Object Store v2, Object Store v2 overrides
+  the `_defaultPersistentObjectStore` object store.
+- Using Object Store v2 with multi-worker CloudHub applications might result in data discrepancies
+  or key clashes.
+
+  This behavior occurs because the "Distributed Locking" feature isnât available in CloudHub and
+  CloudHub 2.0 when working with Object Store v2. As a result, under certain conditions, when
+  multiple Mule components attempt to update Object Store v2 tables simultaneously, such calls may
+  fail.
+
+  To avoid these issues, use a distributed key-value store as a lock to synchronize access to Object
+  Store v2. For information about distributed locking in Mule runtime engine, see
+  [Distributed Locking](../mule-runtime/latest/distributed-locking).
+
+## Object Store Features by Control Plane
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Object Store Feature</th><th>US Cloud and EU Cloud</th><th>Canada Cloud and Japan Cloud (Hyperforce)</th></tr></thead><tbody><tr><td><div><div><p></p></div><div><ul><li><p><a href="osv2-connected-apps">Connected Apps</a></p></li></ul></div></div></td><td><div><div><p>Yes</p></div></div></td><td><div><div><p>Yes</p></div></div></td></tr><tr><td><div><div><p></p></div><div><ul><li><p><a href="osv2-usage#access-usage-charts">Usage Charts</a> (Access Management)</p></li><li><p><a href="../cloudhub/deploying-to-cloudhub">CloudHub 1.0 Deployments</a></p></li><li><p><a href="osv2-apis#osv2-stats-api">Object Store v2 Stats API</a></p></li></ul></div></div></td><td><div><div><p>Yes</p></div></div></td><td><div><div><p>No</p></div></div></td></tr><tr><td><div><div><p></p></div><div><ul><li><p><a href="osv2-usage#access-os-usage-reports">Usage Reports</a> (Usage)</p></li></ul></div></div></td><td><div><div><p>No</p></div></div></td><td><div><div><p>Yes</p></div></div></td></tr></tbody></table>
+
+## Object Store v2 on Hyperforce
+
+Object Store v2 is available on these instances of Anypoint Platform:
+
+- [Canada Cloud](https://ca1.platform.mulesoft.com)
+- [Japan Cloud](https://jp1.platform.mulesoft.com)
+
+For information about the regions where Object Store v2 is available, see
+[Object Store v2 Regions](osv2-faq#osv2-regions).
+
+When you deploy to Canada Cloud or Japan Cloud, all features of Object Store v2 are supported on
+Hyperforce with these exceptions:
+
+CloudHub 1
+
+Deployments to CloudHub 1 arenât supported.
+
+You can deploy apps to [CloudHub 2.0 shared spaces](../cloudhub-2/ch2-shared-space-about) and
+[Anypoint Runtime Fabric](../runtime-fabric/latest/).
+
+Usage Charts
+
+[Usage Charts](osv2-usage#access-usage-charts) in Access Management arenât available. Use
+[Usage Reports](osv2-usage#access-os-usage-reports) in Usage instead.
+
+REST APIs
+
+The [Object Store v2 Stats API](osv2-apis#osv2-stats-api) isnât supported.
+
+## See Also
+
+- [Salesforce Hyperforce Overview](../hyperforce/)
+- [Permissions by Product in Anypoint Platform](../access-management/permissions-by-product)
+- [Object Store v2 Release Notes](../release-notes/object-store/anypoint-osv2-release-notes)
+- [Object Store Connector for Mule 4](../object-store-connector/latest/)
+- [Object Store V2 Stats API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2-stats/)
+- [Object Store Watermarks](https://blogs.mulesoft.com/dev-guides/how-to-tutorials/data-synchronizing-made-easy-with-mule-watermarks/)
+---
+
+# Object Store v2 REST APIs
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+The Object Store v2 APIs enable you to use REST to:
+
+- Retrieve a list of object stores and keys associated with an application.
+- Store and retrieve key-value pairs in an object store.
+- Delete key-value pairs from an object store.
+- Retrieve Object Store usage statistics for your organization.
+
+Object Store provides these APIs:
+
+- [Object Store v2 API](#osv2-api)
+- [Object Store v2 Stats API](#osv2-stats-api)
+
+## Before You Begin
+
+- Create an app that uses Object Store v2 and
+  [deploy it to CloudHub](../cloudhub/deploying-to-cloudhub).
+- [Store a key-value pair in the object store](osv2-guide#send-data-to-an-object-store).
+- [Get the bearer token](#get-bearer-token) for an Anypoint Platform user using the Access
+  Management API:
+
+  You need the bearer token to access all Object Store v2 APIs.
+
+- [Get the ORG_ID and ENV_ID](#get-org-env-id).
+
+  You need the organization ID and environment ID for operations with all Object Store v2 APIs.
+
+- [Get the REGION_ID](#get-region-id).
+
+  You need the region ID for operations with the Object Store v2 Stats API.
+
+- [Get the STORE_ID](#get-store-id).
+
+  You need the store ID for operations with the Object Store v2 Stats API.
+
+## Get a Bearer Token to Use with the Object Store v2 APIs
+
+If MFA (multi-factor authentication) is enabled
+
+Use a connected app to get the bearer token:
+
+1.  [Configure a connected app](osv2-connected-apps).
+
+    Assign the connected app the Organization Administrator scope to access the organization and
+    environment queries.
+
+2.  From the **Connected Apps** page, click **Copy Id** and **Copy Secret** for the app you just
+    created.
+
+    Use this client ID and client secret to get the bearer token required to authenticate with the
+    Object Store v2 API.
+
+3.  Run this command to get the bearer token from the connected app client ID and client secret:
+
+    ```bash
+    curl --location '<AUTH_SERVER_HOST>/accounts/api/v2/oauth2/token' \
+       --header 'Content-Type: application/json' \
+        --data '{
+          "client_id": "<CLIENT_ID>",
+          "client_secret": "<CLIENT_SECRET>",
+          "grant_type": "client_credentials"
+          }'
+    ```
+
+    Replace AUTH_SERVER_HOST with the URL of the authorization server, for example
+    `https://anypoint.mulesoft.com/`.
+
+    The output includes the bearer token:
+
+    ```json
+    {
+      "access_token": "<BEARER_TOKEN>",
+      "token_type": "bearer"
+    }
+    ```
+
+4.  Use this bearer token to access any Object Store v2 API that requires a bearer token.
+
+If MFA isnât enabled
+
+Authenticate with the credentials of a user with the Organization Administrator permission:
+
+1.  Run this command to get the bearer token:
+
+    ```bash
+    curl -H \
+      "Content-Type: application/json" \
+      -X POST -d '{"username":"<USERNAME>","password":"<PASSWORD>"}' \
+      "<AUTH_SERVER_HOST>accounts/login"
+    ```
+
+    Replace AUTH_SERVER_HOST with the URL of the authorization server, for example
+    `https://anypoint.mulesoft.com/`.
+
+    Make sure the user has the Organization Administrator permission to access the organization and
+    environment queries.
+
+    The output includes the bearer token:
+
+    ```json
+    {
+      "access_token": "<BEARER_TOKEN>",
+      "expires_in": 3600,
+      "token_type": "bearer"
+    }
+    ```
+
+2.  Use this bearer token to access any Object Store v2 API that requires a bearer token.
+
+### Get the Organization ID and Environment ID
+
+To get the ORG_ID, run this command, replacing AUTH_SERVER_HOST with the authorization server:
+
+```bash
+curl -X GET https://<AUTH_SERVER_HOST>/accounts/api/me \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+The response includes output similar to:
+
+```json
+"organization": {
+    "name": "MyCompany",
+    "id": "ORG_ID",
+  },
+```
+
+To get the ENV_ID, run this command, replacing AUTH_SERVER_HOST with the authorization server:
+
+```bash
+curl -X GET https://<AUTH_SERVER_HOST>/accounts/api/organizations/<ORG_ID>/environments \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+The response includes output similar to:
+
+```json
+"environments": [
+  {
+    "id": "ENV_ID",
+    "name": "Production",
+    "organizationId": "ORG_ID",
+  },
+]
+```
+
+### Get the Region ID
+
+To get the region ID (REGION_ID), run this command, replacing [BASE_URL](#access-osv2-api):
+
+```bash
+curl -X GET \
+ 'https://<BASE_URL>/api/v1/organizations/<ORG_ID>/regions' \
+ -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+See [Example: Retrieve a List of Regions](#example-retrieve-region).
+
+### Get the Store ID
+
+To get the store ID (STORE_ID), run this command, replacing [BASE_URL](#access-osv2-api):
+
+```bash
+curl -X GET \
+ 'https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores' \
+ -H 'authorization: bearer <BEARER_TOKEN>'
+```
+
+See [Example: Retrieve a List of Object Stores](#example-retrieve-list).
+
+## Object Store v2 API
+
+The Object Store v2 API reads and writes `key,list` values, which is different from Anypoint
+Connector for Object Store (Object Store Connector), which reads and writes in the `key,value`
+format.
+
+This table compares the Object Store REST API operations to Object Store Connector operations:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Object Store v2 API</th><th>Object Store v2 REST API Operations</th><th>Object Store Connector Operation</th></tr></thead><tbody><tr><td><div><div><p>POST</p></div></div></td><td><div><div><ul><li><p>Object Store</p><div><ul><li><p>Object store TTL, in seconds</p><div><p>The maximum TTL is 2592000 seconds (30 days).</p></div><div><p>If the <code>entryTtl</code> value specified is greater than 30 days, the value defaults to 2592000 seconds (30 days), without returning an error.</p></div></li><li><p>Persistence property</p></li><li><p>Usage limits for each application or environment, including options for limits based on keys or size, and how to enforce them</p></li></ul></div></li><li><p>Key and list (item) value</p></li></ul></div></div></td><td><div><div><p>Store</p></div></div></td></tr><tr><td><div><div><p>GET</p></div></div></td><td><div><div><ul><li><p>Get keys</p></li><li><p>Get item</p></li><li><p>Get items</p></li><li><p>Get all items</p></li><li><p>Get regions for an organization</p></li></ul></div></div></td><td><div><div><p>Contains + Retrieve + Retrieve all keys + Retrieve and store (Retrieve part)</p></div></div></td></tr><tr><td><div><div><p>PUT</p></div></div></td><td><div><div><ul><li><p>Put item as string</p></li><li><p>Put item as number</p></li><li><p>Put item as confirmable string</p></li><li><p>Put store</p></li></ul></div></div></td><td><div><div><p>Store</p></div></div></td></tr><tr><td><div><div><p>DELETE</p></div></div></td><td><div><div><ul><li><p>Remove object store</p></li><li><p>Delete key</p></li><li><p>Delete item</p></li></ul></div></div></td><td><div><div><p>Remove</p></div></div></td></tr></tbody></table>
+
+You can retrieve a maximum of 25 keys with each GET operation.
+
+### Access the Object Store v2 API
+
+1.  [Get a Bearer Token to Use with the Object Store v2 APIs](#get-bearer-token).
+2.  Set up an application, such as Postman, to access the object store.
+3.  Configure the object store access URL, replacing ORG_ID with your organization ID and ENV_ID
+    with your environment ID:
+
+    ```bash
+    <BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/myTestStoreId/objects
+    ```
+
+    Depending on the deployment region, use one of these domains for the value of BASE_URL in the
+    access URL:
+
+    <table><colgroup><col> <col> <col></colgroup><thead><tr><th>Control Plane</th><th>BASE_URL</th><th>Region</th></tr></thead><tbody><tr><td rowspan="12"><p>U.S.</p></td><td><div><div><p><code>object-store-us-east-1.anypoint.mulesoft.com</code></p></div></div></td><td><div><div><p>US East (N. Virginia)</p></div></div></td></tr><tr><td><p><code>object-store-us-east-2.anypoint.mulesoft.com</code></p></td><td><div><div><p>US East (Ohio)</p></div></div></td></tr><tr><td><p><code>object-store-us-west-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>US West (N. California)</p></div></div></td></tr><tr><td><p><code>object-store-us-west-2.anypoint.mulesoft.com</code></p></td><td><div><div><p>US West (Oregon)</p></div></div></td></tr><tr><td><p><code>object-store-ap-southeast-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>Asia Pacific (Singapore)</p></div></div></td></tr><tr><td><p><code>object-store-ap-southeast-2.anypoint.mulesoft.com</code></p></td><td><div><div><p>Asia Pacific (Sydney)</p></div></div></td></tr><tr><td><p><code>object-store-ap-northeast-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>Asia Pacific (Tokyo)</p></div></div></td></tr><tr><td><p><code>object-store-ca-central-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>Canada (Central)</p></div></div></td></tr><tr><td><p><code>object-store-eu-central-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>Europe (Frankfurt)</p></div></div></td></tr><tr><td><p><code>object-store-eu-west-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>Europe (Ireland)</p></div></div></td></tr><tr><td><p><code>object-store-eu-west-2.anypoint.mulesoft.com</code></p></td><td><div><div><p>UK (London)</p></div></div></td></tr><tr><td><p><code>object-store-sa-east-1.anypoint.mulesoft.com</code></p></td><td><div><div><p>South America (SÃ£o Paulo)</p></div></div></td></tr><tr><td><p>U.S.</p><p>MuleSoft Government Cloud</p></td><td><div><div><p><code>object-store-us-gov-west-1.gov.anypoint.mulesoft.com</code></p></div></div></td><td><div><div><p>US Gov West</p></div></div></td></tr><tr><td rowspan="2"><p>EU</p></td><td><div><div><p><code>object-store-eu-central-1.eu1.anypoint.mulesoft.com</code></p></div></div></td><td><div><div><p>Europe (Frankfurt)</p></div></div></td></tr><tr><td><p><code>object-store-eu-west-1.eu1.anypoint.mulesoft.com</code></p></td><td><div><div><p>Europe (Ireland)</p></div></div></td></tr><tr><td><p>Canada Cloud</p></td><td><div><div><p><code>object-store-ca-central-1.ca1.platform.mulesoft.com</code></p></div></div></td><td><div><div><p>Canada (Central)</p></div></div></td></tr><tr><td rowspan="2"><p>Japan Cloud</p></td><td><div><div><p><code>object-store-ap-northeast-1.jp1.platform.mulesoft.com</code></p></div></div></td><td><div><div><p>Asia Pacific (Tokyo)</p></div></div></td></tr></tbody></table>
+
+4.  Configure the application with HTTP headers and body for values to store to or read from the
+    object store.
+5.  Send the operation to the Object Store v2 API.
+
+### Examples: Object Store v2 API
+
+- [Example: Retrieve a List of Object Stores](#example-retrieve-list)
+- [Example: Retrieve a List of Regions](#example-retrieve-region)
+- [Example: Retrieve a List of Partitions](#example-retrieve-partitions)
+- [Example: Retrieve a List of Keys in a Partition](#example-retrieve-keys)
+- [Example: Retrieve the Value of a Key](#example-retrieve-key-value)
+- [Example: Store a Key-Value Pair](#example-store-key-value)
+- [Example: Update a Key-Value Pair](#example-update-key-value)
+- [Example: Delete a Key and Value](#example-delete-key-value)
+
+#### Example: Retrieve a List of Object Stores
+
+To view the list of object stores, run a `curl` command, replacing BASE_URL with the regional
+domain, ORG_ID with your organization ID, ENV_ID with your environment ID, and BEARER_TOKEN with
+your bearer token:
+
+```bash
+curl -X GET \
+ 'https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores' \
+ -H 'authorization: bearer <BEARER_TOKEN>'
+```
+
+This command returns output similar to:
+
+```json
+  {"values":[{"storeId":"APP_os-simple-flow__defaultPersistentObjectStore","encrypted":true,"permanentOsFlag":false,
+    "persistent":true,"defaultTtlSeconds":2592000,"defaultConfirmationTtlSeconds":600,"isFixedTtl":null},
+  {"storeId":"APP_scheduler-tests__defaultPersistentObjectStore","encrypted":true,"permanentOsFlag":false,
+    "persistent":true,"defaultTtlSeconds":2592000,"defaultConfirmationTtlSeconds":600,"isFixedTtl":null}
+  {"storeId":"APP_sending-a-csv-file-thru-email-using-smtp__defaultPersistentObjectStore","encrypted":true,"permanentOsFlag":false,
+    "persistent":true,"defaultTtlSeconds":2592000,"defaultConfirmationTtlSeconds":600,"isFixedTtl":null}],"nextPageToken":null}
+```
+
+#### Example: Retrieve a List of Regions
+
+To view the list of regions, submit a `curl` command, replacing BASE_URL with the regional domain,
+ORG_ID with your organization ID, and BEARER_TOKEN with your bearer token:
+
+```bash
+curl -X GET \
+ 'https://<BASE_URL>/api/v1/organizations/<ORG_ID>/regions' \
+ -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+This command returns output similar to:
+
+```json
+[
+  {
+    "id": "us-east-1",
+    "name": "US East (N. Virginia)",
+    "url": "http://object-store.us-east-1.anypoint.mulesoft.com"
+  },
+  {
+    "id": "us-west-1",
+    "name": "US West (N. California)",
+    "url": "http://object-store.us-west-1.anypoint.mulesoft.com"
+  }
+]
+```
+
+#### Example: Retrieve a List of Partitions
+
+To view the list of partitions, submit a `curl` command, replacing BASE_URL with the regional
+domain, ORG_ID with your organization ID, ENV_ID with your environment ID, and STORE_ID with the
+`storeId` from the list of object stores, and BEARER_TOKEN with your bearer token:
+
+```bash
+curl -X GET \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+This command returns output similar to:
+
+```json
+{ "values": ["PARTITION_ID"], "nextPageToken": null }
+```
+
+#### Example: Retrieve a List of Keys in a Partition
+
+To view the keys in a partition, submit a `curl` command, replacing BASE_URL with the regional
+domain, ORG_ID with your organization ID, ENV_ID with your environment ID, STORE_ID with the name of
+the object store, PARTITION_ID with the name of the partition, and BEARER_TOKEN with your bearer
+token:
+
+```bash
+curl -X GET \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+This command returns output similar to:
+
+```json
+{ "values": [{ "keyId": "KeyTwo" }, { "keyId": "KeyOne" }], "nextPageToken": null }
+```
+
+#### Example: Retrieve the Value of a Key
+
+To view the value of a key, submit a `curl` command, replacing BASE_URL with the regional domain,
+ORG_ID with your organization ID, ENV_ID with your environment ID, STORE_ID with the name of the
+object store, PARTITION_ID with the name of the partition, KEY_ID with the key ID, and BEARER_TOKEN
+with your bearer token:
+
+```bash
+curl -X GET \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys/<KEY_ID> \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+This command returns output similar to:
+
+```json
+{
+  "binaryValue": "++Kn0AIBAQBbwoABDiJLZXkgMiBWYWx1ZSL8rNmhAQEBAWphdmEuaW8uU2VyaWFsaXphYmzlgGFwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9VVRGLbgAAAAAAAAADQ==",
+  "keyId": "KeyTwo",
+  "valueType": "BINARY"
+}
+```
+
+#### Example: Store a Key-Value Pair
+
+To store a key-value pair, submit a `curl` command, replacing BASE_URL with the regional domain,
+ORG_ID with your organization ID, ENV_ID with your environment ID, STORE_ID with the name of the
+object store, PARTITION_ID with the name of the partition, BEARER_TOKEN with your bearer token, and
+specify a value (`myTestKey`) for KEY_ID:
+
+```bash
+KEY_ID=myTestKey; \
+curl -X POST \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys/myTestKey \
+  -H "Authorization: Bearer <BEARER_TOKEN>" \
+  -H "Content-Type: application/json" \
+  --data '{"stringValue":"Hello World","keyId":"myTestKey","valueType":"STRING"}'
+```
+
+In this command, the value is a JSON string.
+
+To verify that the key-pair is in the object store, get a list of the keys in the partition:
+
+```bash
+curl -X GET \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+This command returns output similar to:
+
+```json
+{
+  "values": [{ "keyId": "KeyTwo" }, { "keyId": "KeyOne" }, { "keyId": "myTestKey" }],
+  "nextPageToken": null
+}
+```
+
+#### Example: Update a Key-Value Pair
+
+To update the value of an existing key or create a new one, use a `PUT` request. Replace the
+placeholders with your specific values:
+
+```bash
+curl -X PUT \
+  'https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys/<KEY_ID>' \
+  -H 'authorization: bearer <BEARER_TOKEN>' \
+  -H 'content-type: application/json' \
+  -d '{
+        "stringValue": "Updated value",
+        "valueType": "STRING",
+        "metadata": {
+          "source": "api"
+        }
+      }'
+```
+
+This command returns output similar to:
+
+```json
+{
+  "stringValue": "Updated value",
+  "valueType": "STRING",
+  "metadata": {
+    "source": "api"
+  }
+}
+```
+
+#### Example: Delete a Key and Value
+
+To delete a key-value pair, submit a `curl` command, replacing BASE_URL with the regional domain,
+ORG_ID with your organization ID, ENV_ID with your environment ID, STORE_ID with the name of the
+object store, PARTITION_ID with the name of the partition, KEY_ID with the key ID, and BEARER_TOKEN
+with your bearer token:
+
+```bash
+curl -X DELETE \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys/KEY_ID \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+In this command, the value is a JSON string.
+
+To verify that the key-pair is no longer in the object store, get a list of the keys in the
+partition:
+
+```bash
+curl -X GET \
+  https://<BASE_URL>/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/stores/<STORE_ID>/partitions/<PARTITION_ID>/keys \
+  -H "Authorization: Bearer <BEARER_TOKEN>"
+```
+
+This command returns output similar to:
+
+```json
+{ "values": [{ "keyId": "KeyTwo" }, { "keyId": "KeyOne" }], "nextPageToken": null }
+```
+
+## Object Store v2 Stats API
+
+> [!NOTE] Only the US Cloud and EU Cloud instances of Anypoint Platform support these REST APIs.
+
+The Object Store v2 Stats API enables you to retrieve statistics on your Object Store usage.
+
+The usage statistics arenât real-time and might include latency.
+
+Use the Stats API to view your entire organizationâs usage of Object Store for billing purposes:
+
+- Usage per root organization and all sub-organizations
+- Usage per organization
+- Usage per environment
+- Usage per region
+- Usage per store
+
+### Usage Metrics Limits
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Values</th></tr></thead><tbody><tr><td><p>Time series (<code>period</code>)</p></td><td><p>Interval that the query records</p></td><td><div><div><ul><li><p><code>1hour</code></p></li><li><p><code>1day</code></p></li><li><p><code>1month</code></p></li></ul></div></div></td></tr><tr><td><p>Data retention</p></td><td><p>Length of time that Object Store retains the data, based on <code>period</code></p></td><td><div><div><ul><li><p><code>period=1hour</code>: 3 months</p></li><li><p><code>period=1day</code>: 12 months</p></li><li><p><code>period=1month</code>: 24 months</p></li></ul></div></div></td></tr><tr><td><p>Query timeframe</p></td><td><p>Maximum interval between <code>startDate</code> and <code>endDate</code> in the query, based on <code>period</code></p></td><td><div><div><ul><li><p><code>period=1hour</code>: 1 day</p></li><li><p><code>period=1day</code>: 1 month</p></li><li><p><code>period=1month</code>: 2 months</p></li></ul></div><div><div data-type="NOTE">If the interval between <code>startDate</code> and <code>endDate</code> exceeds the limits, the API returns an HTTP 400 error.</div></div></div></td></tr></tbody></table>
+
+### Access the Object Store v2 Stats API
+
+1.  [Get a Bearer Token to Use with the Object Store v2 APIs](#get-bearer-token).
+2.  Set up an application, such as Postman, to access the object store.
+3.  Configure the access URL, replacing ORG_ID with your organization ID and ENV_ID with your
+    environment ID:
+
+    ```bash
+    https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>/environments/ENV_ID?startDate=...&endDate=...&period=...
+    ```
+
+    > [!IMPORTANT] The query parameters must be URL-encoded to preserve their values.
+
+For example, you must URL-encode a `startDate` of `2024-07-11T17:51:54.000Z` to
+`11T17%3A51%3A54.000Z` before sending it in the query. . Configure the application with HTTP headers
+and body for values to store to or read from the object store. . Send the operation to the Object
+Store v2 Stats API.
+
+See also
+[How to use Object Store v2 Stats API](https://help.salesforce.com/s/articleView?id=002778591&type=1).
+
+### Examples: Object Store v2 Stats API
+
+- [Example: Get Usage Metrics by Organization](#usage-by-org)
+- [Example: Get Usage Metrics by Environment](#usage-by-env)
+- [Example: Get Usage Metrics by Region](#usage-by-region)
+- [Example: Get Usage Metrics by Store](#usage-by-store)
+
+#### Example: Get Usage Metrics by Organization
+
+By default, the Object Store v2 Stats API endpoint retrieves statistics only for the specified
+ORG_ID. To get the usage data for the root organization and all sub-organizations, set `isMaster` to
+`true` when ORG_ID is the root organization. If you use `isMaster=true` to query a sub-organization,
+the endpoint returns no results.
+
+To view Object Store usage statistics for the root organization and all sub-organizations, between
+August 11, 2024 and September 11, 2024, submit a `curl` command, replacing ORG_ID with the
+organization ID for your root organization and BEARER_TOKEN with your bearer token:
+
+```bash
+curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>?startDate=2024-08-11T17%3A51%3A54.000Z&endDate=2024-09-11T17%3A51%3A54.000Z&period=1month&isMaster=true' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+This request returns a response similar to:
+
+```json
+[
+  { "timeStamp": "2024-08-01T00:00:00Z", "objectStoreRequestCount": 38 },
+  { "timeStamp": "2024-09-01T00:00:00Z", "objectStoreRequestCount": 28 }
+]
+```
+
+To view Object Store usage statistics for the root organization and all sub-organizations for one
+day, submit a `curl` command, replacing ORG_ID with the organization ID for your root organization
+and BEARER_TOKEN with your bearer token:
+
+```bash
+curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>?startDate=2024-11-11T17%3A51%3A54.000Z&endDate=2024-11-131T17%3A51%3A54.000Z&period=1day&isMaster=true' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+This request returns a response similar to:
+
+```json
+[
+ {"timeStamp":"2024-11-11T00:00:00Z","objectStoreRequestCount":36}
+ {"timeStamp":"2024-11-12T00:00:00Z","objectStoreRequestCount":22}
+ {"timeStamp":"2024-11-13T00:00:00Z","objectStoreRequestCount":43}
+]
+```
+
+To view Object Store usage statistics for a sub-organization, between February 10, 2024 and March
+10, 2024, submit a `curl` command, replacing ORG_ID with the organization ID for the
+sub-organization and BEARER_TOKEN with your bearer token:
+
+```bash
+curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>?startDate=2024-02-10T17%3A51%3A54.000Z&endDate=2024-03-10T17%3A51%3A54.000Z&period=1month' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+This request returns a response similar to:
+
+```json
+[
+  { "timeStamp": "2024-02-10T00:00:00Z", "objectStoreRequestCount": 1 },
+  { "timeStamp": "2024-03-10T00:00:00Z", "objectStoreRequestCount": 15 }
+]
+```
+
+To view Object Store usage statistics for one day for a sub-organization, submit a `curl` command,
+replacing ORG_ID with the organization ID for the sub-organization and BEARER_TOKEN with your bearer
+token:
+
+```bash
+curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>?startDate=2024-12-01T17%3A51%3A54.000Z&endDate=2024-12-03T17%3A51%3A54.000Z&period=1day' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+This request returns a response similar to:
+
+```json
+[
+ {"timeStamp":"2024-12-01T00:00:00Z","objectStoreRequestCount":4}
+ {"timeStamp":"2024-12-02T00:00:00Z","objectStoreRequestCount":2}
+ {"timeStamp":"2024-12-03T00:00:00Z","objectStoreRequestCount":8}
+
+]
+```
+
+#### Example: Get Usage Metrics by Environment
+
+To view Object Store usage statistics for an environment between August 13, 2024 and September 13,
+2024, submit a `curl` command, replacing ORG_ID with your organization ID, ENV_ID with your
+environment ID, and BEARER_TOKEN with your bearer token:
+
+```bash
+curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>?startDate=2024-08-13T17%3A51%3A54.000Z&endDate=2024-09-13T17%3A51%3A54.000Z&period=1month' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+This request returns a response similar to:
+
+```json
+[
+  { "timeStamp": "2024-08-01T00:00:00Z", "objectStoreRequestCount": 1 },
+  { "timeStamp": "2024-09-01T00:00:00Z", "objectStoreRequestCount": 25 }
+]
+```
+
+#### Example: Get Usage Metrics by Region
+
+To view Object Store usage statistics for a region, submit a `curl` command, replacing ORG_ID with
+your organization ID, ENV_ID with your environment ID, REGION_ID with the region from which to
+retrieve metrics, and BEARER_TOKEN with your bearer token:
+
+```bash
+ curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/regions/<REGION_ID>?startDate=2024-08-13T17%3A51%3A54.000Z&endDate=2024-09-13T17%3A51%3A54.000Z&period=1month' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+To retrieve the REGION_ID, see [Example: Retrieve a List of Regions](#example-retrieve-region).
+
+This request returns a response similar to:
+
+```json
+[
+  { "timeStamp": "2024-08-01T00:00:00Z", "objectStoreRequestCount": 1 },
+  { "timeStamp": "2024-09-01T00:00:00Z", "objectStoreRequestCount": 25 }
+]
+```
+
+#### Example: Get Usage Metrics by Store
+
+To view Object Store usage statistics for a store, submit a `curl` command, replacing ORG_ID with
+your organization ID, ENV_ID with your environment ID, REGION_ID with the region to retrieve metrics
+from, STORE_ID with the store ID to retrieve metrics for, and BEARER_TOKEN with your bearer token:
+
+```bash
+ curl -X GET \
+  'https://object-store-stats.anypoint.mulesoft.com/api/v1/organizations/<ORG_ID>/environments/<ENV_ID>/regions/<REGION_ID>/stores/<STORE_ID>?startDate=2024-08-13T17%3A51%3A54.000Z&endDate=2024-09-13T17%3A51%3A54.000Z&period=1month' \
+  -H 'authorization: Bearer <BEARER_TOKEN>'
+```
+
+To retrieve the STORE_ID, see [Example: Retrieve a List of Object Stores](#example-retrieve-list).
+
+This request returns a response similar to:
+
+```json
+[
+  { "timeStamp": "2024-08-01T00:00:00Z", "objectStoreRequestCount": 1 },
+  { "timeStamp": "2024-09-01T00:00:00Z", "objectStoreRequestCount": 25 }
+]
+```
+
+## Download Object Store APIs from Exchange
+
+To download the Object Store APIs from Exchange:
+
+1.  Go to Exchange and click **Download**.
+2.  Select the format to download:
+    - RAML
+    - OAS
+    - Mule 4 connector file
+
+![Download button for the Object Store v2 API in Exchange](_images/os-exchange-download.png)
+
+## See Also
+
+- [Rolling TTL](./#rolling-ttl)
+- [Object Store v2 API in Anypoint Exchange](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2/)
+- [Object Store v2 Stats API in Anypoint Exchange](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2-stats/)
+- [Access Management API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/access-management-api/)
+- [Object Store Connector for Mule 4](../object-store-connector/latest/)
+---
+
+# Configuring Connected Apps
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Connected Apps feature enables you to integrate external applications with Anypoint Platform by
+providing access to those applications without sharing your user credentials.
+
+For information about Connected Apps, see
+[Connected Apps in Anypoint Platform](../access-management/connected-apps-overview) and
+[Anypoint Platform Connected Apps for Developers](../access-management/connected-apps-developers).
+
+## Configure a Connected App in Access Management
+
+To create a Connected App with object store scopes:
+
+1.  In Anypoint Platform, go to **Access Management**.
+2.  In the Access Management navigation menu, click **Connected Apps**.
+3.  Click **Create App**.
+    1.  Specify a name for the app.
+    2.  Select **App acts on its own behalf (client credentials)**.
+    3.  Click **Add Scopes**.
+    4.  Select the object store scopes to apply:
+
+        ![Scopes for Object Store connected apps](_images/os-conn-apps-scopes.png)
+
+    5.  Click **Next** and select the business groups and environments to apply the scopes to.
+    6.  Click **Review**.
+    7.  Click **Add scopes** or **Cancel** to cancel your changes.
+
+4.  Click **Save** or **Cancel** to cancel your changes.
+5.  From the **Connected Apps** page, click **Copy Id** and **Copy Secret** for the app you just
+    created.
+
+    Use this client ID and client secret to get the access token required to authenticate with the
+    Object Store v2 API.
+
+## Configure a Connected App Using the API
+
+For information about configuring a connected app using the API, see
+[How to create connected apps using the API](https://help.salesforce.com/s/articleView?id=001115949&type=1).
+
+## Object Store Scopes
+
+Object store scopes apply to all stores in the given organization and environment. Unless otherwise
+noted, these scopes apply to both object stores and Object Store v2 object stores.
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Scope in UI</th><th>Scope in API</th><th>Description</th></tr></thead><tbody><tr><td><p>Manage stores</p></td><td><p><code>manage:store</code></p></td><td><div><div><p>Create, read, update, and delete stores.</p></div></div></td></tr><tr><td><p>Manage stores data</p></td><td><p><code>manage:store_data</code></p></td><td><div><div><p>Perform all store operations including data, partition, and confirmation APIs.</p></div></div></td></tr><tr><td><p>View stores</p></td><td><p><code>read:store</code></p></td><td><div><div><p>Read store details.</p></div></div></td></tr><tr><td><p>Manage store clients (object store only)</p></td><td><p>Not Available</p></td><td><div><div><p>Manage all clients of a cloud store.</p></div><div><p>This scope doesnât apply to Object Store v2.</p></div></div></td></tr><tr><td><p>View store clients (object store only)</p></td><td><p>Not Available</p></td><td><div><div><p>View all clients of a cloud store.</p></div><div><p>This scope doesnât apply to Object Store v2.</p></div></div></td></tr><tr><td><p>Store Metrics Viewer</p></td><td><p><code>read:store_metrics</code></p></td><td><div><div><p>Retrieve Object Store v2 metrics using the Object Store v2 Stats API.</p></div></div></td></tr></tbody></table>
+---
+
+# FAQ: Object Store v2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Where is Object Store v2 available?
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Location</th><th>Region Name</th><th>Region</th></tr></thead><tbody><tr><th colspan="3"><p><a href="https://anypoint.mulesoft.com/">US Cloud</a></p></th></tr><tr><td rowspan="5"><div><div><p>North America</p></div></div></td><td><div><div><p>US East (N. Virginia)</p></div></div></td><td><div><div><p><code>us-east-1</code></p></div></div></td></tr><tr><td><div><div><p>US East (Ohio)</p></div></div></td><td><div><div><p><code>us-east-2</code></p></div></div></td></tr><tr><td><div><div><p>US West (N. California)</p></div></div></td><td><div><div><p><code>us-west-1</code></p></div></div></td></tr><tr><td><div><div><p>US West (Oregon)</p></div></div></td><td><div><div><p><code>us-west-2</code></p></div></div></td></tr><tr><td><div><div><p>Canada (Central)</p></div></div></td><td><div><div><p><code>ca-central-1</code></p></div></div></td></tr><tr><td><div><div><p>South America</p></div></div></td><td><div><div><p>South America (Sao Paulo)</p></div></div></td><td><div><div><p><code>sa-east-1</code></p></div></div></td></tr><tr><td rowspan="3"><div><div><p>APAC</p></div></div></td><td><div><div><p>Asia Pacific (Singapore)</p></div></div></td><td><div><div><p><code>ap-southeast-1</code></p></div></div></td></tr><tr><td><div><div><p>Asia Pacific (Sydney)</p></div></div></td><td><div><div><p><code>ap-southeast-2</code></p></div></div></td></tr><tr><td><div><div><p>Asia Pacific (Tokyo)</p></div></div></td><td><div><div><p><code>ap-northeast-1</code></p></div></div></td></tr><tr><td rowspan="3"><div><div><p>Europe</p></div></div></td><td><div><div><p>Europe (Ireland)</p></div></div></td><td><div><div><p><code>eu-west-1</code></p></div></div></td></tr><tr><td><div><div><p>EU (Frankfurt)</p></div></div></td><td><div><div><p><code>eu-central-1</code></p></div></div></td></tr><tr><td><div><div><p>UK (London)</p></div></div></td><td><div><div><p><code>eu-west-2</code></p></div></div></td></tr><tr><th colspan="3"><p>MuleSoft Government Cloud</p></th></tr><tr><td><div></div></td><td><div><div><p>GovCloud (US West)</p></div></div></td><td><div><div><p><code>us-gov-west-1</code></p></div></div></td></tr><tr><th colspan="3"><p><a href="https://eu1.anypoint.mulesoft.com/">EU Cloud</a></p></th></tr><tr><td rowspan="2"><div><div><p>Europe</p></div></div></td><td><div><div><p>EU (Ireland)</p></div></div></td><td><div><div><p><code>eu-west-1</code></p></div></div></td></tr><tr><td><div><div><p>EU (Frankfurt)</p></div></div></td><td><div><div><p><code>eu-central-1</code></p></div></div></td></tr><tr><th colspan="3"><p><a href="https://ca1.platform.mulesoft.com">Canada Cloud</a></p></th></tr><tr><td><div><div><p>North America</p></div></div></td><td><div><div><p>Canada (Central)</p></div></div></td><td><div><div><p><code>ca-central-1</code> <a href="#os-hyperforce"><sup><strong>*</strong></sup></a></p></div></div></td></tr><tr><th colspan="3"><p><a href="https://jp1.platform.mulesoft.com">Japan Cloud</a></p></th></tr><tr><td><div><div><p>APAC</p></div></div></td><td><div><div><p>Japan (Central)</p></div></div></td><td><div><div><p><code>ap-northeast-1</code> <a href="#os-hyperforce"><sup><strong>*</strong></sup></a></p></div></div></td></tr></tbody></table>
+
+**\*** You canât access or configure some Object Store v2 features, such as the Object Store v2
+Stats API. For information, see [Object Store v2 on Hyperforce](./#osv2-on-hyperforce).
+
+## What Mule versions support Object Store v2?
+
+- All Mule runtime engine 4.x versions
+
+  Mule 4 supports Object Store v2, but does not support Object Store v1.
+
+## Can I use Object Store v2 for apps deployed to on-premises servers?
+
+On-premises Mule applications can access Object Store v2 only via the Object Store REST API.
+
+For on-premises deployments, you can use the object store included in Mule. For information about
+the Mule object store, see
+[Store Application Data Using Object Stores](../mule-runtime/latest/mule-object-stores).
+
+## How can I see usage data?
+
+To view API request data, see [View Usage Graphs](osv2-usage).
+
+## What happens when the transaction limit for my subscription is reached?
+
+An Object Store v2 subscription pack allows up to 100 million transactions per month for an Anypoint
+Platform organization. This limit is applied across all Production and non-Production environments.
+You can use the
+[Object Store v2 Stats API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2-stats/)
+to monitor usage.
+
+If your usage exceeds your license limit, Object Store v2 continues to work. MuleSoft notifies your
+account administrator and team of any billing-related information.
+
+## Is Object Store v2 persistent in the same region as the worker?
+
+Yes, Object Store v2 is in the same region as the worker where the app is initially deployed. For
+example, if you deploy to the Singapore region, the object store persists in the Singapore region.
+
+> [!IMPORTANT] If after the first deploy, you move the app to a different region, Object Store v2
+> remains in the original region to avoid data loss. Your use of Object Store v2 never moves from
+> one region to another. When you need to deploy both an app and object store to a different region,
+> delete the app and re-upload the app into the new region. This action loses all the data that may
+> exist in the storage.
+
+## Can an app deployed to CloudHub access the object store of another CloudHub app?
+
+You can configure a Mule app to use the Object Store REST API to store and retrieve values from an
+object store in another Mule app.
+
+However, Object Store v2 isnât designed for app-to-app communication. To share data between two Mule
+4 apps, use a queue in [Anypoint MQ](../mq/).
+
+For information about object store limitations, see
+[Object Store Limitations](../object-store-connector/latest/#object-store-limitations).
+
+For information about the Object Store REST API, see
+[Object Store v2 API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2/)
+on Exchange.
+
+## What are the limits on an object store?
+
+The total size of an object store isnât limited, but each value is limited to 10 MB.
+
+Every API call (via the connector or API) to Object Store v2 counts toward the API rate limiting
+(transactions per second (TPS)):
+
+- Base subscription: 10 TPS per app
+- Premium add-on subscription: 100 TPS per app
+
+## What is the maximum number of keys that can persist in Object Store v2?
+
+In Object Store v2, there is no limit on the number of keys per app.
+
+## What is the maximum key size?
+
+The maximum size for a key is 1024 bytes (UTF-8 encoding).
+
+Object Store v2 for CloudHub doesnât support using pipe (`|`) characters in keys and converts any
+spaces to plus (`+`) characters.
+
+## What are the advantages of using partitions?
+
+You can use partitions to divide the object store into separate areas for your stored and retrieved
+keys. Partitions are logical, rather than physical, structures. For this reason, data access time is
+the same, whether you store keys in one partition or multiple partitions.
+
+## How long can data persist in Object Store v2?
+
+The maximum TTL (time to live) is 2592000 seconds (30 days).
+
+For information about rolling and static TTL, see [Time to Live (TTL)](./#time-to-live).
+
+To configure TTL, see
+[Configure a Custom Time to Live Period](osv2-guide#configure-a-custom-time-to-live-period).
+
+## Where is the Object Store v2 REST API portal?
+
+The Object Store v2 APIs are available in the Anypoint Platform Developerâs portal:
+
+- [Anypoint Exchange Object Store v2](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2/)
+- [Anypoint Exchange Object Store v2 Stats](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2-stats/)
+
+## Where is the Object Store connector?
+
+[Anypoint Exchange](https://anypoint.mulesoft.com/exchange/?search=objectstore) provides assets for
+the Mule 4 Object Store connector used by Studio 7.
+
+## Do I need a different Object Store connector for Object Store v2 and Object Store v1?
+
+All versions of Muleâs Object Store Connector work with both Object Store v1 and Object Store v2.
+
+## Why are Object Store values in binary format?
+
+When you view an Object Store key in Runtime Manager, the value for the key displays as
+`[binary value] BINARY`. Mule 4 wraps values into a Mule object that causes them to be only visible
+in binary through Anypoint Platform. Behind the scenes, Mule 4 executes binary serialization with
+the Mule internal serializer. The user interface canât deserialize the object, hence it can only
+tell you that the value is now binary in the user interface.
+
+To view the key value, you need an Object Store retrieve flow in your appâs connector, such as:
+
+```xml
+<flow name="Retrieve" >
+	<http:listener doc:name="Listener" config-ref="HTTP_Listener_config1"
+		path="/retrieve">
+		<ee:repeatable-file-store-stream />
+	</http:listener>
+	<os:retrieve doc:name="Retrieve"
+		key="#[attributes.queryParams.key]"
+		objectStore="Object_store1"/>
+</flow>
+```
+
+For more information, see
+[Tutorial: Create a Studio 7 Project](osv2-tutorial#create-a-studio-7-project).
+
+## Are there rate limits on Object Store v2?
+
+Customers who have not purchased a separate Object Store SKU are rate limited to 10 transactions per
+second per app. If an app for an account that has not purchased the Object Store v2 SKU exceeds the
+rate limit, further requests arenât processed for a time and a 429 HTTP error status code results.
+To go beyond the base 10 TPS rate limit, contact your MuleSoft account team.
+
+## How is Object Store v2 data secured?
+
+Object Store v2 uses Transport Layer Security (TLS) 1.2 and 1.3 for secure transport and doesnât
+support the deprecated TLS versions 1.0 and 1.1. Data at rest is stored using FIPS 140-2 compliant
+encryption standards. If you require a higher level of security, we recommend that you encrypt
+sensitive data before writing it to the Object Store.
+
+## Does Object Store cache data or perform I/O for each read and write?
+
+Object Store v2 performs I/O for each read and write. With Object Store v2, the API call is
+localized to the same data center as the Runtime Manager app.
+
+## What happens when you reenable the **Use Object Store v2** option after disabling it?
+
+By default, the **Use Object Store v2** option is enabled during CloudHub application deployment. If
+you disable and then reenable this option in Runtime Manager, the original key-value pairs persist
+as long as the key-value pair TTL isnât expired.
+
+## See Also
+
+- [Anypoint Exchange Object Store v2 API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2/)
+- [Anypoint Exchange Object Store v2 Stats API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2-stats/)
+- [Configure a Custom Time-to-Live Period](osv2-guide#configure-a-custom-time-to-live-period)
+- [Create Object Store Partitions](osv2-guide#create-object-store-partitions)
+- [Object Store Connector for Mule 4](../object-store-connector/latest/)
+- [The Different Types of Object Stores Explained](https://help.salesforce.com/s/articleView?id=001123185&type=1)
+---
+
+# Using Object Store v2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Object Store v2 (Object Store v2) enables you to share data and states across Mule runtime
+workers within a single application.
+
+Object Store v2 is enabled by default in Mule 4 and in Anypoint Platform EU Control Plane.
+
+## Components
+
+Object Store v2 interacts with these components:
+
+- Anypoint Connector for Object Store (Object Store Connector)
+
+  Use Object Store Connector with Anypoint Studio to construct flows to write to and read from the
+  object store.
+
+  Object Store Connector works with both Object Store version 1 and version 2.
+
+  To use Object Store v2 with Mule 4 apps, ensure that you select the correct object store
+  configuration reference from the **Object store** menu.
+
+- REST API
+
+  The Object Store v2 API enables you to create and delete objects, set TTL (time to live) for
+  objects, and set usage limits.
+
+  The Object Store v2 Stats API enables you to retrieve Object Store v2 usage statistics, such as
+  how many API calls per month your organization makes to Object Store.
+
+- Anypoint Runtime Manager
+
+  When you enable Object Store v2, the **Runtime Manager > Application Data** option changes to
+  **Object Store**. From the **Object Store** page, you can manage objects and their values in the
+  object store.
+
+### Protect Object Store Data
+
+Object Store v2 uses TLS for secure transport. Data at rest is stored using FIPS 140-2-compliant
+encryption standards. If you require a higher level of security, encrypt sensitive data before
+writing it to the object store.
+
+### Synchronize Access to Object Store v2
+
+Using Object Store v2 with multi-worker CloudHub applications might result in data discrepancies or
+key clashes.
+
+To avoid these issues, use a distributed key-value store as a lock to synchronize access to Object
+Store v2. For information about distributed locking in Mule runtime engine, see
+[Distributed Locking](../mule-runtime/latest/distributed-locking).
+
+## Add Object Store Connector to Your Mule 4 Project
+
+Install Object Store Connector to add it to a Mule project:
+
+1.  In Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `Object Store` in the search field.
+4.  In **Available modules**, click **ObjectStore Connector - Mule 4** and click **Add**.
+5.  Click **Finish**.
+
+## Use Object Store Connector in an Application
+
+1.  In Studio, create a simple flow such as:
+
+    ![Flow in Studio showing the Listener and Store operations](_images/os-studio7-flow.png)
+
+    <table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Connector</p></div></div></td><td><div><div><p>Parameters</p></div></div></td></tr><tr><td><div><div><p>HTTP Listener</p></div></div></td><td><div><div><p><strong>Connector configuration</strong> = <code>HTTP_Listener_config</code></p></div><div><p><strong>Path</strong> = <code>/store</code></p></div></div></td></tr><tr><td><div><div><p>Object Store</p></div></div></td><td><div><div><p><strong>Key</strong> = <code>#[payload.key]</code></p></div><div><p><strong>Value</strong> = <code>[payload.value]</code></p></div></div></td></tr></tbody></table>
+
+    Object Store v2 for CloudHub doesnât support using pipe (`|`) characters in keys and converts
+    any spaces to plus (`+`) characters.
+
+    > [!IMPORTANT] To use Object Store v2, ensure that the **Persistent** option is selected for the
+    > object store configuration reference in the **Global Elements** page. If the XML includes
+    > `persistent="false"`, the app does not use Object Store v2.
+
+2.  Save the application.
+3.  Right-click the application name in **Package Explorer** and select **Anypoint Platform > Deploy
+    to CloudHub**.
+4.  If prompted, sign in to Anypoint Platform.
+5.  Click **Deploy Application** and click **Open in Browser**.
+6.  In Runtime Manager, click the **Status** column for your application.
+7.  In the details pane, copy the **App url** address.
+
+## Send Data to an Object Store
+
+From a command line prompt, send JSON data to your Mule application using a `curl` command:
+
+curl -X POST -H "Content-Type: application/json" -d '{ "key": "TestKey01", "value": "Testing" }'
+"http://app-url/store"
+
+Change `app-url` to the name you copied from **App url** in Runtime Manager.
+
+## View Data in an Object Store
+
+To view data in an object store:
+
+1.  In Runtime Manager, click the name of your application to view the dashboard.
+2.  Click **Object Store** in the navigation menu.
+3.  Click the object store, the partition, and then the key:
+
+    ![Runtime Manager window showing the Object Store navigation menu, and the selected object store, partition, key, and key data](_images/os-rtm-key-in-os.png)
+
+    <table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>Object Store navigation menu</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Selected key</td></tr><tr><td><i data-value="3"></i><b>3</b></td><td>Key data (binary value and type)</td></tr></tbody></table>
+
+    The `TestKey01` key that you sent from `curl` appears in the object store with the value
+    `[binary value] BINARY`. The value is binary because Mule 4 wraps values in a Mule object, which
+    causes them to be visible only as binary in Anypoint Platform.
+
+4.  To delete a key, hover over a key name and click the trash can icon.
+
+    Similarly, you can delete a partition or the store itself by hovering over and clicking the
+    trash can icon.
+
+    > [!IMPORTANT] Do not delete object stores that are associated with a running app. To prevent
+    > errors, stop the app before deleting an object store.
+
+The tutorial provides more detailed information about creating object stores in Mule 4 applications.
+
+## Configure a Custom Time to Live Period
+
+A custom time to live (TTL) period applies to the partition defined in the object store
+configuration.
+
+For information how rolling TTL behaves, see [Rolling TTL](./#rolling-ttl).
+
+To configure a custom TTL period for keys stored in the object store:
+
+1.  Create an app that uses Mule runtime engine version 4.2.1 or later.
+2.  Configure the object store in the app.
+3.  Select the **Store** operation in the flow and, in the properties window, click the green plus
+    icon (+) for the **Object store** field:
+
+    ![Studio properties window for the Store operation showing the green plus icon](_images/os-use-ttl-props.png)
+
+4.  Configure the TTL entries in the **Global Object Store Configuration** window:
+
+    ![Global Object Store Configuration window showing the Entry ttl field](_images/os-use-ttl-global-props.png)
+
+    > [!NOTE] For Object Store v2, the **Max entries** field isnât configurable.
+    - **Entry ttl**
+
+      For Mule 4.2.1 and later, enter a custom TTL value of 0 through 2592000 seconds (30 days).
+
+      If **Entry ttl** isnât empty, the TTL is static.
+
+      If you leave this field empty, you enable rolling TTL; if you exceed 2592000 seconds, the TTL
+      defaults to 2592000 seconds.
+
+      For Mule versions earlier than 4.2.1, leave this field empty to set the TTL to 2592000
+      seconds.
+
+    - **Entry ttl unit**
+
+      Specify the TTL time interval, such as MINUTES.
+
+    - **Expiration interval**
+
+      Specify how frequently to run the expiration thread.
+
+      Set this parameter to a positive value that is less than the **Entry ttl** value. If this
+      field is blank or the value is less than or equal to zero, Object Store v2 ignores **Entry
+      ttl**.
+
+    - **Expiration interval unit**
+
+      Specify the expiration interval time unit, such as MINUTES.
+
+5.  Click **OK** to dismiss the window.
+
+## Create Object Store Partitions
+
+You can use _partitions_ to associate multiple object stores with an app.
+
+To create partitions in Object Store v2:
+
+1.  Create an app and add a Store operation to the flow.
+2.  Configure the Store operation.
+3.  Configure the partitions:
+    1.  In the properties window, click the green plus icon (+) for the **Object store** field:
+
+        ![Studio properties window for the Store operation showing the green plus icon](_images/os-use-ttl-props.png)
+
+    2.  In the **Global Element Properties** window, click the green plus icon (+) for
+        **Configuration Reference** to create a global object store configuration:
+
+        ![Global Element Properties window showing the green plus icon for the Configuration Reference field](_images/os-use-partition-studio7-os-global-props.png)
+
+    3.  Name the object store configuration and click **OK**.
+    4.  Ensure that the correct configuration reference is selected and click **OK**.
+    5.  Ensure that the correct object store is selected and click **OK**.
+
+4.  Repeat Step 3 for each partition that you want to create.
+5.  Deploy the app to CloudHub and send a key-value pair to the object store.
+6.  In Runtime Manager, click **Applications**, select the app, and click **Object Store** in the
+    left navigation pane.
+7.  Select the object store.
+
+    The partitions associated with the object store appear in the **Object Store** page:
+
+    ![Runtime Manager window showing Partitions in the Object Store page](_images/os-use-partitions-rtm.png)
+
+## Deploy App with Object Store v2 Using the Mule Maven Plugin
+
+If you are using a Mule Maven plugin version between 3.3.3 and 3.4.0 to deploy your app to CloudHub:
+
+1.  Add the `<objectStoreV2>` element to your `pom.xml` project file:
+
+    ```xml
+    <cloudHubDeployment>
+      ...
+        <objectStoreV2>true</objectStoreV2>
+      ...
+    </cloudHubDeployment>
+    ```
+
+2.  Select **Use Object Store v2** in the **Deploy Application** page in Runtime Manager.
+
+## See Also
+
+- [Tutorial: Object Store v2](osv2-tutorial)
+- [Rolling TTL](./#rolling-ttl)
+- [What are the advantages of using partitions?](osv2-faq#what-are-the-advantages-of-using-partitions)
+- [Object Store v2 API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2/)
+- [Object Store v2 Stats API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/object-store-v2-stats/)
+- [Object Store v2 Release Notes](../release-notes/object-store/anypoint-osv2-release-notes)
+- [Object Store Connector for Mule 4](../object-store-connector/latest/)
+- [Deploy Applications to CloudHub](../mule-runtime/latest/deploy-to-cloudhub)
+---
+
+# Object Store v2 Release Notes
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following release notes are provided for Object Store:
+
+- [Object Store v2 Release Notes](../release-notes/object-store/anypoint-osv2-release-notes)
+- [Object Store Connector Release Notes (for Mule 4)](../release-notes/connector/object-store-connector-release-notes-mule-4)
+
+## See Also
+
+- [CloudHub Runtime and Operating System Patch Update Release Notes](../release-notes/cloudhub/cloudhub-runtimes-release-notes)
+---
+
+# Tutorial: Store and Retrieve Data from Object Store v2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Use this tutorial to configure Anypoint Connector for Object Store (Object Store Connector) in your
+app so that you can use Object Store v2 to store and view data.
+
+You can send any serializable data as key-value pairs to the object store.
+
+In this tutorial, you:
+
+- [Create a Mule 4.x app in Anypoint Studio 7.x](#create-app-studio7) and configure Object Store
+  Connector for Mule 4 in the app.
+
+  You then test your app by sending data to the object store and viewing it in Runtime Manager.
+
+## Before You Begin
+
+Before you begin this tutorial, you must have:
+
+- Familiarity with Anypoint Studio, Anypoint Platform, and Runtime Manager
+- An [Anypoint Platform account](https://anypoint.mulesoft.com)
+
+  If you donât have an Anypoint Platform login, click **Sign up** on the Anypoint Platform sign-in
+  page.
+
+- Anypoint Studio installed on your system. See
+  [Download and Install Anypoint Studio](../studio/to-download-and-install-studio)
+- An [`curl` command line tool](https://curl.se/) for testing
+
+  This tutorial uses the HTTP Listener source to initiate Object Store Connector access and a `curl`
+  command to send JSON data to your Mule app.
+
+  Instead of `curl`, you can use Postman or browser plugins.
+
+## Create a Mule 4.x App with an Object Store in Anypoint Studio 7.x
+
+First, use Studio 7.x to configure an app that includes an HTTP Listener source and Object Store
+Connector. Then, deploy the app to CloudHub and use a `curl` command to send a key and value, and
+view the key in Runtime Manager.
+
+To configure a Mule 4.x app in Studio 7.x:
+
+1.  Start Studio, click **File** > **New** > **Mule Project**, and name the project `osv2-demo`.
+2.  Install Object Store Connector for Mule 4:
+    1.  Click the **Exchange** icon in the toolbar:
+
+        ![Studio 7.x window showing the Exchange icon in the toolbar](_images/os-tutorial-studio7-exchange.png)
+
+    2.  Enter your Anypoint Platform username and password, if prompted.
+    3.  In Exchange, select **Provided by MuleSoft** and **Connectors**, and then search for Object
+        Store Connector:
+
+        ![Exchange window showing the Provided by MuleSoft option and search field](_images/os-tutorial-exchange.png)
+
+    4.  Select **ObjectStore Connector - Mule 4**.
+    5.  Click **Add to project**:
+
+        ![Exchange window showing the Add to project icon](_images/os-tutorial-exchange-add-to-project.png)
+
+    6.  At the confirmation prompt, click **Proceed** and then click **OK**.
+
+3.  In the **Mule Palette** view, click **HTTP**, and then drag **Listener** to the Studio canvas:
+
+    ![Mule Palette view showing the HTTP Connector and Listener operations](_images/os-tutorial-studio7-palette.png)
+
+    <table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>HTTP Connector</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Listener operation</td></tr></tbody></table>
+
+4.  Click **ObjectStore** and then drag the **Store** operation to **Listener** on the canvas:
+
+    ![Studio 7.x window showing the Store operation on the canvas](_images/os-tutorial-studio7-flow.png)
+
+5.  In the canvas, click **Listener**.
+6.  In the **Listener** properties window, set **General > Path** to `/store`.
+7.  Click the plus icon (+) for the **Connector configuration** field.
+8.  In the HTTP Listener **Global Element Properties** window, verify that the value of **Host** is
+    `0.0.0.0` and **Port** is `8081`, and then click **OK**.
+
+    The **Listener** properties window indicates that there are no errors:
+
+    ![Listener properties window showing no errors](_images/os-tutorial-studio7-listener-props.png)
+
+9.  In the canvas, click the **Store** operation.
+10. In the **Store** properties window, specify `#[payload.key]` in the **Key** field and
+    `payload.value` in the **Value** field:
+
+    ![Store properties windows showing the values in the Key and Value fields](_images/os-tutorial-studio7-store-props.png)
+
+    The maximum number of characters in a key is 256.
+
+    Object Store v2 for CloudHub doesnât support using pipe (`|`) characters in keys and converts
+    any spaces to plus (`+`) characters.
+
+11. In the canvas, select the flow.
+12. In the **Flow Configuration** properties window, change the name to `Store`:
+
+    ![Flow Configuration properties window showing the Name field set to Store](_images/os-tutorial-studio7-store-flow-props.png)
+
+13. In the **Mule Palette** view, click **HTTP** and then drag another **Listener** to the canvas
+    after the first flow.
+14. Click **ObjectStore** and then drag the **Retrieve** operation after to the **Listener** in the
+    second flow.
+15. In the canvas, click **Listener**.
+16. In the **Listener** properties window, set **General > Path** to `/retrieve`.
+17. In the **Connector configuration** menu, select the same **HTTP_Listener_config** option that
+    you set up for the Listener operation in the Store flow:
+
+    ![Listener properties window showing the Connector configuration menu](_images/os-tutorial-studio7-retrieve-listener-props.png)
+
+18. In the canvas, click the **Retrieve** operation.
+19. In the **Retrieve** properties window, specify `#[attributes.queryParams.key]` in the **Key**
+    field:
+
+    ![Retrieve properties window showing the value in the Key field](_images/os-tutorial-studio7-retrieve-props.png)
+
+20. In the canvas, select the second flow and, in the **Flow Configuration** properties window,
+    change the name to `Retrieve`.
+
+    The flows look like this:
+
+    ![Studio canvas showing the Store and Retrieve operation flows](_images/os-tutorial-studio7-flows.png)
+
+21. In **Package Explorer** in Studio, right-click `osv2-demo` and select **Anypoint Platform** >
+    **Deploy to CloudHub**.
+22. In the Runtime Manager **Deploying Application** window:
+    1.  Select CloudHub from **Deployment Target**.
+    2.  Click **Deploy Application**:
+
+        ![Runtime Manager Deploying Application window showing the Deploy Application button](_images/os-tutorial-deploy-app.png)
+
+23. Click **Open in Browser** to display the app in Runtime Manager.
+
+    If CloudHub displays a permissions error, select a different environment to deploy to.
+
+You have successfully used Studio 7 to configure an app with an object store. Next, you test the
+connection by submitting REST API commands to the Object Store API and using Runtime Manager to view
+the results.
+
+### Test Your Studio 7.x Application
+
+After you create your app in Studio 7, you can test it by using a `curl` command to submit a REST
+API command to the Object Store API. Then, use Runtime Manager to view the results.
+
+To test your app:
+
+1.  In Runtime Manager, click **Applications** and ensure that the `osv2-demo` app is running.
+2.  Click the **Status** column for the `osv2-demo` app to display its details.
+3.  Copy the **App url** value:
+
+    ![Runtime Manager app details pane showing the App url](_images/os-tutorial-rtm-deploy-url.png)
+
+4.  From the command line, run this `curl` command, replacing _APP-URL_ with the **App url** value
+    that you copied from Runtime Manager:
+
+    ```console
+    $ curl -X POST -H "Content-Type: application/json" -d '{ "key": "myKey", "value": "OSv2 Test" }' "http://APP-URL/store";echo
+    ```
+
+    The output from this command displays the key-value pair that you sent to the object store:
+
+    ```console
+    { "key": "myKey", "value": "OSv2 Test" }
+    ```
+
+5.  In Runtime Manager, click **Manage application** in the details pane for the application:
+
+    ![Runtime Manager app details pane showing the Manage application button](_images/os-tutorial-rtm-manage-app.png)
+
+6.  Select **Object Store** from the sidebar.
+7.  Click the object store, the partition, and then the key:
+
+    ![Runtime Manager window showing the selected object store, partition, and key](_images/os-tutorial-rtm-key-in-os.png)
+
+    The `myKey` key that you sent from `curl` appears in the object store with the value of
+    `[binary value] BINARY`. The value is binary because Mule 4 wraps values in a Mule object, which
+    causes them to be visible only as binary in Anypoint Platform.
+
+8.  From the command line, run this `curl` command to view the value for the key, replacing
+    _APP-URL_ with the **App url** value that you copied from Runtime Manager:
+
+    ```console
+    curl http://APP-URL/retrieve?key=myKey;echo
+    ```
+
+    The output from this command displays the value for the key:
+
+    ```console
+    "OSv2 Test"
+    ```
+
+You have successfully tested your app using a `curl` command to store and retrieve a key-value pair
+in the object store and viewed the results in Runtime Manager.
+
+### Example App XML for Studio 7.x
+
+Click **Configuration XML** in Studio and compare your XML to this example. Make corrections if
+necessary.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="24b76402-e396-4228-a48e-fcd9ac651488" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="Store" doc:id="e7d253f9-534b-41df-a189-de815a42facb" >
+		<http:listener doc:name="Listener" doc:id="805c84ec-35d4-4753-846b-49b108044df7" config-ref="HTTP_Listener_config" path="/store"/>
+		<os:store doc:name="Store" doc:id="d4800501-0fa8-4472-a23e-5213f04155e8" key="#[payload.key]">
+			<os:value ><![CDATA[#[payload.value]]]></os:value>
+		</os:store>
+	</flow>
+	<flow name="Retrieve" doc:id="1db04ffc-76c1-48b4-ba33-57807a6404a8" >
+		<http:listener doc:name="Listener" doc:id="faed2a0f-3005-4244-a6c6-77407b34d53a" path="/retrieve" config-ref="HTTP_Listener_config"/>
+		<os:retrieve doc:name="Retrieve" doc:id="3f907cfc-59e5-49cd-879a-7b2675d488a5" key="#[attributes.queryParams.key]">
+		</os:retrieve>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Anypoint Studio](../studio/)
+- [Object Store Connector for Mule 4](../object-store-connector/latest/)
+- [Deploy to CloudHub](../cloudhub/deploying-to-cloudhub)
+---
+
+# Object Store v2 Rate Limiting and Billing
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Monitor your Object Store v2 billing by understanding how API requests and effective API requests
+impact rate limiting and billing. Track usage metrics through Access Management or Usage to optimize
+application performance and avoid exceeding your subscription limits.
+
+Object Store v2 uses two metrics to determine rate-limiting and billing: API requests and effective
+API requests. Depending on your Anypoint Platform instance, you access usage data in Access
+Management or Usage.
+
+- [US Cloud or EU Cloud](#access-usage-charts)
+- [Canada Cloud or Japan Cloud](#access-os-usage-reports)
+
+> [!NOTE] If you enable **Use Object Store v2**, any connector, module, or policy that relies on
+> Object Store uses Object Store v2, even if your application doesnât explicitly interact with
+> Object Store. This usage counts toward rate limiting and billing.
+>
+> These are some examples of connectors, modules, and policies use Object Store internally:
+>
+> - API Gateway policies, such as Rate Limiting, SLA-based Rate Limiting, Spike Control, and HTTP
+>   Caching
+> - B2B Solution Runtime Engine components, such as endpoint services, document processing, and API
+>   replication
+> - Salesforce connectors
+> - Google connectors (primarily for OAuth flows)
+> - Microsoft connectors
+> - SAP S/4HANA Cloud
+> - SAP SuccessFactors
+> - AS2
+> - RosettaNet
+> - Redis
+> - Power BI
+> - MCP
+> - A2A
+> - OAuth provider templates and OAuth introspection services
+
+API Requests
+
+API requests are HTTP transactions, such as GET, PUT, and POST.
+
+Object Store uses successful API requests (2xx) to calculate transactions per second (TPS) for rate
+limiting.
+
+See [Rate Limiting](#rate-limiting).
+
+Effective API Requests
+
+Effective API requests are the units that Object Store uses to calculate billing.
+
+One successful API request could generate many effective API requests.
+
+See [How Billing is Calculated](#how-billing-is-calculated).
+
+> [!NOTE] The Object Store UI shows effective API request data for two months: the current and
+> previous month.
+
+## Rate Limiting
+
+Every successful API request (via the connector or API) to Object Store v2 counts toward the TPS
+limit, based on your subscription type:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Subscription Type</th><th>TPS Limit</th></tr></thead><tbody><tr><td><p>Base subscription</p></td><td><p>10 TPS per store</p></td></tr><tr><td><p>Premium add-on subscription</p></td><td><p>100 TPS per store</p></td></tr></tbody></table>
+
+Rate limiting is applied per application. Each application has a single Object Store allocation, so
+multiple uses of Object Store within the same application share the same TPS limit.
+
+For example, if your app includes both `case-obj-store` and `ticket-obj-store`, Object Store v2
+calculates the 100 TPS limit across all stores used within the application combined.
+
+If an app retrieves 1500 keys from an object store with a page size of 25:
+
+- With the base subscription, the response is throttled over 6 seconds.
+- With the premium subscription, the response isnât throttled.
+
+If the store exceeds the number of TPS allotted based on the subscription type, Object Store v2
+returns a `429 HTTP Error` response, indicating that it reached the rate limit.
+
+If the store reaches the TPS limit, you can either upgrade to a premium subscription or redesign the
+app to send API requests more slowly.
+
+> [!NOTE] Requests that return a 429 response (due to rate limiting) donât count toward your monthly
+> billing usage and quota.
+
+## How Billing is Calculated
+
+All effective API requests that return a 2xx (success) response count toward your monthly billing
+usage and quota.
+
+An effective API request counts as **one or more units** against the quota, depending on the size of
+the payload and the number of keys returned.
+
+- Each API request up to 100 KB of object-payload data (if applicable) counts as one unit against
+  the quota.
+
+  For example, if an app retrieves one key from an object store with a total payload size of 500KB,
+  the request counts as five units against the quota.
+
+- Each 100 KB of payload data above 100 KB counts as an additional unit.
+
+  For example, if an app inserts, updates, or retrieves an item with a total payload size of 101KB
+  from an object store, the operation counts as two units against the quota.
+
+- For the Retrieve All and Retrieve All Keys operations, the size of all key-value pairs in the
+  object store partition counts toward billable units.
+
+  For example, if an app runs the Retrieve All Keys operation to retrieve only the keys in the
+  object store, the billable unit is based on the size of the key-value pairs, not just the keys.
+
+- For each Store operation, the size of the item being inserted or updated counts toward billable
+  units.
+
+  For example, if an app inserts or updates one key in an object store with a total payload size of
+  300KB, the request counts as three units against the quota.
+
+- Each DELETE API call counts as a single billable unit. Additional units apply to deleted
+  partitions.
+
+  <table><colgroup><col> <col> <col></colgroup><tbody><tr><td><p>API Call</p></td><td><p>Description</p></td><td><p>Billable Units</p></td></tr><tr><td><p>Delete store</p></td><td><p>Deletes the store, all partitions in the store, and all key-value pairs in each partition</p></td><td><div><div><ul><li><p>One billable unit for the DELETE API call</p></li><li><p>One billable unit for each deleted partition in the store</p></li></ul></div></div></td></tr><tr><td><p>Delete partitions in store</p></td><td><p>Deletes all partitions in the store, including the key-value pairs in each partition</p></td><td><div><div><ul><li><p>One billable unit for the DELETE API call</p></li><li><p>One billable unit for each deleted partition in the store</p></li></ul></div></div></td></tr><tr><td><p>Delete partition</p></td><td><p>Deletes all key-value pairs and then deletes the partition</p></td><td><p>One billable unit</p></td></tr><tr><td><p>Delete all keys and values in the partition</p></td><td><p>Deletes every key and its associated value from the specified partition</p></td><td><p>One billable unit</p></td></tr><tr><td><p>Delete key</p></td><td><p>Deletes a single key and its associated value</p></td><td><p>One billable unit</p></td></tr></tbody></table>
+
+  For example, a call to delete a store with two partitions counts as three billable units against
+  the quota:
+  - DELETE API call: one billable unit
+  - Two partitions: two billable units
+
+## Maximum Number of API Requests Per Month
+
+This table lists the maximum number of API requests per month, based on your subscription type:
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Subscription Type</p></td><td><p>Maximum API Requests Per Month</p></td></tr><tr><td><p>Base subscription</p></td><td><p>26 million</p></td></tr><tr><td><p>Premium add-on subscription</p></td><td><p>100 million per add-on subscription</p></td></tr></tbody></table>
+
+If your usage exceeds your license limit, Object Store v2 continues to work. MuleSoft notifies your
+account administrator and team of any billing-related information.
+
+## Access Effective API Request Usage Charts
+
+> [!NOTE] Only the US Cloud and EU Cloud instances of Anypoint Platform support this feature.
+
+To view a chart that shows how many effective API requests your apps have consumed and the number of
+effective API requests that your subscription allows:
+
+1.  In Anypoint Platform, go to **Access Management**.
+2.  Click **Object Store** in the **Subscription** section:
+
+    ![Object Store option in the Subscriptions section of the Access Management navigation](_images/os-access-mgmt-subscription.png)
+
+    The chart shows usage stats for the current and previous month:
+
+    ![Object Store Usage page for effective API requests](_images/os-access-mgmt-usage-chart.png)
+
+    <table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>Percentage and amount of your quota that you have used<div><p>If the usage is 0, the chart displays <code>&lt;1%</code>.</p></div><div><p>The circle graph changes to red as your effective API request usage approaches your quota:</p></div><div><div><img src="_images/os-access-mgmt-requests-color.png" alt="Object Store effective API request graph showing the usage in red"></div></div><div><div data-type="NOTE">Monthly billing usage information might be delayed by up to 24 hours.</div></div></td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Subscription type<div><ul><li><p><code>Base 0.0</code> indicates the Base subscription.</p></li><li><p>Base values greater than <code>0.0</code> indicate Premium add-on subscriptions.</p></li></ul></div></td></tr></tbody></table>
+
+In some cases, the stats for the current month might not load when the backend process updates the
+records. If this happens, use the Object Store v2 Stats API
+[Usage Metrics by Organization](osv2-apis#usage-by-org) to query the daily usage in the current
+month and then add the daily usage together.
+
+## Access Effective API Request Usage Reports
+
+> [!NOTE] Only the Canada Cloud and Japan Cloud instances of Anypoint Platform support this feature.
+
+To view Object Store usage reports in Usage:
+
+1.  In Anypoint Platform, go to **Usage**.
+2.  Select **Object Store** in the **Product** section:
+
+    ![Object Store on the Usage Reports page](_images/os-usage-report.png)
+
+3.  Select a month from the **Monthly Usage Report** tab or day from the **Daily Usage Report** tab.
+
+    The report shows:
+    - Total effective API requests for the selected period
+    - Effective API requests by store
+
+4.  Click **Export as CSV** to download the usage date for the selected period.
+
+For more information, see [Usage Reports](../general/usage-reports).
+
+## Retrieve Usage Metrics with Object Store v2 Stats API
+
+> [!NOTE] Only the US Cloud and EU Cloud instances of Anypoint Platform support this feature.
+
+To use the Object Store v2 Stats API to retrieve usage metrics, see:
+
+- [Get Usage Metrics by Organization](osv2-apis#usage-by-org)
+- [Get Usage Metrics by Environment](osv2-apis#usage-by-env)
+- [Get Usage Metrics by Region](osv2-apis#usage-by-region)
+- [Get Usage Metrics by Store](osv2-apis#usage-by-store)
+
+## See Also
+
+- [Object Store FAQ](osv2-faq)
+

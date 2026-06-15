@@ -1,0 +1,915 @@
+﻿# Azure Event Hubs Connector - Full Documentation
+
+# Azure Event Hubs Connector 1.2 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show several Mule flows for Azure Event Hubs Connector:
+
+- [Send a Single Event and Listen with EventHub Listener](#publish-single-event)  
+  This Mule flow sends a single event to an Event Hub.
+- [Publish a Batch of Events and Listen with Partition Listener](#publish-bulk-event)  
+  This Mule flow sends multiple events simultaneously to an Event Hub.
+- [Send Single Event with Content Type](#configure-json)  
+  This Mule flow sends a single event to an Event Hub with content type as JSON.
+
+## Create a Configuration File for a Connection
+
+Create a configuration file that includes properties for a connection:
+
+1.  Create a file named `mule-app.properties` in the `/src/main/resources/` folder.
+2.  In the `mule-app.properties` file, create a set of properties for the connection, similar to the
+    ones that follow, replacing the bracketed text (including the brackets) with the correct values
+    for your configuration:
+
+    config.namespace = <namespace> config.eventHuName = <eventHuName> ad-config.tenantId =
+    <tenantId> ad-config.clientId = <clientId> ad-config.ClientSecret = <ClientSecret>
+
+        sas-config.sharedAccessKeyName = <sharedAccessKeyName>
+        sas-config.sharedAccessKey = <sharedAccessKey>
+
+        bs-config.containerName = <containerName>
+        bs-config.accountName = <accountName>
+        bs-config.accountKey = <accountKey>
+
+For more information about creating a properties file, refer to
+[Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+## Send a Single Event and Listen with EventHub Listener
+
+This Mule flow sends a single event to an Event Hub. The result is displayed on the console.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Send a single event**  
+  Sends a single event
+- **Logger**  
+  Shows that the event was published
+- **Eventhub listener**  
+  Reads events from an event hub in a namespace.
+- **Logger**  
+  Logs that the event was listened.
+
+![Studio flow for the Send a Single Event flow](_images/aeh-example-1.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:azure-event-hub-management-connector="http://www.mulesoft.org/schema/mule/azure-event-hub-management-connector" xmlns:azure-eventhubs="http://www.mulesoft.org/schema/mule/azure-eventhubs" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/azure-eventhubs http://www.mulesoft.org/schema/mule/azure-eventhubs/current/mule-azure-eventhubs.xsd
+http://www.mulesoft.org/schema/mule/azure-event-hub-management-connector http://www.mulesoft.org/schema/mule/azure-event-hub-management-connector/current/mule-azure-event-hub-management-connector.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+
+
+	<configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+	<http:listener-config name="HTTP_config" doc:name="HTTP Listener config"  >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<azure-eventhubs:azure-eventhubs-config name="ActiveDirectory" doc:name="Azure Event Hubs Connector Azure Event Hubs" >
+		<azure-eventhubs:active-directory-authentication-connection namespace="${config.namespace}" eventHubName="${config.eventHubName}">
+
+	<azure-eventhubs:token-credential-properties tenantId="${ad-config.tenantId}" clientId="${ad-config.clientId}" clientSecret="${ad-config.clientSecret}" />
+			<azure-eventhubs:checkpoint-store-type>
+				<azure-eventhubs:azure-blob-storage-sas-authentication containerName="${bs-config.containerName}" accountName="${bs-config.accountName}" accountKey="${bs-config.accountKey}" />
+			</azure-eventhubs:checkpoint-store-type>
+		</azure-eventhubs:active-directory-authentication-connection>
+	</azure-eventhubs:azure-eventhubs-config>
+
+		<flow name="publish-single-event"  >
+		<http:listener doc:name="events"  config-ref="HTTP_Listener_config" path="/events" allowedMethods="GET"/>
+		<azure-eventhubs:publish doc:name="Send a single event"  config-ref="ActiveDirectory">
+		    <azure-eventhubs:event ><![CDATA[#[{
+            "body":"event to send",
+            "metadata": {
+                "param1": "param 1",
+            "param2": "param 2",
+            }
+            }]]]>
+                </azure-eventhubs:event>
+		</azure-eventhubs:publish>
+		<logger level="INFO" doc:name="Logger" message="messagePublished"/>
+	</flow>
+
+
+	<flow name="EventHubListner" >
+		<azure-eventhubs:eventhub-listener doc:name="Eventhub listener"  config-ref="ActiveDirectory" checkpointFrequency="1" consumerGroup="consumer-group-1 "/>
+		<logger level="INFO" doc:name="Logger" message="Message Received on Event Hub!" />
+	</flow>
+</mule>
+```
+
+### Steps for Running This Example
+
+1.  Verify that your connector is configured.
+2.  Save the project.
+3.  From a web browser, test the application by entering
+    `[http://localhost:8081/events](http://localhost:8081/events)`.
+
+## Publish a Batch of Events and Listen with Partition Listener
+
+This Mule flow sends multiple events simultaneously to an Event Hub. The result is displayed on the
+console.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Publish in bulk**  
+  Sends a batch of events
+- **Logger**  
+  Shows that the events were published
+- **Partition listener**  
+  Reads events from a specific event hub partition in a namespace
+- **Logger**  
+  Logs twice the events listened.
+
+![Studio flow for the Publish a batch of Events flow](_images/aeh-example-2.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:azure-event-hub-management-connector="http://www.mulesoft.org/schema/mule/azure-event-hub-management-connector" xmlns:azure-eventhubs="http://www.mulesoft.org/schema/mule/azure-eventhubs" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/azure-eventhubs http://www.mulesoft.org/schema/mule/azure-eventhubs/current/mule-azure-eventhubs.xsd
+http://www.mulesoft.org/schema/mule/azure-event-hub-management-connector http://www.mulesoft.org/schema/mule/azure-event-hub-management-connector/current/mule-azure-event-hub-management-connector.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+
+
+	<http:listener-config name="HTTP_config_" doc:name="HTTP Listener config"  >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<azure-eventhubs:azure-eventhubs-config name="SAS" doc:name="Azure Event Hubs Connector Azure Event Hubs" >
+		<azure-eventhubs:sas-authentication-connection namespace="${config.namespace}" sharedAccessKeyName="${sas-config.sharedAccessKey}" sharedAccessKey="${sas-config.sharedAccessKeyName}" eventHubName="${config.eventHuName}" >
+		</azure-eventhubs:sas-authentication-connection>
+	</azure-eventhubs:azure-eventhubs-config>
+
+	<configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+		<flow name="Partition-Listener" >
+		<azure-eventhubs:partition-listener doc:name="Partition listener"  config-ref="SAS" partitionId="1">
+			<azure-eventhubs:event-position-type >
+				<azure-eventhubs:latest />
+			</azure-eventhubs:event-position-type>
+		</azure-eventhubs:partition-listener>
+		<logger level="INFO" doc:name="Logger" message='Message received in partition'/>
+	</flow>
+	<flow name="Publish-in-Bulk" >
+		<http:listener doc:name="events"  config-ref="HTTP_Listener_config" path="/bulk" allowedMethods="GET" />
+		<azure-eventhubs:bulk-publish doc:name="Publish in bulk"  config-ref="SAS" maxBatchSizeInBytes="2" partitionId="1">
+			<azure-eventhubs:events ><![CDATA[#[[{
+	"body": "body event1"
+},
+{
+	"body": "body event2"
+}]]]]></azure-eventhubs:events>
+		</azure-eventhubs:bulk-publish>
+		<logger level="INFO" doc:name="Logger" message='A Batch  of messages published' />
+	</flow>
+
+</mule>
+```
+
+### Steps for Running This Example
+
+1.  Verify that your connector is configured.
+2.  Save the project.
+3.  From a web browser, test the application by entering
+    `[http://localhost:8081/bulk](http://localhost:8081/bulk)`.
+
+## Send Single Event with Content Type
+
+This Mule flow sends a single event to an Event Hub with content type as JSON.
+
+![Send Single Event with Content Type configuration in Studio](_images/aeh-example-3.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<flow name="Send-single-event-with-content-type" >
+		<http:listener doc:name="events" config-ref="HTTP_Listener_config" path="/content"  />
+		<azure-eventhubs:publish doc:name="Send a single event" config-ref="ActiveDirectory" partitionId="1" contentType="application/json">
+			<azure-eventhubs:event ><![CDATA[#[{
+ "body": write(payload, "application/json"),
+}]]]></azure-eventhubs:event>
+		</azure-eventhubs:publish>
+		<logger level="INFO" doc:name="Logger" message="Event Published" />
+	</flow>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Event Hubs Connector Reference 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Azure Event Hubs (Azure Event Hubs Connector) enables support for event
+producing and consuming.
+
+## Configurations
+
+---
+
+### Azure Event Hubs
+
+This class represents an extension configuration, values set in this class are commonly used across
+multiple operations since they represent something core from the extension.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#AzureEventhubs_ActiveDirectoryAuthentication">Active Directory Authentication</a></p></li><li><p><a href="#AzureEventhubs_SasAuthentication">SAS Authentication</a></p></li></ul></div></div></td><td><p>Connection types for this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures an expiration policy for the configuration.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Active Directory Authentication
+
+Azure Event Hubs Connector offers two mechanisms to connect to Azure Event Hubs using Active
+Directory:
+
+- Connect with Token Credentials Properties (TenantId, ClientId, and ClientSecret) via service
+  principal authentication.
+- Connect using DefaultAzureCredential that belong to Azure.Identity library.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Token Credential Properties</p></td><td><div><div><p><a href="#TokenCredentialProperties">Token Credential Properties</a></p></div></div></td><td><p>Acquires a token via service principal authentication.</p></td><td></td><td></td></tr><tr><td><p>Use Azure Default Credential</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Use DefaultAzureCredentials mechanism.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Event Hubs namespace name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Azure Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Fully qualified domain name of the Event Hubs namespace.</p></td><td><p>servicebus.windows.net</p></td><td></td></tr><tr><td><p>Authority Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies the Azure active directory host.</p></td><td><p>https://login.microsoftonline.com/</p></td><td></td></tr><tr><td><p>Event Hub Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Event Hub name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Share Connection</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Toggles the builder to use the same connection for producers or consumers.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Checkpoint Store Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#AzureBlobStorageSasAuthentication">Azure Blob Storage SAS Authentication</a></p></li><li><p><a href="#AzureBlobStorageActiveDirectoryAuthentication">Azure Blob Storage Active Directory Authentication</a></p></li></ul></div></div></td><td><p>Select the checkpointing connection provider.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+##### SAS Authentication
+
+A shared access signature (SAS) enables you to grant limited access to resources in your event hubs
+namespace. SAS guards access to Event Hubs resources based on authorization rules. Configure these
+rules either on a namespace or an event hub.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Event Hubs namespace name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Shared access key name given by Azure.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Shared access key value given by Azure.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Event Hub Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Event Hub name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Share Connection</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Toggles the builder to use the same connection for producers or consumers.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Checkpoint Store Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#AzureBlobStorageSasAuthentication">Azure Blob Storage SAS Authentication</a></p></li><li><p><a href="#AzureBlobStorageActiveDirectoryAuthentication">Azure Blob Storage Active Directory Authentication</a></p></li></ul></div></div></td><td><p>Select Azure blob storage connection provider.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Publish in bulk](#BulkPublish)
+- [Send a single event](#Publish)
+
+## Associated Sources
+
+- [Partition Listener](#PartitionListener)
+- [Eventhub Listener](#EventhubListener)
+
+## Operations
+
+## Publish in bulk
+
+`<azure-eventhubs:bulk-publish>`
+
+Sends an event in bulk to a specified event hub.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Events</p></td><td><div><div><p>Array of <a href="#Event">Event</a></p></div></div></td><td><p>The eventâs content.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Correlation Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Correlation ID.</p></td><td></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>A MIME type describing the data contained in the EventBody, intended to allow consumers to make informed decisions for inspecting and processing the event.</p></td><td></td><td></td></tr><tr><td><p>Max Batch Size In Bytes</p></td><td><div><div><p>Number</p></div></div></td><td><p>Allow numbers greater than 24. If not configured, takes the default value configured in the Azure account.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Partition Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Partition ID.</p></td><td></td><td></td></tr><tr><td><p>Partition Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Partition key.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Azure Event Hubs](#AzureEventhubs)
+
+### Throws
+
+- AZURE-EVENTHUBS:AEH_ERROR
+- AZURE-EVENTHUBS:AUTHENTICATION
+- AZURE-EVENTHUBS:CONNECTIVITY
+- AZURE-EVENTHUBS:INVALID_INPUT
+- AZURE-EVENTHUBS:RETRY_EXHAUSTED
+
+## Send a single event
+
+`<azure-eventhubs:publish>`
+
+Sends an event to a specified event hub.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Event</p></td><td><div><div><p><a href="#Event">Event</a></p></div></div></td><td><p>The eventâs content</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Correlation Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Correlation ID.</p></td><td></td><td></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>A MIME type describing the data contained in the EventBody, intended to allow consumers to make informed decisions for inspecting and processing the event.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Partition Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Partition ID.</p></td><td></td><td></td></tr><tr><td><p>Partition Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Partition key.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Azure Event Hubs](#AzureEventhubs)
+
+### Throws
+
+- AZURE-EVENTHUBS:AEH_ERROR
+- AZURE-EVENTHUBS:AUTHENTICATION
+- AZURE-EVENTHUBS:CONNECTIVITY
+- AZURE-EVENTHUBS:INVALID_INPUT
+- AZURE-EVENTHUBS:RETRY_EXHAUSTED
+
+## Sources
+
+## Partition Listener
+
+`<azure-eventhubs:partition-listener>`
+
+Reads events from a specific event hub partition in a namespace.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Partition Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Partition ID of the event hub.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Consumer Group</p></td><td><div><div><p>String</p></div></div></td><td><p>The consumer group to belong to.</p></td><td></td><td></td></tr><tr><td><p>Event Position Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#OffSet">Off Set</a></p></li><li><p>Earliest</p></li><li><p>Latest</p></li><li><p><a href="#Sequence">Sequence</a></p></li><li><p><a href="#EnqueuedTime">Enqueued Time</a></p></li></ul></div></div></td><td><p>Defines the position of an event in an Event Hub partition. The position can be an enqueued time, offset, sequence number, the start of the stream, or the end of the stream.</p></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>On Capacity Overload</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DROP</p></li><li><p>WAIT</p></li></ul></div></div></td><td><p>Strategy that Mule applies when the flow receives more messages than it has the capacity to manage.</p></td><td><p>DROP</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#EventAttributes">Event Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Azure Event Hubs](#AzureEventhubs)
+
+## Eventhub Listener
+
+`<azure-eventhubs:eventhub-listener>`
+
+Reads events from an event hub in a namespace.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Consumer Group</p></td><td><div><div><p>String</p></div></div></td><td><p>The consumer group to belong to.</p></td><td></td><td></td></tr><tr><td><p>Event Position Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p>Earliest</p></li><li><p>Latest</p></li><li><p><a href="#EnqueuedTime">Enqueued Time</a></p></li></ul></div></div></td><td><p>Defines the position of an event in an Event Hub partition. The position can be an enqueued time, the start of the stream, or the end of the stream.</p></td><td></td><td></td></tr><tr><td><p>Checkpoint Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>Frequency of updating the checkpoint. For instance, every 1000 events received.</p></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></td><td></td><td></td></tr><tr><td><p>On Capacity Overload</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DROP</p></li><li><p>WAIT</p></li></ul></div></div></td><td><p>Strategy that Mule applies when the flow receives more messages than it has the capacity to manage.</p></td><td><p>DROP</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#EventAttributes">Event Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Azure Event Hubs](#AzureEventhubs)
+
+## Types
+
+### Token Credential Properties
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Tenant Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Tenant ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Client Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Client Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client secret.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Event Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A MIME type describing the data contained in the EventBody, intended to allow consumers to make informed decisions for inspecting and processing the event.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Correlation ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enqueued Time</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>The date and time, in UTC, of when the event was enqueued in the Event Hub partition.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An application-defined value that uniquely identifies the event. The identifier is a free-form value and can reflect a GUID or an identifier derived from the application context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Metadata</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Custom data added to the Event, it exists only for coordination between event publishers and consumers.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Offset</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>An offset is the position of an event within a partition.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sequence Number</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The sequence number assigned to the event when it was enqueued in the associated Event Hub partition.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Identifier</strong></p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><div><div><p>One or more expressions that determine if a message was redelivered. This property can be set only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>ObjectStore</p></div></div></td><td><div><div><p>Configures the object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+Configures how to identify a redelivered message and how to find out when the message was
+redelivered.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions that determine when a message was redelivered. You can set this property only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Event
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Body</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Body of the event.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Metadata</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Metadata of the event.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Off Set
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Offset</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>An offset is the position of an event within a partition.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Sequence
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Sequence</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The sequence number assigned to the event when it was enqueued in the associated Event Hub partition.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Enqueued Time
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Instant</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Selects the enqueue time to start looking for an event.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Azure Blob Storage SAS Authentication
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Container Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Container name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Account name of the Azure account.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Account key of the Azure account.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Azure Blob Storage Active Directory Authentication
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Token Credential Properties</strong></p></td><td><div><div><p><a href="#TokenCredentialProperties">Token Credential Properties</a></p></div></div></td><td><div><div><p>Acquires a token via service principal authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Azure Default Credential</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Setting this flag to <code>true</code>, DefaultAzureCredential Class(Azure.Identity) is created to get a token to authenticate.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Container Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Container name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Account name of the Azure account.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authority Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the Azure active directory host.</p></div></div></td><td><div><div><p>https://login.microsoftonline.com/</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### SAS Authentication
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Namespace</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Event Hubs namespace name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared Access Key Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Shared access key name given by Azure</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared Access Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Shared access key value given by Azure.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Event Hub Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Event Hub name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Share Connection</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Toggles the builder to use the same connection for producers or consumers.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Checkpoint Store Type</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#AzureBlobStorageSasAuthentication">Azure Blob Storage SAS Authentication</a></p></li><li><p><a href="#AzureBlobStorageActiveDirectoryAuthentication">Azure Blob Storage Active Directory Authentication</a></p></li></ul></div></div></td><td><div><div><p>Select the checkpointing connection provider.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Active Directory Authentication
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Token Credential Properties</strong></p></td><td><div><div><p><a href="#TokenCredentialProperties">Token Credential Properties</a></p></div></div></td><td><div><div><p>Acquires a token via service principal authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Azure Default Credential</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Setting this flag to <code>true</code>, DefaultAzureCredential Class(Azure.Identity) is created to get a token to authenticate.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Namespace</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Event Hubs namespace name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authority Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the Azure active directory host.</p></div></div></td><td><div><div><p>https://login.microsoftonline.com/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Event Hub Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Event Hub name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Share Connection</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Toggles the builder to use the same connection for producers or consumers.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Checkpoint Store Type</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#AzureBlobStorageSasAuthentication">Azure Blob Storage SAS Authentication</a></p></li><li><p><a href="#AzureBlobStorageActiveDirectoryAuthentication">Azure Blob Storage Active Directory Authentication</a></p></li></ul></div></div></td><td><div><div><p>Select the checkpointing connection provider.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+---
+
+# Using Anypoint Studio to Configure Azure Event Hubs Connector 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Use Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio). If,
+after reading this topic, you need additional information about the connector fields, refer to the
+[Azure Event Hub Connector Reference](azure-event-hubs-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Azure Event Hubs Messaging (Azure Event Hubs Messaging Connector) to your
+Mule project to automatically populate the XML code with the connectorâs namespace and schema
+location and add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `azure event hubs messaging` in the search
+    field.
+3.  Click **Azure Event Hubs Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Azure Event Hubs Connector:
+
+- HTTP Listener  
+  Initiates a flow each time it receives a request on the configured host and port
+- Scheduler  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify the connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for Azure Event Hubs Messaging Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Azure Event Hubs** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication that the
+connector requires to access the target Azure Event Hubs system. Azure Event Hubs Connector supports
+SAS authentication and Active Directory authentication.
+
+To configure the global element for Azure Event Hubs Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, in **Connection**, select the authentication method to configure:
+    - [SAS authentication](#config-sas)
+    - [Active Directory authentication](#config-active)
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mul runtime can connect with the specified server.
+6.  Click **OK**.
+
+### Configure SAS Authentication
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure SAS authentication:
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Azure Event Hubs namespace name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Shared access key provided by Azure.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Shared access key value provided by Azure.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Event Hub Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Azure Event Hub name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Share Connection</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Toggles the builder to use the same connection for producers or consumers.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Checkpoint Store Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#AzureBlobStorageSasAuthentication">Configure Azure Blob Storage SAS Authentication</a></p></li><li><p><a href="#AzureBlobStorageActiveDirectoryAuthentication">Configure Azure Blob Storage Active Directory Authentication</a></p></li></ul></div></div></td><td><p>Selects the Azure Blob Storage connection.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p>Reconnection</p></div></div></td><td><p>Configures a reconnection strategy to use when the connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+### Configure Active Directory Authentication
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure Active Directory authentication.
+
+Using this authentication type enables you to configure **Token Credential Properties** or **Use
+default credentials**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Token Credential Properties</p></td><td><div><div><p><a href="#TokenCredentialProperties">Configure Token Credential Properties</a></p></div></div></td><td><p>Acquires a token via service principal authentication.</p></td><td></td><td></td></tr><tr><td><p>Use Azure Default Credential</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Use the DefaultAzureCredentials mechanism.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>Azure Event Hubs namespace name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Authority Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Specifies the Azure Active Directory host. Defaults to <a href="https://login.microsoftonline.com/">https://login.microsoftonline.com/</a></p></td><td></td><td></td></tr><tr><td><p>Event Hub Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Event Hub name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Share Connection</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Toggles the builder to use the same connection for producers or consumers.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Checkpoint Store Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#AzureBlobStorageSasAuthentication">Configure Azure Blob Storage SAS Authentication</a></p></li><li><p><a href="#AzureBlobStorageActiveDirectoryAuthentication">Configure Azure Blob Storage Active Directory Authentication</a></p></li></ul></div></div></td><td><p>Select the checkpointing connection provider.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p>Reconnection</p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+### Configure Azure Blob Storage SAS Authentication
+
+The following table shows the fields for configuring **Azure blob storage sas authentication**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Container Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Container name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Account name of the Azure account.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Account key of the Azure account.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Configure Azure Blob Storage Active Directory Authentication
+
+The following table shows the fields to configure **Azure blob storage active directory
+authentication**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Token Credential Properties</strong></p></td><td><div><div><p><a href="#TokenCredentialProperties">Configure Token Credential Properties</a></p></div></div></td><td><div><div><p>Acquires a token via service principal authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Azure Default Credential</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If you set this flag to <code>true</code>, DefaultAzureCredential Class(Azure.Identity) is created to get a token to authenticate.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Container Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Container name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Account name of the Azure account.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Authority Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the Azure active directory host. Defaults to <a href="https://login.microsoftonline.com/">https://login.microsoftonline.com/</a></p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Configure Token Credential Properties
+
+The following table shows the fields for configuring **Token credentials properties**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Tenant Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Tenant ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Client Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Client Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client secret.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Configuration Examples
+
+The following example shows the configuration for **Sas Authentication** with **Azure blob storage
+sas authentication** in Studio:
+
+![Configuration of azure blob storage SAS authentication](_images/aeh-sas.png)
+
+In the **Configuration XML** editor, the `azure-eventhubs:sas-authentication-connection` and
+`azure-eventhubs:azure-blob-storage-sas-authentication` configurations look like this:
+
+```xml
+	<azure-eventhubs:azure-eventhubs-config name="sas" doc:name="Azure Event Hubs Connector Azure Event Hubs" >
+		<azure-eventhubs:sas-authentication-connection namespace="${config.namespace}" sharedAccessKeyName="${sas-config.sharedAccessKeyName}" sharedAccessKey="${sas-config.sharedAccessKey}" eventHubName="${config.eventHuName}" >
+			<azure-eventhubs:checkpoint-store-type >
+				<azure-eventhubs:azure-blob-storage-sas-authentication containerName="${bs-config.containerName}" accountName="${bs-config.accountName}" accountKey="${bs-config.accountKey}" />
+			</azure-eventhubs:checkpoint-store-type>
+		</azure-eventhubs:sas-authentication-connection>
+	</azure-eventhubs:azure-eventhubs-config>
+```
+
+The following example shows the configuration for **Active directory authentication** with **Azure
+blob storage sas authentication** and **Token credentials properties** in Studio:
+
+![Configuration of active directory authentication with client credentials](_images/aeh-active-directory-client.png)
+
+In the **Configuration XML** editor, the
+`azure-eventhubs:active-directory-authentication-connection`,
+`azure-eventhubs:azure-blob-storage-sas-authentication`, and
+`azure-eventhubs:token-credential-properties` configurations look like this:
+
+```xml
+<azure-eventhubs:azure-eventhubs-config name="ActiveDirectory" doc:name="Azure Event Hubs Connector Azure Event Hubs" >
+		<azure-eventhubs:active-directory-authentication-connection namespace="${config.namespace}" eventHubName="${config.eventHubName}" >
+			<azure-eventhubs:token-credential-properties tenantId="${ad-config.tenantId}" clientId="${ad-config.clientId}" clientSecret="${ad-config.clientSecret}" />
+			<azure-eventhubs:checkpoint-store-type >
+				<azure-eventhubs:azure-blob-storage-sas-authentication containerName="${bs.config.containerName}" accountName="${bs.config.accountName}" accountKey="${bs.config.containerName}" />
+			</azure-eventhubs:checkpoint-store-type>
+		</azure-eventhubs:active-directory-authentication-connection>
+	</azure-eventhubs:azure-eventhubs-config>
+```
+
+The following example shows the configuration for **Active directory authentication** with **Azure
+blob storage active directory authentication** and **Use azure default credentials** in Studio:
+
+![Configuration of active directory authentication with default client credentials](_images/aeh-active-directory-default-client.png)
+
+In the **Configuration XML** editor, the
+`azure-eventhubs:active-directory-authentication-connection`,
+`azure-eventhubs:azure-blob-storage-sas-authentication` , and `useAzureDefaultCredential`
+configurations look like this:
+
+```xml
+<azure-eventhubs:azure-eventhubs-config name="ActiveDirectory" doc:name="Azure Event Hubs Connector Azure Event Hubs"  >
+		<azure-eventhubs:active-directory-authentication-connection namespace="${config.namespace}" eventHubName="${config.eventHubName}" useAzureDefaultCredential="true">
+			<azure-eventhubs:checkpoint-store-type >
+				<azure-eventhubs:azure-blob-storage-active-directory-authentication containerName="${bs-config.containerName}" accountName="${bs-config.accountName}" >
+					<azure-eventhubs:token-credential-properties tenantId="${ad-config.tenantId}" clientId="${ad-config.clientId}" clientSecret="${ad-config.clientSecret}" />
+				</azure-eventhubs:azure-blob-storage-active-directory-authentication>
+			</azure-eventhubs:checkpoint-store-type>
+		</azure-eventhubs:active-directory-authentication-connection>
+	</azure-eventhubs:azure-eventhubs-config>
+```
+
+## Configure Additional Connector Fields
+
+After you configure a global element for Azure Event Hubs Connector, configure the other required
+fields for the connector. The required fields vary depending on which connector operation you use.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Azure Event Hubs Messaging Reference](azure-event-hubs-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting Azure Event Hubs Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Azure Event Hubs Connector, become familiar with the information about enabling
+verbose logging and interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+To get a better understanding of why an application is failing, temporarily enable verbose logging
+for Azure Event Hubs Connector.
+
+Remember to always disable the enhanced verbosity after troubleshooting because it affects your Mule
+application performance.
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name ="com.azure.messaging.eventhubs.checkpointstore.blob" level= "DEBUG"/>
+       <AsyncLogger name="com.azure.messaging.eventhubs" level="DEBUG"/>
+       <AsyncLogger name="com.azure.core.amqp" level="DEBUG"/>
+       <AsyncLogger name="com.azure.identity" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Understand Common Throws
+
+Here is a list of common throws messages and how to interpret them.
+
+- AZURE-EVENTHUBS:AEH_ERROR
+
+  An error occurs in Azure Event Hubs.
+
+- AZURE-EVENTHUBS:AUTHENTICATION
+
+  Unable to authenticate to the Azure Event Hubs server.
+
+- AZURE-EVENTHUBS:CONNECTIVITY
+
+  The client became disconnected from the event hub while attempting to publish an event.
+
+- AZURE-EVENTHUBS:INVALID_INPUT
+
+  The user sent an invalid input.
+
+- AZURE-EVENTHUBS:RETRY_EXHAUSTED
+
+  The maximum number of retries for the operation is reached.
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Azure Event Hubs Connector 1.2 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/azure-event-hubs
+http://www.mulesoft.org/schema/mule/azure-event-hubs/current/mule-azure-event-hubs.xsd
+```
+
+This example shows how the namespace statements are placed in the XML block:
+
+```xml
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:azure-event-hubs="http://www.mulesoft.org/schema/mule/azure-event-hubs"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/azure-event-hubs
+    http://www.mulesoft.org/schema/mule/azure-event-hubs/current/mule-azure-event-hubs.xsd
+    http://www.mulesoft.org/schema/mule/http
+    http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+    http://www.mulesoft.org/schema/mule/ee/core
+    http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-azure-event-hubs-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `azure event hubs`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Event Hubs Connector 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Support Category:
+[Select](https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/versioning-back-support-policy.pdf)
+
+Anypoint Connector for Azure Event Hubs (Azure Event Hubs Connector) enables support for event
+producing and consuming.
+
+Azure Event Hubs is a big data streaming platform and event ingestion service. It can receive and
+process millions of events per second. Data sent to an event hub can be transformed and stored by
+using any real-time analytics provider or batching/storage adapters.
+
+For information about compatibility and fixed issues, refer to the Azure Event Hubs Connector
+Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Azure Event Hubs
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have:
+
+- Credentials to access the Azure Event Hubs target resource
+- Anypoint Platform
+- Anypoint Studio or Anypoint Code Builder
+
+## Common Use Cases for the Connector
+
+Some common use cases for Azure Event Hubs Connector include:
+
+- Sending an event
+- Sending an event to a specific partition
+- Sending a batch of events
+- Listening to events on Event Hubs
+- Listening to events on a specific partition
+
+## Connection Types
+
+Azure Event Hubs Connector uses the SAS authentication and Active Directory authentication type.
+
+## Security
+
+To get secured authentication to Azure Event Hubs, review the following recommendations:
+
+- [Use Java to send events to or receive events from Azure Event Hubs](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-java-get-started-send?tabs=passwordless%2Croles-azure-portal)
+- [Authorizing access to Event Hubs resources using Shared Access Signatures](https://learn.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature)
+- [Passwordless connections for Azure services](https://learn.microsoft.com/en-us/azure/developer/intro/passwordless-overview)
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create an app and configure the connector
+using Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Azure Event Hubs Messaging Connector Reference](azure-event-hubs-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+

@@ -1,0 +1,1158 @@
+﻿# Azure Service Bus Management Connector - Full Documentation
+
+# Azure Service Bus Management 1.0 Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Azure Service Bus Management (Azure Service Bus Management Connector) cannot
+perform a connectivity test at startup using the **Test Connection** button in the global element of
+the connector configuration when you restrict access to your resources and you have a security
+policy with permissions at the resource level only. This scenario occurs because the security policy
+targets the root level of the namespace, which might be forbidden due to the customized policy
+applied to the shared access key.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Management 1.0 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The examples in this section show how to get information about Azure Service Bus queues and how to
+create an Azure Service Bus topic. These examples use variables for some field values. You can
+either:
+
+- Replace the variables with their values in the code
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration
+
+  If you donât know how to use a properties file, see
+  [Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure)
+
+## Get Queue Information Example
+
+This example shows how to get information about a particular queue in the Azure service bus
+instance. The following screenshot shows the Anypoint Studio app flow for this example:
+
+![App flow that shows the components used in the get Get Queue Information example](_images/azure-sb-mgmt-flow-get-queue.png)
+
+Figure 1. App flow for the Get Queue Information example
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the Studio canvas.
+4.  In the **Listener** configuration, click **+** next to the **Connector configuration** field to
+    add a global element.
+5.  Accept the defaults.
+6.  Set the **Path** field to `/queue`.
+
+### Add and Configure the Get Entity Operation Example
+
+Add the **Get Entity** operation to see information about the specified queue, including
+configuration information and information about the metadata:
+
+1.  In the **Mule Palette** view, search for `azure` and select the Azure Service Bus Management
+    Connector **Get Entity** operation.
+2.  Drag the **Get Entity** operation onto the Studio canvas, to the right of **Listener**.
+3.  In the **Get Entity** configuration, click **+** next to the **Connector configuration** field
+    to add a global element.
+4.  Enter values for the **SMS Namespace**, **Shared Access Key Name**, and **Shared Access Key**
+    fields.
+5.  Click **Test Connection** to confirm that Mule can connect with the Azure Service Bus instance:
+    - If the connection is successful, click **OK** to save the configuration.
+    - Otherwise, review to correct any incorrect parameters, and test again.
+
+6.  In the **Entity(Queue or Topic)** field, enter the name of the queue for which you want
+    information.
+
+### Add a Transform Message Component
+
+Add a **Transform Message** component to format the data and show how the metadata is rendered for
+the output of the **Get Entity** operation:
+
+1.  In the **Mule Palette** view, search for `transform`:
+2.  Drag the **Transform Message** component onto the canvas, to the right of the **Get Entity**
+    component.
+3.  In the **Transform Message** configuration, change the display name to `Getting Data`.
+4.  Overlay the brackets in the **Output** section with this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ns ns0 http://www.w3.org/2005/Atom
+    ns ns01 http://schemas.microsoft.com/netservices/2010/10/servicebus/connect
+    ---
+    {
+    "title": payload.ns0#entry.ns0#title,
+    "publishedAt": payload.ns0#entry.ns0#published,
+    "lockDuration": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#LockDuration,
+    "maxSize": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#MaxSizeInMegabytes,
+    "requiresDuplicate": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#RequiresDuplicateDetection,
+    "requiresSession": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#RequiresSession,
+    "deadLettering": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#DeadLetteringOnMessageExpiration,
+    "enabledBatched": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#EnableBatchedOperations,
+    "defaultMTTL": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#DefaultMessageTimeToLive,
+    "duplicateDetection": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#DuplicateDetectionHistoryTimeWindow,
+    }
+    ```
+
+### Add a Logger Component
+
+Add a Logger component to show the response in the **Mule Console**:
+
+1.  In the **Mule Palette** view, search for `logger` and select the **Logger (Core)** component.
+2.  Drag the **Logger (Core)** component onto the Studio canvas, to the right of the **Transform
+    Message** component.
+3.  In the **Message** field of the Logger configuration, enter `#[payload]`.
+4.  Save the project.
+5.  Test the app by sending a GET request to `http://127.0.0.1:8081/queue`.
+
+### XML Code for the Get Queue Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns:azure-service-bus-management="http://www.mulesoft.org/schema/mule/azure-service-bus-management"
+xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/azure-service-bus-management http://www.mulesoft.org/schema/mule/azure-service-bus-management/current/mule-azure-service-bus-management.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+<azure-service-bus-management:config name="Azure_Service_Bus_Management_Connector_Config" doc:name="Azure Service Bus Management Connector Config"  >
+<azure-service-bus-management:shared-access-signature-connection namespace="azure-management-testing" sharedAccessKeyName="RootManageSharedAccessKey" sharedAccessKey="FgBRI++kphTGJcr2OL8G3BLLAdAn3p7newgQ2Ixf7hk="/>
+</azure-service-bus-management:config>
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+<http:listener-connection host="0.0.0.0" port="8081" />
+</http:listener-config>
+<flow name="azure-management-flow"  >
+<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="queue"/>
+<azure-service-bus-management:get-by-entity doc:name="Get Entity" config-ref="Azure_Service_Bus_Management_Connector_Config" entity="your-queue"/>
+<ee:transform doc:name="Getting data"  >
+<ee:message >
+<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+ns ns0 http://www.w3.org/2005/Atom
+ns ns01 http://schemas.microsoft.com/netservices/2010/10/servicebus/connect
+---
+{
+"title": payload.ns0#entry.ns0#title,
+"publishedAt": payload.ns0#entry.ns0#published,
+"lockDuration": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#LockDuration,
+"maxSize": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#MaxSizeInMegabytes,
+"requiresDuplicate": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#RequiresDuplicateDetection,
+"requiresSession": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#RequiresSession,
+"deadLettering": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#DeadLetteringOnMessageExpiration,
+"enabledBatched": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#EnableBatchedOperations,
+"defaultMTTL": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#DefaultMessageTimeToLive,
+"duplicateDetection": payload.ns0#entry.ns0#content.ns01#QueueDescription.ns01#DuplicateDetectionHistoryTimeWindow,
+}]]></ee:set-payload>
+</ee:message>
+</ee:transform>
+<logger level="INFO" doc:name="Logger"  message="#[payload]"/>
+</flow>
+</mule>
+```
+
+## Create Topic Example
+
+This example shows how to create a new topic for the Azure Service Bus instance. The following
+screenshot shows the Anypoint Studio flow for this example:
+
+![App flow that shows the components used in the Create Topic example](_images/azure-sb-mgmt-flow-create-topic.png)
+
+Figure 2. App flow for the Create Topic example
+
+1.  Create a new Mule project in Studio.
+2.  In the **Mule Palette** view, search for `http` and select the **Listener** operation:
+3.  Drag the **Listener** operation onto the canvas.
+4.  In the **Listener** configuration, click **+** next to the **Connector configuration** field to
+    add a global element.
+5.  Set the **Host** field to 0.0.0.0, the **Port** field to `808`, and click **Save**.
+6.  Set the **Path** field to `/topic`.
+
+### Add and Configure the Create or Update Entity Operation
+
+The **Create or Update Entity** operation enables you to create the topic:
+
+1.  In the **Mule Palette** view, search for `azure service bus management` and select the **Create
+    or Update Entity** operation.
+2.  Drag the **Create or Update Entity** operation onto the canvas, to the right of **Listener**.
+3.  In the **Create or Update Entity** configuration, click **+** next to the **Connector
+    configuration** field to add a global element.
+4.  Enter values for the **SMS Namespace**, **Shared Access Key Name**, and **Shared Access Key**
+    fields.
+5.  Click **Test Connection** to confirm that Mule can connect with the Azure Service Bus instance:
+    - If the connection is successful, click **OK** to save the configuration.
+    - Otherwise, review or correct any incorrect parameters, and test again.
+
+6.  In the **Entity(Queue or Topic)** field, enter the name of the queue for which you want
+    information.
+
+### Add a Transform Message Component
+
+Add a **Transform Message** component to format the data and show how the metadata is rendered for
+the output of the **Create or Update Entity** operation:
+
+1.  In the **Mule Palette** view, search for `transform`:
+2.  Drag the **Transform Message** component onto the canvas, to the right of the **Create or Update
+    Entity** component.
+3.  In the **Transform Message** configuration, change the display name to `Getting Data`.
+4.  Overlay the brackets in the **Output** section with this XML:
+
+    ```xml
+    %dw 2.0
+    output application/json
+    ns ns0 http://www.w3.org/2005/Atom
+    ns ns01 http://schemas.microsoft.com/netservices/2010/10/servicebus/connect
+    ---
+    {
+    title: payload.ns0#entry.ns0#title,
+    publishedAt: payload.ns0#entry.ns0#published,
+    maxSize: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#MaxSizeInMegabytes,
+    requiresDuplicate: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#RequiresDuplicateDetection,
+    enableBatched: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#EnableBatchedOperations,
+    defaultMTTL: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#DefaultMessageTimeToLive,
+    duplicateDetection: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#DuplicateDetectionHistoryTimeWindow,
+    }
+    ```
+
+### Add a Logger Component
+
+The Logger component displays the new topic in the **Mule Console**:
+
+1.  In the **Mule Palette** view, search for `logger` and select the **Logger (Core)** component.
+2.  Drag the **Logger (Core)** component onto the Studio canvas, to the right of the **Transform
+    Message** component.
+3.  In the **Message** field of the Logger configuration, enter `#[payload]`.
+4.  Save the project.
+5.  Test the app by sending a GET request to `http://127.0.0.1:8081/topic`.
+
+### XML for the Create Topic Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns:azure-service-bus-management="http://www.mulesoft.org/schema/mule/azure-service-bus-management"
+xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/azure-service-bus-management http://www.mulesoft.org/schema/mule/azure-service-bus-management/current/mule-azure-service-bus-management.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+<azure-service-bus-management:config name="Azure_Service_Bus_Management_Connector_Config" doc:name="Azure Service Bus Management Connector Config" doc:id="a59bdeee-75d3-4708-b3e1-923189366fcf" >
+<azure-service-bus-management:shared-access-signature-connection namespace="azure-management-
+ing" sharedAccessKeyName="RootManageSharedAccessKey" sharedAccessKey="FgBRI++kphTGJcr2OL8G3BLLAdAn3p7newgQ2Ixf7hk="/>
+</azure-service-bus-management:config>
+<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="d3ad3e78-e927-47fd-9aa9-997c5d3cb5ff" >
+<http:listener-connection host="0.0.0.0" port="8081" />
+</http:listener-config>
+<flow name="azure-management-flow" doc:id="2ca28772-b9ce-44ec-a0d3-68568789cb8e" >
+<http:listener doc:name="Listener" doc:id="60a97736-63e4-42bb-8487-e656cad985d6" config-ref="HTTP_Listener_config" path="topic"/>
+<azure-service-bus-management:update-by-entity doc:name="Create or Update Entity" doc:id="b7bda909-831f-4e05-b4da-810adb8b541d" config-ref="Azure_Service_Bus_Management_Connector_Config" entity="topicName">
+<azure-service-bus-management:content ><![CDATA[#['<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+<content type="application/xml">
+<TopicDescription xmlns="http://schemas.microsoft.com/netservices/2010/10/servicebus/connect">
+<MaxSizeInMegabytes>1024</MaxSizeInMegabytes>
+<RequiresDuplicateDetection>false</RequiresDuplicateDetection>
+<EnableBatchedOperations>false</EnableBatchedOperations>
+<DefaultMessageTimeToLive>PT256204778H48M5S</DefaultMessageTimeToLive>
+<DuplicateDetectionHistoryTimeWindow>PT10M</DuplicateDetectionHistoryTimeWindow>
+</TopicDescription>
+</content>
+</entry>']]]></azure-service-bus-management:content>
+</azure-service-bus-management:update-by-entity>
+<ee:transform doc:name="Getting data" doc:id="67b79a1a-2eec-4ed5-a160-c44b14da829b" >
+<ee:message >
+<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+ns ns0 http://www.w3.org/2005/Atom
+ns ns01 http://schemas.microsoft.com/netservices/2010/10/servicebus/connect
+---
+{
+title: payload.ns0#entry.ns0#title,
+publishedAt: payload.ns0#entry.ns0#published,
+maxSize: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#MaxSizeInMegabytes,
+requiresDuplicate: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#RequiresDuplicateDetection,
+enableBatched: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#EnableBatchedOperations,
+defaultMTTL: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#DefaultMessageTimeToLive,
+duplicateDetection: payload.ns0#entry.ns0#content.ns01#TopicDescription.ns01#DuplicateDetectionHistoryTimeWindow,
+}]]></ee:set-payload>
+</ee:message>
+</ee:transform>
+<logger level="INFO" doc:name="Logger" doc:id="577d2989-1b0b-4c95-a16b-3cce4b4ccaca" message="#[payload]"/>
+</flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Management Connector 1.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Support Version: Select
+
+## Configurations
+
+---
+
+### Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name of this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#Config_SharedAccessSignature">Shared Access Signature</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for the request to the remote service.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td><p>MINUTES</p></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier used to reference this element in other components</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Shared Access Signature
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Default Headers</p></td><td><div><div><p>Array of <a href="#DefaultHeader">Default Header</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Query Parameters</p></td><td><div><div><p>Array of <a href="#DefaultQueryParam">Default Query Param</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for establishing connections to the remote service</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the Connection Timeout</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Use Persistent Connections</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If false, each connection is closed after the first request completes.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of outbound connections to keep open at the same time</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Idle Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>A timeout for how long a connection can remain idle before it is closed</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Connection Idle Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the Connection Idle Timeout</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Proxy Config</p></td><td><div><div><p><a href="#Proxy">Proxy</a></p></div></div></td><td><p>A reusable configuration element for outbound connections through a proxy</p></td><td></td><td></td></tr><tr><td><p>Stream Response</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether or not received responses should be streamed</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Response Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The space, in bytes, for the buffer where the HTTP response is stored.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Service Namespace</p></td><td><div><div><p>String</p></div></div></td><td><p>The Azure Service Bus namespace</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of the access key configured on the namespace</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Shared Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>The 256-bit primary key</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Protocol</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>HTTP</p></li><li><p>HTTPS</p></li></ul></div></div></td><td><p>Protocol to use for communication. Valid values are HTTP and HTTPS</p></td><td><p>HTTP</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">Tls</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+## Operations
+
+- [Delete Entity](#DeleteByEntity)
+- [Delete Subscription](#DeleteSubscriptionsByTopicSubscription)
+- [Delete Rule](#DeleteSubscriptionsRulesByTopicSubscriptionRule)
+- [Get Entity](#GetByEntity)
+- [List Queues](#GetResourcesQueues)
+- [List Topics](#GetResourcesTopics)
+- [List Subscriptions](#GetSubscriptionsByTopic)
+- [Get Subscription](#GetSubscriptionsByTopicSubscription)
+- [List Rules](#GetSubscriptionsRulesByTopicSubscription)
+- [Get Rule](#GetSubscriptionsRulesByTopicSubscriptionRule)
+- [Create or Update Entity](#UpdateByEntity)
+- [Create or update Subscription](#UpdateSubscriptionsByTopicSubscription)
+- [Create or Update Rule](#UpdateSubscriptionsRulesByTopicSubscriptionRule)
+
+## Delete Entity
+
+`<azure-service-bus-management:delete-by-entity>`
+
+Deletes the specified entity in the service bus instance. This operation makes an `HTTP DELETE`
+request to the `/{entity}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity (Queue or Topic)</p></td><td><div><div><p>String</p></div></div></td><td><p>The queue or topic to delete</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for the request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Delete Subscription
+
+`<azure-service-bus-management:delete-subscriptions-by-topic-subscription>`
+
+Deletes a subscription over a specified topic. This operation makes an `HTTP DELETE` request to the
+`/{topic}/Subscriptions/{subscription}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic for which to delete a subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic subscription for which to delete a subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for the request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Delete Rule
+
+`<azure-service-bus-management:delete-subscriptions-rules-by-topic-subscription-rule>`
+
+Delete a rule from the service bus instance over a specified subscription and topic. This operation
+makes an `HTTP DELETE` request to the `/{topic}/Subscriptions/{subscription}/rules/{rule}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>The topic subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule</p></td><td><div><div><p>String</p></div></div></td><td><p>The subscription rule</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Get Entity
+
+`<azure-service-bus-management:get-by-entity>`
+
+Retrieves the specified queue or topic from the service bus instance. This operation makes an
+`HTTP GET` request to the `/{entity}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity (Queue or Topic)</p></td><td><div><div><p>String</p></div></div></td><td><p>The queue or topic to retrieve.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for the request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether the request should be sent using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## List Queues
+
+`<azure-service-bus-management:get-resources-queues>`
+
+Retrieves all existing queues from the service bus instance. This operation makes an `HTTP GET`
+request to the `/$Resources/Queues` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether the request should be sent using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## List Topics
+
+`<azure-service-bus-management:get-resources-topics>`
+
+Retrieves all existing topics from the service bus instance. This operation makes an `HTTP GET`
+request to the `/$Resources/Topics` endpoint
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## List Subscriptions
+
+`<azure-service-bus-management:get-subscriptions-by-topic>`
+
+Retrieves all existing subscriptions of the specific topic from the service bus instance. This
+operation makes an `HTTP GET` request to the `/{topic}/Subscriptions` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>The Topic to retrieve all subscriptions</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Get Subscription
+
+`<azure-service-bus-management:get-subscriptions-by-topic-subscription>`
+
+Retrieves the specified subscription. This operation makes an `HTTP GET` request to the
+`/{topic}/Subscriptions/{subscription}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>The topic of the subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>The subscription to retrieve</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## List Rules
+
+`<azure-service-bus-management:get-subscriptions-rules-by-topic-subscription>`
+
+Retrieves from the service bus instance all existing rules of the specified subscription and topic.
+This operation makes an `HTTP GET` request to the `/{topic}/Subscriptions/{subscription}/rules`
+endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic for which to retrieve rules</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic subscription for which to retrieve rules</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Get Rule
+
+`<azure-service-bus-management:get-subscriptions-rules-by-topic-subscription-rule>`
+
+Retrieves a rule over an specific subscription from the service bus instance. This operation makes
+an `HTTP GET` request to the `/{topic}/Subscriptions/{subscription}/rules/{rule}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>The topic subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule</p></td><td><div><div><p>String</p></div></div></td><td><p>The rule to retrieve</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p>#[null]</p></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Create or Update Entity
+
+`<azure-service-bus-management:update-by-entity>`
+
+Creates a queue or topic in the service bus instance. This operation makes an HTTP PUT request to
+the `/{entity}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Entity (Queue or Topic)</p></td><td><div><div><p>String</p></div></div></td><td><p>The queue or topic to update</p></td><td></td><td><p>x</p></td></tr><tr><td></td><td><div><div><p>String</p></div></div></td><td><p>Set this header to `*` to update the entity.</p></td><td></td><td></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>The Topic or Queue description of the entity.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Create or update Subscription
+
+`<azure-service-bus-management:update-subscriptions-by-topic-subscription>`
+
+Creates or updates a subscription over a specified topic. This operation makes an `HTTP PUT` request
+to the `/{topic}/Subscriptions/{subscription}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic for which to create or update a subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic subscription to create or update</p></td><td></td><td><p>x</p></td></tr><tr><td><p>If Match</p></td><td><div><div><p>String</p></div></div></td><td><p>Set this header to * to update the entity.</p></td><td></td><td></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>the content to use</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Create or Update Rule
+
+`<azure-service-bus-management:update-subscriptions-rules-by-topic-subscription-rule>`
+
+Create or update a rule over a specific subscription from the service bus instance. This operation
+makes an `HTTP PUT` request to the `/{topic}/Subscriptions/{subscription}/rules/{rule}` endpoint.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscription</p></td><td><div><div><p>String</p></div></div></td><td><p>The topic subscription</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Rule</p></td><td><div><div><p>String</p></div></div></td><td><p>The rule to create or update</p></td><td></td><td><p>x</p></td></tr><tr><td><p>If Match</p></td><td><div><div><p>String</p></div></div></td><td><p>Set this header to *ÂÂ to update the rule.</p></td><td></td><td></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>The content to use</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Disables the repeatable stream functionality and uses non-repeatable streams, which can have less performance overhead, memory use, and cost</p></td><td></td><td></td></tr><tr><td><p>Custom Query Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Custom Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The timeout for request to the remote service.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit for the Response Timeout</p></td><td></td><td></td></tr><tr><td><p>Streaming Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><p>Indicates whether to send the request using streaming. Set this value to <code>AUTO</code> to have the connector automatically use the best strategy based on the request content.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable that stores the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that evaluates against the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy if there are connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#HttpResponseAttributes">Http Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- AZURE-SERVICE-BUS-MANAGEMENT:BAD_REQUEST
+- AZURE-SERVICE-BUS-MANAGEMENT:CLIENT_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:CONNECTIVITY
+- AZURE-SERVICE-BUS-MANAGEMENT:INTERNAL_SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_ACCEPTABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:NOT_FOUND
+- AZURE-SERVICE-BUS-MANAGEMENT:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVER_ERROR
+- AZURE-SERVICE-BUS-MANAGEMENT:SERVICE_UNAVAILABLE
+- AZURE-SERVICE-BUS-MANAGEMENT:TIMEOUT
+- AZURE-SERVICE-BUS-MANAGEMENT:TOO_MANY_REQUESTS
+- AZURE-SERVICE-BUS-MANAGEMENT:UNAUTHORIZED
+- AZURE-SERVICE-BUS-MANAGEMENT:UNSUPPORTED_MEDIA_TYPE
+
+## Types
+
+### Default Header
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Default Query Param
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Proxy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Non Proxy Hosts</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Tls
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom Ocsp Responder</a></p></li><li><p><a href="#CrlFile">Crl File</a></p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If true, no certificate validations are performed, rendering connections vulnerable to attacks. Use at your own risk.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>When the keystore contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file will be used by default.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Only verify the last element of the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Try CRL instead of OCSP first.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Do not use the secondary checking method (the one not selected previously).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Avoid verification failure when the revocation server can not be reached or is busy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom Ocsp Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Crl File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often, in milliseconds, to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often, in milliseconds, to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy will run in a separate, non-blocking thread</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Http Response Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Status Code</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reason Phrase</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more memory is used than the Max Buffer Size, a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which all these attributes are expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Defines the maximum memory that the stream should use to keep data in memory. If more memory is used than the In Memory Size, the consumed content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit for In Memory Size</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+---
+
+# Using Anypoint Studio to Configure Azure Service Bus Management 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Azure Service Bus Management Reference](azure-service-bus-management-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Azure Service Bus Management (Azure Service Bus Management Connector) to
+your Mule project to automatically populate the XML code with the connectorâs namespace and schema
+location and add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `azure` in the search field.
+3.  Click **Azure Service Bus Management** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source
+
+An input source initiates a flow when a specified condition is met. You can configure one of these
+input sources to use with Azure Service Bus Management Connector:
+
+- `HTTP Listener`, which initiates a flow each time it receives a request on the configured host and
+  port
+- `Scheduler`, which initiates a flow when a time-based condition is met
+
+For example, to configure `HTTP Listener`, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP** > **Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for Azure Service Bus Management Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Azure Service Bus Management** and then select the
+    desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target Azure Service Bus instance. Azure
+Service Bus Management Connector supports shared access signature (SAS) authentication.
+
+To configure the global element for Azure Service Bus Management Connector, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+3.  On the **General** tab, configure shared access signature (SAS) authentication by entering
+    values for these fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>User Action</th></tr></thead><tbody><tr><td><p><strong>Service Namespace</strong></p></td><td><div><div><p>Namespace for the Azure Service Bus Service within your subscription</p></div></div></td></tr><tr><td><p><strong>Shared Access Key Name</strong></p></td><td><div><div><p>Name of your SAS token</p></div></div></td></tr><tr><td><p><strong>Shared Access Key</strong></p></td><td><div><div><p>SAS token</p></div></div></td></tr></tbody></table>
+
+    The following screenshot shows an example of configuring shared access signature (SAS)
+    authentication. This screenshot uses property placeholders for field values. For information
+    about using property placeholders, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+    ![SAS authentication config fields on the General tab](_images/azure-sb-mgmt-authentication.png)
+
+    Figure 1. SAS authentication fields
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+## Configure the Other Connector Fields
+
+After you configure a global element for Azure Service Bus Management Connector, configure the other
+required fields for the connector operation.
+
+For example, to create or update a queue or topic, use the `Create or Update Entity` operation and
+complete these fields:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Entity (Queue or Topic)</strong></p></td><td><div><div><p>Enter the name of the entity to create or update.</p></div></div></td></tr><tr><td><p><strong>If Match</strong></p></td><td><div><div><p>To update an existing entity, set this header to <code>*</code>. Otherwise, leave this field blank.</p></div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Enter the queue description or topic.</p></div></div></td></tr></tbody></table>
+
+## View the App Log
+
+You can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console. Unless the log file path was customized in the appâs log file (`log4j2.xml`), you can
+  also view the app log in this default location: `MULE_HOME/logs/<app-name>.log` For more
+  information about the app log, see
+  [Configuring Logging](../../mule-runtime/latest/logging-in-mule).
+
+## Next Step
+
+See [Additional Configuration Information](azure-service-bus-management-connector-config-topics) for
+more configuration information.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Azure Service Bus Management Reference](azure-service-bus-management-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Management 1.0 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/azure-service-bus-management
+http://www.mulesoft.org/schema/mule/azure-service-bus-management/current/mule-aure-service-bus-management.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:<connector>="http://www.mulesoft.org/schema/mule/<connector>"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/azure-service-bus-management
+	http://www.mulesoft.org/schema/mule/azure-service-bus-management/current/mule-aure-service-bus-management.xsd
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>azure-service-bus-management</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `azure service bus management`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the examples.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Management Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Microsoft Azure Service Bus Management (Azure Service Bus Management
+Connector) enables management integration with Azure Service Bus on the cloud. This connector
+connects to the Azure REST API and supports management operations for queues, topics, and
+subscriptions. In addition, you can use the built-in management API to discover Azure Service Bus
+objects automatically and provision them.
+
+> [!NOTE] This connector supports integrations with Azure Service Bus (cloud). It does not work with
+> Microsoft Windows Service Bus (on-premise). To connect with Microsoft Windows Service Bus
+> on-premise, use
+> [Anypoint Connector for Microsoft Windows Service Bus](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-microsoft-service-bus-connector/).
+
+To use the Azure management API for message integration with Azure Service Bus on the cloud, use the
+Anypoint Connector for Azure Service Bus.
+
+For compatibility information, see the Azure Service Bus Management Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Microsoft Azure REST API
+- Anypoint connectors
+- Mule runtime engine (Mule)
+- Elements in a Mule flow
+- Global elements
+- How to create a Mule app using Anypoint Studio
+
+Before creating an app, you must have access to:
+
+- The Microsoft Azure target resource
+- Anypoint Studio or Anypoint Code Builder
+
+## Common Use Cases For the Connector
+
+Common use cases for this connector include:
+
+- Creating, modifying, and deleting a queue, topic, and subscription
+- Retrieving all queues, topics, and subscriptions from the Azure Service Bus instance
+
+For examples, see [Examples](azure-service-bus-management-connector-examples).
+
+## Audience
+
+- New user
+
+  To create your Mule app, see:
+  - [Using Anypoint Studio to Configure Microsoft Azure Connector](azure-service-bus-management-connector-studio)
+  - [Additional Configuration Information](azure-service-bus-management-connector-config-topics) to
+    help extend your understanding of Azure Service Bus Management connector
+  - [Examples](azure-service-bus-management-connector-examples), which provide one or more use cases
+    for the connector
+
+- Advanced user
+
+  Read the following:
+  - [XML and Maven Support](azure-service-bus-management-connector-xml-maven)
+  - [Additional Configuration Information](azure-service-bus-management-connector-config-topics)
+  - [Examples](azure-service-bus-management-connector-examples)
+
+## Next Step
+
+After you complete the prerequisites and experiment with the examples, you are ready to create an
+app and configure the connector using
+[Anypoint Studio](azure-service-bus-management-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+

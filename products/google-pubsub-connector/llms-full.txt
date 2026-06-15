@@ -1,0 +1,1119 @@
+﻿# Google Pub/Sub Connector - Full Documentation
+
+# Google Pub/Sub Connector 1.2 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+These examples show you how to use Google Pub/Sub Connector to perform the following actions:
+
+- [Create a snapshot](#create-snapshot)
+- [Patch a snapshot](#patch-snapshot)
+- [Get a snapshot](#get-snapshot)
+- [Delete a snapshot](#delete-snapshot)
+- [Publish a message](#publish-message)
+
+## Configure a PubSub Connection
+
+Because this connector uses PubSub to secure connections, you must specify the PubSub Connection
+field values. To do this:
+
+- [Create a configuration file for a PubSub Connection.](#create-config-file)
+- [Configure the PubSub Connection global elements.](#configure-pubsub-global)
+- [Configure a global element for the properties file.](#configure-global)
+
+### Create a Configuration File for a PubSub Connection
+
+Create a configuration file that includes properties for a PubSub Connection:
+
+1.  Create a file named `mule-app.properties` in the `/src/main/resources/` folder.
+2.  In the `mule-app.properties` file, create a set of properties for `PubSub Connection`, similar
+    to the ones that follow, replacing the bracketed text (including the brackets) with the correct
+    values for your configuration:
+
+    config.private_key_id=<privatekeyid> config.private_key=<privatekey> config.client_id=<clientid>
+    config.client_email=<clientemail> config.default_project_id=<defaultprojectid>
+
+    For more information about creating a properties file, refer to
+    [Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure).
+
+### Configure the PubSub Connection Global Elements
+
+Configure global elements for the `PubSub Connection` file:
+
+1.  Create a new Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange** and enter `google pubsub`.
+3.  Add **Google Pub/Sub Connector** to the **Selected modules** section and click **Finish**.
+4.  Click the **Global Elements** tab and click **Create**.
+5.  Select **Connector Configuration > Google PubSub Configuration** and click **OK**.
+6.  Enter the following values:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p><code>Google_Pub_Sub_Configuration</code></p></td></tr><tr><td><p>Private key id</p></td><td><p><code>${config.private_key_id}</code></p></td></tr><tr><td><p>Private key</p></td><td><p><code>${config.private_key}</code></p></td></tr><tr><td><p>Client id</p></td><td><p><code>${config.client_id}</code></p></td></tr><tr><td><p>Client email</p></td><td><p><code>${config.client_email}</code></p></td></tr><tr><td><p>Default Project Id</p></td><td><p><code>${config.default_project_id}</code></p></td></tr><tr><td><p>Default Subscription Name</p></td><td><p><code>orders-subscription</code></p></td></tr><tr><td><p>Default Topic Name</p></td><td><p><code>orders-topic</code></p></td></tr></tbody></table>
+
+7.  Click **OK**.
+
+### Configure a Global Element for the Properties File
+
+Configure a global element for the `mule-app.properties` file so that Mule knows where to find it:
+
+1.  Click the **Global Elements** tab and click **Create**.
+2.  In the **Choose Global Type** dialog, select **Configuration properties** and click **OK**.
+3.  In the **File** field, enter `mule.app.properties`.
+4.  Click **OK**.
+
+## Create a Snapshot
+
+This Mule flow creates a snapshot from the requested subscription.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Create snapshot**  
+  Creates a snapshot
+- **Logger**  
+  Shows the HTTP response from the **Create snapshot** operation
+- **Transform Message**  
+  Outputs the results of the **Create snapshot** operation in JSON format
+
+![Studio Flow for the Create Snapshot Operation](_images/create-snapshot-flow.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:pubsub="http://www.mulesoft.org/schema/mule/pubsub"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+                          http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+                          http://www.mulesoft.org/schema/mule/pubsub http://www.mulesoft.org/schema/mule/pubsub/current/mule-pubsub.xsd
+                          http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <pubsub:config name="Google_Pub_Sub_Configuration" doc:name="Google Pub Sub Configuration" projectId="${config.default_project_id}">
+        <pubsub:connection privateKeyId="${config.private_key_id}" privateKey="${config.private_key}" clientId="${config.client_id}" clientEmail="${config.client_email}" />
+    </pubsub:config>
+
+    <configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+    <flow name="create-snapshot-flow">
+        <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/createSnapshot"/>
+        <pubsub:create-snapshot
+                doc:name="Create snapshot"
+                config-ref="Google_Pub_Sub_Configuration"
+                snapshotName="#[attributes.queryParams.snapshot]"
+                subscriptionName="#[attributes.queryParams.sub]">
+            <pubsub:labels ><![CDATA[#[output application/java
+---
+{
+	"label1" : "test-snapshot-demo"
+}]]]></pubsub:labels>
+        </pubsub:create-snapshot>
+        <logger level="INFO" doc:name="Logger" message="Created Snapshot with name: #[payload.name]"/>
+        <ee:transform doc:name="Transform Message">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
+```
+
+### Steps for Running This Example
+
+1.  Verify that your connector is configured.
+2.  Save the project.
+3.  From a web browser, test the application by entering
+    `[http://localhost:8081/](http://localhost:8081/)`. You should see the **Create Snapshot** form
+    with pre-populated **Snapshot Name** and **Subscription Name** fields.
+
+    ![Create Snapshot Form](_images/create-snapshot.png)
+
+4.  Click **Create Snapshot**. You should see an alert that the snapshot was successfully created.
+
+## Patch a Snapshot
+
+This Mule flow updates an existing snapshot.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Patch snapshot**  
+  Updates a snapshot
+- **Transform Message**  
+  Outputs the results of the **Patch snapshot** operation in JSON format
+- **Logger**  
+  Shows the HTTP response from the **Patch snapshot** operation
+
+![Studio Flow for the Patch Snapshot Operation](_images/patch-snapshot-flow.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:pubsub="http://www.mulesoft.org/schema/mule/pubsub"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+                          http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+                          http://www.mulesoft.org/schema/mule/pubsub http://www.mulesoft.org/schema/mule/pubsub/current/mule-pubsub.xsd
+                          http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <pubsub:config name="Google_Pub_Sub_Configuration" doc:name="Google Pub Sub Configuration" projectId="${config.default_project_id}">
+        <pubsub:connection privateKeyId="${config.private_key_id}" privateKey="${config.private_key}" clientId="${config.client_id}" clientEmail="${config.client_email}" />
+    </pubsub:config>
+
+    <configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+     <flow name="patch-snapshot-flow">
+        <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/patch-snapshot"/>
+        <pubsub:patch-snapshot doc:name="Patch snapshot" config-ref="Google_Pub_Sub_Configuration" updateMask="labels">
+            <pubsub:snapshot><![CDATA[#[%dw 2.0
+output application/json
+ ---
+{
+  "name": "projects/<<project-name>>/snapshots/<<snapshot-name>>",
+    "topic": "projects/<<project-name>>/topic/<<topic-name>>"
+    "expireTime": "2099-01-01T00:00:00Z",
+    "labels": {
+      "label1": "test-patch-snapshot"
+    }
+}]]]></pubsub:snapshot>
+        </pubsub:patch-snapshot>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" message="Updated Snapshot: #[payload]"/>
+    </flow>
+</mule>
+```
+
+## Get a Snapshot
+
+This Mule flow retrieves an existing snapshot.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Get snapshot**  
+  Retrieves a snapshot
+- **Logger**  
+  Shows the HTTP response from the **Get snapshot** operation
+- **Transform Message**  
+  Outputs the results of the **Get snapshot** operation in JSON format
+
+![Studio Flow for the Get Snapshot Operation](_images/get-snapshot-flow.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:pubsub="http://www.mulesoft.org/schema/mule/pubsub"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+                          http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+                          http://www.mulesoft.org/schema/mule/pubsub http://www.mulesoft.org/schema/mule/pubsub/current/mule-pubsub.xsd
+                          http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <pubsub:config name="Google_Pub_Sub_Configuration" doc:name="Google Pub Sub Configuration" projectId="${config.default_project_id}">
+        <pubsub:connection privateKeyId="${config.private_key_id}" privateKey="${config.private_key}" clientId="${config.client_id}" clientEmail="${config.client_email}" />
+    </pubsub:config>
+
+    <configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+    <flow name="get-snapshot-flow">
+        <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/getSnapshot"/>
+        <pubsub:get-snapshot doc:name="Get snapshot" config-ref="Google_Pub_Sub_Configuration" snapshotName="#[attributes.queryParams.getsnapshot]"/>
+        <logger level="INFO" doc:name="Logger" message="Received Snapshot Topic: #[payload.topic]"/>
+        <ee:transform doc:name="Transform Message">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
+```
+
+### Steps for Running This Example
+
+1.  Verify that your connector is configured.
+2.  Save the project.
+3.  From a web browser, test the application by entering
+    `[http://localhost:8081/](http://localhost:8081/)`. You should see the **Get Snapshot** form
+    with a pre-populated **Snapshot Name** field.
+
+    ![Get Snapshot Form](_images/get-snapshot.png)
+
+4.  Click **Get Snapshot**. You should see an alert that the snapshot was successfully retrieved.
+
+## Delete a Snapshot
+
+This Mule flow deletes an existing snapshot.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Delete snapshot**  
+  Deletes a snapshot
+
+![Studio Flow for the Delete Snapshot Operation](_images/delete-snapshot-flow.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:pubsub="http://www.mulesoft.org/schema/mule/pubsub"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+                          http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+                          http://www.mulesoft.org/schema/mule/pubsub http://www.mulesoft.org/schema/mule/pubsub/current/mule-pubsub.xsd
+                          http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <pubsub:config name="Google_Pub_Sub_Configuration" doc:name="Google Pub Sub Configuration" projectId="${config.default_project_id}">
+        <pubsub:connection privateKeyId="${config.private_key_id}" privateKey="${config.private_key}" clientId="${config.client_id}" clientEmail="${config.client_email}" />
+    </pubsub:config>
+
+    <configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+    <flow name="delete-snapshot-flow">
+        <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/deleteSnapshot"/>
+        <pubsub:delete-snapshot doc:name="Delete snapshot" config-ref="Google_Pub_Sub_Configuration" snapshotName="#[attributes.queryParams.deletesnapshot]"/>
+    </flow>
+</mule>
+```
+
+### Steps for Running This Example
+
+1.  Verify that your connector is configured.
+2.  Save the project.
+3.  From a web browser, test the application by entering
+    `[http://localhost:8081/](http://localhost:8081/)`. You should see the **Delete Snapshot** form
+    with a pre-populated **Snapshot Name** field.
+
+    ![Delete Snapshot Form](_images/delete-snapshot.png)
+
+4.  Click **Delete Snapshot**. You should see an alert that the snapshot was successfully deleted.
+
+## Publish a Message
+
+This Mule flow publishes a single message to a selected topic.
+
+This example uses the following operations:
+
+- **HTTP Listener**  
+  Accepts data from HTTP requests
+- **Publish Message**  
+  Publishes a message
+
+![Studio Flow for the Publish Message Operation](_images/publish-message-flow.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:pubsub="http://www.mulesoft.org/schema/mule/pubsub"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+                          http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+                          http://www.mulesoft.org/schema/mule/pubsub http://www.mulesoft.org/schema/mule/pubsub/current/mule-pubsub.xsd
+                          http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+
+    <pubsub:config name="Google_Pub_Sub_Configuration" doc:name="Google Pub Sub Configuration" projectId="${config.default_project_id}">
+        <pubsub:connection privateKeyId="${config.private_key_id}" privateKey="${config.private_key}" clientId="${config.client_id}" clientEmail="${config.client_email}" />
+    </pubsub:config>
+
+    <configuration-properties doc:name="Configuration properties" file="mule-app.properties" />
+
+    <flow name="publish-message-flow">
+        <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/message"/>
+        <pubsub:publish-message
+                doc:name="Publish Message"
+                config-ref="Google_Pub_Sub_Configuration"
+                topicName="#[attributes.queryParams.topicname]"
+                orderingKey="#[attributes.queryParams.orderkey]">
+            <pubsub:message ><![CDATA[#[attributes.queryParams.message]]]></pubsub:message>
+        </pubsub:publish-message>
+    </flow>
+</mule>
+```
+
+### Steps for Running This Example
+
+1.  Verify that your connector is configured.
+2.  Save the project.
+3.  From a web browser, test the application by entering
+    `[http://localhost:8081/](http://localhost:8081/)`. You should see the **Publish Message** form
+    with pre-populated **Topic Name**, **Ordering Key**, and **Message** fields.
+
+    ![Publish Message form](_images/publish-message.png)
+
+4.  Click **Publish Message**. You should see an alert that the snapshot was successfully published.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Google Pub/Sub Connector 1.2 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Configurations
+
+---
+
+### Configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#Config_Connection">PubSub Connection</a></p></div></div></td><td><p>Connection types for this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Default Project Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project. Used in operations. It can be overridden at the config level.</p></td><td></td><td></td></tr><tr><td><p>Default Subscription Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Default subscription for your project. Used in operations. It can be overridden at the config level.</p></td><td></td><td></td></tr><tr><td><p>Default Topic Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Default topic for your project. Used in operations. It can be overridden at the config level.</p></td><td></td><td></td></tr><tr><td><p>Default Snapshot Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Default snapshot for your project. Used in operations. It can be overridden at the operation config level.</p></td><td></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### PubSub Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Authentication Method</p></td><td><div><div><p>String</p></div></div></td><td><p>Authentication method to use for Google Cloud authentication. Supports <strong>Workload Identity Federation with MuleSoft IdP</strong> and <strong>Service Account Credentials</strong> authentication methods.</p></td><td></td><td></td></tr><tr><td><p>MuleSoft IdP Configuration</p></td><td><div><div><p><a href="#WifMuleSoftIdpConfig">Wif MuleSoft Idp Config</a></p></div></div></td><td><p>MuleSoft Identity Provider configuration for WIF authentication. Used when <strong>Authentication Method</strong> is <strong>Workload Identity Federation with MuleSoft IdP</strong>. Supports both manual configuration and WIF config file input with enhanced stream-based processing.</p></td><td></td><td></td></tr><tr><td><p>Private key ID</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the private key for the service account. It is a part of the service-credentials created in PubSub. Used when <strong>Authentication Method</strong> is <strong>Service Account Credentials</strong>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Client ID</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the client for the service account. It is a part of the service-credentials created in PubSub.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Client email</p></td><td><div><div><p>String</p></div></div></td><td><p>Client email for the service account. It is a part of the service-credentials created in PubSub.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Private key</p></td><td><div><div><p>String</p></div></div></td><td><p>Private key for the service account. It is a part of the service-credentials created in PubSub.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Override Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Override host for the Google Pub/Sub API endpoint. If specified along with port, all API calls are directed to this host instead of the default public endpoint.</p></td><td></td><td></td></tr><tr><td><p>Override Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Override port for the Google Pub/Sub API endpoint. If specified along with host, all API calls are directed to this port instead of the default public endpoint.</p></td><td></td><td></td></tr><tr><td><p>Message Count Batch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of messages in the batch. After the maximum number of messages is reached, the elements are wrapped up in a batch and sent.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Request Size Threshold</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum memory size of the messages in the batch. After the maximum memory size is reached, the elements are wrapped up in a batch and sent.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Request Size Threshold Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Data unit for the <strong>Request Size Threshold</strong> field.</p></td><td><p>KB</p></td><td></td></tr><tr><td><p>Publish Delay Threshold</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum delay threshold to use for batching. After the maximum amount of time has elapsed (counting from the first element added), the elements are wrapped up in a batch and sent. This value must not be set too high, especially for the <code>MILLISECONDS</code> time unit. Otherwise, calls might appear to never complete.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Publish Delay Threshold Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Publish Delay Threshold</strong> field.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Enable batching</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Flag for enabling or disabling publish request batching.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Limit Exceeded Behavior</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>THROW_EXCEPTION</p></li><li><p>BLOCK</p></li><li><p>IGNORE</p></li></ul></div></div></td><td><div><div><p>If not set to <code>IGNORE</code>, flow control enables you to control the publishing behavior by specifying limits for <strong>Max Outstanding Request Size</strong> and <strong>Max Outstanding Element Count</strong>.</p></div><div><ul><li><p><code>THROW_EXCEPTION</code></p><div><p>If the memory size or the amount of outstanding elements (messages where no Ack() or Nack() was performed) exceeds the specified limits, the publisher throws a <code>FlowControlException</code>.</p></div></li><li><p><code>BLOCK</code></p><div><p>If the memory size or the amount of outstanding elements (messages where no Ack() or Nack() was performed) exceeds the specified limits, the publisher does not publish more messages.</p></div></li><li><p><code>IGNORE</code></p><div><p>The publisher does not account for specified limits and does not control the message publishing rate.</p></div></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Max Outstanding Request Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of memory accumulated by the request before enforcing flow control.</p></td><td><p>100</p></td><td></td></tr><tr><td><p>Max Outstanding Request Size Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Data unit for the <strong>Max Outstanding Request Size</strong> field.</p></td><td><p>MB</p></td><td></td></tr><tr><td><p>Max Outstanding Element Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of outstanding elements to keep in memory before enforcing flow control.</p></td><td><p>100</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Acknowledge Message](#AcknowledgeMessage)
+- [Create Snapshot](#CreateSnapshot)
+- [Delete Snapshot](#DeleteSnapshot)
+- [Get Snapshot](#GetSnapshot)
+- [Get Snapshot List](#GetSnapshotList)
+- [NACK Message](#NackMessage)
+- [Patch Snapshot](#PatchSnapshot)
+- [Publish Message](#PublishMessage)
+- [Seek Messages](#SeekMessages)
+
+## Associated Sources
+
+- [On message listener](#MessageListener)
+
+## Operations
+
+## Acknowledge Message
+
+`<pubsub:acknowledge-message>`
+
+Acknowledges a message using the provided acknowledgment ID. Use this operation in manual
+acknowledgment mode to explicitly acknowledge messages.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Acknowledgment ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The unique acknowledgment ID received in the message attributes.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:CONNECTIVITY
+- PUBSUB:RETRY_EXHAUSTED
+
+## Create Snapshot
+
+`<pubsub:create-snapshot>`
+
+Creates a snapshot from the requested subscription. Use snapshots in seek operations, which manage
+message acknowledgments in bulk. This operation enables you to set the acknowledgment state of
+messages in an existing subscription to the state captured by a snapshot.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Snapshot Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for a snapshot.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Labels</p></td><td><div><div><p>Object</p></div></div></td><td><p>Key-value pairs that help users to organize Google Cloud resources. Attaching labels to resources filters them based on the labels.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Project ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Subscription Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for the subscription.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#Snapshot">Snapshot</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:ALREADY_EXISTS
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:CONNECTIVITY
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:RETRY_EXHAUSTED
+- PUBSUB:UNAVAILABLE
+
+## Delete Snapshot
+
+`<pubsub:delete-snapshot>`
+
+Deletes an existing snapshot.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Project ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Snapshot Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for a snapshot.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:CONNECTIVITY
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:RETRY_EXHAUSTED
+- PUBSUB:UNAVAILABLE
+
+## Get Snapshot
+
+`<pubsub:get-snapshot>`
+
+Retrieves a snapshot.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Project ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Snapshot Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for a snapshot.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#Snapshot">Snapshot</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:CONNECTIVITY
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:RETRY_EXHAUSTED
+- PUBSUB:UNAVAILABLE
+
+## Get Snapshot List
+
+`<pubsub:get-snapshot-list>`
+
+Retrieves a list of existing snapshots from a selected project.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Project Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryIterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#RepeatableFileStoreIterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#Snapshot">Snapshot</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:UNAVAILABLE
+
+## NACK Message
+
+`<pubsub:nack-message>`
+
+Negatively acknowledges (NACKs) a message using the provided acknowledgment ID. This causes the
+message to redeliver.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Acknowledgment ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The unique acknowledgment ID received in the message attributes.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:CONNECTIVITY
+- PUBSUB:RETRY_EXHAUSTED
+
+## Patch Snapshot
+
+`<pubsub:patch-snapshot>`
+
+Updates an existing snapshot. The name and the topic of the snapshot are not mutable fields and
+cannot be updated.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Snapshot</p></td><td><div><div><p><a href="#Snapshot">Snapshot</a></p></div></div></td><td><p>Snapshot object with updated fields (labels or expireTime).</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Update Mask</p></td><td><div><div><p>String</p></div></div></td><td><p>Indicates which fields in the provided snapshot to update. Must be specified and non-empty. This is a comma-separated list of fully qualified names of fields.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#Snapshot">Snapshot</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:CONNECTIVITY
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:RETRY_EXHAUSTED
+- PUBSUB:UNAVAILABLE
+
+## Publish Message
+
+`<pubsub:publish-message>`
+
+Publishes a single message.
+
+This operation is non-blocking. When batching is enabled, the message is stored only locally until
+any of the batching restrictions are reached.
+
+This operation may lead to high throughput. When using the **Ordering Key** field, processing
+messages in the order they were called is not guaranteed, especially in threaded environments. If
+you must maintain a strict order, set **Max Concurrency** to `1` in your source flow settings and
+add a delay in the for-each loops that contain order critical **Publish** calls.
+
+This operation returns the `messageId`, which is the unique identifier of the sent message in the
+topic.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ordering Key</p></td><td><div><div><p>String</p></div></div></td><td><p>If specified, this field identifies related messages in which the publish order must be respected when the subscriber enables message ordering.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Project ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Topic Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for the topic.</p></td><td></td><td></td></tr><tr><td><p>Message</p></td><td><div><div><p>Binary</p></div></div></td><td><p>Message content published to the topic. If not empty, the message must contain at least one attribute.</p></td><td></td><td></td></tr><tr><td><p>Attributes</p></td><td><div><div><p>Object</p></div></div></td><td><p>Attributes for this message. If empty, the message must contain non-empty data. Can be used to filter messages on the subscription.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:CONNECTIVITY
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:MAX_OUTSTANDING_BATCH_SIZE_REACHED
+- PUBSUB:MAX_OUTSTANDING_ELEMENT_COUNT_REACHED
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:RETRY_EXHAUSTED
+- PUBSUB:UNAVAILABLE
+
+## Seek Messages
+
+`<pubsub:seek-messages>`
+
+Supports the bulk acknowledging or un-acknowledging of messages to a given snapshot or point of time
+based on the provided seek target.
+
+Seeking to a point in time marks every message received by Pub/Sub before the time as acknowledged,
+and all messages received after the time as unacknowledged. You can replay and reprocess previously
+acknowledged messages when seeking to a time in the past or purge messages when seeking to a time in
+the future.
+
+Seeking to a snapshot enables you to redeliver only the messages in the snapshot that match the
+filter of the subscription making the seek request.
+
+Once a snapshot is created, it retains all messages that were unacknowledged in the source
+subscription at the time of the snapshotâs creation and any messages published to the topic
+thereafter. You can replay these unacknowledged messages by using a snapshot to seek to any of the
+topicâs subscriptions.
+
+If you seek to a snapshot using a subscription with a filter, the Pub/Sub service redelivers only
+the messages in the snapshot that match the filter of the subscription making the seek request.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Project ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Subscription Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for the subscription.</p></td><td></td><td></td></tr><tr><td><p>Snapshot Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Snapshot to seek to. The snapshotâs topic must be the same as that of the provided subscription.</p></td><td></td><td></td></tr><tr><td><p>Timestamp</p></td><td><div><div><p>DateTime</p></div></div></td><td><p>Specific time to seek to. Messages retained in the subscription that were published before this time are marked as acknowledged, and messages retained in the subscription that were published after this time are marked as unacknowledged.</p><p><br></p><p>This operation affects only messages retained in the subscription (configured by the combination of <strong>Message Retention Duration</strong> and <strong>Retain Acked Messages</strong>). For example, if the time corresponds to a point before the message retention window (or to a point before the systemâs notion of the subscription creation time), only retained messages are marked as unacknowledged, and already-expunged messages are not restored.</p><p><br></p><p>A timestamp is in RFC3339 UTC Zulu format, with nanosecond resolution and up to nine fractional digits, such as 2014-10-02T15:01:23Z and 2014-10-02T15:01:23.045123456Z.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+### Throws
+
+- PUBSUB:BAD_GATEWAY
+- PUBSUB:CANCELLED
+- PUBSUB:CONNECTIVITY
+- PUBSUB:DEADLINE_EXCEEDED
+- PUBSUB:FAILED_PRECONDITION
+- PUBSUB:INTERNAL
+- PUBSUB:INVALID_ARGUMENT
+- PUBSUB:NOT_FOUND
+- PUBSUB:PERMISSION_DENIED
+- PUBSUB:RETRY_EXHAUSTED
+- PUBSUB:UNAVAILABLE
+
+## Sources
+
+## On message listener
+
+`<pubsub:message-listener>`
+
+Asynchronous message listener that consumes messages from one subscriber.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Consumer count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Provides a specified amount of executor service for processing messages.</p></td><td><p>5</p></td><td></td></tr><tr><td><p>Acknowledgment Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><div><div><p>Acknowledgment mode for message processing:</p></div><div><ul><li><p><code>AUTO</code></p><div><p>Messages are automatically acknowledged on success and NACKed on error.</p></div></li><li><p><code>MANUAL</code></p><div><p>Messages must be explicitly acknowledged using the <strong>Acknowledge Message</strong> operation.</p></div></li></ul></div></div></td><td><p><code>AUTO</code></p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration used to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></td><td></td><td></td></tr><tr><td><p>On Capacity Overload</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WAIT</p></li><li><p>DROP</p></li><li><p>FAIL</p></li></ul></div></div></td><td><p>Strategy that the runtime applies when the flow receives more messages than it has the capacity to handle.</p></td><td><p>WAIT</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Project ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Globally unique identifier for your project.</p></td><td></td><td></td></tr><tr><td><p>Subscription Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Project-wide unique identifier for the subscription.</p></td><td></td><td></td></tr><tr><td><p>Limit Exceeded Behavior</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>THROW_EXCEPTION</p></li><li><p>BLOCK</p></li><li><p>IGNORE</p></li></ul></div></div></td><td><div><div><p>If not set to <code>IGNORE</code>, flow control enables you to control the publishing behavior by specifying limits for <strong>Max Outstanding Request Size</strong> and <strong>Max Outstanding Element Count</strong>.</p></div><div><ul><li><p><code>THROW_EXCEPTION</code></p><div><p>If the memory size or the amount of outstanding elements (messages where no Ack() or Nack() was performed) exceeds the specified limits, the receiver throws a <code>FlowControlException</code>.</p></div></li><li><p><code>BLOCK</code></p><div><p>If the memory size or the amount of outstanding elements (messages where no Ack() or Nack() was performed) exceeds the specified limits, the receiver does not receive more messages.</p></div></li><li><p><code>IGNORE</code></p><div><p>The receiver does not account for specified limits and does not control the message delivery rate.</p></div></li></ul></div></div></td><td><p>Max Outstanding Request Size</p></td><td><div><div><p>Number</p></div></div></td></tr><tr><td><p>Maximum amount of memory accumulated by the request before enforcing flow control.</p></td><td><p>100</p></td><td></td><td><p>Max Outstanding Request Size Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td></tr><tr><td><p>Data unit for the <strong>Max Outstanding Request Size</strong> field.</p></td><td><p>MB</p></td><td></td><td><p>Max Outstanding Element Count</p></td><td><div><div><p>Number</p></div></div></td></tr><tr><td><p>Maximum number of outstanding elements to keep in the memory before enforcing flow control.</p></td><td><p>100</p></td><td></td><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configuration](#Config)
+
+## Types
+
+### Wif MuleSoft Idp Config
+
+Configuration for **Workload Identity Federation with MuleSoft IdP** authentication.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Wif Config File Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the WIF configuration file. If provided, other fields are populated from this file.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Client Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client ID of the MuleSoft Connected App. This identifies the application requesting authentication.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Client Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Client secret of the MuleSoft Connected App. This is used to authenticate the application with MuleSoft.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p><code>true</code></p><div><p>Allow the deployment to fail.</p></div></li><li><p><code>false</code></p><div><p>Ignore the results of the connectivity test.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy will run in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the MAX
+buffer size. Always run performance tests to find the optimal buffer size for your specific use
+case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max In Memory Size value</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Buffer Unit</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Identifier</strong></p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><div><div><p>Defines which strategy is used to identify the messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>ObjectStore</p></div></div></td><td><div><div><p>Configures the object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+Configures how to identify a redelivered message and how to find out when the message was
+redelivered.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions that determine when a message was redelivered. You can set this property only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Snapshot
+
+Snapshot resource. You can use snapshots in seek operations, which manage message acknowledgments in
+bulk. This type enables you to set the acknowledgment state of messages in an existing subscription
+to the state captured by a snapshot.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Expire Time</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>Time length for which the snapshot is guaranteed to exist. The lifetime for a newly-created snapshot is based on the oldest unacked message in the source subscriptionâs backlog, however, the snapshot can exist for a maximum of seven days.</p></div><div><p><br></p></div><div><p>Consider a subscription with an oldest unacked message that is three days old. If a snapshot is created from this subscription, the snapshot will expire in four days. The service will refuse to create a snapshot that will expire in less than one hour after creation.</p></div><div><p><br></p></div><div><p>A timestamp is in RFC3339 UTC Zulu format, with nanosecond resolution and up to nine fractional digits, such as 2014-10-02T15:01:23Z and 2014-10-02T15:01:23.045123456Z.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Labels</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>Object containing a list of key-value pairs, such as { "name": "wrench", "mass": "1.3kg", "count": "3" }.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the snapshot.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Topic</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the topic from which the snapshot retains messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of instances to initially keep in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the <strong>Buffer Size Increment</strong> field, with an upper limit of <strong>Max In Memory Size</strong>.</p></div></div></td><td><div><div><p>100</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div><div><p>100</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of instances to keep in memory. If more than that is required, content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Objects</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Google Pub/Sub Connector 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, refer to
+the [Google Pub/Sub Connector Reference](google-pubsub-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Google Pub/Sub (Google Pub/Sub Connector) to your Mule project to
+automatically populate the XML code with the connectorâs namespace and schema location and add the
+required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `google pubsub` in the search field.
+3.  Click **Google Pub/Sub Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Google Pub/Sub Connector:
+
+- HTTP Listener  
+  Initiates a flow each time it receives a request on the configured host and port
+- Scheduler  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify the connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for Google Pub/Sub Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Google Pub/Sub** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target Google Pub/Sub system. Google Pub/Sub Connector
+supports the PubSub Connection authentication method.
+
+To configure the global element for Google Pub/Sub Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, in **Connection**, select the [PubSub Connection](#pubsub)
+    authentication method to configure.
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, refer to
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+### PubSub Connection
+
+Enter the following information on the **General** tab of the **Global Element Properties** screen
+to configure a PubSub Connection. The field values in this tab are part of the service credentials
+created in PubSub.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>User Action</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Enter the configuration name.</p></div></div></td></tr><tr><td><p><strong>Private key ID</strong></p></td><td><div><div><p>ID of the private key for the service account.</p></div></div></td></tr><tr><td><p><strong>Client ID</strong></p></td><td><div><div><p>ID of the client for the service account.</p></div></div></td></tr><tr><td><p><strong>Client email</strong></p></td><td><div><div><p>Client email for the service account.</p></div></div></td></tr><tr><td><p><strong>Private key</strong></p></td><td><div><div><p>Private key for the service account.</p></div></div></td></tr></tbody></table>
+
+## Configure Additional Connector Fields
+
+After you configure a global element for Google Pub/Sub Connector, configure the other required
+fields for the connector. The required fields vary depending on which connector operation you use.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Google Pub/Sub Connector Reference](google-pubsub-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Google Pub/Sub Connector 1.2 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/google-pubsub
+http://www.mulesoft.org/schema/mule/google-pubsub/current/mule-google-pubsub.xsd
+```
+
+This example shows how the namespace statements are placed in the XML block:
+
+```xml
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:google-pubsub="http://www.mulesoft.org/schema/mule/google-pubsub"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/google-pubsub
+    http://www.mulesoft.org/schema/mule/google-pubsub/current/mule-google-pubsub.xsd
+    http://www.mulesoft.org/schema/mule/http
+    http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+    http://www.mulesoft.org/schema/mule/ee/core
+    http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-google-pubsub-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `google-pubsub`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Google Pub/Sub Connector 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Google Pub/Sub (Google Pub/Sub Connector) enables you to access the Google
+Pub/Sub messaging platform. This connector exposes operations provided by the Google Pub/Sub client
+libraries.
+
+For compatibility information and fixed issues, refer to the Google Pub/Sub Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Google Pub/Sub API
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Credentials to access the target resource
+- Anypoint Studio or Anypoint Code Builder
+
+## Common Use Cases for the Connector
+
+Some common use cases for Google Pub/Sub Connector include:
+
+- Publishing messages
+- Listening to messages
+- Managing snapshots
+- Replaying messages
+
+## Authentication Types
+
+Google Pub/Sub Connector uses the PubSub Connection authentication method, in which you create a
+service account and obtain credentials. For more information, refer to
+[Google Cloud Service Accounts](https://docs.cloud.google.com/iam/docs/service-account-overview).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Google Pub/Sub Connector Reference](google-pubsub-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+

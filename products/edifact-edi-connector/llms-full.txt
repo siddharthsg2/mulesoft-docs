@@ -1,0 +1,740 @@
+﻿# EDIFACT EDI Connector - Full Documentation
+
+# EDIFACT EDI Connector 2.10 Batch Outbound EDIFACT Messages
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+For EDI messages that are not time-sensitive, such as invoice and payment remittances, use the Write
+batch operation to merge multiple individual messages into a single interchange to send to your
+trading partners.
+
+## Batching Stages
+
+Use the Anypoint Connector for EDIFACT EDI (EDIFACT EDI Connector) Write batch operation to merge
+individual EDIFACT messages into a single transmission to send to your trading partners.
+
+> [!NOTE] The EDIFACT Write batch operation does not support merging CONTRL acknowledgement
+> messages.
+
+You implement a batch in two stages:
+
+1.  Accumulate the transactions.
+2.  Release the batch.
+
+### Accumulate the Transactions
+
+To accumulate transactions for a batch:
+
+1.  Transform the payloads into EDIFACT messages using DataWeave and EDIFACT as you receive
+    application messages (such as a JSON invoice) from the backend systems.
+2.  Create EDIFACT payloads using temporary control number keys in the EDIFACT Write operation.
+
+    This enables sending the accumulated EDIFACT as a batch later. The batch is created using
+    control numbers that are not used in the final batch sent to the trading partner, for example,
+    `<edifact:write doc:name="Write individual D97A ORDERS" doc:id="3d51215a-125d-461b-9791-0a939e5ebc45" config-ref="EDIFACT_Write_ORDERS" interchangeControlNumberKey="NTO-MYTHICAL-UNB-TMP"/>`.
+
+3.  Store the intermediate EDIFACT message payloads in your choice of storage, such as a database
+    table:
+
+![Accumulate the transactions](_images/edifact-edi-connector-batch-flow-1.png)
+
+For example, this implementation of a Mule flow:
+
+- Receives JSON payloads from the backend systems.
+- Transforms to an `EDIFACT D97A ORDERS` message.
+- Generates the intermediate EDIFACT message payload using the EDIFACT Write operation.
+- Stores the EDIFACT payload in a database table.
+
+### Release the Batch
+
+Trading partners have varying criteria for how they want transactions batched:
+
+- Release the batch at a specific time interval or a specific time of the day.
+- Release the batch when a specific number of transactions are accumulated.
+- Release the batch when the total size of the accumulated transactions is near a specified
+  threshold.
+
+To release the batch:
+
+1.  Implement the logic or module to monitor the transactions accumulated in the temporary storage
+    and determine when a particular batch is released.
+2.  Retrieve the accumulated intermediate EDIFACT messages from the temporary storage based on the
+    batch criteria, group the transactions together, and then send the appended payload to the
+    EDIFACT Write batch operation.
+
+    You can either use the control number key on the Write batch operation or leave the control
+    number key fields empty at the time of Write batch operation execution, allowing the EDIFACT EDI
+    Connector to generate the control number sequence automatically based on the sender and receiver
+    identifier combination:  
+    `<edifact:write-batch doc:name="Batch" doc:id="3ce80437-63e2-404c-b875-531708b7bfdb" config-ref="EDIFACT_Batch" interchangeControlNumberKey="NTO-MYTHICAL-UNB-TMP"> <edifact:batch-content ><![CDATA[#[vars.mergedInput]]]></edifact:batch-content> </edifact:write-batch>`.
+
+3.  Ensure that the input payload sent to the Write batch operation contains EDI transactions with
+    data elements in the UNB envelope segments, such as `Sender ID`, `Receiver ID`, and
+    `Version number`:
+
+![Release the batch](_images/edifact-edi-connector-batch-flow-2.png)
+
+For example, this implementation of a Mule flow:
+
+- Receives an HTTP request to release accumulated EDIFACT messages transactions for a specific
+  partner. The request is triggered after the batch release criteria are met.
+- Retrieves the intermediate EDIFACT messages from the database table.
+- Applies a transformation to group the individual EDIFACT messages.
+- Sends the appended payload through the EDIFACT Write batch operation to merge the messages into a
+  single transaction.
+- Prints the generated control numbers, which reconcile the inbound functional acknowledgments
+  received from the partners.
+- Delivers the batched EDIFACT transaction to the trading partnerâs SFTP site.
+
+If the input payload contains EDI transactions with non-matching data elements in the envelope
+segments, the Write batch operation throws an exception.
+---
+
+# EDIFACT EDI Connector 2.10 Configuring Schemas
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Standard versions of the schemas for all defined EDIFACT messages and supported versions are
+included with this connector. If your implementation conventions differ from the standard, you can
+create schemas to describe your messages.
+
+## Set Your Schema Locations
+
+To configure schemas in Anypoint Studio:
+
+1.  Switch to the XML view by clicking **Configuration XML**.
+2.  Modify your EDIFACT EDI configuration to include a list of all schemas by adding an
+    `<http://edischema[edi:schema]>` element for each document type:
+
+```xml
+<edifact:config name="EDIFACT_EDI__Configuration" doc:name="EDIFACT EDI: Configuration">
+  <edifact:schemas>
+    <edifact:schema value="/edifact/d96a/ORDERS.esl"/>
+  </edifact:schemas>
+</edifact:config>
+```
+
+After you create a global element for your EDIFACT EDI in Studio, configure any schemas and
+operations.
+
+### Configuration Options in XML
+
+All values listed in the Studio configuration can be set directly in XML.
+
+General parameters control both Send and Receive document handling.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>schemas=list of values</p></td><td><p>List of schema paths the connector can use. Each path can be either a file system or <code>classpath</code>.</p></td></tr><tr><td><p>stringSubstitutionChar</p></td><td><p>Substitution character used to replace invalid characters within string values when using the syntax level UNOA or UNOB.</p></td></tr><tr><td><p>separatorUsage="USE_DEFAULTS"/"USE_SPECIFIED_FOR_WRITES"/"USE_SPECIFIED_FOR_ALL"</p></td><td><p>Specification to use either separator or release characters as defaults for messages.</p></td></tr><tr><td><p>dataSeparator="+"</p></td><td><p>Data element separator character.</p></td></tr><tr><td><p>componentSeparator=":"</p></td><td><p>Component element separator character.</p></td></tr><tr><td><p>repetitionSeparator="*"</p></td><td><p>Repetition separator character.</p></td></tr><tr><td><p>segmentTerminator="'"</p></td><td><p>Segment terminator character.</p></td></tr><tr><td><p>releaseCharacter="?"</p></td><td><p>Release character.</p></td></tr><tr><td><p>lockMechanism="AUTO"/"RUNTIME_LOCK_MANAGER"/"OBJECT_STORE"</p></td><td><p>Mechanism to use to manage locks for control number sequencing.</p></td></tr></tbody></table>
+
+## Self-Identification Parameters
+
+Use these parameters to identify your side of the trading partner relationship:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>interchangeIdSelf</p></td><td><p>Mule interchange Sender or Receiver ID (UNB2.1/UNB3.1).</p></td></tr><tr><td><p>interchangeIdQualifierSelf</p></td><td><p>Interchange Sender or Receiver ID qualifier (UNB2.2/UNB3.2).</p></td></tr></tbody></table>
+
+## Partner Identification Parameters
+
+These identify your partner.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>interchangeIdPartner</p></td><td><p>Partner interchange Sender or Receiver ID for Mule application (UNB2.1/UNB3.1).</p></td></tr><tr><td><p>interchangeIdQualifierPartner</p></td><td><p>Partner interchange Sender or Receiver ID qualifier (UNB2.2/UNB3.2).</p></td></tr></tbody></table>
+
+## Parser Parameters for Error Conditions
+
+These control the parser operation and the types of error conditions that reject Receive messages.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>enforceLengthLimits="true"</p></td><td><p>Enforce the minimum and maximum lengths for receive values.</p></td></tr><tr><td><p>truncateExceedingMaxLength="false"</p></td><td><p>Truncate to the maximum lengths for received values.</p></td></tr><tr><td><p>enforceValueRepeats="true"</p></td><td><p>Enforce the repetition count limits for receive values.</p></td></tr><tr><td><p>enforceReadCharacters="true"</p></td><td><p>Enforce valid characters for a Read operation. Only applies when using syntax levels <code>UNOA</code> and <code>UNOB</code>.</p></td></tr><tr><td><p>allowUnknownSegments="false"</p></td><td><p>Allow unknown segments in a message.</p></td></tr><tr><td><p>enforceSegmentOrder="true"</p></td><td><p>Enforce the segment order in a message.</p></td></tr><tr><td><p>allowUnusedSegments="false"</p></td><td><p>Allow segments marked as <code>Unused</code> in a message.</p></td></tr><tr><td><p>enforceSegmentRepeats="true"</p></td><td><p>Enforce segment repetition count limits in a message.</p></td></tr><tr><td><p>receiveEncodingOverride="false"</p></td><td><p>Java character encoding used for Receive messages. This overrides receive UNB.</p></td></tr><tr><td><p>requireUniqueInterchanges="true"</p></td><td><p>Require unique interchange control references (such as UNB.5). The default behavior records the interchange numbers previously processed and rejects duplicate interchange numbers from the same partner. It is derived from the interchange Sender and Receiver identification. Setting to <code>false</code> enables received interchange processing to continue and relies on the application flow to track the numbers and manage them appropriately.</p></td></tr><tr><td><p>requireUniqueGroups="false"</p></td><td><p>Enforce globally unique group control numbers (UNG.5) for received functional groups. By default, group control numbers must be unique only within an interchange. Setting this value to <code>true</code> requires group numbers to be unique across all interchanges received from the same partner and application, as determined by the interchange sender and recipient identification.</p></td></tr><tr><td><p>requireUniqueMessages="false"</p></td><td><p>Enforce globally unique message reference numbers (UNH.1) for received messages. By default, message reference numbers must be unique only within a particular interchange. Setting this value to <code>true</code> requires message reference numbers to be unique across all interchanges received from the same partner and application, as determined by the interchange sender and recipient identification.</p></td></tr><tr><td><p>daysToStore="30"</p></td><td><p>Minimum number of days to store interchange, group, and message numbers for uniqueness checking.</p></td></tr><tr><td><p>enforceCodeSetValidationsParse="false"</p></td><td><p>Enforce code set validations on the <strong>Read</strong> operation.</p></td></tr><tr><td><p>parseUseVersionAssociationCode="false"</p></td><td><p>Enforce Edifact version using UNH0205 (association code) on the <strong>Read</strong> operation.</p></td></tr></tbody></table>
+
+## Writer Parameters
+
+These control the types of writer operations.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>characterEncoding="ASCII_B"</p></td><td><p>Character encoding used for writing messages. There must be one defined in each EDIFACT syntax version.</p></td></tr><tr><td><p>sendSyntaxVersion="VERSION4"</p></td><td><p>Syntax version for Send messages. Used to determine the data structures for service segments and CONTRL acknowledgment message structures in DataSense metadata for both Send and Receive.</p></td></tr><tr><td><p>lineEnding="NONE" "LF" "CRLF" "CR"</p></td><td><p>Line ending to add between segments. Improves the readability of the output message text by adding line endings between segments.</p></td></tr><tr><td><p>writeUseCRLFLastLine="false"</p></td><td><p>Use the configured <strong>Segment Line Ending</strong> value at the end of the last line.</p></td></tr><tr><td><p>alwaysSendUNA="false"</p></td><td><p>Always send the UNA service segment. A UNA is included only in an interchange when the syntax separator characters donât match the defaults for both the syntax version and character encoding when in use. Setting to <code>true</code> means a UNA is always sent.</p></td></tr><tr><td><p>enforceWriteCharacters="true"</p></td><td><p>Enforce valid characters for a Write operation. This applies when using syntax levels <code>UNOA</code> and <code>UNOB</code>.</p></td></tr><tr><td><p>useWriteFunctionalGroups="false"</p></td><td><p>If <code>true</code>, the connector classifies each message by the corresponding functional group (UNG-UNE), according to its type. By default, the connector doesnât classify messages by functional group.</p></td></tr><tr><td><p>sendUniqueGroupNumbers="false"</p></td><td><p>Send unique group reference numbers (UNG.1). By default, message reference numbers are assigned sequentially within each interchange and are reused in a different interchange. If <code>true</code>, the connector assigns unique message numbers across all interchanges sent to the same partner, as determined by the interchange sender and recipient identification.</p></td></tr><tr><td><p>sendUniqueMessageNumbers="false"</p></td><td><p>Send unique Message Reference Numbers (UNH.1). <code>false</code> (default) assigns message reference numbers sequentially within each interchange and reuses them in a different interchange. <code>true</code> assigns unique transaction set numbers across all interchanges sent to the same partner. It is derived by the interchange sender and recipient identification.</p></td></tr><tr><td><p>initialInterchangeReference="1"</p></td><td><p>The initial interchange control reference used for outgoing messages.</p></td></tr><tr><td><p>initialGroupReference="1"</p></td><td><p>The initial group reference number used for outgoing messages.</p></td></tr><tr><td><p>initialMessageReference="1"</p></td><td><p>The initial Message Reference Number used for outgoing messages.</p></td></tr><tr><td><p>requestAcks="false"</p></td><td><p>Request acknowledgments for Send interchanges using the Acknowledgment Request field (UNB.9).</p></td></tr><tr><td><p>testIndicator=""</p></td><td><p>Test indicator digit used on Send interchanges (UNB.11). By default interchanges are not sent as tests.</p></td></tr><tr><td><p>useSuppliedValues="false"</p></td><td><p>Choose your own data values for control-segment identifiers such as <code>UNB</code> and <code>UNZ</code> segments or use the supplied values. <code>false</code> always generates control numbers when writing letting you choose values.</p></td></tr><tr><td><p>outputEdiMimeType="APPLICATION_PLAIN"/"APPLICATION_EDIFACT"</p></td><td><p>Output MIME type of the message.</p></td></tr><tr><td><p>writeInterchangeControlNumberKey=""</p></td><td><p>Interchange number key for the object store. If a key is specified, it is used for subsequent operations that use the object store for interchange control numbers.</p></td></tr><tr><td><p>writeGroupControlNumberKey=""</p></td><td><p>Group control number key for the object store. If a key is specified, it is used for subsequent operations that use the object store for group control numbers.</p></td></tr><tr><td><p>writeMessageControlNumberKey=""</p></td><td><p>Message control number key for the object store. If a key is specified, it is used for subsequent operations that use the object store for message control numbers.</p></td></tr><tr><td><p>writeEnforceLengthLimits="true"</p></td><td><p>Enforce minimum and maximum lengths for write values. The default of <code>true</code> throws an exception when an element is too long or too short. <code>false</code> leaves the values as-is.</p></td></tr><tr><td><p>writeTruncateExceedingMaxLength="false"</p></td><td><p>Truncate to the maximum lengths for received values.</p></td></tr><tr><td><p>enforceCodeSetValidationsWrite="false"</p></td><td><p>Enforce code set validations on the <strong>Write</strong> operation.</p></td></tr><tr><td><p>writeUseVersionAssociationCode="false"</p></td><td><p>Enforce Edifact version using UNH0205 (association code) on the <strong>Write</strong> operation.</p></td></tr></tbody></table>
+
+## Write-Batch Parameters
+
+These control the types of write-batch operations.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value (default)</th><th>Studio Option</th></tr></thead><tbody><tr><td><p>batchCharacterEncoding="ASCII_B"</p></td><td><p>Character encoding used for writing messages. There must be one defined in each EDIFACT syntax version.</p></td></tr><tr><td><p>batchSendSyntaxVersion="VERSION4"</p></td><td><p>Syntax version for Send messages. Used to determine the data structures for service segments and CONTRL acknowledgment message structures in DataSense metadata for both Send and Receive.</p></td></tr><tr><td><p>batchLineEnding="NONE"/"LF"/"CRLF"/"CR"</p></td><td><p>Line ending to add between segments. Improves the readability of the output message text by adding line endings between segments.</p></td></tr><tr><td><p>batchUseCRLFLastLine="false"</p></td><td><p>Use the configured <strong>Segment Line Ending</strong> value at the end of the last line.</p></td></tr><tr><td><p>batchAlwaysSendUNA="false"</p></td><td><p>Always send the UNA service segment. A UNA is included only in an interchange when the syntax separator characters donât match the defaults for both the syntax version and character encoding when in use. Setting to <code>true</code> means a UNA is always sent.</p></td></tr><tr><td><p>batchEnforceWriteCharacters="true"</p></td><td><p>Enforce valid characters for a Write operation. This applies when using syntax levels <code>UNOA</code> and <code>UNOB</code>.</p></td></tr><tr><td><p>batchSendUniqueMessageNumbers="false"</p></td><td><p>Send unique Message Reference Numbers (UNH.1). <code>false</code> (default) assigns Message Reference Numbers sequentially within each interchange and reuses them in a different interchange. <code>true</code> assigns unique transaction set numbers across all interchanges sent to the same partner. It is derived by the interchange sender and recipient identification.</p></td></tr><tr><td><p>useBatchFunctionalGroups="false"</p></td><td><p>If <code>true</code>, the connector classifies each message by the corresponding functional group (UNG-UNE). By default, messages are not classified by functional group.</p></td></tr><tr><td><p>batchSendUniqueGroupNumbers="false"</p></td><td><p>Send unique group reference numbers (UNG.1). By default, the connector assigns message reference numbers sequentially within each interchange and reuses them in different interchanges. If <code>true</code>, the connector assigns unique message reference numbers across all interchanges sent to the same partner, as determined by the interchange sender and recipient identification.</p></td></tr><tr><td><p>batchInitialInterchangeReference="1"</p></td><td><p>The initial interchange control reference used for outgoing messages.</p></td></tr><tr><td><p>batchInitialGroupReference="1"</p></td><td><p>The initial group reference number used for outgoing messages.</p></td></tr><tr><td><p>batchInitialMessageReference="1"</p></td><td><p>The initial Message Reference Number used for outgoing messages.</p></td></tr><tr><td><p>batchRequestAcks="false"</p></td><td><p>Request acknowledgments for Send interchanges using the Acknowledgment Request field (UNB.9).</p></td></tr><tr><td><p>batchTestIndicator=""</p></td><td><p>Test indicator digit used on Send interchanges (UNB.11). By default interchanges are not sent as tests.</p></td></tr><tr><td><p>batchUseSuppliedValues="false"</p></td><td><p>Choose your own data values for control-segment identifiers such as <code>UNB</code> and <code>UNZ</code> segments or use the supplied values. <code>false</code> always generates control numbers when writing, letting you choose values.</p></td></tr><tr><td><p>batchOutputEdiMimeType="APPLICATION_PLAIN"/"APPLICATION_EDIFACT"</p></td><td><p>Output MIME type of the message.</p></td></tr><tr><td><p>batchInterchangeControlNumberKey=""</p></td><td><p>Interchange number key for object store. If a key is specified, then that key is used for subsequent operations involving the object store for interchange control numbers.</p></td></tr><tr><td><p>batchGroupNumberKey=""</p></td><td><p>Group control number key for the object store. If a key is specified, it is used for subsequent operations that use the object store for the group control numbers.</p></td></tr><tr><td><p>batchMessageControlNumberKey=""</p></td><td><p>Message control number key for an object store. If a key is specified, it is used for subsequent operations that use the object store for the message control number.</p></td></tr><tr><td><p>batchEnforceLengthLimits="true"</p></td><td><p>Enforce minimum and maximum lengths for write values. If true, a element with values too long or too short throws an exception; if false, the values are used anyway.</p></td></tr><tr><td><p>batchTruncateExceedingMaxLength="false"</p></td><td><p>Truncate to the maximum lengths for received values.</p></td></tr><tr><td><p>enforceCodeSetValidationsBatch="false"</p></td><td><p>Enforce code set validations on the <strong>Write Batch</strong> operation.</p></td></tr><tr><td><p>batchUseVersionAssociationCode="false"</p></td><td><p>Enforce Edifact version using UNH0205 (association code) on the <strong>Write Batch</strong> operation.</p></td></tr></tbody></table>
+
+## Next Step
+
+After you complete configuring the connector, you can try the
+[Examples](edifact-edi-connector-examples).
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# EDIFACT EDI Connector 2.10 Control Numbers
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Using the Write operation in the Anypoint Connector for EDIFACT EDI (EDIFACT EDI Connector), you can
+generate control numbers on the generated EDIFACT payload by:
+
+- Managing global control numbers through control number keys
+- Managing identifier combination control numbers
+- Using your own control number
+
+## Manage Global Control Numbers Through Control Number Keys
+
+If your organization or your trading partner must maintain unique interchange, group, or transaction
+set control numbers across different identifier combinations and document types:
+
+- Set the configuration `Use supplied values` to `false`.
+- Leverage the control number key configurations (at the configuration level or operation level) to
+  set a key unique to the partner.
+
+  By default, the control number key configurations pass dynamically at the operation level. You can
+  then use this group control number key across different identifiers and transaction types for the
+  same partner.
+
+![EDIFACT EDI Connector Control Numbers](_images/edifact-edi-connector-control-number.jpg)
+
+## Manage Identifier Combination Control Numbers
+
+If you want the connector to automatically maintain control number sequencing based on the
+sender/receiver identifiers and you do not require global control numbers at a partner level, then
+set the Write configuration `Use supplied values` to `false`. When no value passes into the optional
+interchange, group, or transaction number key configurations, the sender/receiver identifier
+combination is the default.
+
+## Use Your Own Control Number
+
+If you must generate the control numbers and use them on the EDI payload, you can set the parameter
+`Use supplied values` to `true`, and map the control number in the payload to the DataWeave map.
+---
+
+# EDIFACT EDI Connector 2.10 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show how to read, validate, and write EDI messages. In addition, you can send
+functional and interchange acknowlegments to your trading partners.
+
+## XML for EDIFACT Studio
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:edifact="http://www.mulesoft.org/schema/mule/edifact"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/edifact
+http://www.mulesoft.org/schema/mule/edifact/current/mule-edifact.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+  <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+    <http:listener-connection host="localhost" port="8081" />
+  </http:listener-config>
+  <edifact:config name="EDIFACT_EDI_Config" doc:name="EDIFACT EDI Config"
+    interchangeIdSelf="mule"
+    interchangeIdQualifierSelf="ZZZ"
+    interchangeIdPartner="partner"
+    interchangeIdQualifierPartner="ZZZ">
+    <edifact:schemas>
+      <edifact:schema value="/edifact/d96a/ORDERS.esl"/>
+      <edifact:schema value="/edifact/d99b/CUSRES.esl"/>
+    </edifact:schemas>
+  </edifact:config>
+  <flow name="edifactmappingFlow">
+     <http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/map" />
+     <edifact:read doc:name="Read" config-ref="EDIFACT_EDI_Config"/>
+     <ee:transform doc:name="Transform Message">
+       <ee:message >
+         <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+    Messages: {
+        D96A: {
+            ORDERS: payload.Messages.D96A.ORDERS
+        }
+    }
+}]]></ee:set-payload>
+       </ee:message>
+     </ee:transform>
+     <edifact:write doc:name="Write" config-ref="EDIFACT_EDI_Config"/>
+  </flow>
+</mule>
+```
+
+## Read and Validate EDIFACT EDI Messages
+
+1.  To read an EDIFACT message, search the **Mule Palette** for EDIFACT EDI, and drag the EDIFACT
+    **Read** operation into a flow.
+2.  Go to the properties view, select the connector configuration you created and select the
+    **Read** operation.
+
+This reads any byte stream into the structure described by your EDIFACT schemas.
+
+The EDIFACT module validates the message when it reads it. Message validation includes checking the
+syntax and content of the envelope segments UNB and UNZ as well as the actual messages within the
+message. Normally errors are both logged, accumulated, and reported in CONTRL acknowledgment
+messages and all accepted messages (whether error free or with non-fatal errors) are passed on for
+processing as part of the output message Map. Exceptions are thrown Errors when reading the input
+data.
+
+Error data entered in the receive data map uses the `EdifactError` class. This is a read-only
+JavaBean with these properties:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Property</th><th>Description</th></tr></thead><tbody><tr><td><p>segment</p></td><td><p>The zero-based index within the input of the segment causing the error</p></td></tr><tr><td><p>fatal</p></td><td><p>Flag for a fatal error. This means the associated message, group, or interchange is rejected as a result of the error.</p></td></tr><tr><td><p>errorCode</p></td><td><p>EDIFACT syntax error code</p></td></tr><tr><td><p>errorText</p></td><td><p>Text description of the error</p></td></tr></tbody></table>
+
+Error data is returned by the Read operation as optional lists with the `Errors` key at both the
+root level of the data structure and at the message level. For the message level, the list contains
+non-fatal errors encountered during the message parsing. For the root level, the list contains both
+interchange errors and fatal message errors.
+
+## Write EDIFACT EDI Messages
+
+- To write an outgoing message, search the **Mule Palette** for EDIFACT EDI and drag the EDIFACT
+  **Write** operation into a flow.
+- Construct an outgoing EDIFACT EDI message according to the structure as defined for input to the
+  write operation.
+
+If no fatal errors are found in the Write operation, the normal flow continues. Otherwise, an
+exception is thrown that describes the error.
+
+## Send Functional Acknowledgments
+
+Sending generated functional acknowledgments (CONTRL messages) is the same as writing any other type
+of EDI message except that transactions are set to the acknowledgments that were generated during
+the Read operation.
+
+For example:
+
+```xml
+<edifact-edi:read config-ref="EDIFACT_EDI__Configuration" doc:name="Read EDI Doc"/>
+  ...
+<dw:transform-message doc:name="Create Outgoing Acks Message">
+    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	FunctionalAcksToSend: payload.FunctionalAcksGenerated
+}]]></dw:set-payload>
+</dw:transform-message>
+<edifact-edi:write config-ref="EDIFACT_EDI__Configuration" doc:name="Send Acks"/>
+```
+
+The generated functional acknowledgments have interchange data set up for sending back to the sender
+of the original message, so itâs not required to change anything in the transactions to perform the
+send.
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# EDIFACT EDI Connector 2.10 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Default Configuration
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>ID used to reference this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><p>ExpirationPolicy</p></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances when appropriate.</p></td><td></td><td></td></tr><tr><td><p>Mule interchange ID</p></td><td><p>String</p></td><td><div><div><p>Identification for the Mule app in the exchange (UNB segment). This value is used in combination with the value of the <strong>Mule ID qualifier</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNB interchange recipient identification must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNB interchange sender identification unless it is overridden in the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Mule ID qualifier</p></td><td><p>String</p></td><td><div><div><p>Identification qualifier for the Mule app in the exchange (UNB segment). This value is used in combination with the value of the <strong>Mule interchange ID</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNB interchange recipient identification code qualifier must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNB interchange sender identification code qualifier unless it is overridden in either the send configuration or the message parameters.</p></li></ul></div></div></td><td></td><td><p>1</p></td></tr><tr><td><p>Mule application sender/recipient ID</p></td><td><p>String</p></td><td><div><div><p>Identification for the Mule app in the exchange (UNG segment). This value is used in combination with the value of the <strong>Mule application sender/recipient ID qualifier</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNG group recipient identification must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNG group sender identification unless it is overridden in the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Mule application sender/recipient ID qualifier</p></td><td><p>String</p></td><td><div><div><p>Identification qualifier for the Mule app in the exchange (UNG segment). This value is used in combination with the value of the <strong>Mule application sender/recipient ID</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNG group recipient identification code qualifier must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNG group sender identification code qualifier unless it is overridden in either the send configuration or the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner interchange ID</p></td><td><p>String</p></td><td><div><div><p>Identification for the partner in the exchange (UNB segment). This value is used in combination with the value of the <strong>Partner ID qualifier</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNB interchange sender identification must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNB interchange recipient identification code unless it is overridden in either the send configuration or the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner ID qualifier</p></td><td><p>String</p></td><td><div><div><p>Identification qualifier for the partner in the exchange (UNB segment). This value is used in combination with the value of the <strong>Partner Interchange ID</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNB interchange sender identification code qualifier must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNB interchange recipient identification code qualifier unless it is overridden in either the send configuration or the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner application sender/recipient ID</p></td><td><p>String</p></td><td><div><div><p>Identification for the partner in the exchange (UNG segment). This value is used in combination with the value of the <strong>Partner application sender/recipient ID qualifier</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNG group sender identification must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNG group recipient identification code unless it is overridden in either the send configuration or the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Partner application sender/recipient ID qualifier</p></td><td><p>String</p></td><td><div><div><p>Identification qualifier for the partner in the exchange (UNG segment). This value is used in combination with the value of the <strong>Partner application sender/recipient ID</strong> field, and if one field is set, the other must also be set.<br><br>If set, this value affects both send and receive message handling:</p></div><div><ul><li><p>On the receive side, the UNG group sender identification code qualifier must match this value.</p></li><li><p>On the send side, the connector uses this value as the UNG group recipient identification code qualifier unless it is overridden in either the send configuration or the message parameters.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Schema definitions</p></td><td><p>Array of String</p></td><td><p>List of schema file system paths or class paths for the module to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Substitution character</p></td><td><p>String</p></td><td><p>Substitution character used to replace invalid characters in string values when using syntax level <code>UNOA</code> or <code>UNOB</code>. The use of this substitution character, if set, is controlled by separate parser and writer flags.</p></td><td></td><td></td></tr><tr><td><p>Separators usage</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>USE_DEFAULTS</p></li><li><p>USE_SPECIFIED_FOR_WRITES</p></li><li><p>USE_SPECIFIED_FOR_ALL</p></li></ul></div></div></td><td><div><div><p>Defines how specified separator and release characters are used:</p></div><div><ul><li><p>USE_DEFAULTS</p><div><p>Use defaults as defined by EDIFACT syntax version standards.</p></div></li><li><p>USE_SPECIFIED_FOR_WRITES</p><div><p>Use standard default delimiters for reads and specified delimiters as defaults for writes.</p></div></li><li><p>USE_SPECIFIED_FOR_ALL</p><div><p>Use specified delimiters as the defaults for both reads and writes.</p></div></li></ul></div></div></td><td><p>USE_SPECIFIED_FOR_ALL</p></td><td></td></tr><tr><td><p>Data element separator</p></td><td><p>String</p></td><td><p>Default data element separator character.</p></td><td><p>+</p></td><td></td></tr><tr><td><p>Component element separator</p></td><td><p>String</p></td><td><p>Component element separator character.</p></td><td><p>:</p></td><td></td></tr><tr><td><p>Repetition separator</p></td><td><p>String</p></td><td><p>Repetition separator character.</p></td><td><p>*</p></td><td></td></tr><tr><td><p>Segment terminator</p></td><td><p>String</p></td><td><p>Segment terminator character.</p></td><td><p>'</p></td><td></td></tr><tr><td><p>Release character</p></td><td><p>String</p></td><td><p>Release character.</p></td><td><p>?</p></td><td></td></tr><tr><td><p>Timezone offset</p></td><td><p>String</p></td><td><p>Time zone offset from the UTC to apply to the date and time elements in the Interchange Header (UNB) segment. This field accepts only values compliant with ISO 8601 (which are UTC-based), for example, <code>-01:00</code>, <code>+0100</code>, <code>-0130</code>, and so on.<br><br>If you donât specify a value for this field, the Interchange Header segment date and times are set to the local time of the Mule runtime.</p></td><td></td><td></td></tr><tr><td><p>Enforce length limits</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce minimum and maximum lengths for receive values:</p></div><div><ul><li><p>true</p><div><p>The connector rejects messages with values that are too long or too short.</p></div></li><li><p>false</p><div><p>The connector uses the values and does not reject the messages.</p></div></li></ul></div><div><p>In either case, the error is logged and reported in CONTRL functional acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Enforce value repeats</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce repetition count limits for receive values:</p></div><div><ul><li><p>true</p><div><p>The connector rejects messages that have values repeated too many or too few times.</p></div></li><li><p>false</p><div><p>The connector uses the values and does not reject the messages.</p></div></li></ul></div><div><p>In either case, the error is reported in CONTRL functional acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Enforce valid characters</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce valid characters when using syntax levels UNOA and UNOB:</p></div><div><ul><li><p>true</p><div><p>The connector rejects received messages that contain characters that the syntax level does not allow.</p></div></li><li><p>false</p><div><p>If a substitution character is set, the connector uses it in place of the disallowed characters. Otherwise, the connector passes the disallowed characters through.</p></div></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Allow unknown segments</p></td><td><p>Boolean</p></td><td><div><div><p>Allow unknown segments in a message:</p></div><div><ul><li><p>true</p><div><p>The connector ignores the unknown segments and does not reject the messages.</p></div></li><li><p>false</p><div><p>The connector rejects messages that contain unknown segments.</p></div></li></ul></div><div><p>In either case, the error is reported in CONTRL functional acknowledgments.</p></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Enforce segment order</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce segment order in a message:</p></div><div><ul><li><p>true</p><div><p>The connect rejects messages that have out-of-order segments.</p></div></li><li><p>false</p><div><p>The connector does not reject messages if their out-of-order segments can be reordered.</p></div></li></ul></div><div><p>In either case, the error is reported in CONTRL functional acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Allow unused segments</p></td><td><p>Boolean</p></td><td><div><div><p>Allow segments marked as <code>Unused</code> in the schema:</p></div><div><ul><li><p>true</p><div><p>The connector ignores unused segments and does not reject the messages.</p></div></li><li><p>false</p><div><p>The connector rejects messages that contain segments marked as <code>Unused</code> in the schema.</p></div><div><p>In either case, the error is reported in CONTRL functional acknowledgments.</p></div></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Enforce segment repeats</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce segment repetition count limits in a message:</p></div><div><ul><li><p>true</p><div><p>The connector rejects messages that have a segment repeated too many times.</p></div></li><li><p>false</p><div><p>The connector does not reject the messages.</p></div></li></ul></div><div><p>In either case, the error is reported in CONTRL functional acknowledgments.</p></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Character encoding override</p></td><td><p>String</p></td><td><p>Character encoding override for receive messages, which must be a Java character encoding name. Normally, character encoding is determined by the syntax identifier in the UNB header segment, but the connector uses this value instead, if it is set.</p></td><td></td><td></td></tr><tr><td><p>Require unique interchanges</p></td><td><p>Boolean</p></td><td><div><div><p>Reject an interchange if the Interchange Control Reference has previously been processed:</p></div><div><ul><li><p>true</p><div><p>Record the interchange numbers previously processed and reject any duplicate interchange numbers from the same partner, as determined by the interchange sender and receiver identification.</p></div></li><li><p>false</p><div><p>The application flow tracks the numbers and handles them appropriately.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Require unique groups</p></td><td><p>Boolean</p></td><td><div><div><p>Reject a group if the group control reference was processed previously:</p></div><div><ul><li><p>true</p><div><p>Record the group numbers processed previously and reject duplicate group numbers from the same partner, as determined by the interchange sender and receiver identification.</p></div></li><li><p>false</p><div><p>The application flow tracks the numbers and handles them appropriately.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Require unique messages</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce globally unique Message Reference Numbers (UNH.1) for received messages:</p></div><div><ul><li><p>true</p><div><p>Message reference numbers must be unique across all interchanges received from the same partner and application, as determined by the interchange sender and recipient identification.</p></div></li><li><p>false</p><div><p>Message reference numbers must be unique within a particular interchange.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Store time-to-live</p></td><td><p>Number</p></td><td><p>Minimum number of days to store interchange and message numbers in the default persistent object store. This value is used only when the configuration requires unique interchanges, message numbers, or both. It sets the entry time-to-live for these stored values.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Write character encoding</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ASCII_A</p></li><li><p>ASCII_B</p></li><li><p>ISO8859_1</p></li><li><p>ISO8859_2</p></li><li><p>ISO8859_3</p></li><li><p>ISO8859_4</p></li><li><p>ISO8859_5</p></li><li><p>ISO8859_6</p></li><li><p>ISO8859_7</p></li><li><p>ISO8859_8</p></li><li><p>ISO8859_9</p></li><li><p>UTF8</p></li></ul></div></div></td><td><p>Character encoding used for writing messages.</p></td><td><p>ASCII_B</p></td><td></td></tr><tr><td><p>Syntax version</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>VERSION1</p></li><li><p>VERSION2</p></li><li><p>VERSION3</p></li><li><p>VERSION4</p></li></ul></div></div></td><td><p>Syntax version for send messages. This version determines the data structures used for service segments and CONTRL acknowledgment message structures in DataSense metadata for both send and receive messages. The actual message data for receive messages reflects the syntax version used in the received interchange.</p></td><td><p>VERSION4</p></td><td></td></tr><tr><td><p>Segment line ending</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>LF</p></li><li><p>CRLF</p></li><li><p>CR</p></li></ul></div></div></td><td><p>Line ending to add between segments. This can improve the readability of the output message text.</p></td><td><p>NONE</p></td><td></td></tr><tr><td><p>Always send UNA</p></td><td><p>Boolean</p></td><td><div><div><ul><li><p>true</p><div><p>Always send a UNA service segment.</p></div></li><li><p>false</p><div><p>Include a UNA in an interchange when the syntax separator characters donât match the defaults for the syntax version and character encoding in use.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Enforce valid characters</p></td><td><p>Boolean</p></td><td><div><div><p>Enforce valid characters when using syntax levels UNOA and UNOB.</p></div><div><ul><li><p>true</p><div><p>The connector rejects received messages that contain characters not allowed by the syntax level.</p></div></li><li><p>false</p><div><p>The connector either uses a substitution character if one is set, or passes the disallowed characters through.</p></div></li></ul></div></div></td><td><p>true</p></td><td></td></tr><tr><td><p>Use Functional Groups</p></td><td><p>Boolean</p></td><td><div><div><p>Group messages with the same functional group identifier inside UNG-UNE envelopes:</p></div><div><ul><li><p>true</p><div><p>Groups messages into UNG-UNE segments.</p></div></li><li><p>false</p><div><p>Writes all messages in the same interchange.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Unique group numbers</p></td><td><p>Boolean</p></td><td><div><div><p>Send unique message reference numbers (UNG.5):</p></div><div><ul><li><p>true</p><div><p>Assigns unique transaction set numbers across all groups sent to the same partner, as determined by the group sender and recipient identification.</p></div></li><li><p>false</p><div><p>Assigns message reference numbers sequentially within each group and reuses them in different interchanges.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Unique message numbers</p></td><td><p>Boolean</p></td><td><div><div><p>Send unique Message Reference Numbers (UNH.1):</p></div><div><ul><li><p>true</p><div><p>Assigns unique transaction set numbers across all interchanges sent to the same partner, as determined by the interchange sender and recipient identification.</p></div></li><li><p>false</p><div><p>Assigns message reference numbers sequentially within each interchange and reuses them in different interchanges.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Initial group reference</p></td><td><p>String</p></td><td><p>The initial group control reference used for outgoing messages.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Initial interchange reference</p></td><td><p>String</p></td><td><p>The initial interchange control reference used for outgoing messages.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Initial message reference</p></td><td><p>String</p></td><td><p>The initial message reference number used for outgoing messages.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Request acknowledgments</p></td><td><p>Boolean</p></td><td><div><div><p>Requests acknowledgments for Send interchanges using the Acknowledgment Request field (UNB.9):</p></div><div><ul><li><p>true</p><div><p>Requests CONTRL acknowledgments in all sent interchanges.</p></div></li><li><p>false</p><div><p>Requests receipt confirmations.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Test indicator</p></td><td><p>String</p></td><td><p>Test indicator digit to use on Send interchanges. By default, interchanges are not sent as tests.</p></td><td></td><td></td></tr><tr><td><p>Use Supplied Values</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to generate control numbers when writing or use supplied values for control-segment information such as control numbers:</p></div><div><ul><li><p>true</p><div><p>The connector uses the provided control-segment information.</p></div></li><li><p>false</p><div><p>The connector automatically generates control numbers when writing.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Interchange control number key</p></td><td><p>String</p></td><td><p>Key-value pair of the interchange control key and interchange control number.</p></td><td><p>NONE</p></td><td></td></tr><tr><td><p>Message control number key</p></td><td><p>String</p></td><td><p>Key-value pair of the message control key and message control number.</p></td><td><p>NONE</p></td><td></td></tr><tr><td><p>Group control number key</p></td><td><p>String</p></td><td><p>Key-value pair of the group control key and group control number.</p></td><td><p>NONE</p></td><td></td></tr><tr><td><p>Truncate values exceeding the length limits</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to truncate values that exceed the length limits:</p></div><div><ul><li><p>true</p><div><p>If the <strong>Enforce length limits</strong> field is also true, the connector trims values that exceed the maximum length.</p></div></li><li><p>false</p><div><p>The connector writes the values as they are.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Enforce code set validations</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to enforce code set validations:</p></div><div><ul><li><p>true</p><div><p>The connector enforces code set validations, as defined in the EDIFACT schemas.</p></div></li><li><p>false</p><div><p>The connector does not enforce code set validations.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Use Version Association Code</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to use UNH0205 (Version Association Code):</p></div><div><ul><li><p>true</p><div><p>The connector uses UNH0205 (Version Association Code).</p></div></li><li><p>false</p><div><p>The connector does not use UNH0205 (Version Association Code)</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Use segment line ending in the last line</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to use segment line ending characters in the last line of the segment:</p></div><div><ul><li><p>true</p><div><p>The connector uses the configured <strong>Segment line ending</strong> value at the end of the last line in the segment.</p></div></li><li><p>false</p><div><p>The connector does not use the configured <strong>Segment line ending</strong> value at the end of the last line in the segment.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr><tr><td><p>Lock Mechanism</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>RUNTIME_LOCK_MANAGER</p></li><li><p>OBJECT_STORE</p></li></ul></div></div></td><td><div><div><p>Determines the mechanism used to manage locks for control number sequencing. Valid values are:</p></div><div><ul><li><p><code>AUTO</code></p><div><p>The connector chooses between <code>OBJECT_STORE</code> and <code>RUNTIME_LOCK_MANAGER</code> based on the environment in which the Mule app is running.</p></div><div><ul><li><p>When the app is deployed to CloudHub 1.0, the connector uses the <code>OBJECT_STORE</code> mechanism for lock management.</p></li><li><p>When the app is deployed to standalone Mule runtime, Runtime Fabric, or CloudHub 2.0, the connector uses the <a href="../../mule-runtime/latest/distributed-locking">runtimeâs distributed locking</a>.</p></li></ul></div><div><p>You can use this option with:</p></div><div><ul><li><p>CloudHub 1.0 deployments with multiple workers or replicas</p></li><li><p>CloudHub 2.0 and Runtime Fabric deployments with one worker or replica</p></li><li><p>Hybrid standalone deployments, including clustered Mule runtimes</p></li></ul></div></li><li><p><code>RUNTIME_LOCK_MANAGER</code></p><div><p>The connector always uses the runtimeâs distributed locking mechanism. (Recommended when the environment has only one worker.)</p></div><div><p>You can use this option with:</p></div><div><ul><li><p>CloudHub 1.0, CloudHub 2.0, and Runtime Fabric deployments with one worker or replica</p></li><li><p>Hybrid standalone deployments, including clustered Mule runtimes</p></li></ul></div></li><li><p><code>OBJECT_STORE</code></p><div><p>The connector always uses an alternative mechanism in environments in which the runtimeâs distributed locking mechanism doesnât work. (Recommended when the environment has more than one worker.)</p></div><div><p>You can use this option with:</p></div><div><ul><li><p>CloudHub 1.0, CloudHub 2.0, and Runtime Fabric deployments with multiple workers or replicas</p></li><li><p>Hybrid standalone deployments, including clustered Mule runtimes</p></li></ul></div></li></ul></div></div></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Acknowledge every transaction</p></td><td><p>Boolean</p></td><td><div><div><p>Whether to include the UCM Segment in the acknowledgement of every transaction:</p></div><div><ul><li><p>true</p><div><p>The connector uses the configured <strong>ackAllSets</strong> value to include the UCM Segment for every transaction, even if the EDIFACT message is not rejected.</p></div></li><li><p>false</p><div><p>The connector only includes the UCM segment when the EDIFACT message is rejected, not for every transaction.</p></div></li></ul></div></div></td><td><p>false</p></td><td></td></tr></tbody></table>
+
+## Operations
+
+- [Read](#read)
+- [Write](#write)
+- [Write batch](#write-batch)
+
+### Read
+
+`<edifact:read>`
+
+Transforms an input stream of EDI text into maps and lists the structure of EDI data.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Read Content</p></td><td><p>Binary</p></td><td><p>Input payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><p>String</p></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><p>String</p></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- config
+
+#### Throws
+
+- EDIFACT:SCHEMA
+- EDIFACT:WRITE
+- EDIFACT:UNKNOWN
+- EDIFACT:PARSE
+
+### Write
+
+`<edifact:write>`
+
+Transforms the maps and lists the structure of EDI data in the EDI text stream.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Write Content</p></td><td><p>Object</p></td><td><p>Input payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p><a href="#repeatable-file-store-stream">Repeatable file store stream</a></p></li><li><p><a href="#repeatable-in-memory-stream">Repeatable in memory stream</a></p></li><li><p>Non repeatable stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams.</p></td><td><p>Repeatable file store stream</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><p>String</p></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><p>String</p></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- config
+
+#### Throws
+
+- EDIFACT:SCHEMA
+- EDIFACT:WRITE
+- EDIFACT:UNKNOWN
+- EDIFACT:PARSE
+
+### Write batch
+
+`<edifact:write-batch>`
+
+Merges individual EDIFACT messages created and accumulated over a period of time into a single
+interchange (UNB).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch Content</p></td><td><p>Binary</p></td><td><p>Input payload.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><p>String</p></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><p>String</p></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><div><div><p>Type</p></div></div></td><td><div><div><p>Binary</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- config
+
+#### Throws
+
+- EDIFACT:SCHEMA
+- EDIFACT:WRITE
+- EDIFACT:UNKNOWN
+- EDIFACT:PARSE
+
+## Types
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><p>Number</p></td><td><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the <strong>Max Idle Time</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable in memory stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><p>Number</p></td><td><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of the <strong>Max In Memory Size</strong> value.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><p>Number</p></td><td><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><p>Number</p></td><td><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which the fields in this table are expressed.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable file store stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><p>Number</p></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk.<br><br>This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit for the <strong>Max In Memory Size</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure EDIFACT EDI Connector 2.10
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the other connector fields](#configure-other-fields).
+
+If, after reading this topic, you need additional information about the connector fields, see the
+[EDIFACT EDI Reference](edifact-edi-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add EDIFACT EDI Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `EDIFACT EDI` in the search field.
+3.  Click EDIFACT EDI in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure this source to use
+with EDIFACT EDI Connector:
+
+- HTTP Listener  
+  Initiates a flow each time it receives a request on the configured host and port.
+
+For example, to configure an HTTP Listener source, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP Listener source in the app.
+6.  On the **General** tab, specify connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform. To add an operation for EDIFACT EDI Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **EDIFACT EDI** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the authentication credentials
+that the connector requires to access the target EDIFACT EDI system.
+
+To configure the global element for EDIFACT EDI Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, in **Connection**, select the authentication method to configure.
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties.
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+## Configure Additional Connector Fields
+
+After you configure a global element for EDIFACT EDI, configure other optional or required fields
+for the connector. The required fields vary depending on which connector operation you use.
+
+## Next Step
+
+See [Configuring Schemas](edifact-edi-connector-config-topics) for more configuration steps.
+
+## See Also
+
+- [EDIFACT EDI Connector Reference](edifact-edi-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# EDIFACT EDI Connector 2.10 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/edifact-edi
+http://www.mulesoft.org/schema/mule/edifact-edi/current/mule-edifact-edi.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/edifact-edi"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/edifact-edi
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-edifact-extension</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `<version>` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `EDIFACT EDI`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](edifact-edi-connector-examples).
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# EDIFACT EDI Connector 2.10 Supported Versions
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This connector supports these EDIFACT versions with supplied schema definitions for all standard
+messages.
+
+<table><colgroup><col></colgroup><thead><tr><th>Version</th></tr></thead><tbody><tr><td><p>D.00A</p></td></tr><tr><td><p>D.00B</p></td></tr><tr><td><p>D.01A</p></td></tr><tr><td><p>D.01B</p></td></tr><tr><td><p>D.01B.EAN003</p></td></tr><tr><td><p>D.01B.EAN004</p></td></tr><tr><td><p>D.01B.EAN005</p></td></tr><tr><td><p>D.01B.EAN006</p></td></tr><tr><td><p>D.01B.EAN007</p></td></tr><tr><td><p>D.01B.EAN008</p></td></tr><tr><td><p>D.01B.EAN010</p></td></tr><tr><td><p>D.01C</p></td></tr><tr><td><p>D.02A</p></td></tr><tr><td><p>D.02B</p></td></tr><tr><td><p>D.03A</p></td></tr><tr><td><p>D.03B</p></td></tr><tr><td><p>D.04A</p></td></tr><tr><td><p>D.04B</p></td></tr><tr><td><p>D.05A</p></td></tr><tr><td><p>D.05B</p></td></tr><tr><td><p>D.06A</p></td></tr><tr><td><p>D.06B</p></td></tr><tr><td><p>D.07A</p></td></tr><tr><td><p>D.07B</p></td></tr><tr><td><p>D.08A</p></td></tr><tr><td><p>D.08B</p></td></tr><tr><td><p>D.09A</p></td></tr><tr><td><p>D.09B</p></td></tr><tr><td><p>D.10A</p></td></tr><tr><td><p>D.10B</p></td></tr><tr><td><p>D.11A</p></td></tr><tr><td><p>D.11B</p></td></tr><tr><td><p>D.12A</p></td></tr><tr><td><p>D.12B</p></td></tr><tr><td><p>D.13A</p></td></tr><tr><td><p>D.13B</p></td></tr><tr><td><p>D.14A</p></td></tr><tr><td><p>D.14B</p></td></tr><tr><td><p>D.15A</p></td></tr><tr><td><p>D.15B</p></td></tr><tr><td><p>D.16A</p></td></tr><tr><td><p>D.16B</p></td></tr><tr><td><p>D.17A</p></td></tr><tr><td><p>D.17B</p></td></tr><tr><td><p>D.18A</p></td></tr><tr><td><p>D.18B</p></td></tr><tr><td><p>D.93A</p></td></tr><tr><td><p>D.93A.EAN001</p></td></tr><tr><td><p>D.93A.EAN002</p></td></tr><tr><td><p>D.93A.EAN003</p></td></tr><tr><td><p>D.93A.EAN004</p></td></tr><tr><td><p>D.93A.EAN005</p></td></tr><tr><td><p>D.93A.EAN007</p></td></tr><tr><td><p>D.95B</p></td></tr><tr><td><p>D.96A</p></td></tr><tr><td><p>D.96A.EAN001</p></td></tr><tr><td><p>D.96A.EAN002</p></td></tr><tr><td><p>D.96A.EAN003</p></td></tr><tr><td><p>D.96A.EAN004</p></td></tr><tr><td><p>D.96A.EAN005</p></td></tr><tr><td><p>D.96A.EAN006</p></td></tr><tr><td><p>D.96A.EAN008</p></td></tr><tr><td><p>D.96B</p></td></tr><tr><td><p>D.97A</p></td></tr><tr><td><p>D.98A</p></td></tr><tr><td><p>D.98B</p></td></tr><tr><td><p>D.99A</p></td></tr><tr><td><p>D.99B</p></td></tr><tr><td><p>S.93A</p></td></tr></tbody></table>
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# EDIFACT EDI Connector 2.10
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for EDIFACT EDI (EDIFACT Connector) enables you to convert EDIFACT messages to
+and from DataWeave-compatible representations using lists and maps.
+
+You can check the [supported EDIFACT versions](edifact-edi-versions) for supplied schema definitions
+for all standard messages.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+To use EDIFACT EDI Connector, you must have:
+
+- A MuleSoft license for Anypoint B2B
+- Anypoint Studio or Anypoint Code Builder
+
+> [!NOTE] EDIFACT Connector supports files of up to 15 MB in size, and the memory requirement is
+> approximately 40 to 1. For example, a 1-MB file requires up to 40 MB of memory to process, so itâs
+> important to consider this memory requirement in conjunction with your Transactions Per Second
+> (TPS) needs for large X12 files. This is not an exact figure; the value varies according to the
+> complexity of the mapping instructions.
+
+### Understanding the EDI Schema Language
+
+The EDIFACT EDI Connector uses a YAML format called EDI Schema Language (ESL) to represent EDI
+schemas. Basic ESLs define the structure of EDI messages in terms of:
+
+- Structures, known as messages, in EDIFACT terminology
+- Groups, segments, composites, and elements
+
+You can customize the EDIFACT schema definitions to suit your data by defining an _overlay schema_.
+An _overlay schema_ is a type of ESL that enables you to modify a base schema, such as an EDIFACT
+D.98B ORDERS schema, with your specific conventions. You donât need an _overlay schema_ if youâre
+using the structure defined by the standard, but most EDI exchanges modify the base definitions in
+an implementation convention.
+
+You can also define your schemas, or copy and edit a base EDIFACT schema definition to suit your
+data as shown in the
+[EDI Schema Language Reference](../../x12-edi-connector/latest/x12-edi-schema-language-reference).
+
+## Finding Schema Locations
+
+To use the connector, you need to know the locations of the schemas in your project. If youâre using
+base EDIFACT schemas and not customizing anything, the schema location follows the
+`/edifact/{version}/{message}.esl` convention. For example, using the D.98B version of the ORDERS
+message, your schema location is `/edifact/d98b/ORDERS.esl`.
+
+If youâre using one or more custom schemas, place these in the `src/main/resources` directory and
+refer to the location relative to this directory. For example, if youâve put your ORDERS schema
+(either overlay or full) in `src/main/resources/mypartner/ORDERS.esl`, your schema location is
+`/mypartner/ORDERS.esl`.
+
+## The Hierarchy of EDIFACT Connector Message Structure
+
+Use this connector to read or write EDIFACT documents in (or from) the canonical EDI message
+structure. This structure is a hierarchy of Java Map and List objects. You use either DataWeave or
+code to manipulate them. Each transaction has its own structure as defined in the schemas.
+
+The message contains the following keys, some of which apply to either the Read operation or the
+Write operation, as indicated:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key Name</th><th>Description</th></tr></thead><tbody><tr><td><p>Delimiters</p></td><td><p>An optional set of delimiters used in the message. If used in a Read operation, the delimiters are based on the most recent interchange processed by a Read operation. If used for a Write operation, the delimiters override the values in the module configuration. The characters in the string of delimiters are interpreted based on their position in string, in the following order: data element separator, component element separator, repetition separator, segment terminator, release character.</p></td></tr><tr><td><p>Errors (read only)</p></td><td><p>A list of errors that are associated either with the input as a whole or with interchanges that have no valid transaction sets.</p></td></tr><tr><td><p>FunctionalAcksGenerated (read only)</p></td><td><p>A list of <code>CONTRL</code> acknowledgments that are generated by the module during the Read operation.</p></td></tr><tr><td><p>FunctionalAcksToSend (write only)</p></td><td><p>A list of <code>CONTRL</code> acknowledgments that are sent by the module during the Write operation.</p></td></tr><tr><td><p>Interchange (write only)</p></td><td><p>Map of UNB interchange header segment values used as defaults during an interchange Write operation.</p></td></tr><tr><td><p>Messages</p></td><td><p>A hierarchy of messages that are either read by the module during a Read operation or sent by the module during a Write operation. The value of this top-level key is a map with standard versions as keys, in the form <code>D96A</code>. For example, if you are using version <code>D96.A ORDERS</code> and <code>CUSRES</code> messages, the Messages contain a map with one key, <code>D96A</code>. The value of this key is another map, one with two keys, <code>ORDERS</code> and <code>CUSRES</code>. Each of these contains a list of individual ORDERS and CUSRES messages that are processed.</p></td></tr></tbody></table>
+
+Individual messages have their own maps, with the following keys:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><p>Detail</p></td><td><p>Map of segments or loops from the detail section of the message. Values are maps for segments or loops that occur once. Lists of maps are for values that occur more than once.</p></td></tr><tr><td><p>Errors (read only)</p></td><td><p>A list of errors associated with the message.</p></td></tr><tr><td><p>Heading</p></td><td><p>A map of segments or loops from the heading section of the message. Values are maps for segments or loops that occur once. Lists of maps exist for values that occur more than once.</p></td></tr><tr><td><p>Id</p></td><td><p>The Message ID must match the key of the containing message list.</p></td></tr><tr><td><p>Interchange</p></td><td><p>A map of UNB interchange header segment values. For a Read message, the map is the actual data from the enclosing interchange. It is a single map linked from all messages in the interchange. For a Write message, the map value creates the enclosing interchange. For example, gathering messages with the same interchange values into a single interchange, regardless of whether the actual maps are the same. If there are no values for this map, then the default is the value taken from the Interchange map at the message level.</p></td></tr><tr><td><p>Group</p></td><td><div><div><p>A map that contains the UNG group header segment values:</p></div><div><ul><li><p>For a read message, the map consists of data from the enclosing group. The map is a single map linked from all transaction sets in the group.</p></li><li><p>For a write message, the map value creates the enclosing group. If there are no values for the map, it consists of values taken from the group map at the message level by default.</p></li></ul></div></div></td></tr><tr><td><p>MessageHeader</p></td><td><p>Map of UNH message header segment values. This provides the actual header data for a Read operation, and enables you to provide overrides for Write operation configuration settings.</p></td></tr><tr><td><p>Name</p></td><td><p>Message name</p></td></tr><tr><td><p>Summary</p></td><td><p>Map of segments or loops from the summary section of the message. Values are maps for segments or loops that occur once. Lists of maps are for values that occur more than once.</p></td></tr></tbody></table>
+
+Generated CONTRL functional acknowledgment messages differ from Received messages in their handling
+of interchange information:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key name</th><th>Description</th></tr></thead><tbody><tr><td><p>Interchange</p></td><td><p>For functional acknowledgments generated by Receive processing, this map is a copy of the data for the containing interchange with Sender and Receiver identification components (UNB2.1/UNB2.2 and UNB2.1/UNB3.2). For a Write message, these values are used for creating the enclosing interchange. For example, messages are gathered with the same interchange values into a single interchange, regardless of whether the actual maps are the same. If there are no values for this map, then the default is the value taken from the Interchange map at the message level.</p></td></tr></tbody></table>
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create your own app and configure the
+connector using [Anypoint Studio](edifact-edi-connector-studio).
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+

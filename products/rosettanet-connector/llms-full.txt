@@ -1,0 +1,1456 @@
+﻿# RosettaNet Connector - Full Documentation
+
+# RosettaNet Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Support Category: Premium
+
+The RosettaNet connector provides B2B functionality using the RosettaNet Information Framework
+(RNIF) for the information exchange of Rosetta Partner Interface Process (PIP) messages.
+
+The RosettaNet Connector supports RNIF 2.00.01.
+
+The following PIPs are supported:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>PIP</th><th>Version</th><th>Purpose</th></tr></thead><tbody><tr><td><p><strong>0A1</strong></p></td><td><div><div><p>v02.00</p></div></div></td><td><div><div><p>Notification of Failure</p></div></div></td></tr><tr><td><p><strong>3A4</strong></p></td><td><div><div><p>3A4MG1 v02.02</p></div></div></td><td><div><div><p>Request Purchase Order</p></div></div></td></tr><tr><td><p><strong>3A4</strong></p></td><td><div><div><p>3A4MG2 v02.02</p></div></div></td><td><div><div><p>Request Purchase Order</p></div></div></td></tr><tr><td><p><strong>3A6</strong></p></td><td><div><div><p>3A6MG1 v02.00, v02.02, v02.03</p></div></div></td><td><div><div><p>Distribute Order Status</p></div></div></td></tr><tr><td><p><strong>3B2</strong></p></td><td><div><div><p>3B2MG1 v01.00</p></div></div></td><td><div><div><p>Notify of Advance Shipment</p></div></div></td></tr><tr><td><p><strong>3C3</strong></p></td><td><div><div><p>3C3MG1 v01.00, v01.11</p></div></div></td><td><div><div><p>Notify of Invoice</p></div></div></td></tr></tbody></table>
+
+The RosettaNet Connector always uses PIP 0A1 v02.00 for all Failure Notification messages.
+
+**Note:** Example files are available for download as described in [See Also](#see-also).
+
+## Before You Begin
+
+This document assumes that you are familiar with RosettaNet, Mule, Anypoint Connectors, Anypoint
+Studio, Mule flows, and Mule Global Elements.
+
+See the
+[RosettaNet Release Notes](../../release-notes/connector/rosettanet-connector-release-notes-mule-4)
+for compatibility information.
+
+To use the RosettaNet connector in a production environment, you must have purchased a MuleSoft
+license for Anypoint B2B.
+
+## Whatâs New in this Connector
+
+RosettaNet connector 2.x for Mule 4 makes several changes to the configuration and handling over
+what was implemented by RosettaNet connector 1.x:
+
+- Metadata supplied automatically for sources (no need for the separate metadata definition
+  component used in 1.x)
+- Simplified flow structure, with separate flows used for each partner and message.
+- Additional validations are now performed on the keystore usage to address reported security
+  vulnerabilities.
+
+## Install this Connector in Anypoint Studio 7
+
+1.  In Studio, create a Mule Project.
+2.  Click the Exchange **(X)** icon in the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, select **All assets** and search for "RosettaNet".
+5.  Select RosettaNet, click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+## Create a Mule Project in Anypoint Studio 7
+
+After you install the connector you can start using the connector. The first step is to create HTTP
+Listener and Request definitions for the Mule and partner endpoints used for your message exchanges.
+
+1.  Click the Global Elements tab at the base of the canvas, and click **Create**.
+2.  Under Connector Configuration, find and select HTTP Listener config, and click **OK**.
+3.  In the configuration definition, enter the **Host** and **Port** to be used for receiving action
+    and/or signal messages from the trading partner, then click **OK**.
+4.  From the Global Elements tab, again click **Create**.
+5.  Under **Connector Configuration**, find and select HTTP Request configuration, and click **OK**.
+6.  In the configuration definition, enter the Host and Port to be used for sending action and/or
+    signal messages to the trading partner, then click **OK**.
+7.  Click the **Global Elements** tab at the base of the canvas, and click **Create**.
+8.  Under **Connector Configuration**, find and select **RosettaNet Config**, and click **OK**.
+9.  Fill in the references to the Global HTTP Listener and Global HTTP Request definitions youâve
+    created, along with the endpoint paths, self/partner identification information, and PIP role
+    and definition path (for the standard PIP definitions provided use paths of the form
+    `/{pipId}/{version}.xml`, such as `/PIP3A4/V02_02.xml`).
+10. If your PIP definition uses signed messages, you also need to configure the `Keystore path` and
+    `Keystore access password` values, and if youâre sending signed messages you also need the
+    `Signing key password`.
+11. Click **OK** to save the global connector configurations.
+12. Return to the **Message Flow** tab in Studio.
+13. Drag RosettaNet components into your flows, selecting the configuration to be used for each
+    component.
+
+### Connector Components
+
+The RosettaNet connector provides three components for use in your app flows:
+
+- Action Source - Source for processing action messages received from your partner.
+- Action Sender - Sender for action messages to be transmitted to your partner.
+- Acknowledge Source - Source for processing the completions (whether successful deliveries,
+  exceptions, or failures) of action messages youâve sent to your partner.
+
+## Configuration Details
+
+![General tab properties](_images/rosettanet-buyer-config.png)
+
+All configuration properties used by the RosettaNet connector are in the Studio General tab:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Configuration Property</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Global HTTP Listener</strong></p></td><td><div><div><p>Name of the HTTP Listener configuration to be used for receiving messages from the partner.</p></div></div></td></tr><tr><td><p><strong>Service Endpoint Path</strong></p></td><td><div><div><p>Path relative to the HTTP Listener configuration (allowing the same HTTP Listener to be used with different paths for different partners, if desired).</p></div></div></td></tr><tr><td><p><strong>Global HTTP Request</strong></p></td><td><div><div><p>Name of the HTTP Request configuration to be used for sending messages to the partner.</p></div></div></td></tr><tr><td><p><strong>Request Endpoint Path</strong></p></td><td><div><div><p>Path relative to the HTTP Request configuration (allowing the same HTTP Request to be used with different paths, if desired).</p></div></div></td></tr><tr><td><p><strong>Keystore path</strong></p></td><td><div><div><p>Absolute file path or classpath relative to the project <code>/src/main/resources</code> directory for the keystore used for validating and/or signing messages (required when sending or receiving signed messages).</p></div></div></td></tr><tr><td><p><strong>Keystore access password</strong></p></td><td><div><div><p>Password used to protect the keystore (required when sending or receiving signed messages).</p></div></div></td></tr><tr><td><p><strong>Signing key password</strong></p></td><td><div><div><p>Password used to access the private signing key within the keystore (required when sending signed messages).</p></div></div></td></tr><tr><td><p><strong>Force message signing</strong></p></td><td><div><div><p>Optional override to force the use of signed messages even when not required by the PIP definition. Leave this value empty to the PIP definition for signing messages, set to <code>NEVER</code> to never sign any messages, or set to <code>ALWAYS</code> to always sign messages.</p></div></div></td></tr><tr><td><p><strong>Global usage code</strong></p></td><td><div><div><p>Mode to run the connector, one of:</p></div><div><ul><li><p>Production</p></li><li><p>Test</p></li><li><p>Unchecked</p></li></ul></div></div></td></tr><tr><td><p><strong>Object store reference</strong></p></td><td><div><div><p>Optional reference to an object store definition to be used for storing messages awaiting acknowledgment. If not set, the connector always uses the default persistent object store to retain sent messages waiting for acknowledgments or retries. If set, the connector uses the referenced object store configuration instead.</p></div></div></td></tr><tr><td><p><strong>Mule DUNS identifier</strong></p></td><td><div><div><p>Dun &amp; Bradstreet Universal Numbering System (DUNS) ID for this organization.</p></div></div></td></tr><tr><td><p><strong>Mule location identifier</strong></p></td><td><div><div><p>Location ID of this organization. If specified, this is included in all messages sent and must be present in all messages received. If not specified, any value present in received messages will be accepted and ignored. Using the location ID also changes the alias used for your key pair in the keystore.</p></div></div></td></tr><tr><td><p><strong>Partner DUNS identifier</strong></p></td><td><div><div><p>Dun and Bradstreet Universal Numbering System (DUNS) ID for your trading partner organization.</p></div></div></td></tr><tr><td><p><strong>Partner location identifier</strong></p></td><td><div><div><p>Expected location ID for partner organization. If specified, this will be included in all messages sent and must be present in all messages received. If not specified, any value present in received messages is accepted and ignored. Using the location ID also changes the alias used the partner certificate in the keystore.</p></div></div></td></tr><tr><td><p><strong>Role in PIP</strong></p></td><td><div><div><p>Role in Partner Interface Process (PIP) usage, one of:</p></div><div><ul><li><p>INITIATOR</p></li><li><p>RESPONDER</p></li></ul></div></div></td></tr><tr><td><p><strong>PIP definition path</strong></p></td><td><div><div><p>Absolute file path or classpath relative to the project <code>/src/main/resources</code> directory for the PIP definition XML file. For one of the standard PIP definitions included in the distribution this takes the form <code>/{pipId}/{version}.xml</code>, such as <code>/PIP3A4/V02_02.xml</code>.</p></div></div></td></tr></tbody></table>
+
+### Configuration Options in XML
+
+All values listed in the Studio configuration can be set directly in XML:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Visual Studio Option</th></tr></thead><tbody><tr><td><p>globalUsageCode</p></td><td><p>Global usage code</p></td></tr><tr><td><p>keystorePass</p></td><td><p>Keystore access password</p></td></tr><tr><td><p>keystorePath</p></td><td><p>Keystore path</p></td></tr><tr><td><p>listenerConfigName</p></td><td><p>Global HTTP Listener</p></td></tr><tr><td><p>objectStore</p></td><td><p>Object store reference</p></td></tr><tr><td><p>partnerBusinessIdentifier</p></td><td><p>Partner DUNS identifier</p></td></tr><tr><td><p>partnerLocationId</p></td><td><p>Partner location identifier</p></td></tr><tr><td><p>pipFile</p></td><td><p>PIP definition path</p></td></tr><tr><td><p>pipRole</p></td><td><p>Role in PIP</p></td></tr><tr><td><p>privatePass</p></td><td><p>Signing key password</p></td></tr><tr><td><p>requestPath</p></td><td><p>Request Endpoint Path</p></td></tr><tr><td><p>requesterConfigName</p></td><td><p>Global HTTP Request</p></td></tr><tr><td><p>selfBusinessIdentifier</p></td><td><p>Mule DUNS identifier</p></td></tr><tr><td><p>selfLocationId</p></td><td><p>Mule location identifier</p></td></tr><tr><td><p>servicePath</p></td><td><p>Service Endpoint Path</p></td></tr><tr><td><p>signingOverride</p></td><td><p>Force message signing</p></td></tr></tbody></table>
+
+## Object Store
+
+The default object store uses the Mule default persistent object store, which means that sent
+messages may accumulate if not acknowledged, and which may cause retransmissions when you try
+running again.
+
+You can use the following to define a transient object store for testing and debugging, and
+reference the object store by name from your RosettaNet configuration.
+
+```xml
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" ...
+  http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd" ...>
+  ...
+  <os:object-store name="transientStore" persistent="false"/>
+  ...
+  <rosetta:config name="PO_InitiatorConfig_Buyer" ...
+    objectStore="transientStore"/>
+```
+
+When using a persistent object store unacknowledged messages are retained across restarts of the
+Mule app and are automatically retransmitted when the app restarts (assuming the timeout has
+expired). All messages are deleted from the object store if the number of retransmissions specified
+in the PIP definition occurs without an acknowledgment, or after three days time. You can also force
+unacknowledged messages to be discarded when the Mule app is started by setting the system property:
+
+`com.mulesoft.connectors.rosettanet.extension.internal.delivery.DeliveryManager.deleteStore=true`
+
+## Customize a PIP
+
+Customizing a PIP allows two types of changes to the PIP configuration:
+
+- Parameters: Change settings within a PIP versionâs XML file.
+- Advanced: Create a custom DTD from which you create an XSD file.
+
+For both paths, put the new or changed files in a directory in your Studio projectâs
+src/main/resources folder.
+
+You can used the supplied PIP configurations as a starting point. These are distributed inside the
+mule-rosettanet-extension-2.0.0-mule-plugin.jar, which is downloaded by Studio and added to your
+project under the `/target/repository/com/mulesoft/connectors/mule-rosettanet-extension` directory
+and can also be found in the standard MuleSoft enterprise Maven repositories (under group ID
+com.mulesoft.connectors). Each PIP configuration is in a separate directory (such as `PIP3A4`)
+inside the jar. You can copy a PIP directory out of this jar and edit the contents to match your
+specific needs.
+
+Inside the PIP configuration directory youâll find an XML file giving the parameters for a
+particular version of the PIP (such as `V02_02.xml`). This XML file gives all the details of retry
+counts, times to acknowledge, and signing requirements for the action(s) defined by the PIP. This
+file also references DTD and XSD definitions for the actual action messages (both are required,
+since the DTD is used by RosettaNet and the XSD is used to provide DataSense information inside
+Mule).
+
+Copy the base PIP definition directory out of the jar and into your Studio projectâs
+src/main/resources folder, changing the name of the copied directory to indicate your customization
+(such as `PIP3A4-custom`). Then make your desired changes and use the modified PIP directory name in
+your RosettaNet Connector configuration (as the `pipFile` value).
+
+## Keystores
+
+RosettaNet uses X.509 certificates to authenticate messages. RosettaNet connector currently only
+supports storing certificates (and the private keys used for signing) in JKS-format keystores. You
+can use various tools such as Portecle for working with keystores and creating keys and
+certificates.
+
+Keystore aliases have the form: `{Partner/Self Business Identifier}[:{Partner/Self Location ID}]`
+
+The curly braces surround values and the square brackets show the optional part that is used only
+when the Location ID is defined.
+
+### Dig Deeper
+
+If youâre interested in seeing the details of the RosettaNet protocol exchanges you can turn on
+`TRACE` logging in the `/src/main/resources/log4j2.xml` logging configuration files, adding a line
+like:
+
+```xml
+<Loggers>
+    ...
+    <AsyncLogger name="com.mulesoft.connectors.rosettanet.extension" level="TRACE"/>
+    ...
+</Loggers>
+```
+
+## See Also
+
+- [RosettaNet Connector Release Notes](../../release-notes/connector/rosettanet-connector-release-notes-mule-4)
+- [MuleSoft Trailblazer Community](https://trailhead.salesforce.com/trailblazer-community/neighborhoods/mulesoft)
+
+Example Files:
+
+- [sample-purchase-order-request-content.xml](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/sample-purchase-order-request-content.xml)
+- [sample-purchase-order-confirmation-content.xml](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/sample-purchase-order-confirmation-content.xml)
+- [partner1.jks](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/partner1.jks)
+- [partner2.jks](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/partner2.jks)
+- [rosetta-buyer.jar](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/rosetta-buyer.jar)
+- [rosetta-seller.jar](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/rosetta-seller.jar)
+---
+
+# RosettaNet Connector Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Mule applications using Anypoint Connector for RosettaNet (RosettaNet Connector) must include a
+global configuration to add external libraries specific to the active security mode. Only one
+external libs configuration is permitted per application, so you must configure this element
+manually in the examples.
+
+This example consists of two apps:
+
+- The Buyer app sends a purchase order request message to a Seller App.
+- The Seller app sends a purchase order confirmation message to the Buyer app when the order is
+  fulfilled.
+
+  The following section provide instructions for configuring the global element for external
+  libraries and it needs to be done for each application.
+
+## Configure a Global Element for External Libraries
+
+Mule applications using RosettaNet Connector must contain only one global element configuration to
+provide the external libraries required for the selected security mode.
+
+To configure the global element for RosettaNet Connector and add external libraries, follow these
+steps:
+
+1.  In **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon next
+    to Global Elements.
+3.  Click **Create**, and then search for the `RosettaNet` or `External Libs` option and select
+    **RosettaNet External Libs - Non FIPS**.
+4.  Name the configuration.
+5.  Click **Configure** > **Add recommended libraries**.
+6.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule
+    application `pom.xml` file.
+7.  Verify that your project has the required dependencies for your security mode.
+
+    Add the dependencies via Maven if they arenât added automatically.
+
+For configuration instructions for other security modes, see
+[Configure External Libraries](rosettanet-connector-upgrade-migrate#configure-external-libraries).
+
+The following diagram shows the relationship between the two apps:
+
+![Relationship between the Buyer and Seller apps](_images/rosettanet-state-diagram.png)
+
+## Buyer App
+
+The Buyer app performs the following actions:
+
+1.  Receives an input purchase order request document via an `HTTP POST`.
+2.  Uses the RosettaNet **Send action** operation to send a purchase order request message to the
+    Seller app.
+3.  Transforms the message ID from the purchase order request message to plain text for use in
+    responding to the `HTTP POST`.
+4.  Receives an acknowledgment signal from the Seller app and logs information about the signal.
+5.  Receives a purchase order confirmation message from the seller and logs information about the
+    confirmation message.
+6.  Receives the completion state from the Seller app and logs information about the completion
+    state.
+
+The following screenshot shows the Anypoint Studio app flows for the Buyer app:
+
+![Studio flow for the Buyer app](_images/rosettanet-buyer-visual-flow.png)
+
+> [!NOTE] The keystore for the Buyer app, which includes the buyer private key, buyer certificate,
+> and seller certificate is located in the project under `src/main/resources`.
+
+### Create the First Flow of the Buyer App
+
+The first flow of the Buyer app receives a purchase order request document via an `HTTP POST` and
+sends this as a RosettaNet action message to the Seller app. Configuring this flow involves creating
+a new Mule project, configuring the **HTTP Listener** source, adding a **Send action** operation,
+and adding a **Transform** component.
+
+#### Configure the HTTP Listener Source
+
+Configure the **HTTP Listener** source to initiate a Mule flow when a call is made to the default
+path (`/`):
+
+1.  Create a new Mule project in Studio.
+2.  From the **Mule Palette** view, select **HTTP** and drag the **Listener** component to the
+    canvas.
+3.  In the properties window, click **+** next to the **Connector configuration** field to add a
+    global element.
+4.  In the **Name** field, enter `HTTP_InputListener` and accept the default values.
+
+#### Add the PO_InitiatorConfig_Buyer Global Element
+
+Add the `PO_InitiatorConfig_Buyer` global element for the **Send action** operation:
+
+1.  In the properties window for the **Send action** operation, click **+** next to the **Module
+    configuration** field to add a global element.
+2.  In the **RosettaNet Config** window, complete the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Global HTTP Listener</th><th>HTTP_Listener-config</th></tr></thead><tbody><tr><td><p>Service Endpoint Path</p></td><td><p>/partner1</p></td></tr><tr><td><p>Global HTTP Request</p></td><td><p>HTTP_Request_configuration</p></td></tr><tr><td><p>Request Endpoint Path</p></td><td><p>/partner2</p></td></tr><tr><td><p>Keystore Path</p></td><td><p>/partner1.jks</p></td></tr><tr><td><p>Keystore Access password</p></td><td><p>nosecret</p></td></tr><tr><td><p>Signing key password</p></td><td><p>partner1</p></td></tr><tr><td><p>Global usage code</p></td><td><p>Test</p></td></tr><tr><td><p>Mule DUNS identifier</p></td><td><p>123456789</p></td></tr><tr><td><p>Mule location identifier</p></td><td><p>partner1</p></td></tr><tr><td><p>Partner DUNS identifier</p></td><td><p>123456788</p></td></tr><tr><td><p>Partner location identifier</p></td><td><p>partner2</p></td></tr><tr><td><p>role in PIP</p></td><td><p>INITIATOR</p></td></tr><tr><td><p>PIP definition path</p></td><td><p>/PIP3A4/V02_02.xml</p></td></tr></tbody></table>
+
+3.  Click **OK**.
+
+#### Add the Send Action Operation
+
+Add the **Send action** operation to send the purchase order request message to the Seller app by
+using the configuration defined for the `PO_InitiatorConfig_Buyer` global element:
+
+1.  From the **Mule Palette** view, select **RosettaNet** and drag the **Send action** operation
+    next to **Listener**.
+2.  In the properties window, complete the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Send action</p></td></tr><tr><td><p>Module configuration</p></td><td><p>PO_InitiatorConfig_Buyer</p></td></tr></tbody></table>
+
+#### Add a Transform Message Component
+
+Add a **Transform Message** component to transform the message ID in the purchase order request
+message to plain text:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Transform Message** component next
+    to **Send action**.
+2.  In the properties window, overlay the brackets in the **Output** section with this DataWeave
+    code:
+
+    ```dataweave
+    %dw 2.0
+    output text/plain
+    ---
+    "Buyer sent action message " ++ attributes.messageId ++ "\n"
+    ```
+
+### Create the Second Flow of the Buyer App
+
+The second flow of the Buyer app receives an acknowledgment signal from the Seller app and logs
+information about the signal. It also receives the purchase order confirmation message from the
+Seller app and logs information about the message.
+
+#### Configure the Action Source
+
+Configure the **Action source** source to initiate a Mule flow when a call is made to the
+`/partner2` path:
+
+1.  From the **Mule Palette** view, select **Rosettanet** and drag the **Action source** source to
+    the canvas.
+2.  In the **Module configuration** field, enter `PO_InitiatorConfig_Buyer`.
+
+#### Add a Logger Component
+
+Add a **Logger** component to log a message that includes information about the acknowledgment and
+purchase order confirmation message:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component next to **Action
+    source** on the canvas.
+2.  In the **Message** field, enter the following text:
+
+    `"Buyer received action message #[attributes.messageId]"`
+
+### Create the Third Flow of the Buyer App
+
+The third flow of the Buyer app receives the completion state from the Seller app and logs
+information about the completion state.
+
+#### Configure the Completion Source
+
+Configure the **Completion source** source to listen for a purchase order completion state message
+from the seller:
+
+1.  From the **Mule Palette** view, select **Rosettanet** and drag the **Completion source** source
+    to the canvas.
+2.  In the **Module configuration** field, enter `PO_InitiatorConfig_Buyer`.
+
+#### Add a Logger Component
+
+Add a **Logger** component to log information about the purchase order completion state:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component next to
+    **Completion source** on the canvas.
+2.  In the **Message** field, enter the following text:
+
+    `Buyer action message #[attributes.replyAttributes.messageId] completed as #[payload.completionCode]`
+
+#### Save and Run the App
+
+To save the app, click **File > Save**.
+
+To run the app, click **Run > Run as > Mule Application**.
+
+#### XML for the Buyer App
+
+Paste this code into the Studio XML editor to quickly load the flow for the Buyer app into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:rosetta="http://www.mulesoft.org/schema/mule/rosetta"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/rosetta
+http://www.mulesoft.org/schema/mule/rosetta/current/mule-rosetta.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config"
+	doc:name="HTTP Listener config" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration"
+	doc:name="HTTP Request configuration">
+		<http:request-connection host="localhost" port="8082" />
+	</http:request-config>
+	<rosetta:config name="PO_InitiatorConfig_Buyer"
+	pipRole="INITIATOR" doc:name="RosettaNet Config"
+	listenerConfigName="HTTP_Listener_config"
+	servicePath="/partner1"
+	requesterConfigName="HTTP_Request_configuration"
+	requestPath="/partner2"
+	keystorePath="/partner1.jks"
+	keystorePass="nosecret"
+	privatePass="partner1"
+	globalUsageCode="Test"
+	selfBusinessIdentifier="123456789"
+	selfLocationId="partner1"
+	partnerBusinessIdentifier="123456788"
+	partnerLocationId="partner2"
+	pipFile="/PIP3A4/V02_02.xml"/>
+	<http:listener-config name="HTTP_InputListener"
+	doc:name="HTTP Listener config" >
+		<http:listener-connection host="localhost" port="8801" />
+	</http:listener-config>
+	<flow name="Send-Purchase-Order-Request" >
+		<http:listener doc:name="Listener" config-ref="HTTP_InputListener"
+		path="/"
+		allowedMethods="POST"/>
+		<rosetta:send-action doc:name="Send action"
+		 config-ref="PO_InitiatorConfig_Buyer"/>
+		<ee:transform doc:name="Transform Message"  >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/plain
+---
+"Buyer sent action message " ++ attributes.messageId ++ "\n"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Receive-Purchase-Order-Confirmation"  >
+		<rosetta:action-source doc:name="Action source"
+		config-ref="PO_InitiatorConfig_Buyer"/>
+		<logger level="INFO" doc:name="Logger"
+		message="Buyer received action message #[attributes.messageId]"/>
+	</flow>
+	<flow name="Send-Purchase-Order-Completion" >
+		<rosetta:completion-source doc:name="Completion"
+		config-ref="PO_InitiatorConfig_Buyer"/>
+		<logger level="INFO" doc:name="Logger"
+		message="Buyer action message #[attributes.replyAttributes.messageId] completed as #[payload.completionCode]"/>
+	</flow>
+</mule>
+```
+
+## Seller App
+
+The Seller app performs the following actions:
+
+1.  Receives an input purchase order request confirmation document via an `HTTP POST`.
+2.  Uses a RosettaNet **Send action** operation to send a purchase order confirmation message to the
+    buyer.
+3.  Transforms the RosettaNet message ID from the purchase order confirmation message to plain text
+    for use in responding to the `HTTP POST`.
+4.  Receives a purchase order request message from the Buyer app and logs information about the
+    request message.
+5.  Receives an acknowledgment signal from the Buyer app and logs information about the signal.
+6.  Receives a completion state message from the Buyer app and logs information about the completion
+    state message.
+
+The following screenshot shows the Anypoint Studio app flows for the Seller app:
+
+![Studio flow for the Seller app](_images/rosettanet-seller-visual-flow.png)
+
+> [!NOTE] The keystore in the Seller app, which includes the seller private key, seller certificate,
+> and buyer certificate is located in the project under `src/main/resources`.
+
+### Create the First Flow of the Seller App
+
+The first flow of the Seller app receives a purchase order request confirmation document via
+`HTTP POST` and sends this as a RosettaNet action message to the Buyer app. Configuring this flow
+involves creating a new Mule project, configuring the **HTTP Listener** source, configuring the
+RosettaNet **Send action** operation, and adding a **Transform** component.
+
+#### Configure the HTTP Listener Source
+
+Configure the **HTTP Listener** source to initiate a Mule flow when a call is made to the default
+path (`/`):
+
+1.  Create a new Mule project in Studio.
+2.  From the **Mule Palette** view, select **HTTP** and drag the Listener component to the canvas.
+3.  In the properties window, click **+** next to the Connector configuration field to add a global
+    element.
+4.  In **Name**, enter `HTTP_InputListener`.
+5.  In **Port**, enter `8082`.
+6.  In **Read timeout**, enter `3000`.
+
+#### Add a Global Element for the Send Action Operation
+
+Create a global element named `PO_ResponderConfig_Seller` for the **Send action** operation.
+
+1.  In the properties window for the **Send action** operation, click **+** next to the **Module
+    configuration** field to add a global element.
+2.  In the **RosettaNet Config** window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Global HTTP Listener</p></td><td><p>HTTP_Listener-config</p></td></tr><tr><td><p>Service Endpoint Path</p></td><td><p>/partner2</p></td></tr><tr><td><p>Global HTTP Request</p></td><td><p>HTTP_Request_configuration</p></td></tr><tr><td><p>Request Endpoint Path</p></td><td><p>/partner1</p></td></tr><tr><td><p>Keystore Path</p></td><td><p>/partner2.jks</p></td></tr><tr><td><p>Keystore Access password</p></td><td><p>nosecret</p></td></tr><tr><td><p>Signing key password</p></td><td><p>partner2</p></td></tr><tr><td><p>Global usage code</p></td><td><p>Test</p></td></tr><tr><td><p>Mule DUNS identifier</p></td><td><p>123456788</p></td></tr><tr><td><p>Mule location identifier</p></td><td><p>partner2</p></td></tr><tr><td><p>Partner DUNS identifier</p></td><td><p>123456789</p></td></tr><tr><td><p>Partner location identifier</p></td><td><p>partner1</p></td></tr><tr><td><p>role in PIP</p></td><td><p>RESPONDER</p></td></tr><tr><td><p>PIP definition path</p></td><td><p>/PIP3A4/V02_02.xml</p></td></tr></tbody></table>
+
+3.  Click **OK**.
+
+#### Add the Send Action Operation
+
+Add the **Send action** operation to send a purchase order confirmation message to the Buyer app:
+
+1.  From the **Mule Palette** view, select **RosettaNet** and drag the **Send action** operation
+    next to **Listener**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Send action</p></td></tr><tr><td><p>Module configuration</p></td><td><p>PO_ResponderConfig_Seller</p></td></tr></tbody></table>
+
+3.  Click **OK**.
+
+#### Add a Transform Message Component
+
+Add a **Transform Message** component to transform the message ID from the purchase order
+confirmation message for use in responding to the `HTTP POST`.
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Transform Message** component next
+    to **Send action** on the canvas.
+2.  In the properties window, overlay the brackets in the **Output** section with this DataWeave
+    code:
+
+    ```dataweave
+    %dw 2.0
+    output text/plain
+    ---
+    "Seller sent action message " ++ attributes.messageId ++ "\n"
+    ```
+
+### Create the Second Flow of the Seller App
+
+The second flow of the Seller app receives an acknowledgment signal from the Buyer app and logs
+information about the signal. It also receives a purchase order request message from the Buyer app
+and logs information about the request.
+
+#### Configure the Action Source
+
+Configure the **Action** source to initiate a Mule flow when a call is made to the default path
+(`/`):
+
+1.  From the **Mule Palette** view, select **Rosettanet** and drag the **Action source** source to
+    the canvas.
+2.  In the **Module configuration** field, enter `PO_ResponderConfig_Seller`.
+
+#### Add a Logger Component
+
+Add a **Logger** component to log information about the acknowledgment signal and purchase order
+request message:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component next to
+    **Completion source** on the canvas.
+2.  In the **Message** field, enter the following text:
+
+    `Seller received action message #[attributes.messageId]`
+
+### Create the Third Flow of the Seller App
+
+The third flow of the Seller app sends a purchase order completion state message to the Buyer app
+and logs information about the purchase order completion state message. Configuring this flow
+involves configuring the **Action** source and adding a **Logger** component.
+
+#### Configure the Action Source
+
+Configure the **Action** source to receive the completion state from the Buyer app.
+
+#### Adding a Logger Component
+
+Add a **Logger** component to log information about the purchase order state completion message.
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component next to **Action
+    source** on the canvas.
+2.  In the **Message** field, enter the following text:
+
+    `Seller action message #[attributes.replyAttributes.messageId] completed as #[payload.completionCode]`
+
+#### Save and Run the App
+
+To save the app, click **File > Save**.
+
+To run the app, click **Run > Run as > Mule Application**.
+
+### XML for the Seller App
+
+Paste this code into the Studio XML editor to quickly load the flow for the Seller app into your
+Mule app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:rosetta="http://www.mulesoft.org/schema/mule/rosetta"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/rosetta
+http://www.mulesoft.org/schema/mule/rosetta/current/mule-rosetta.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config"
+	doc:name="HTTP Listener config" >
+		<http:listener-connection host="localhost" port="8082" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration"
+	doc:name="HTTP Request configuration" >
+		<http:request-connection host="localhost" port="8081" />
+	</http:request-config>
+	<rosetta:config name="PO_ResponderConfig_Seller"
+	pipRole="RESPONDER"
+	doc:name="RosettaNet Config"
+	listenerConfigName="HTTP_Listener_config"
+	servicePath="/partner2"
+	requesterConfigName="HTTP_Request_configuration"
+	requestPath="/partner1"
+	keystorePath="/partner2.jks"
+	keystorePass="nosecret"
+	privatePass="partner2"
+	globalUsageCode="Test"
+	partnerBusinessIdentifier="123456789"
+	partnerLocationId="partner1"
+	selfBusinessIdentifier="123456788"
+	selfLocationId="partner2" pipFile="/PIP3A4/V02_02.xml"/>
+	<http:listener-config name="HTTP_InputListener"
+	doc:name="HTTP Listener config" >
+		<http:listener-connection host="localhost" port="8802" />
+	</http:listener-config>
+	<flow name="Send-Purchase-Order-Confirmation">
+		<http:listener doc:name="Listener"
+		config-ref="HTTP_InputListener"
+		path="/" allowedMethods="POST"/>
+		<rosetta:send-action doc:name="Send action"
+		 config-ref="PO_ResponderConfig_Seller"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/plain
+---
+"Seller sent action message " ++ attributes.messageId ++ "\n"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="Receive-Purchase-Order-Request">
+		<rosetta:action-source doc:name="Action source"
+		config-ref="PO_ResponderConfig_Seller"/>
+		<logger level="INFO" doc:name="Logger"
+		 message="Seller received action message #[attributes.messageId]"/>
+	</flow>
+	<flow name="Send-Purchase-Order-Completion">
+		<rosetta:completion-source doc:name="Completion"
+		config-ref="PO_ResponderConfig_Seller"/>
+		<logger level="INFO" doc:name="Logger"
+		message="Seller action message #[attributes.replyAttributes.messageId] completed as #[payload.completionCode]"/>
+	</flow>
+</mule>
+```
+
+## Test the Examples
+
+To test the Buyer and Seller apps, do the following after you run the apps:
+
+1.  Provide the purchase order request to the Buyer app.
+2.  Provide the purchase order request response to the Seller app.
+
+### Provide the Purchase Order Request Document
+
+Use an HTTP POST to the Buyer app `HTTP_InputListener` endpoint to provide the purchase order
+request to send to the seller.
+
+You can download a
+[sample purchase order request](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/sample-purchase-order-request-content.xml).
+You can then use any HTTP tool, such as a browser plugin, standalone tool such as PostMan, or
+console tool such as `curl` to POST the data to the Buyer app.
+
+For example, the following `curl` command posts a purchase order request:
+
+`curl -v -H "Content-Type: application/xml" -XPOST --data-binary @sample-purchase-order-request-content.xml http://localhost:8801`
+
+RosettaNet Connector generates a RosettaNet message based on the purchase order request and sends it
+to the seller, responding to the HTTP POST operation with a message identifier. In your console,
+your output should look like this:
+
+```java
+INFO  ... Seller received action message pMAIhTBMsGzAf/NFx83KBO9nt+T+DV2RNLhwlpNqnXM=0
+INFO  ... Buyer action message pMAIhTBMsGzAf/NFx83KBO9nt+T+DV2RNLhwlpNqnXM=0 completed as SUCCESS
+```
+
+### Provide the Purchase Order Confirmation Document
+
+Use an HTTP POST to the Seller app `HTTP_InputListener` endpoint to provide the purchase order
+confirmation to send to the buyer.
+
+You can download a
+[sample purchase order confirmation](https://s3-us-west-2.amazonaws.com/mulesoft-sites-vendorcontent/public-assets/sample-purchase-order-confirmation-content.xml)
+and then use any HTTP tool to post the data to the Seller app.
+
+For example, the following `curl` command posts a purchase order confirmation:
+
+`curl -v -H "Content-Type: application/xml" -XPOST --data-binary @sample-purchase-order-confirmation-content.xml http://localhost:8802`
+
+RosettaNet Connector generates a RosettaNet message based on the purchase order confirmation and
+sends it to the buyer, responding to the HTTP POST operation with a message identifier. In your
+console, your output should look like this:
+
+```java
+INFO  ... Buyer received action message ng7+TalLLPTJZHok4tQSBi8RYZD8IsD9+iB85cubzM=1
+INFO  ... Seller action message sng7+TalLLPTJZHok4tQSBi8RYZD8IsD9+iB85cubzM=1 completed as SUCCESS
+```
+
+The purchase order confirmation action sent by this sample app is only an example. To send a real
+purchase order confirmation, you must configure the `replyAttributes` on the RosettaNet
+`send-action` operation with the information provided by when you received the corresponding
+purchase order request. These `replayAttributes` enable the RosettaNet protocol to distinguish
+between many concurrent requests.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# RosettaNet Connector 3.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for RosettaNet (Rosettanet Connector) provides B2B functionality that uses the
+RosettaNet Information Framework (RNIF) for the information exchange of RosettaNet Partner Interface
+Process (PIP) messages.
+
+Release Notes:
+[RosettaNet Connector Release Notes](../../release-notes/connector/rosettanet-connector-release-notes-mule-4)
+
+## Configurations
+
+Configuration for RosettaNet Connector.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Global HTTP Listener</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Reference to the global HTTP Listener definition for the service endpoint used by the partner for action and signal messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Service Endpoint Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Service endpoint path, appended to the base path of HTTP Listener.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Global HTTP Request</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Global HTTP request definition for the partner service endpoint. This value is used when sending action and signal messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Request Endpoint Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Partner endpoint path, appended to the base path on an HTTP request.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Require secure transport</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When HTTPS is active, the system verifies its usage and records the <strong>isSecureTransportRequired</strong> field in the <code>DeliveryHeader</code> as <strong>Yes</strong>. An error is generated for any insecure channels detected during messaging between partners.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Keystore path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Keystore that contains trusted partner certificates and the connectorâs private signing key and certificate (JKS format).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Keystore access password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Access password for the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Signing key password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Private signing key password (required if signing action and signal messages).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Override message signing</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>Turns message signing on or off. Setting this value to <code>ALWAYS</code> overrides the signing configured by the PIP definition.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Signing algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SHA256</p></li><li><p>SHA1</p></li></ul></div></div></td><td><div><div><p>Algorithm used to sign S/MIME messages.</p></div></div></td><td><div><div><p>SHA1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Global usage code</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Test</p></li><li><p>Production</p></li></ul></div></div></td><td><div><div><p>Whether to operate in test mode or production mode.</p></div></div></td><td><div><div><p><code>Production</code></p></div></div></td><td><div></div></td></tr><tr><td><div><div><p>Object store reference</p></div></div></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Object store configuration reference:</p></div><div><ul><li><p>If specified, the connector uses the referenced object store configuration to retain sent messages for acknowledgments and retries.</p></li><li><p>If not specified, the connector uses the default persistent object store to retain sent messages for acknowledgments and retries.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Mule DUNS identifier</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>DUNS business identifier for the organization.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><div><div><p>Mule location identifier</p></div></div></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Location identifier for the organization:</p></div><div><ul><li><p>If specified, this value is included in all sent messages and verified in all received messages.</p></li><li><p>If not specified, no value is sent, and received values are ignored.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partner DUNS identifier</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expected DUNS business identifier for the partner organization.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Partner location identifier</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expected location identifier for the partner organization.</p></div><div><ul><li><p>If specified, this value is included in all sent messages and verified in all received messages.</p></li><li><p>If not specified, no value is sent and received values are ignored.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Role in PIP</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIATOR</p></li><li><p>RESPONDER</p></li></ul></div></div></td><td><div><div><p>Connectorâs role in the PIP.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>PIP definition path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>PIP file path.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Sources
+
+- [Action source](#actionSource)
+- [Completion source](#completionSource)
+
+### Action source
+
+`<rosetta:action-source>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. By default, Mule uses repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Configures a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#MessageAttributes">Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Configurations](#config)
+
+### Completion source
+
+`<rosetta:completion-source>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should be executed only on the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Configures a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#Completion">Completion</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#MessageAttributes">Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Configurations](#config)
+
+## Operations
+
+- [Send Action](#sendAction)
+
+### Send Action
+
+`<rosetta:send-action>`
+
+Transmits the relevant electronic document to a trading partner.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Initiating action</strong></p></td><td><div><div><p><a href="#ReplyAttributes">Reply Attributes</a></p></div></div></td><td><div><div><p>Lists the reply attributes to send inside the Service header in the MIME message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Contents of the business document being exchanged between trading partners.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p><a href="#non-repeatable-stream">Non-repeatable Stream</a></p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. By default, Mule uses repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#MessageAttributes">Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- ROSETTA:WRITE
+- ROSETTA:CONFIGURATION
+- ROSETTA:PARSE
+- ROSETTA:UNKNOWN
+
+## Object Types
+
+### Completion
+
+Completion status and details for the **Completion source** source.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Completion Code</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SUCCESS</p></li><li><p>FAILURE</p></li><li><p>EXCEPTION</p></li></ul></div></div></td><td><div><div><p>Type of completion for the action message. Valid values are:</p></div><div><ul><li><p>SUCCESS: An acknowledgment signal was received from the partner.</p></li><li><p>EXCEPTION: An exception signal was received from the partner.</p></li><li><p>FAILURE: No response signal was received from the partner after the number of transmission attempts defined in the PIP configuration.</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Exception Detail</strong></p></td><td><div><div><p><a href="#ExceptionDetail">Exception Detail</a></p></div></div></td><td><div><div><p>Details of the received exception signal. Present if the completion code is <code>EXCEPTION</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Mime Data</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Received MIME signal message provided to the application in support of signed acknowledgment signals. Present if the completion code is <code>SUCCESS</code> or <code>EXCEPTION</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Exception Detail
+
+Details of the received exception signal.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Exception Code</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Error code.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Exception Error Description</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Error description.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Exception Component Code</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Code that identifies the transaction for which the error occurred.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Exception Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Error category.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies <strong>Max Idle Time</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Message Attributes
+
+Output of the **Action source** source, **Completion source** source, or **Send Action** operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Unique identifier of the message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Partner Business Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Unique identifier of the trading partner.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Partner Location Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Identifier that represents the trading partnerâs location.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reply Attributes</strong></p></td><td><div><div><p><a href="#ReplyAttributes">Reply Attributes</a></p></div></div></td><td><div><div><p>Identifier values used when generating an action message in reply to another action. The <strong>Action source</strong> source sets this value.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mime Data</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>MIME action or signal message, including the signature, if signing is used. The app supplies this value to support non-repudiation.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Acknowledge Data</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>MIME acknowledgment signal returned to the sender, including the signature, if signing is used. The <strong>Action source</strong> source sets this value.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Non-repeatable Stream
+
+Disables the repeatable stream functionality and uses non-repeatable streams to have less
+performance overhead, memory use, and cost.
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p><code>true</code></p></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times that a message can be redelivered and processed unsuccessfully before triggering a <code>process-failed-message</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use if <strong>Use Secure Hash</strong> is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></div></div></td><td><div><div><p><code>SHA-256</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions that determine when a message was redelivered. This property can be set only if <strong>Use Secure Hash</strong> is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Configures the object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+Configures the repeatable file-store streaming strategy by which Mule keeps a portion of the stream
+content in memory. If the stream content is larger than the configured buffer size, Mule backs up
+the bufferâs content to disk and then clears the memory.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk. This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for <strong>Max In Memory Size</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the
+maximum buffer size. Always run performance tests to find the optimal buffer size for your specific
+use case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of <strong>Max Buffer Size</strong> value.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount by which the buffer size expands if it exceeds its initial size. Setting a value of <code>0</code> or lower specifies that the buffer canât expand.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reply Attributes
+
+Configures the values used when generating an action message in reply to another action.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Identifier of the message associated with the reponse.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Action Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Identifier that indicates the type of respone.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Pip Instance Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Identifier associated with an instance of a PIP.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Anypoint Connectors Overview](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating RosettaNet Connector to Version 3.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for RosettaNet (RosettaNet Connector) from version 2.x to 3.x to take
+advantage of FIPS-compliant cryptographic support and other improvements.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>2.x</p></div></div></td><td><div><div><p>3.x</p></div></div></td></tr></tbody></table>
+
+## Before You Begin
+
+Before you upgrade to RosettaNet Connector 3.x, make sure you have:
+
+- Mule runtime 4.4.0 or later. See the Mule runtime
+  release-notes::connector/rosettanet-connector-release-notes-mule-4.adoc for FIPS support by
+  version.
+- RosettaNet Connector version 3.0.0 or later.
+- RosettaNet Support Libraries version 2.0.0 or later.
+- Bouncy Castle Java Cryptography Extension (JCE) provider designed for JDK 1.8 or higher for
+  non-FIPS mode. This configuration requires the `bcprov-jdk18on`, `bcpkix-jdk18on`, and
+  `bcjmail-jdk18on` libraries. Version 1.82 is recommended.
+- The `jakarta.activation` and `jakarta.mail` libraries for signing MIME Parts.
+- `bcjmail-fips` library for FIPS modes and other Bouncy Castle FIPS (BCFIPS) libraries as required
+  by your Mule runtime and security model.
+- Java 17 or later with FIPS-capable JVM if required by your deployment for FIPS 140-3.
+
+## Supported Security Modes
+
+RosettaNet Connector 3.x supports these security modes, which are controlled by the
+`mule.security.model` system property:
+
+- **non-FIPS (default)**
+
+  This is the default security mode for Mule applications that donât require FIPS compliance.
+  RosettaNet Connector uses the non-FIPS compliant standard cryptographic libraries
+  `bcprov-jdk18on`,`bcpkix-jdk18on`, `bcjmail-jdk18on`, `jakarta.activation` and `jakarta.mail`
+  which arenât FIPS compliant. Donât set the system property as the default mode.
+
+- **FIPS 140-2 Compliant Mode**
+
+  Enable this security mode to configure RosettaNet Connector to use FIPS 140-2 approved
+  cryptographic providers.
+
+- **FIPS 140-3 Compliant Mode**
+
+  Enable this security mode to configure RosettaNet Connector to use FIPS 140-3 approved
+  cryptographic providers.
+
+If the `mule.security.model` property begins with `fips140-`, then RosettaNet Connector activates
+FIPS mode and applies the corresponding security controls, as shown in the example.
+
+```bash
+-Dmule.security.model=fips140-3
+```
+
+## Configure External Libraries
+
+Mule applications using RosettaNet Connector require a Global Element configuration that includes
+the necessary RosettaNet support and cryptographic libraries for each security mode. The table shows
+the global configuration and required libraries for each security mode. Use only one security mode
+per application.
+
+For FIPS modes, the Mule runtime and BCFIPS requirements apply.
+
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Security Mode</th><th>Global Configuration</th><th>Default Name</th><th>Required Library Maven Coordinates</th></tr></thead><tbody><tr><td><p>non-FIPS</p></td><td><p><code>RosettaNet External Libs - Non FIPS</code></p></td><td><p><code>RosettaNet<em>External_Libs</em>_Non_FIPS</code></p></td><td><p>org.bouncycastle:bcpkix-jdk18on:1.84, org.bouncycastle:bcprov-jdk18on:1.84, org.bouncycastle:bcjmail-jdk18on:1.84, com.sun.activation:jakarta.activation:2.0.1, com.sun.mail:jakarta.mail:2.0.2</p></td></tr><tr><td><p>FIPS 140-2</p></td><td><p><code>RosettaNet External Libs - FIPS 140-2</code></p></td><td><p><code>RosettaNet<em>External_Libs</em>_FIPS_140_2</code></p></td><td><p>org.bouncycastle:bcjmail-fips:1.0.4, com.sun.activation:jakarta.activation:2.0.1, com.sun.mail:jakarta.mail:2.0.2</p></td></tr><tr><td><p>FIPS 140-3</p></td><td><p><code>RosettaNet External Libs - FIPS 140-3</code></p></td><td><p><code>RosettaNet<em>External_Libs</em>_FIPS_140_3</code></p></td><td><p>org.bouncycastle:bcjmail-fips:2.1.6, com.sun.activation:jakarta.activation:2.0.1, com.sun.mail:jakarta.mail:2.0.2</p></td></tr></tbody></table>
+
+![Connector configurations that are used for creating Global Elements](_images/rosettanet-connector-upgrade-global-element-config.png)
+
+## Upgrade Steps
+
+Follow these steps to upgrade from RosettaNet Connector 2.x to 3.x. Use the configuration that
+applies to your selected security mode.
+
+### Step 1: Update the Connector Dependency
+
+1.  Update your projectâs `pom.xml` file to use RosettaNet Connector 3.x:
+
+```xml
+<dependency>
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>mule-rosettanet-connector</artifactId>
+    <version>3.0.0</version>
+    <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+2.  Rebuild the project and resolve API or configuration changes reported by the build.
+
+### Step 2: Add a Connector Configuration Global Element
+
+Include only one external library global configuration. Follow the global element configuration
+steps for your selected security mode.
+
+#### Configure a Global Element for the non-FIPS Security Mode
+
+1.  Add the external library global configuration and donât set the runtime property. Make sure the
+    BouncyCastle jdk18on library version 1.82 is available to add as an external library.
+2.  Configure the global element as a Mule app in Anypoint Studio:
+    1.  In the **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+    2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon
+        next to Global Elements.
+
+3.  Click **Create**, and then search for the `RosettaNet` or `External Libs` option and select
+    **RosettaNet External Libs - Non FIPS**.
+    1.  Name the configuration.
+    2.  Click **Configure** > **Add recommended libraries**.
+    3.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule
+        application `pom.xml` file.
+
+4.  Verify that your project has the required dependencies for your selected security mode. Add the
+    dependencies via Maven if they arenât added automatically.
+
+![The Connector Configuration Global Element and the configurations for non-FIPS security mode](_images/rosettanet-connector-upgrade-non-fips-config.png)
+
+To configure the global element manually in XML (Maven or standalone):
+
+1.  Open your main Mule configuration file, such as `src/main/mule/` or `src/main/resources/`.
+2.  Add the `rosetta:external-libs-non-fips-config` global element to the Mule configuration file.
+3.  Add the `RosettaNet External Libs - Non FIPS` global configuration to your Mule configuration
+    file, as shown in the example:
+
+```xml
+<rosetta:external-libs-non-fips-config name="RosettaNet_External_Libs___Non_FIPS" />
+```
+
+4.  Add the required Maven dependencies to the `pom.xml` file. Refer to the
+    [RosettaNet Connector Release Notes](../../release-notes/connector/rosettanet-connector-release-notes-mule-4)
+    for the compatible versions of the dependencies.
+
+```xml
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcpkix-jdk18on</artifactId>
+    <version>${bouncy.castle.jdk18on.version}</version>
+</dependency>
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcprov-jdk18on</artifactId>
+    <version>${bouncy.castle.jdk18on.version}</version>
+</dependency>
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcjmail-jdk18on</artifactId>
+    <version>${bouncy.castle.jdk18on.version}</version>
+</dependency>
+<dependency>
+    <groupId>com.sun.activation</groupId>
+    <artifactId>jakarta.activation</artifactId>
+    <version>${jakarta.activation.version}</version>
+</dependency>
+<dependency>
+    <groupId>com.sun.mail</groupId>
+    <artifactId>jakarta.mail</artifactId>
+    <version>${jakarta.mail.version}</version>
+</dependency>
+```
+
+5.  Update the `mule-maven-plugin` by including the shared libraries in the **build** >
+    **plugins** > **plugin** section of the `pom.xml` file.
+
+```xml
+<configuration>
+  <sharedLibraries>
+    <sharedLibrary>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcjmail-jdk18on</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+        <groupId>com.sun.activation</groupId>
+        <artifactId>jakarta.activation</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+        <groupId>com.sun.mail</groupId>
+        <artifactId>jakarta.mail</artifactId>
+    </sharedLibrary>
+  </sharedLibraries>
+</configuration>
+```
+
+#### Configure a Global Element for the FIPS 140-2 Security Mode
+
+1.  Add the external library global configuration and set the runtime property. Make sure
+    BouncyCastle FIPS (BCFIPS) is available as required by your Mule runtime. Configure BCFIPS in
+    Java Security.
+
+    For FIPS 140-2 compliance, follow the
+    [FIPS 140-2 Compliance Support](../../mule-runtime/latest/fips-140-2-compliance-support)
+    documentation.
+
+2.  Configure the global element as a Mule app in Anypoint Studio:
+    1.  In the **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+    2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon
+        next to Global Elements.
+
+3.  Click **Create**, and then search for the `RosettaNet` or `External Libs` option and select
+    **RosettaNet External Libs - FIPS 140-2**.
+    1.  Name the configuration.
+    2.  Click **Configure** > **Add recommended libraries**.
+    3.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule app
+        `pom.xml` file.
+
+4.  Verify that your project has the required dependencies for your selected security mode. Add the
+    dependencies via Maven if they arenât added automatically.
+
+![The Connector Configuration Global Element and the configurations for FIPS 140-2 security mode](_images/rosettanet-connector-upgrade-fips140-2-config.png)
+
+To configure the global element manually in XML (Maven or standalone):
+
+1.  Open your main Mule configuration file, such as `src/main/mule/` or `src/main/resources/`.
+2.  Add the `rosettanet:external-libs-fips140-2-config` global element to the Mule configuration
+    file.
+3.  Add the `RosettaNet External Libs - FIPS 140-2` global configuration to your Mule configuration
+    file, as shown in the example.
+
+```xml
+<rosetta:external-libs-fips140-2-config name="RosettaNet_External_Libs_FIPS_140_2" />
+```
+
+4.  Add the required Maven dependencies to the `pom.xml` file. Refer to the
+    [RosettaNet Connector Release Notes](../../release-notes/connector/rosettanet-connector-release-notes-mule-4)
+    for the compatible versions of the dependencies.
+
+```xml
+<dependency>
+  <groupId>org.bouncycastle</groupId>
+  <artifactId>bcjmail-fips</artifactId>
+  <version>${bouncycastle.mail.fips.version}</version>
+</dependency>
+<dependency>
+  <groupId>com.sun.activation</groupId>
+  <artifactId>jakarta.activation</artifactId>
+  <version>${jakarta.activation.version}</version>
+</dependency>
+<dependency>
+  <groupId>com.sun.mail</groupId>
+  <artifactId>jakarta.mail</artifactId>
+  <version>${jakarta.mail.version}</version>
+</dependency>
+```
+
+5.  Update the `mule-maven-plugin` by including the shared libraries in the **build** >
+    **plugins** > **plugin** section of the `pom.xml` file.
+
+```xml
+<configuration>
+  <sharedLibraries>
+    <sharedLibrary>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcjmail-fips</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>com.sun.activation</groupId>
+      <artifactId>jakarta.activation</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>com.sun.mail</groupId>
+      <artifactId>jakarta.mail</artifactId>
+    </sharedLibrary>
+  </sharedLibraries>
+</configuration>
+```
+
+6.  In JVM or Mule runtime, set the security model to FIPS 140-2.
+
+```bash
+-Dmule.security.model=fips140-2
+```
+
+7.  Restrict BCFIPS to use only FIPS-approved algorithms.
+
+```bash
+-Dorg.bouncycastle.fips.approved_only=true
+```
+
+This example shows the Mule runtime startup configuration for FIPS 140-2:
+
+```bash
+java -Dmule.security.model=fips140-2 \
+  -Dorg.bouncycastle.fips.approved_only=true \
+  -jar mule-standalone.jar
+```
+
+#### Configure a Global Element for the FIPS 140-3 Security Mode
+
+1.  Add the external library global configuration and set the runtime property. Also:
+    - Make sure BouncyCastle FIPS (BCFIPS) is available as required by your Mule runtime.
+    - Configure BCFIPS in Java Security or by following the Mule runtime FIPS documentation for your
+      version.
+    - Make sure you have Java 17 or later as required for FIPS 140-3 support in your deployment.
+
+2.  Configure the global element as a Mule app in Anypoint Studio:
+    1.  In the **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+    2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon
+        next to Global Elements.
+
+3.  Click **Create**, and then search for the `RosettaNet` or `External Libs` option and select
+    **RosettaNet External Libs - FIPS 140-3**.
+    1.  Name the configuration.
+    2.  Click **Configure** > **Add recommended libraries**.
+    3.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule app
+        `pom.xml` file.
+
+4.  Verify that your project has the required dependencies for your selected security mode. Add the
+    dependencies via Maven if they arenât added automatically.
+
+![The Connector Configuration Global Element and the configurations for FIPS 140-3 security mode](_images/rosettanet-connector-upgrade-fips140-3-config.png)
+
+To configure the global element manually in XML (Maven or standalone):
+
+1.  Open your main Mule configuration file, such as `src/main/mule/` or `src/main/resources/`.
+2.  Add the `rosettanet:external-libs-fips140-3-config` global element to the Mule configuration
+    file.
+3.  Add the `RosettaNet External Libs - FIPS 140-3` global configuration to your Mule configuration
+    file, as shown in the example:
+
+```xml
+<rosettanet:external-libs-fips140-3-config name="RosettaNet_External_Libs_FIPS_140_3" />
+```
+
+4.  Add the required Maven dependencies to the `pom.xml` file. Refer to the
+    [RosettaNet Connector Release Notes](../../release-notes/connector/rosettanet-connector-release-notes-mule-4)
+    for the compatible versions of the dependencies.
+
+```xml
+<dependency>
+  <groupId>org.bouncycastle</groupId>
+  <artifactId>bcjmail-fips</artifactId>
+  <version>${bouncycastle.mail.fips.version}</version>
+</dependency>
+<dependency>
+  <groupId>com.sun.activation</groupId>
+  <artifactId>jakarta.activation</artifactId>
+  <version>${jakarta.activation.version}</version>
+</dependency>
+<dependency>
+  <groupId>com.sun.mail</groupId>
+  <artifactId>jakarta.mail</artifactId>
+  <version>${jakarta.mail.version}</version>
+</dependency>
+```
+
+5.  Update the `mule-maven-plugin` by including the shared libraries in the **build** >
+    **plugins** > **plugin** section of the `pom.xml` file.
+
+```xml
+<configuration>
+  <sharedLibraries>
+    <sharedLibrary>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcjmail-fips</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>com.sun.activation</groupId>
+      <artifactId>jakarta.activation</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>com.sun.mail</groupId>
+      <artifactId>jakarta.mail</artifactId>
+    </sharedLibrary>
+  </sharedLibraries>
+</configuration>
+```
+
+6.  In JVM or Mule runtime, set the security model to FIPS 140-3.
+
+```bash
+-Dmule.security.model=fips140-3
+```
+
+7.  Restrict BCFIPS to use only FIPS-approved algorithms.
+
+```bash
+-Dorg.bouncycastle.fips.approved_only=true
+```
+
+This example shows the Mule runtime startup configuration for FIPS 140-3:
+
+```bash
+java -Dmule.security.model=fips140-3 \
+  -Dorg.bouncycastle.fips.approved_only=true \
+  -jar mule-standalone.jar
+```
+
+> [!NOTE] The `org.bouncycastle.fips.approved_only` property is JVM-wide and must be set in your
+> system or runtime configuration when running in FIPS mode.
+>
+> If you use BCFIPS in FIPS mode, key and algorithm restrictions apply. Only approved algorithms
+> supported by the BCFIPS provider are allowed.
+
+### Step 3: Verify Keystore and Algorithm Compatibility
+
+1.  Verify that keystores and certificates are compatible with your selected security mode. Some
+    FIPS modes require FIPS-approved algorithms.
+2.  Review the Mule and BCFIPS documentation for approved algorithms if you use BCFIPS in FIPS mode,
+    since key and algorithm restrictions apply.
+
+### Step 4: Verify Connector Usage in Flows
+
+1.  Verify that partner certificates and algorithms are compatible with your selected security mode.
+2.  If you use RosettaNet Connector operations in your flows, verify that the connector
+    configuration also exists in your Mule app.
+
+## RosettaNet Connector Startup Validation
+
+At startup, RosettaNet Connector validates that the external library configuration and runtime
+settings are correct. Validation fails if the Mule application doesnât meet these requirements:
+
+- The application must include one external library. An error occurs if more than one external
+  library is included or if none are included.
+- Match the `mule.security.model` system property to the selected external library configuration:
+  - For non-FIPS, disable the `mule.security.model`. If itâs enabled, remove the property.
+  - For FIPS 140-2, set `mule.security.model` to `fips140-2`. If the property isnât configured
+    correctly, a message is logged to correct the setting to `-Dmule.security.model=fips140-2`.
+  - For FIPS 140-3, set `mule.security.model` to `fips140-3`. If the property isnât configured
+    correctly, a message is logged to correct the setting to `-Dmule.security.model=fips140-3`.
+
+- RosettaNet Connector instantiates the cryptographic implementation for the selected security mode
+  at startup. If this fails, for example due to missing or incompatible libraries, an error is
+  logged that includes the security profile and the cause.
+
+## Post-Upgrade Steps
+
+1.  Verify that the application starts without errors and that RosettaNet Connector initializes
+    correctly for your selected security mode.
+2.  Test the operations against your RosettaNet partners.
+3.  Confirm that certificates and algorithms are accepted in FIPS mode if applicable.
+4.  Notify partners of URL or port changes if you modified the HTTP Listener configuration.
+
+## System Properties Reference
+
+The table details the system-level properties that are required to configure RosettaNet Connectorâs
+security modes and BCFIPS compliance within the Mule runtime or JVM.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Property</th><th>Description</th><th>Values</th><th>Default</th><th>Scope</th></tr></thead><tbody><tr><td><p><code>mule.security.model</code></p></td><td><p>Security mode used by the connector</p></td><td><p><code>fips140-2</code> or <code>fips140-3</code></p></td><td><p><code>non-FIPS</code> (when not set)</p></td><td><p>Mule runtime or JVM</p></td></tr><tr><td><p><code>org.bouncycastle.fips.approved_only</code></p></td><td><p>Restricts BCFIPS to FIPS-approved algorithms only. Required for FIPS compliance when using BCFIPS.</p></td><td><p><code>true</code>, <code>false</code></p></td><td><p><code>false</code></p></td><td><p>JVM-wide</p></td></tr></tbody></table>
+
+The `org.bouncycastle.fips.approved_only` property affects the entire JVM. When the application runs
+in FIPS mode, the system administrator must configure the property. For more information, see the
+**FIPS 140-2 Compliance Support** section on the [Security](../../mule-runtime/latest/securing) page
+in the Mule runtime documentation.
+
+## Migrate Existing Deployments
+
+RosettaNet Connector 3.x introduces a Global Connector Configuration and supports configurable
+security modes including non-FIPS, FIPS 140-2, and FIPS 140-3 via the `mule.security.model` system
+property. Follow the [Upgrade Steps](#upgrade-steps) to make the necessary changes to your Mule app.
+RosettaNet Connectorâs cryptographic behavior is determined by the global configuration, which
+provides the required libraries and defines the runtime security model.
+
+Existing 2.x flows remain functional without requiring code changes.
+
+### Migrate Deployments from FIPS 140-2 or 140-3 Environments
+
+1.  Verify that BCFIPS and FIPS-related settings are configured correctly for your Mule runtime
+    version. For more information, see the **FIPS 140-2 Compliance Support** section on the
+    [Security](../../mule-runtime/latest/securing) page in the Mule runtime documentation.
+2.  Set `mule.security.model` to `fips140-2` or `fips140-3` as appropriate for your compliance
+    requirements.
+3.  Set `org.bouncycastle.fips.approved_only` to `true` if required by your runtime for compliance.
+4.  Test your configuration in a non-production environment by running your flows that use the
+    operations.
+5.  Deploy the application to production and monitor the error log to verify a successful startup
+    and RosettaNet message exchange.
+
+## Troubleshooting
+
+These common error messages and issues indicate configuration or `classpath` problems that prevent
+RosettaNet Connector from operating in the selected security mode. Follow the recommendations to
+resolve the issues.
+
+- **RosettaNet Connector requires at least one External Libs configuration**
+
+  Add `RosettaNet External Libs - Non FIPS`, `RosettaNet External Libs - FIPS 140-2`, or
+  `RosettaNet External Libs - FIPS 140-3` to your application. See
+  [RosettaNet Connector Startup Validation](#startup-validation).
+
+- **Only one External Libs configuration is allowed per application**
+
+  Remove the additional external library configurations so that you only have one.
+
+- **Detected 'mule4-rosettanet-support-non-fips' but system property 'mule.security.model' is â¦â**
+
+  For non-FIPS mode, disable `mule.security.model` or remove it from the JVM arguments or runtime
+  configuration.
+
+- **Detected 'mule4-rosettanet-support-fips1' but system property â¦â Set
+  -Dmule.security.model=fips140-2**
+
+  Add `-Dmule.security.model=fips140-2` if youâre using
+  `RosettaNet Connector External Libs - FIPS 140-2`.
+
+- **Detected 'mule4-rosettanet-support-fips2' but system property â¦â Set
+  -Dmule.security.model=fips140-3**
+
+  Add `-Dmule.security.model=fips140-3` if youâre using
+  `RosettaNet Connector External Libs - FIPS 140-3`.
+
+- **External Libs - â¦â configuration selected, but 'â¦â' is not on the classpath**
+
+  Add the correct implementation dependency for your selected security mode or make sure the
+  external library configuration imports the dependency. If you receive a warning, make sure only
+  the external library configuration for your active security mode remains by removing any
+  additional external library configurations.
+
+- **Startup or Crypto Errors in FIPS Mode**
+
+  Make sure `mule.security.model` matches your runtime FIPS setup and that BCFIPS is installed and
+  registered. Set `org.bouncycastle.fips.approved_only` to `true` if required.
+
+- **Tests or Flows that Relied on non-FIPS Behavior**
+
+  If your application is running with `mule.security.model=fips140-2` or `fips140-3`, some
+  algorithms or key usages are restricted. Align keystores and partner expectations with
+  FIPS-approved algorithms.
+
+- **Caching or Metadata Issues**
+
+  If Anypoint Studio or Anypoint Design Center shows a stale configuration, try restarting the IDE
+  or clearing your cache.
+
+## Revert the Upgrade
+
+To revert to RosettaNet Connector 2.x:
+
+1.  Change the `mule-rosettanet-connector` dependency in your projectâs `pom.xml` file to the
+    desired 2.x version.
+2.  Remove the external library global configuration.
+3.  Remove the libraries that were added as dependencies and shared libraries from the `pom.xml`
+    file.
+4.  Remove or adjust 3.x system properties, such as `mule.security.model`, if they arenât being used
+    by other components.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [RosettaNet Connector Reference](rosettanet-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+

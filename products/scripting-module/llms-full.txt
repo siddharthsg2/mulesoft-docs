@@ -1,0 +1,801 @@
+﻿# Scripting Module - Full Documentation
+
+# Scripting Module 2.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Scripting module executes custom logic written in a scripting language. In some cases, you might
+need to create custom code to perform all or part of a complex task, or to reuse modules that you
+have already written. Starting with Scripting module version 2.0, you must provide a compliant
+`jsr-223` scripting language engine.
+
+## Before You Begin
+
+To use this module, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements in a Mule flow
+- Global elements
+- Creating a Mule app using Anypoint Studio
+
+Before creating an app, you must have access to Anypoint Platform.
+
+## Common Use Cases for the Module
+
+Scripting module performs logic in a supported language, which enables you to access variables and
+the registry, log information via the Mule logger, read payloads, and so on.
+
+For examples, see [Examples](scripting-module-examples).
+
+## Audience
+
+- New user, read:
+  - [Using Anypoint Studio to Configure the Connector](scripting-module-studio) to create your Mule
+    app
+  - [Examples](scripting-module-examples), which provides one or more use cases for the connector
+
+- Advanced user, read:
+  - [XML and Maven Support](scripting-module-xml-maven)
+  - [Examples](scripting-module-examples), which provides one or more use cases for the connector
+
+For a major or minor release, see [Upgrading and Migrating](scripting-module-upgrade-migrate).
+
+## Next Step
+
+After you complete the prerequisites and experiment with templates and examples, you are ready to
+create an app and configure the connector using [Anypoint Studio](scripting-module-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](https://www.mulesoft.com/exchange/?search=scripting-module&type=connector)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using the Execution Mode
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Determine whether a script is automatically compiled or forced to be interpreted using the Scripting
+Module **Execution Mode** field.
+
+Configure the field in these modes:
+
+- **AUTO**  
+  Uses the compiled version of the script if the compilation is possible and successful during the
+  initialization. This mode doesnât perform a dynamic analysis of the scriptâs content to determine
+  whether it should switch to interpreted execution. For example, if the script contains hardcoded
+  parameters or local values that need to be dynamic, the `AUTO` mode doesnât detect this situation
+  and can opt for compilation, resulting in the loss of these values.
+
+  Therefore, `AUTO` mode applies only if there are no critical dependencies on local variables that
+  could be lost during compilation.
+
+- **INTERPRETED**  
+  Avoids issues related to variable retention.
+
+  Using `INTERPRETED` mode can lead to performance degradation because the script is interpreted
+  with each execution instead of being compiled once. This mode only applies to scenarios where
+  modifying the script to receive parameters explicitly is not feasible, as it is inherently less
+  efficient.
+
+This XML example shows the **Execution Mode** field (`executionMode`) configuration:
+
+```xml
+<mule ...>
+	<flow name="conn-flow" >
+		<scripting:execute
+engine="jruby" executionMode="INTERPRETED">
+               <scripting:code>
+				...
+</scripting:code>
+                ...
+            </scripting:execute>
+
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Scripting Module - Examples](scripting-module-examples)
+---
+
+# Scripting Module - Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following Scripting module examples show you how to use binding variables and how to access the
+registry.
+
+## Use Binding Variables Example
+
+The following Scripting Module XML example shows how to:
+
+- Use a flow variable in the scripting code, such as `vars.increment`
+- Use scripting parameters by referencing them, such as `initialValue`
+- Log some information by using the `log` variable, such as `log.info("â¦â.")`
+- Use the `result` variable to set the result of the execution
+- Define the payload in `vars.increment + Number(payload) + initialValue`
+
+```xml
+<set-variable variableName="increment" value="#[22]" />
+<scripting:execute engine="ECMAScript">
+    <scripting:code>
+        log.info("Incrementing payload by " + (vars.increment + initialValue))
+        result = vars.increment + Number(payload) + initialValue
+    </scripting:code>
+    <scripting:parameters><![CDATA[#[{ initialValue: 10 }]]]></scripting:parameters>
+</scripting:execute>
+```
+
+## Access the Registry Example
+
+The following Scripting Module XML example shows how to:
+
+- Access the registry
+- Stop or start a flow
+
+```xml
+<scripting:execute  engine="Groovy">
+    <scripting:code ><![CDATA[flow = registry.lookupByName("test-flow").get();
+        if (flow.isStarted())
+	        flow.stop()
+        else
+	        flow.start()]]>
+    </scripting:code>
+</scripting:execute>
+```
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Scripting Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure Scripting module in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the module to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the module flow](#configure-input-source).
+4.  [Add the Execute operation to the flow](#add-connector-operation).
+5.  [Configure other module fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the module fields, see the
+[Scripting Module Reference](scripting-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the module:
+
+1.  In Studio, from the main menu, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Module to Your Mule Project
+
+Add Scripting module to a Mule project to automatically populate the XML code with the moduleâs
+namespace and schema location, as well as add the required dependencies to the projectâs `pom.xml`
+file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `scripting module` in the search field.
+3.  Click **Scripting module** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a module to a Mule project in Studio does not make that module available to other projects in
+your Studio workspace.
+
+## Configure an Input Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these input
+sources to use with the Scripting module:
+
+- `HTTP Listener`, which initiates a flow each time it receives a request on the configured host and
+  port
+- `Scheduler`, which initiates a flow when a time-based condition is met
+
+For example, to configure `HTTP Listener`, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP** > **Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add the Execute Operation to the Flow
+
+When you add a module operation to your flow, you immediately define a specific operation for that
+module to perform.
+
+To add the Execute operation for Scripting module, follow these steps:
+
+1.  In the **Mule Palette** view, select **Scripting module** and then select **Execute**.
+2.  Drag the **Execute** operation onto the Studio canvas to the right of the source.
+3.  Click **Execute** to open the Execute configuration tab.
+4.  Use one of the following two options to install and configure a `jsr-223`\-compliant engine:
+    - In the **Required Libraries** section, click **Configureâ¦â** and select one of the following
+      options to search and install the engine:
+      - Add recommended libraries  
+        Install the Groovy engine as recommended. This option appears only if you did not previously
+        install Groovy.
+      - Use local file  
+        Browse a local file for the required engine library and install it.
+      - Add Maven dependency  
+        Browse the engine dependency and install it.
+
+    - In the `pom.xml` file, manually add the engine between:
+      - `<sharedLibraries>` tags under the `<configuration>` section
+      - `<dependency>` tags under the `<dependencies>` section
+
+5.  In the **General** section of the **Execute** tab, click the refresh button to update the engine
+    values list for the operation.
+6.  In **Engine**, select the installed engine.
+7.  Provide your script code in the **Code** text box.  
+    Additionally, you can load script code from an external file by using a
+    [file configuration property](../../mule-runtime/latest/configuring-properties#_file_properties).
+
+In Studio, configuring the Jython engine looks like this:
+
+![Installing engine using Configure button](_images/scripting-configure-button.png)
+
+Figure 1. Installing engine using Configure button
+
+In the `pom.xml` file, manually adding the Jython engine looks like this:
+
+```xml
+<build>
+	<plugins>
+		<plugin>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-clean-plugin</artifactId>
+			<version>3.0.0</version>
+		</plugin>
+	  <plugin>
+			<groupId>org.mule.tools.maven</groupId>
+			<artifactId>mule-maven-plugin</artifactId>
+			<version>${mule.maven.plugin.version}</version>
+			<extensions>true</extensions>
+			<configuration>
+				<sharedLibraries>
+          <sharedLibrary>
+            <groupId>org.python</groupId>
+            <artifactId>jython-standalone</artifactId>
+          </sharedLibrary>
+        </sharedLibraries>
+      </configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+<dependencies>
+  <dependency>
+    <groupId>org.python</groupId>
+    <artifactId>jython-standalone</artifactId>
+   <version>2.7.2</version>
+  </dependency>
+</dependencies>
+```
+
+In Studio, the Scripting module configuration with script code looks like this:
+
+![Scripting module configuration with script code](_images/scripting-studio-flow.png)
+
+Figure 2. Scripting Module configuration with script code
+
+In the **Configuration XML** editor, the XML looks like this:
+
+```xml
+<scripting:execute engine="python" doc:name="Script">
+    <scripting:code>
+      def factorial(n):
+          if n == 0: return 1
+	  return n * factorial(n-1)
+
+      result = factorial(10)
+    </scripting:code>
+</scripting:execute>
+```
+
+In Studio, the loaded script using an external file looks like this
+
+![Script code using an external file](_images/scripting-studio-file-config.png)
+
+Figure 3. Script code using an external file
+
+In the **Configuration XML** editor, place the script in between `<scripting:code>` tags, as
+follows:
+
+```xml
+<scripting:execute engine="python">
+    <scripting:code >${file::script.py}</scripting:code>
+</scripting:execute>
+```
+
+## Configure Other Module Fields
+
+You can configure other additional fields for the Execute operation, such as **Parameters**,
+**Target Variable**, and **Target Value**.
+
+### Parameters Parameter
+
+Use the **Parameters** parameter to define input values for the script to use through DataWeave. For
+the DataWeave expression to work correctly, you must combine the output types of the parameters, in
+which keys are strings and values are any object. Reference the parameters by name to use them as
+binding variables, for example:
+
+`factorial(initialValue + int(payload))`
+
+To configure this parameter for Scripting module:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the **General** section, add parameter values in the **Parameters** field.
+
+In Studio, the parameters configuration looks likes this:
+
+![Script using parameters](_images/scripting-studio-parameters.png)
+
+Figure 4. Script using parameters
+
+In the **Configuration XML** editor, the XML looks like this:
+
+```xml
+<scripting:execute engine="python" >
+	<scripting:code >def factorial(n):
+	if n == 0: return 1
+	return n * factorial(n-1)
+result = factorial(initialValue + int(payload))</scripting:code>
+	<scripting:parameters ><![CDATA[#[{
+        initialValue: 3
+    }]]]></scripting:parameters>
+</scripting:execute>
+```
+
+### Target Variable and Target Value
+
+Use the **Target Variable** parameter to define the name of a variable in which to place the
+operationâs output, and the **Target Value** parameter to define an expression to evaluate against
+the operationâs output. The outcome of that expression is stored in the target variable.
+
+To configure these parameters for Scripting module:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  On the **Advanced** tab, define **Target Variable** and **Target Value** as the
+    [target](../../mule-runtime/latest/target-variables) of the scripting execution.
+
+In Studio, the target variable and target value configuration looks like this:
+
+![Advanced settings](_images/scripting-studio-target.png)
+
+Figure 5. Script Target Variable and Target Value
+
+In the **Configuration XML** editor, the XML looks similar to the following:
+
+```xml
+<scripting:execute engine="python" target="variableName">
+    <scripting:code >${file::script.py}</scripting:code>
+</scripting:execute>
+```
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Studio, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Scripting module Reference](scripting-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting the Scripting Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot the Scripting Module, become familiar with the information about enabling verbose
+logging and interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+To get a better understanding of why an applicationâs interaction with the Scripting module is
+failing, temporarily enable verbose logging for the module.
+
+Remember to always disable the enhanced verbosity after troubleshooting, because it affects your
+Mule application performance.
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="org.mule.plugin.scripting" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Troubleshoot External Libraries for the Scripting Engine
+
+When upgrading the Scripting module version 2.0.1 to 2.0.2, you can receive a
+`SCRIPTING:UNKNOWN_ENGINE` throw message at runtime if you did not specify a scripting language
+engine external library. To avoid receiving such a throw message, you must specify a compliant
+`jsr-223` scripting language engine.
+
+For instructions on how to configure the scripting language engine, refer to
+[Add the Execute Operation to the Flow](scripting-module-studio#add-connector-operation).
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them:
+
+- SCRIPTING:COMPILATION
+
+  The content of the property code had problems in the compilation stage. Check that your code is
+  valid and export the classes used with the Scripting module.
+
+- SCRIPTING:UNKNOWN_ENGINE
+
+  The engine name provided in the engine parameter is unknown.
+
+- SCRIPTING:EXECUTION
+
+  An exception occurred during the execution stage. Set the log level in DEBUG mode and find more
+  information in the log file.
+
+## See Also
+
+- [Scripting Module Reference](scripting-reference)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Upgrading and Migrating Scripting Module to Version 2.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for Scripting module (Scripting module) to version 2.0.0.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>1.1.7</p></div></div></td><td><div><div><p>2.0.0</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+This release contains the following changes:
+
+- Because the Scripting module no longer provides default scripting engines, perform one of the
+  following actions:
+  - Use the **Configureâ¦â** button to install your desired engines.
+  - Specify desired engines in the `pom.xml` file of your application.
+
+- For any data stream provided in the payload or variables, a cursor object opens and binds so that
+  you need not open new cursors.  
+  Any `openCursor()` provided to the Scripting module closes after the script execution.
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, you must create a backup of your files, data, and configurations in
+case you need to restore to them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In **Mule Palette**, click **Search in Exchange**.
+3.  In **Add Dependencies to Project**, enter `scripting module` in the search field.
+4.  In **Available modules**, select `Scripting module` and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the `mule-scripting-module` dependency version is `2.0.0` in the Mule project file.
+
+Studio upgrades the connector version automatically.
+
+## Post-Upgrade Steps
+
+After you install the latest version of the connector, add a `jsr-223`\-compliant scripting engine:
+
+1.  In Anypoint Studio, navigate to the **Execute** tab operation of your application.
+2.  Use one of the following two options to install and configure a `jsr-223`\-compliant engine:
+    - In the **Required Libraries** section, click **Configureâ¦â** and select one of the following
+      options to search and install the engine:
+      - Add recommended libraries  
+        Install Groovy engine as recommended. This option appears only if you did not previously
+        install Groovy.
+      - Use local file  
+        Browse a local file for the required engine library and install it.
+      - Add Maven dependency  
+        Browse the engine dependency and install it.
+
+    - In the `pom.xml` file, manually add the engine in both of these sections:
+      - `<sharedLibraries>` tags under the `<configuration>` section
+      - `<dependency>` tags under the `<dependencies>` section
+
+> [!NOTE] Starting with Java 17, execution of JavaScript code requires the GraalVm engine. To use
+> this engine, add the following library dependencies to your `pom.xml` file :
+
+```xml
+<sharedLibrary>
+    <groupId>org.graalvm.js</groupId>
+    <artifactId>js</artifactId>
+</sharedLibrary>
+<sharedLibrary>
+    <groupId>org.graalvm.js</groupId>
+    <artifactId>js-scriptengine</artifactId>
+</sharedLibrary>
+```
+
+5.  In the **General** section of the **Execute** tab, click the refresh button to update the engine
+    values list for the operation.
+6.  In **Engine**, select the installed engine.
+
+### Verify the Upgrade
+
+After you install the latest version of the connector, verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project file.
+3.  Test the connection to verify that the operations work.
+
+## Troubleshooting
+
+- Engine names inconsistency  
+  When you see different engine names in the Studio configuration tab and Configuration XML tab,
+  engine names display differently than in previous Scripting module versions. This occurs because
+  the engine company defines and provides an identifier for both the engine and language name, for
+  example:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Engine Name</th><th>Studio Configuration</th><th>Configuration XML</th></tr></thead><tbody><tr><td><div><div><p>Jython</p></div></div></td><td><div><div><p>Jython</p></div></div></td><td><div><div><p>Python</p></div></div></td></tr><tr><td><div><div><p>Groovy</p></div></div></td><td><div><div><p>Groovy Scripting Engine</p></div></div></td><td><div><div><p>Groovy</p></div></div></td></tr><tr><td><div><div><p>Nashorn (JavaScript)</p></div></div></td><td><div><div><p>Oracle Nashorn</p></div></div></td><td><div><div><p>ECMASCript</p></div></div></td></tr></tbody></table>
+
+- Jython engine  
+  When you use a Jython engine thatâs not a standalone version in Scripting module v2.0, cause the
+  application to fail. Previous Scripting module versions worked with Jython engines that were not
+  standalone versions. Use `jython-standalone` version for Scripting module v2.0. For additional
+  information, see [Scripting Module XML and Maven Support](scripting-module-xml-maven).
+- Oracle Nashorn engine  
+  If you see Oracle Nashorn (ECMASCript) engine as an available option to select in the Studio
+  configuration tab without the necessity to install or configure it, this indicates that some
+  versions of JVM (Java Virtual Machine) previously installed and use the engine.
+
+### Reverting the Upgrade
+
+If you need to revert to the previous version of Scripting module, go to Anypoint Studio and do the
+following:
+
+1.  In the projectâs `pom.xml` file, change the `mule-scripting-module` dependency version `2.0.0`
+    to the previous version, and delete the engine dependency used from the `<dependencies>`
+    section.
+2.  Return to the **Execute** tab, and in the **Engine** section, select one of the default engines.
+3.  In the **Configuration XML** tab, confirm the selected engine name also changed.
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Scripting Module - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Module
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/scripting-module
+http://www.mulesoft.org/schema/mule/scripting-module/current/mule-scripting-module.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+    http://www.mulesoft.org/schema/mule/scripting
+    http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+    <groupId>org.mule.modules</groupId>
+    <artifactId>mule-scripting-module</artifactId>
+    <version>2.0.0</version>
+    <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `Scripting Module`.
+4.  Select the module.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+Notice that since Scripting Module does not provide execution engines, you have to provide an
+execution engine yourself. For example, review the following list of engines provided by the
+previous version of Scripting Module:
+
+Groovy:
+
+> [!NOTE] Scripting module supports version 2.4.x for Groovy. Anypoint Studio recommends using
+> version 2.4.21.
+
+```xml
+    <dependency>
+        <groupId>org.codehaus.groovy</groupId>
+        <artifactId>groovy-all</artifactId>
+        <version>2.4.21</version>
+        <classifier>indy</classifier>
+    </dependency>
+```
+
+Python:
+
+```xml
+    <dependency>
+        <groupId>org.python</groupId>
+        <artifactId>jython-standalone</artifactId>
+        <version>2.7.2</version>
+    </dependency>
+```
+
+Ruby:
+
+```xml
+    <dependency>
+        <groupId>org.jruby</groupId>
+        <artifactId>jruby-core</artifactId>
+        <version>9.2.11.1</version>
+    </dependency>
+    <dependency>
+        <groupId>org.jruby</groupId>
+        <artifactId>jruby-stdlib</artifactId>
+        <version>9.2.11.1</version>
+    </dependency>
+```
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](scripting-module-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Scripting Module Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Scripting Module v2.1
+
+The Scripting module executes custom logic written in a scripting language.
+
+## Configurations
+
+---
+
+### Config
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+## Operations
+
+### Execute
+
+`<scripting:execute>`
+
+Run a script with provided code, according to the engine and passing parameters. The script provides
+many binding variables to work with:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><p>payload</p></td><td><p>Object</p></td><td><p>The payload of the message processed.</p></td></tr><tr><td><p>dataType</p></td><td></td><td><p>Data type of the message payload.</p></td></tr><tr><td><p>correlationId</p></td><td><p>String</p></td><td><p>The correlationId of the message processed.</p></td></tr><tr><td><p>attributes</p></td><td><p>Map&lt;String, Object&gt;</p></td><td><p>Attributes of the Mule message processed.</p></td></tr><tr><td><p>vars</p></td><td><p>Map&lt;String, Object&gt;</p></td><td><p>The variables set on the current Mule event processed.</p></td></tr><tr><td><p>message</p></td><td></td><td><p>The message processed.</p></td></tr><tr><td><p>error</p></td><td></td><td><p>Error associated with the Mule message processed.</p></td></tr><tr><td><p>authentication</p></td><td></td><td><p>Information about the authentication.</p></td></tr><tr><td><p>flow</p></td><td><p>String</p></td><td><p>The name of the current flow.</p></td></tr><tr><td><p>log</p></td><td><p>Logger</p></td><td><p>Logger object that logs to the appâs log file, <code>MULE_HOME/logs/&lt;app-name&gt;.log</code></p></td></tr><tr><td><p>result</p></td><td><p>Object</p></td><td><p>Variable representing the result of the script execution.</p></td></tr><tr><td><p>registry</p></td><td><p>org.mule.runtime.api.artifact.Registry</p></td><td><p>Use the registry object to access any other service within the Mule API.</p></td></tr></tbody></table>
+
+> [!NOTE] If the code doesnât produce an implicit result, you have to set the `result` variable
+> value explicitly with the execution result. The payload is set with this value unless you
+> configure a [target variable](../../mule-runtime/latest/target-variables) as described in
+> [Scripting Module Overview](./).
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Code</p></td><td><div><div><p>String</p></div></div></td><td><p>The script source code to execute</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Engine</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the scripting engine for running this script</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameters</p></td><td><div><div><p>Map&lt;String, Object&gt;</p></div></div></td><td><p>Variables provided to the script as bindings</p></td><td></td><td></td></tr><tr><td><p>Execution Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>INTERPRETED</p></li></ul></div></div></td><td><p>Determines whether the script is automatically compiled or forced to be interpreted. When set to <code>AUTO</code> or not specified, the module analyzes the context to determine the appropriate mode. When set to <code>INTERPRETED</code>, the module enforces interpretation mode.</p></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which to place the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output. The outcome of that expression will be stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr></tbody></table>
+
+> [!IMPORTANT] You must export the classes used with the Scripting Module, otherwise, the execution
+> fails with a `SCRIPTING:COMPILATION` error. See
+> [how to export resources](../../mule-runtime/latest/how-to-export-resources).
+
+#### Throws
+
+- SCRIPTING:COMPILATION
+- SCRIPTING:UNKNOWN_ENGINE
+- SCRIPTING:EXECUTION
+
+## Types
+
+### Aggregation Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Aggregation Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Aggregation ID that comes from the eventâs message correlationId. If the aggregator does not aggregate by correlationId, then this field is an autogenerated value for the current aggregated group.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>First Item Arrival Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time in which the first aggregated value arrived.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Last Item Arrival Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time in which the last aggregated element arrived.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Is Aggregation Complete</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>A boolean value that indicates the completion of the aggregation.</p></td><td><p>false</p></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use if the &lt;b&gt;Use Secure Hash&lt;b/&gt; field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>One or more expressions that determine when a message was redelivered. This property can be set only if the &lt;b&gt;Use Secure Hash&lt;/b&gt; field is <code>false</code>.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>ObjectStore</p></div></div></td><td><p>Configures the object store that stores the redelivery counter for each message.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Scripting Module Release Notes](../../release-notes/mule-runtime/module-scripting)
+- [Salesforce Help](https://help.salesforce.com)
+

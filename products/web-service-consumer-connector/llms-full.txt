@@ -1,0 +1,1576 @@
+﻿# Web Service Consumer Connector - Full Documentation
+
+# Web Service Consumer Connector 2.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Web Service Consumer (Web Service Consumer Connector) consumes a SOAP web
+service from a Mule app to acquire data from an external source. In many cases, you can use Anypoint
+Connector for Workday (Workday Connector) or Anypoint Connector for ServiceNow (ServiceNow
+Connector) to connect to a service provider, however, when no connector is available for a specific
+web service, the easiest way to consume the service is to use the Web Service Consumer Connector.
+
+The main features of the connector include:
+
+- Ability to consume DOC literal web services
+- Use of SOAP multipart messages
+- Use of SOAP headers
+- Support for a DataSense for SOAP headers, SOAP body, and attachments
+- Use of embedded DataWeave transformations inside the operation
+- Support for a unified experience for SOAP with attachments and MTOM handling
+- Custom HTTP configuration as a transport
+- Support for Web Service Security (WS Security)
+
+> [!NOTE] Web Service Consumer Connector doesnât support RPC WSDLs (Remote procedure call Web
+> Service Descripting Language).
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- SOAP and WSDLs
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements in a Mule flow
+- Global elements
+- DataWeave
+- Creating a Mule app using Anypoint Studio
+
+Before creating an app, you must have access to Anypoint Studio.
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create an app and configure the connector
+using [Anypoint Studio](web-service-consumer-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Web Service Consumer in Exchange](https://anypoint.mulesoft.com/exchange/org.mule.connectors/mule-wsc-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Web Service Consumer Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Set additional configuration for Anypoint Connector for Web Service Consumer (Web Service Consumer
+Connector), such as custom HTTP Transport and Web Service Security both in Anypoint Studio and in
+the XML editor.
+
+## Configure Custom HTTP Transport
+
+By default, the connector uses a simple unprotected HTTP configuration to dispatch all outgoing SOAP
+messages. For cases where a more advanced HTTP configuration is required, you can parameterize the
+Web Service Consumer Connector with an HTTP Connector configuration to dispatch the messages.
+
+The following example illustrates how you might declare and reference an HTTP Requester
+configuration with HTTP Basic authentication in the **Transport Configuration** parameter of the Web
+Service Consumer Connector configuration to ensure that the connector dispatches each request:
+
+1.  In Studio, open the **Global Element Properties** window of the Web Service Consumer Connector.
+2.  On the **Transport** tab, for **Transport Configuration**, select
+    `HTTP Transport Configuration`.  
+    The **Requester Config** field automatically populates `HTTP_Request_configuration` only if you
+    previously created the HTTP Request configuration.
+3.  Click **OK**
+
+In Studio, configuring custom HTTP transport looks like this:
+
+![Configure Custom HTTP Transport](_images/web-service-consumer-configure-transport.png)
+
+In the **Configuration XML** tab, the reference of the HTTP Requester configuration
+`<http:request-config name="HTTP_Request_configuration">` is under the Web Service Consumer
+configuration `<wsc:custom-transport-configuration>`:
+
+```xml
+<http:request-config name="HTTP_Request_configuration">
+    <http:request-connection host="www.exampleplace.com" port="8182" protocol="HTTP">
+        <http:authentication>
+            <http:basic-authentication username="admin" password="textpassword"/>
+        </http:authentication>
+    </http:request-connection>
+</http:request-config>
+
+<wsc:config name="with-custom-transport">
+    <wsc:connection wsdlLocation="http://www.host.com?WSDL" service="Service" port="Port">
+        <wsc:custom-transport-configuration>
+            <wsc:http-transport-configuration requesterConfig="basic-auth"/>
+        </wsc:custom-transport-configuration>
+    </wsc:connection>
+</wsc:config>
+```
+
+### Handling SOAP Faults with Custom HTTP Configurations
+
+When using a custom HTTP Request configuration as your transport, the HTTP requesterâs default
+behavior is to treat status codes like `500 Internal Server Error` as failures. Because many SOAP
+services return `SOAP Faults` with a 500 status code, the custom transport may throw an
+`HTTP:INTERNAL_SERVER_ERROR` before the Web Service Consumer Connector can parse the SOAP body.
+
+To ensure that the Web Service Consumer Connector correctly receives and processes the SOAP Fault,
+you must configure the **Response validator** in your HTTP Request configuration to accept a broader
+range of status codes, typically `100..500`.
+
+The following example illustrates how to capture the SOAP Fault when Web Service Consumer Connector
+uses custom HTTP Requester configuration:
+
+1.  In the **HTTP Request configuration** window, navigate to the **Settings** tab.
+2.  In the **Response options** section, set the **Response validator** field to
+    `Success status code validator`.
+3.  In the **Values** field, enter `100..500`.
+
+In Studio, configuring the response validator for custom HTTP transport looks like this:
+
+![Configure HTTP Response Validator](_images/web-service-consumer-configure-response-validator.png)
+
+In the **Configuration XML** tab, the configuration looks like this:
+
+```xml
+<http:request-config name="HTTP_Request_configuration">
+ <http:request-connection host="www.exampleplace.com" port="8182" protocol="HTTP">
+   <http:authentication>
+     <http:basic-authentication username="admin" password="textpassword"/>
+   </http:authentication>
+ </http:request-connection>
+ <http:response-validator>
+     <http:success-status-code-validator
+       values="100..500" />
+ </http:response-validator>
+</http:request-config>
+```
+
+## Configure Web Service Security
+
+The WS-Security protocol enables you to use various security token formats to enforce message
+integrity and confidentiality. This protocol uses XML Signature and XML Encryption to provide
+end-to-end security.
+
+WS-Security describes how to:
+
+- Sign SOAP messages to ensure integrity and provide nonrepudiation
+- Encrypt SOAP messages to ensure confidentiality
+- Attach security tokens to ascertain the senderâs identity
+
+Web Service Consumer Connector supports the following mechanisms:
+
+- Timestamp
+- Signature or signature verification
+- Username
+- Encryption or decryption
+
+The following example illustrates how you might configure a username token security strategy as web
+service security for the connector:
+
+1.  In Studio, open the **Global Element Properties** window of the Web Service Consumer Connector.
+2.  On the **Security** tab, for **Username token security strategy**, select `Edit inline`.
+3.  Complete the **Username**, and **Password** fields, and set **Add nonce** and **Add created**
+    fields to `true`.
+4.  Click **OK**.
+
+In Studio, configuring web service security looks like this:
+
+![Configure Web Service Security](_images/web-service-consumer-configure-wsecurity.png)
+
+In the **Configuration XML** tab, configuring Web Service Security looks like this:
+
+```xml
+<wsc:config name="with-custom-transport">
+    <wsc:connection wsdlLocation="http://www.host.com?WSDL" service="Service" port="Port">
+        <wsc:web-service-security>
+            <wsc:username-token-security-strategy username="admin" password="textPassword" addCreated="true" addNonce="true"/>
+        </wsc:web-service-security>
+    </wsc:connection>
+</wsc:config>
+```
+
+## Configure WSC:EMPTY_RESPONSE Error
+
+When mandatory fields are missing from the response (Illegal Empty Response), you can configure the
+**Error Handler** component to throw the `WSC:EMPTY_RESPONSE` error for the Web Service Consumer
+Connector.
+
+1.  In Studio, select the **On Error Continue** component of the Error handling section.
+2.  Set **Type** to **WSC:EMPTY_RESPONSE**.
+
+![WSC:EMPTY_RESPONSE selected for Type field](_images/web-service-consumer-emptyresponse.png)
+
+In the **Configuration XML** tab, the configuration looks like this:
+
+```xml
+<flow name="WSC-Example">
+  <scheduler>
+    <scheduling-strategy >
+      <fixed-frequency />
+    </scheduling-strategy>
+  </scheduler>
+  <set-variable value="test" variableName="variableSample"/>
+  <ee:transform>
+    <ee:message >
+      <ee:set-payload ><![CDATA[ %dw 2.0
+output application/xml
+ns con http://service.soap.service.mule.org/
+---
+con#attachOperation: {
+    text: vars.variableSample
+}]]></ee:set-payload>
+    </ee:message>
+  </ee:transform>
+  <wsc:consume config-ref="Web_Service_Consumer_Config" operation="attachOperation">
+    <wsc:message-customizations forceXMLProlog="true"/>
+  </wsc:consume>
+    <error-handler >
+      <on-error-continue enableNotifications="true" logException="true" type="WSC:EMPTY_RESPONSE">
+      <logger level="INFO" message="The response was empty." />
+      </on-error-continue>
+    </error-handler>
+</flow>
+```
+
+## Read Attributes in a Failure Scenario
+
+The following example shows how to configure the Web Service Consumer Connector to read SOAP
+attributes or additional transport data attributes in a failure scenario.
+
+1.  In Studio, drag a **Scheduler** source to your flow.
+2.  Drag a **Set variable** component alongside the **Scheduler** source.
+3.  Set **Name** to `variableSample` and **Value** to `test`.
+4.  Drag a **Transform Message** component alongside the **Set Variable** component.
+5.  In the Datasense output view, add the following DataWeave expression:
+
+```dataweave
+ %dw 2.0
+output application/xml
+ns con http://service.soap.service.mule.org/
+---
+con#attachOperation: {
+    text: vars.variableSample
+}
+```
+
+6.  Drag the Web Service Consumer Connector **Consume** operation alongside the **Transform
+    Message** component.
+7.  Set a **Connector configuration** for the connector.
+8.  Set **Operation** to `attachOperation`.
+9.  Drag an **On Error Continue** component to the Error handling section of your flow.
+10. Set **Type** to `WSC:BAD_RESPONSE`.
+11. Drag a **Logger** component into the **On Error Continue** component.
+12. Set **Message** to the expression `#[error.additionalData.statusCode]` to read SOAP attributes
+    or additional transport data.
+
+In the **Configuration XML** tab, the configuration looks like this:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc" xmlns:compression="http://www.mulesoft.org/schema/mule/compression"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd">
+	<flow name="WSC-Example">
+  <scheduler>
+    <scheduling-strategy >
+      <fixed-frequency />
+    </scheduling-strategy>
+  </scheduler>
+  <set-variable value="test" variableName="variableSample"/>
+  <ee:transform>
+    <ee:message >
+      <ee:set-payload ><![CDATA[ %dw 2.0
+output application/xml
+ns con http://service.soap.service.mule.org/
+---
+con#attachOperation: {
+    text: vars.variableSample
+}]]></ee:set-payload>
+    </ee:message>
+  </ee:transform>
+  <wsc:consume config-ref="Web_Service_Consumer_Config" operation="attachOperation">
+    <wsc:message-customizations forceXMLProlog="true"/>
+  </wsc:consume>
+    <error-handler >
+      <on-error-continue enableNotifications="true" logException="true" type="WSC:BAD_RESPONSE">
+      <logger level="INFO" message="#[error.additionalData.statusCode]" />
+      </on-error-continue>
+    </error-handler>
+</flow>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+- [Web Service Consumer Connector Reference](web-service-consumer-reference)
+---
+
+# Web Service Consumer Connector Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples illustrate how to configure Anypoint Connector for Web Service Consumer (Web
+Service Consumer) Connector operations both in Anypoint Studio and the XML editor.
+
+- [Web Service Consumer Connector Example 1](web-service-example-1) This example transforms a
+  variable value into XML and pass that value to the Web Service Consumer Connector, which
+  subsequently consumes a web service.
+- [Web Service Consumer Connector Example 2](web-service-example-2) This example list an inventory
+  of t-shirts and the Web Service Consumer Connector returns if there is an error such as
+  `BAD_RESPONSE` or `EMPTY_RESPONSE`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Web Service Consumer Connector 2.2 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Web Service Consumer (Web Service Consumer Connector) consumes a SOAP Web
+service to acquire data from an external source.
+
+Release Notes: [Web Service Consumer Release Notes](../../release-notes/connector/connector-wsc)
+
+## Configurations
+
+---
+
+### Config
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The identifier of this element used to reference it in other components.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+ConnectionProvider that returns instances of WscSoapClient.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Soap Version</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SOAP11</p></li><li><p>SOAP12</p></li></ul></div></div></td><td><div><div><p>The soap version of the WSDL.</p></div></div></td><td><div><div><p>SOAP11</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Mtom Enabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If should use the MTOM protocol to manage the attachments or not.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Default character encoding to use in all the messages. If not specified, the default charset in the mule configuration will be used</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Transport Configuration</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#http-transport-configuration">HTTP Transport Configuration</a></p></li><li><p><a href="#DefaultHttpTransportConfiguration">Default HTTP Transport Configuration</a></p></li></ul></div></div></td><td><div><div><p>The transport configuration used to dispatch the SOAP messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Wsdl Location</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The WSDL file URL remote or local.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Service</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The service name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The port name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Address</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The address of the web service.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sign Security Strategy</strong></p></td><td><div><div><p><a href="#WssSignSecurityStrategyAdapter">WSS Sign Security Strategy Adapter</a></p></div></div></td><td><div><div><p>A sign WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Verify Signature Security Strategy</strong></p></td><td><div><div><p><a href="#WssVerifySignatureSecurityStrategyAdapter">WSS Verify Signature Security Strategy Adapter</a></p></div></div></td><td><div><div><p>A verify signature WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username Token Security Strategy</strong></p></td><td><div><div><p><a href="#WssUsernameTokenSecurityStrategyAdapter">Wss Username Token Security Strategy Adapter</a></p></div></div></td><td><div><div><p>A usernameToken WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Outgoing Timestamp Security Strategy</strong></p></td><td><div><div><p><a href="#WssTimestampSecurityStrategyAdapter">WSS Timestamp Security Strategy Adapter</a></p></div></div></td><td><div><div><p>A timestamp WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Decrypt Security Strategy</strong></p></td><td><div><div><p><a href="#wss-decrypt-security-strategy">WSS Decrypt Security Strategy</a></p></div></div></td><td><div><div><p>A decrypt WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Encrypt Security Strategy</strong></p></td><td><div><div><p><a href="#WssEncryptSecurityStrategyAdapter">WSS Encrypt Security Strategy Adapter</a></p></div></div></td><td><div><div><p>an encrypt WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Incoming Timestamp Security Strategy</strong></p></td><td><div><div><p><a href="#WssIncomingTimestampSecurityStrategyAdapter">WSS Incoming Timestamp Security Strategy Adapter</a></p></div></div></td><td><div><div><p>A timestamp verification WSS configuration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Must Understand</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Value of the mustUnderstand attribute in WS-Security header.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Actor</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A SOAP message may travel from a sender to a receiver by passing different endpoints along the message path. The SOAP actor attribute is used to address the wsse:Security header to a specific endpoint. This parameter values must be a URI.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Security Headers Order</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TimestampAtEnd</p></li><li><p>TimestampAtStart</p></li></ul></div></div></td><td><div><div><p>Select the order of outgoing WS-Security tags.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Consume](#consume)
+
+## Operations
+
+### Consume
+
+`<wsc:consume>`
+
+Consumes an operation from a SOAP Web Service.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Operation</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the web service operation that aims to invoke.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Config Ref</strong></p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><div><div><p>The name of the configuration to use to execute this component.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The XML body to include in the SOAP message, with all the required parameters, or null if no params are required.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The XML headers to include in the SOAP message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Attachments</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The attachments to include in the SOAP request.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>A group of transport headers that will be bounded with the transport request.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Force XML Prolog into body</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If true, the XML Prolog statement will be appended to the requestâs body.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that storesoperationâs output will be placed</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Error Mappings</strong></p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><div><div><p>Set of error mappings.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SoapOutputEnvelope">SOAP Output Envelope</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#SoapAttributes">SOAP Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- WSC:BAD_REQUEST
+- WSC:BAD_RESPONSE
+- WSC:CANNOT_DISPATCH
+- WSC:CONNECTIVITY
+- WSC:EMPTY_RESPONSE
+- WSC:ENCODING
+- WSC:INVALID_WSDL
+- WSC:RETRY_EXHAUSTED
+- WSC:SECURITY
+- WSC:SOAP_FAULT
+- WSC:TIMEOUT
+
+## Types
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Sign Security Strategy Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key Store Configuration</strong></p></td><td><div><div><p><a href="#wss-key-store-configuration">WSS Key Store Configuration</a></p></div></div></td><td><div><div><p>The keystore to use when signing the message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Sign Algorithm Configuration</strong></p></td><td><div><div><p><a href="#WssSignConfigurationAdapter">WSS Sign Configuration Adapter</a></p></div></div></td><td><div><div><p>The algorithms to use on the signing.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Key Store Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key Store Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>jks</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Sign Configuration Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Signature Key Identifier</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ISSUER_SERIAL</p></li><li><p>DIRECT_REFERENCE</p></li><li><p>X509_KEY_IDENTIFIER</p></li><li><p>THUMBPRINT</p></li><li><p>SKI_KEY_IDENTIFIER</p></li><li><p>KEY_VALUE</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>ISSUER_SERIAL</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Signature Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>RSAwithSHA256</p></li><li><p>ECDSAwithSHA256</p></li><li><p>DSAwithSHA1</p></li><li><p>RSAwithSHA1</p></li><li><p>RSAwithSHA224</p></li><li><p>RSAwithSHA384</p></li><li><p>RSAwithSHA512</p></li><li><p>ECDSAwithSHA1</p></li><li><p>ECDSAwithSHA224</p></li><li><p>ECDSAwithSHA384</p></li><li><p>ECDSAwithSHA512</p></li><li><p>DSAwithSHA256</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Signature Digest Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SHA1</p></li><li><p>SHA256</p></li><li><p>SHA224</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>SHA1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Signature C14n Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>CanonicalXML_1_0</p></li><li><p>CanonicalXML_1_1</p></li><li><p>ExclusiveXMLCanonicalization_1_0</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>ExclusiveXMLCanonicalization_1_0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Wss Parts</strong></p></td><td><div><div><p>Array of <a href="#wss-part">WSS Part</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expand XOP Include</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRUE</p></li><li><p>FALSE</p></li></ul></div></div></td><td><div><div><p>Configures whether XOP (XML-binary Optimized Packaging) includes are expanded inline within the SOAP message. If set to true, XOP includes are expanded inline. If set to false, XOP includes are not expanded. When not set, WSS4J uses its default behavior.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Part
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Encode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ELEMENT</p></li><li><p>CONTENT</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>CONTENT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Namespace</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Localname</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### WSS Verify Signature Security Strategy Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Trust Store Configuration</strong></p></td><td><div><div><p><a href="#wss-trust-store-configuration">WSS Trust Store Configuration</a></p></div></div></td><td><div><div><p>The truststore to use to verify the signature.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Trust Store Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Trust Store Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div><div><p>jks</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Wss Username Token Security Strategy Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The username required to authenticate with the service.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password for the provided username required to authenticate with the service.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DIGEST</p></li><li><p>TEXT</p></li></ul></div></div></td><td><div><div><p>A #password parameter.</p></div></div></td><td><div><div><p>TEXT</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Add Nonce</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Specifies a if a cryptographically random nonce should be added to the message.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Add Created</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Specifies if a timestamp should be created to indicate the creation time of the message.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Timestamp Security Strategy Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Time To Live</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The time difference between creation and expiry time in the time unit specified in timeToLiveUnit. After this time the message is invalid.</p></div><div><div><pre>This parameter values must be greater or equal to 1 second (or similar in other unit). Values lower than 1 second will end up
+in 1 second timestamp.</pre></div></div></div></td><td><div><div><p>60</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A #timeToLive parameter.</p></div><div><div><pre>Defaults to SECONDS</pre></div></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Decrypt Security Strategy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key Store Configuration</strong></p></td><td><div><div><p><a href="#wss-key-store-configuration">WSS Key Store Configuration</a></p></div></div></td><td><div><div><p>The keystore to use when decrypting the message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### WSS Encrypt Security Strategy Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key Store Configuration</strong></p></td><td><div><div><p><a href="#wss-key-store-configuration">WSS Key Store Configuration</a></p></div></div></td><td><div><div><p>The keystore to use when encrypting the message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Encryption Algorithms Configuration</strong></p></td><td><div><div><p><a href="#wss-encryption-algorithms-configuration">WSS Encryption Algorithms Configuration</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Encryption Algorithms Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Encryption Key Identifier</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ISSUER_SERIAL</p></li><li><p>DIRECT_REFERENCE</p></li><li><p>X509_KEY_IDENTIFIER</p></li><li><p>THUMBPRINT</p></li><li><p>SKI_KEY_IDENTIFIER</p></li><li><p>ENCRYPTED_KEY_SHA1</p></li><li><p>EMBEDDED_KEY_NAME</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>ISSUER_SERIAL</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Encryption Sym Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TRIPLE_DES</p></li><li><p>AES_128</p></li><li><p>AES_256</p></li><li><p>AES_192</p></li><li><p>AES_128_GCM</p></li><li><p>AES_192_GCM</p></li><li><p>AES_256_GCM</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>AES_128</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Encryption Key Transport Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>KEYTRANSPORT_RSA15</p></li><li><p>KEYTRANSPORT_RSAOAEP</p></li><li><p>KEYTRANSPORT_RSAOAEP_XENC11</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>KEYTRANSPORT_RSAOAEP</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Encryption Digest Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SHA1</p></li><li><p>SHA256</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>SHA1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Wss Part Adapters</strong></p></td><td><div><div><p>Array of <a href="#wss-part">WSS Part</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### WSS Incoming Timestamp Security Strategy Adapter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Future Time To Live</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the time in the future within which the Created time of an incoming Timestamp is valid. The default value is "60", to avoid problems where clocks are slightly askew. To reject all future-created Timestamps, set this value to "0".</p></div></div></td><td><div><div><p>60</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Future Time To Live Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A #futureTimeToLive parameter.</p></div><div><div><pre>Defaults to SECONDS</pre></div></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### SOAP Output Envelope
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Attachments</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Map of HTTP headers in the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### SOAP Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Protocol Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The protocol headers bundled in the response.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Additional Transport Data</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>The additional transport data bundled in the response.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Source</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td><div><div><p>Source of the error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Target of the error.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### HTTP Transport Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Requester Config</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Default HTTP Transport Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>5000</p></div></div></td><td><div></div></td></tr></tbody></table>
+---
+
+# Using Anypoint Studio to Configure Web Service Consumer 2.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure the Consume operation](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Web Service Consumer Connector Reference](web-service-consumer-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Web Service Consumer Connector to your Mule project to automatically populate the XML code with
+the connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Dependencies to Project**, type `web service consumer` in the search field.
+3.  Click **Web Service Consumer** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+An input source initiates a flow when a specified condition is met.
+
+For example, to configure HTTP **Listener**, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP** > **Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add the Consume operation to Web Service Consumer Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Web Service Consumer** and then select the **Consume**
+    operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+![Web Service Consumer Connector Operations](_images/web-service-consumer-operation.png)
+
+Figure 1. Web Service Consumer Connector Operations
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. To consume a SOAP web service operation, you need to create a
+configuration that points to the service that you want to consume.
+
+To configure the global element for Web Service Consumer Connector, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the **Basic Settings** section of the **General** tab, click the plus sign (+) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  In the **Connection** section of the **General** tab, configure the following parameters:
+    - **WSDL location**  
+      The remote or local WSDL file URL
+    - **Service**  
+      The service name
+    - **Port**  
+      The port name
+    - **Address**  
+      The address of the web server to dispatch requests if the **Service** and **Port** parameters
+      did not automatically provide this value.
+
+Note that the **WSDL location**, **Service**, and **Port** parameters are mandatory for the
+configuration to be valid.
+
+The following example shows how to configure the global element to get a list of flights by airline:
+
+![Web Service Consumer Global Element](_images/web-service-consumer-global-element.png)
+
+Figure 2. Web Service Consumer Global Element
+
+In the **Configuration XML** tab, the XML looks like this:
+
+```xml
+<wsc:config name="wsc">
+  <wsc:connection
+   wsdlLocation="http://ilt.mulesoft-training.com/essentials/delta?wsdl"
+   service="TicketServiceService"
+   port="TicketServicePort"/>
+</wsc:config>
+```
+
+## Configure Consume Operation
+
+After you configure a global element for Web Service Consumer Connector, configure the Consume
+operation parameters, such as **Operation**, **Message** (**Body, Headers, Attachments**) and so on.
+Additionally, learn about the output of the Consume operation and metadata attributes used to
+dispatch messages.
+
+### Parameters
+
+The Consume operation has two main parameters:
+
+- **Operation**  
+  Defines which SOAP operation of the web service to invoke. During the design phase, the parameter
+  defines the input and output types for the Consume operation. The types will change depending on
+  which operation you choose.
+- **Message**  
+  A representation of `SOAP:ENVELOP` composed of three optional parameters:
+  - **Body**  
+    The XML body to include in the SOAP message, with all the required parameters, or `null` if no
+    parameters are required
+  - **Headers**  
+    The XML headers to include in the SOAP message
+  - **Attachments**  
+    The attachments to include in the SOAP request
+
+To configure these parameters for the Consume operation, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the **General** section of the Consume operation, define **Operation**, and in the
+    **Message** section, define **Body**, **Headers**, and **Attachments** fields:
+
+![Configure Consume Operation](_images/web-service-consumer-configure-consume.png)
+
+Figure 3. Configure Consume Operation
+
+In the **Configuration XML** tab, a basic configuration for the Consume operation looks like this:
+
+```xml
+<wsc:consume config-ref="config" operation="addClients">
+    <wsc:message>
+        <wsc:body>#[payload]</wsc:body>
+    </wsc:message>
+</wsc:consume>
+```
+
+#### Body Parameter
+
+The `body` parameter is the main part of the SOAP message. It accepts embedded DataWeave script
+values so expects that you can construct the XML request without having a side effect on the message
+or having to use multiple components to create the request. Some characteristics of the parameter
+include:
+
+- The default value is `#[payload]`, based on the assumption that the incoming payload is the XML
+  entity ready to ship to the service.
+- If the body is not valid XML, or if the request cannot be created for some reason, you get a
+  `WSC:BAD_REQUEST` error.
+- If you donât provide body content, the Web Service Consumer Connector attempts to generate one,
+  and this works only for cases where no XML entity is expected in the body.
+- Some web services require to append the XML prolog tag into the envelopeâs body XML content, which
+  contains the version and encoding information that identifies the document as being XML.
+
+The following example shows a DataWeave expression inside the `body` parameter, and how to force the
+Web Service Consumer Connector to dispatch any payload by enabling the XML prolog option:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the **Body** parameter field of the **General** tab, add the DataWeave expression.
+3.  In the **Message Customization** section of the **Advanced** tab, enable the option **Force XML
+    Prolog into body** like this:
+
+![Configure XML Prolog into Body](_images/web-service-consumer-xmlprolog.png)
+
+Figure 4. Configure XML Prolog into Body
+
+In the **Configuration XML** tab, the XML looks like this:
+
+```xml
+<wsc:consume config-ref="config" operation="addClients">
+    <wsc:message>
+        <wsc:body>
+        #[
+        %dw 2.0
+        output application/xml
+        ns con http://service.soap.clients.namespace/
+        ---
+        con#clients: {
+            client: {
+                name: "admin1",
+                lastname: "textpassword1"
+            },
+            client: {
+                name: "admin2",
+                lastname: "textpassword2"
+            }
+        }]
+        </wsc:body>
+    </wsc:message>
+    <wsc:message-customizations forceXMLProlog="true" />
+</wsc:consume>
+```
+
+#### Headers Parameter
+
+The `headers` parameter contains application-specific information about the SOAP message, such as
+authentication, payment, and so on. The parameter is an XML entity, that accepts an embedded
+DataWeave script as its value.
+
+The following XML example shows a DataWeave expression inside the `headers` parameter:
+
+```xml
+<wsc:consume config-ref="config" operation="addClients">
+    <wsc:message>
+        <wsc:body>#[payload]</wsc:body>
+        <wsc:headers>
+          #[
+          %dw 2.0
+          output application/xml
+          ns con http://service.soap.clients.namespace/
+          ---
+          "headers": {
+              con#user: "admin",
+              con#pass: "textpassword"
+          }]
+        </wsc:header>
+    </wsc:message>
+</wsc:consume>
+```
+
+Note that inside the DW script, the root must be `"headers"`, otherwise, the following error returns
+while running the application:
+`Invalid input headers XML: It must be an xml with the root tag named \'headers\'`.
+
+#### Attachments Parameter
+
+The `attachments` parameter enables you to bind attachments to the SOAP message. To create
+attachments for transport over SOAP, declare a DataWeave script in which each entry represents an
+attachment and the entry value provides the content of the attachment.
+
+The following XML example shows a DataWeave expression inside the `attachments` parameter that
+declares a new attachment called `clientsJson`. The attachment value content is stored in the
+`jsonFile` variable. This variable can be set from a `file:read` operation:
+
+```xml
+<wsc:consume config-ref="config" operation="addClients">
+    <wsc:message>
+        <wsc:body>#[payload]</wsc:body>
+        <wsc:attachments>
+          #[{ clientsJson: vars.jsonFile } ]
+        </wsc:attachments>
+    </wsc:message>
+</wsc:consume>
+```
+
+### Output
+
+The output of the Consume operation represents an incoming SOAP message that contains the same
+elements that the `Message` parameter has, and you can access each part of it.
+
+The following XML example stores:
+
+- The content of the body in a `soap.body` variable
+- The content of the header called `auth` in a `soap.header.auth` variable
+- The content of an attachment called `json` in a `soap.attachment.json` variable
+
+```xml
+<flow name="output">
+  <wsc:consume config-ref="config" operation="addClients">
+      <wsc:message>
+          <wsc:body>#[payload]</wsc:body>
+      </wsc:message>
+  </wsc:consume>
+  <set-variable name="soap.body" value="#[payload.body]">
+  <set-variable name="soap.header.auth" value="#[payload.headers.auth]">
+  <set-variable name="soap.attachment.json" value="#[payload.attachments.json]">
+</flow>
+```
+
+### Attributes
+
+When your app consumes a web service operation, you might be interested not only in the response
+content but also in the metadata of the underlying transport used to dispatch the messages. For
+example, when you use HTTP, attributes carry HTTP headers bound to the HTTP request
+(`content-length`, `status`, and so on).
+
+The Web Service Consumer Connector uses Mule message attributes to access this information.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector. See [Additional Configuration Information](web-service-consumer-config-topics) for more
+configuration steps.
+
+## See Also
+
+- [How to set SOAP headers in Web Service Consumer in Mule 4](https://help.salesforce.com/s/articleView?id=001114743&type=1)
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Web Service Consumer Reference](web-service-consumer-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting Web Service Consumer Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for Web Service Consumer (Web Service Consumer Connector), become
+familiar with the information about enabling wire logging, troubleshooting access attachments,
+troubleshooting design-time WSDL issues, and interpreting commonly thrown messages.
+
+## Enable Wire Logging
+
+To begin troubleshooting Web Service Consumer Connector, look at the transport request and response
+on the Web Service Consumer. If you are using the underlying HTTP transport, you can enable wire
+logging to see the exact HTTP message, the transmission headers, and the response status.
+
+To enable wire logging:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  If the following line is already in the `log4j2.xml` file, uncomment it to enable it; otherwise,
+    add it:
+
+    ```xml
+    <AsyncLogger name="org.mule.service.http.impl.service.HttpMessageLogger" level="DEBUG" />
+    ```
+
+6.  Save your changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+8.  Navigate to the **Console** view to read the HTTP messages in the logger:
+
+    ```plain-text
+    POST /essentials/delta HTTP/1.1
+    soapaction:
+    Host: ilt.mulesoft-training.com
+    User-Agent: AHC/1.0
+    Connection: keep-alive
+    Accept: */*
+    Content-Type: text/xml; charset=UTF-8
+    Transfer-Encoding: chunked
+
+    b1
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ns0:listAllFlights xmlns:ns0="http://soap.training.mulesoft.com/"/></soap:Body></soap:Envelope>
+
+    DEBUG 2021-04-06 15:04:23,058 [[wsc-base].wsc-dispatcher.11 SelectorRunner] [processor: ; event: ] org.mule.service.http.impl.service.HttpMessageLogger.wsc-dispatcher: REQUESTER
+    0
+
+
+    DEBUG 2021-04-06 15:04:23,319 [[wsc-base].wsc-dispatcher.11 SelectorRunner] [processor: ; event: ] org.mule.service.http.impl.service.HttpMessageLogger.wsc-dispatcher: REQUESTER
+    HTTP/1.1 200
+    Date: Tue, 06 Apr 2021 18:04:23 GMT
+    Content-Type: text/xml; charset=UTF-8
+    Transfer-Encoding: chunked
+    Connection: keep-alive
+    MULE_ENCODING: UTF-8
+    Strict-Transport-Security: max-age=31536000; includeSubdomains;
+    X-Content-Type-Options: 1
+    X-Frame-Options: SAMEORIGIN
+    X-XSS-Protection: 1; mode=block
+
+    bfe
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ns2:listAllFlightsResponse xmlns:ns2="http://soap.training.mulesoft.com/">...
+    ```
+
+## Troubleshoot Access Attachments
+
+Some servers respond to requests by sending MTOM (Message Transmission Optimization Mechanism)
+messages. These messages separate their data into parts, which enables different types of content
+data to coexist in the same HTTP message.
+
+MTOM is in charge of sending binary data in a separate part and referencing that part from the
+corresponding field within the SOAP envelope. Web Service Consumer users interact with these
+messages (multipart) only with the MTOM configuration.
+
+Refer to the following documentation for further information about MTOM:
+
+- [RFC2387 - The MIME Multipart/Related Content-type](https://www.ietf.org/rfc/rfc2387.txt)
+- [XML-binary Optimized Packaging (XOP) W3C Recommendation](https://www.w3.org/TR/2005/REC-xop10-20050125/)
+- [SOAP Message Transmission Optimization Mechanism (MTOM) W3C Recommendation](https://www.w3.org/TR/soap12-mtom/)
+
+Beginning with version 1.6.4, Web Service Consumer Connector enables you to configure MTOM for
+request messages that also automatically manage MTOM responses, regardless of the MTOM setting in
+the Web Service Consumer global configuration. Incoming messages with MTOM are treated as
+MTOM-enabled, regardless of whether MTOM is configured in the Web Service Consumer global
+configuration.
+
+The following example shows the Web Service Consumer Connector global configuration with MTOM
+enabled:
+
+![Web Service Consumer global element configuration with MTOM field set to TRUE](_images/wsc-troubleshoot-3.png)
+
+Figure 1. Web Service Consumer Connector Global Element
+
+In the XML editor, the `<wsc:config>` and `mtomEnabled` configurations look like this:
+
+```xml
+<wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config">
+    <wsc:connection wsdlLocation="http://ilt.mulesoft-training.com/essentials/delta?wsdl" service="TicketServiceService" port="TicketServicePort" address="http://ilt.mulesoft-training.com/essentials/delta" mtomEnabled="true">
+        <wsc:web-service-security actor="http://schemas.xmlsoap.org/soap/actor/next" />
+    </wsc:connection>
+</wsc:config>
+```
+
+Depending on the server side multipart setting, the server might send some binary data as a
+Base64-encoded text field or as a referenced binary part in the MIME message.
+
+To troubleshoot how to access the binary data:
+
+- If the server sends the binary data as Base64-encoded text field, you must access this field as
+  part of the message.  
+  Base64 decoding is automatically performed by Web Service Consumer.
+- If the server sends the binary data as a referenced binary part, you must access this field as an
+  attachment.
+
+  The following example shows an image sent as an attachment with MTOM by a web service server. You
+  use DataWeave to access and transform the image into JSON. In this case, Base64 encoding is
+  required:
+
+  ```DataWeave
+  import * from dw::core::Strings
+  import dw::core::Binaries
+  output application/json
+  ns nam http://mynamespace.com
+  ---
+  {
+  ...
+  "image": Binaries::toBase64(payload.attachments[0]),
+  ...
+  }
+  ```
+
+## Troubleshoot Design Time WSDL Issues
+
+Errors related to incorrect WSDL recognition, acquisition, or parsing sometimes lead to the
+following issues:
+
+- DataSense does not correctly expose the message metadata defined in the WSDL.
+- In the Web Service Consumer Connector configuration screen, the **Operations** field does not show
+  any web service operation names for the connector to invoke:
+
+  ![Web Service Consumer Connector Operations field shows empty](_images/wsc-troubleshoot-1.png)
+
+  Figure 2. Web Service Consumer Connector Operations field
+
+- In the Web Service Consumer Connector global element configuration, the **Port** and **Address**
+  fields are not automatically filled when a WSDL location is provided.
+
+  ![In the Web Service Consumer Connector global element window](_images/wsc-troubleshoot-2.png)
+
+  Figure 3. Web Service Consumer Connector Global Element
+
+To resolve these issues:
+
+- Check the integrity of your WSDL by using your preferred online or desktop viewer applications.  
+  Because every parsing error during the configuration is not shown during design-time, implementing
+  an external application helps detect them.
+- If you do not add the WSDL as a resource in the applicationâs **src/main/resources** folder in
+  Studio, check for a correct connection to the server hosting the WSDL.  
+  Sometimes you need to add custom HTTP settings, such as OAuth settings or user/password settings,
+  to access an HTTP server in an HTTP security layer. See
+  [Setting a Custom HTTP Transport Configuration.](web-service-consumer-config-topics)
+
+## Troubleshooting Must Understand Error
+
+If your Mule Web Service Consumer app throws the error `WSC:CANNOT_DISPATCH`, and the third-party
+server returns in the HTTP response the `<faultcode>soap:MustUnderstand</faultcode>` as the
+exception for the connector caused error, this indicates that the Web Service Consumer connector
+configuration has the Security setting **Must Understand** field set to the default value of `true`.
+
+To avoid this issue, set the **Must understand** field to `false`. The default value of this
+attribute to `true` is on the connector side, but on the SOAP protocol side the implicit value for
+the **Must Understand** attribute is `false` when is not present. If you do not explicitly need to
+use the **Must Understand** attribute for SOAP request, set the value to `false`.
+
+![Web Service Consumer configuration setting Must Understand value to false](_images/wsc-must-understand.png)
+
+The returned HTTP response might come with a compressed or uncompressed payload body for you to
+check the `<faultcode>soap:MustUnderstand</faultcode>` exception. If the HTTP response header
+`Content-Encoding` is `gzip`, it indicates that the payload body is compressed, for example, review
+the following HTTP response where you can see compressed characters such as ï¿½RMoï¿½0ï¿½Wï¿½ï¿½ï¿½:
+
+```XML
+HTTP/1.1 500 Internal Server Error
+X-OPNET-Transaction-Trace: a2_ba571488-537c-4839-94a9-48f3f08fadf3
+Content-Encoding: gzip
+Content-Type: multipart/related; type="application/xop+xml"; boundary="uuid:83b066a2-fb96-4abf-a687-dd178a5b3e29"; start="<root.message@cxf.apache.org>"; start-info="text/xml"
+Content-Length: 363
+X-Cnection: close
+Date: Wed, 23 Nov 2022 13:41:25 GMT
+Connection: close
+Set-Cookie: dc=dcs; Path=/; Version=1; Secure; Httponly; Max-Age=900
+Strict-Transport-Security: max-age=31536000
+
+ï¿½???????ï¿½RMoï¿½0ï¿½Wï¿½ï¿½ï¿½N!ï¿½c-ï¿½Mï¿½:iï¿½ï¿½Öï¿½1ï¿½&(hï¿½_hï¿½ï¿½ï¿½vï¿½ï¿½ï¿½l?[ï¿½iJï¿½ï¿½4X,`ï¿½ï¿½tï¿½ï¿½sHsï¿½pÉ¥ï¿½,Cï¿½Og8]ï¿½GOZYTï¿½ï¿½#u]ï¿½ï¿½R+ï¿½ï¿½ï¿½ï¿½=Vkï¿½`ï¿½fï¿½{ï¿½ï¿½Yï¿½ï¿½x[+ï¿½]ï¿½0ï¿½(GÃ·*Ó²Tï¿½ï¿½ï¿½ï¿½ï¿½]$ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½?"ï¿½!ksjï¿½
+ï¿½ï¿½9$ï¿½ï¿½xï¿½ï¿½:Úª/ï¿½tï¿½ï¿½5Qï¿½ï¿½ï¿½+ï¿½ï¿½#!ï¿½É@ï¿½ï¿½zï¿½ï¿½} pH^rï¿½ï¿½e7ï¿½/ï¿½T6ï¿½ï¿½ï¿½rï¿½09ï¿½o
+Ù½ï¿½hÈï¿½ï¿½ï¿½ï¿½g%Yï¿½&Ineï¿½@ï¿½ï¿½}ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½@%qï¿½_ï¿½,}ï¿½iï¿½E0gï¿½ï¿½ï¿½`Öï¿½vï¿½nï¿½|ï¿½~Kï¿½ï¿½}ï¿½?dJ[Ö;k-ï¿½ï¿½ï¿½`+×£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½Y9E??
+```
+
+To decompress the payload body of the response, your Mule app must catch the thrown error using an
+**Error Handler** component, and then use the Compression Module **Decompress** operation to
+decompress the response.
+
+In Studio, navigate to the **Decompress** operation configuration screen, and set the **Compressed**
+field to the following expression to read compressed payload and catch the exception:
+`error.exception.errorMessage.typedAttributes.value.headers.`
+
+![Compressed field set with expression value](_images/wsc-decompress.png)
+
+Subsequently, you can use a **Logger** component in your Mule app to log the entire payload body
+with the exception, for example, the following logs show the decompressed payload SOAP body with
+`<faultcode>soap:MustUnderstand</faultcode>`:
+
+```XML
+INFO  2022-11-23 14:57:05,247 [[MuleRuntime].uber.05: [ri-uhip-integration-esb-1095brequesttransmitterservice2_11-02-20221].BulkRequestTransmitter:\soapkit-config.BLOCKING @3f46eb07] [processor: BulkRequestTransmitter:\soapkit-config/processors/4/errorHandler/0/processors/2; event: 58ed0ad0-6b57-11ed-b9ce-147ddaa4cf6c] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: --uuid:223e386d-3093-4df4-b5f9-9cb3b9a493a2
+Content-Type: application/xop+xml; charset=UTF-8; type="text/xml"
+Content-Transfer-Encoding: binary
+Content-ID: <root.message@cxf.apache.org>
+
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><soap:Fault><faultcode>soap:MustUnderstand</faultcode><faultstring>MustUnderstand headers: [{http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd}Security] are not understood.</faultstring></soap:Fault></soap:Body></soap:Envelope>
+--uuid:223e386d-3093-4df4-b5f9-9cb3b9a493a2--
+```
+
+## Troubleshooting Systems Properties
+
+- `mule.soap.maxAttributeSize` (default value = 524288)
+
+The XML parser library has a value limit for the `mule.soap.maxAttributeSize` system property that
+specifies maximum allowed length of attribute values, in characters. The limit protects against
+possible Denial-of-Service (DoS) attacks, wherein XML-based web services may be attacked by
+specifically crafted documents that could cause processing problems by excessive memory or computing
+power usage.
+
+The default value is 524288 characters and it is a reasonable default value for normal usage. You
+can change it to a higher value if input documents can legitimately exceed the default limit, or to
+a lower value if specific attacks are observed or the system has a lower resource allocation.
+
+One signal to change the value limit is when the exception
+`javax.xml.stream.XMLStreamException: Maximum attribute size limit (524288) exceeded` occurs when
+processing legitimate documents.
+
+To change this value, you have to set the `mule.soap.maxAttributeSize` system property with the
+accurate number according to your needs. Refer to the Knowledge article
+[How can I set Mule and Java system properties at startup?](https://help.salesforce.com/s/articleView?id=001115098&type=1)).
+The maximum value allowed is 2147483647
+([Integer.MAX_VALUE](https://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html#MAX_VALUE) in
+Java). If you set 0 or if you donât set the property, the connector takes the default value.
+
+### Re-enable DOCTYPE and External Entity Processing in XML Parsing
+
+In Web Service Consumer Connector 2.2 and later, XML parsing is hardened by default to mitigate XML
+External Entity (XXE) attacks. DOCTYPE declarations and external general or parameter entities are
+disabled when parsing SOAP messages.
+
+If your integration requires DOCTYPE declarations or external entity processing in SOAP messages,
+you can re-enable these XML features by setting this system property:
+
+`mule.soap.xml.disableXxeProtection` (default value = `false`)
+
+Setting this property to `true` re-enables DOCTYPE and external entity processing. This isnât
+recommended because doing so reintroduces exposure to XXE-based attacks. The runtime logs a warning
+when the property is active.
+
+To set this property, refer to
+[How can I set Mule and Java system properties at startup?](https://help.salesforce.com/s/articleView?id=001115098&type=1).
+
+## No Content-Type Boundled in the Message
+
+In Web Service Consumer Connector 1.10.0 and earlier, you might see the
+`No Content-Type boundled in the message` error. In Web Service Consumer Connector 1.10.1 and later,
+the `No Content-Type boundled in the message` error is not thrown if the Content-Type header is
+missing in the response when the status code is not `200`. For more information, refer to the
+[SOAP specification](https://www.w3.org/TR/2000/NOTE-SOAP-20000508/#_Toc478383529) and
+[HTTP Response Headers Fields](https://www.w3.org/TR/soap12-part2/#http-respbindprocess).
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them.
+
+- WSC:SOAP_FAULT
+
+  Error matching the SOAP response with the format provided by the WSDL.
+
+  Every CXF SOAP fault error is wrapped in a \`WSC:SOAP_FAULT\`.
+
+- WSC:BAD_REQUEST
+
+  The Web Service Consumer Connector operation does not exist in the WSDL.
+
+  The request body is not a valid XML.
+
+- WSC:INVALID_WSDL
+
+  The WSDL is poorly formatted.
+
+- WSC:EMPTY_RESPONSE
+
+  Occurs when mandatory fields are missing from the response (Illegal Empty Response).
+
+## See Also
+
+- [Web Service Consumer Connector Reference](web-service-consumer-reference)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Upgrading and Migrating Web Service Consumer Connector to Version 2.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Web Service Consumer Connector to version 2.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>1.x</p></div></div></td><td><div><div><p>2.x</p></div></div></td></tr></tbody></table>
+
+## Changes in 2.2
+
+- New `WSC:SECURITY` error type usable in `<error-handler>` blocks. Operations that fail because of
+  a security-related cause now raise this error type.
+- The `soap-engine` dependency is upgraded to version 2.4.0 with security improvements. XML parsing
+  is hardened by default; if your integration legitimately requires DOCTYPE declarations or external
+  entities in SOAP messages, see [Troubleshooting](web-service-consumer-troubleshooting) for the
+  system property to re-enable them.
+
+## Changes in 2.1
+
+- The WSS Sign Configuration Adapter type now includes the new **Expand XOP Include** field to
+  define how XOP (XML-binary Optimized Packaging) includes are expanded inline within the SOAP
+  message body.
+
+## Changes in 2.0
+
+Web Service Consumer Connector 2.0 includes these changes.
+
+- Web Service Consumer Connector (and its dependencies) are now compilable and compatible only with
+  Java 17.
+- To align with modern development practices and ensure continued compatibility with secure and
+  supported libraries, Web Service Consumer Connector is upgraded from Spring 5.x to Spring 6.x.
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, you must create a backup of your files, data, and configurations in
+case you need to restore them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, right-click the project and select **Manage Dependencies** > **Manage
+    Modules**.
+2.  Select `Web Service Consumer Connector - Mule 4` and click **Update version**.
+3.  Click **Apply and Close**.
+4.  Verify that the Web Service Consumer Connector dependency version is `2.0.0` in the `pom.xml`
+    file in the Mule project.
+
+Alternatively, you can manually update the Web Service Consumer Connector dependency version in the
+`pom.xml` file in the Mule project, or simply add the updated connector to the project.
+
+### Verify the Upgrade
+
+After you upgrade the connector, follow these steps to verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection to verify that the operations work.
+
+## Troubleshoot
+
+If there are problems with caching the parameters and caching the metadata, try restarting Anypoint
+Studio.
+
+### Revert the Upgrade
+
+If it is necessary to revert to the previous version of Web Service Consumer Connector, change the
+Web Service Consumer Connector dependency version `2.0.0` in the projectâs `pom.xml` to the previous
+version.
+
+You must update the projectâs `pom.xml` in Anypoint Studio.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Web Service Consumer Connector Reference](web-service-consumer-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Web Service Consumer XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/wsc
+http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/wsc
+	http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>org.mule.connectors</groupId>
+  <artifactId>mule-wsc-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `Web Service Consumer`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Examples](web-service-consumer-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Web Service Consumer - Example 1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example shows how to transform a variable value into XML and pass that value to
+Anypoint Connector for Web Service Consumer (Web Service Consumer Connector), which subsequently
+consumes a web service:
+
+![Web Service Consumer Example Flow in Studio Canvas](_images/web-service-consumer-example1.png)
+
+## Create the Mule App in Anypoint Studio
+
+To create the flow in Anypoint Studio:
+
+1.  In the **Mule Palette** view, select **Core** > **Scheduler**.
+2.  Drag the **Scheduler** component to the Studio canvas.  
+    The **Scheduler** component initiates a flow when a time-based condition is met.
+3.  Set the **Display Name** field to `Scheduler`.
+4.  Set **Scheduling Strategy** to `Fixed Frequency`, **Frequency** to `1000`, **Start delay** to
+    `0` and **Time unit** to `MILLISECONDS (Default)`.
+
+In Studio, the **Scheduler** configuration looks like this:
+
+![Scheduler Configuration](_images/web-service-consumer-example2.png)
+
+Figure 1. Scheduler Configuration
+
+5.  Drag a **Set Variable** component onto the canvas, to the right of the **Scheduler**
+    component.  
+    The **Set Variable** component creates the variable to be transformed into XML later in the
+    flow.
+6.  Set the **Display Name** field to `Set Variable`.
+7.  Set **Name** to `variableSample` and **Value** to `test`.
+
+In Studio, the **Set Variable** configuration looks like this:
+
+![Set Variable Configuration](_images/web-service-consumer-example3.png)
+
+Figure 2. Set Variable Configuration
+
+8.  Drag a **Transform Message** component onto the canvas, to the right of the **Set Variable**
+    component.  
+    The **Transform Message** component transforms the variable value into XML.
+9.  In the **Output** field of the **Transform Message** component configuration, set a DataWeave
+    expression that:
+    - Transforms the variable value output to `application/xml`.
+    - Defines the name of the web service operation that the Web Service Consumer Connector aims to
+      invoke by `attachOperation`.
+
+DataWeave Expression
+
+```xml
+%dw 2.0
+output application/xml
+ns con http://service.soap.service.mule.org/
+---
+con#attachOperation: {
+   text: vars.variableSample
+}
+```
+
+In Studio, the **Transform Message** configuration looks like this:
+
+![Transform Message Configuration](_images/web-service-consumer-example4.png)
+
+Figure 3. Transform Message Configuration
+
+10. Drag the **Consume** operation onto the canvas, to the right of the **Transform Message**
+    component.
+11. Set the **Display Name** field to `Consume`.
+12. Set **Operation** to `attachOperation` and the **Body** message to `payload`.
+13. In the **Message Customization** section of the **Advanced** tab, enable the option **Force XML
+    Prolog into body** to append the XML prolog to the content of the envelopeâs body XML.
+
+In Studio, the **Consume** operation configuration looks like this:
+
+![Consume Operation Configuration](_images/web-service-consumer-example5.png)
+
+Figure 4. Consume Operation Configuration
+
+In Studio, the **XML Prolog** configuration looks like this:
+
+![Configure XML Prolog into Body](_images/web-service-consumer-xmlprolog.png)
+
+Figure 5. Configure XML Prolog into Body
+
+14. On the **General** tab, click the plus sign (+) next to the **Connector configuration** field to
+    access the **Global Element Properties** configuration.
+15. On the **Connection** section of the **General** tab, configure the following parameters:
+    - **WSDL location**  
+      The remote or local WSDL file URL
+    - **Service**  
+      The service name
+    - **Port**  
+      The port name
+    - **Address**  
+      The address of the web server to dispatch requests but if the **Service** and **Port**
+      parameters donât auto-populate the web server address, you must manually provide the correct
+      **Address**.
+
+16. Click **OK**.
+
+In Studio, the **Global Element Properties** configuration looks like this:
+
+![Web Service Consumer Configuration](_images/web-service-consumer-example6.png)
+
+Figure 6. Web Service Consumer Configuration
+
+17. Save your changes in Studio.
+18. Deploy the application.
+
+## XML for Consuming a Web Service
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<wsc:config name="Web_Service_Consumer_Config">
+		<wsc:connection wsdlLocation="api/attach-demo.wsdl" service="AttachDemo" port="AttachDemoSOAP" address="http://localhost:8085/AttachDemo/AttachDemoSOAP" />
+	</wsc:config>
+	<flow name="WSC-Example">
+		<scheduler>
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</scheduler>
+		<set-variable value="test" variableName="variableSample"/>
+		<ee:transform>
+			<ee:message >
+				<ee:set-payload ><![CDATA[ %dw 2.0
+output application/xml
+ns con http://service.soap.service.mule.org/
+---
+con#attachOperation: {
+    text: vars.variableSample
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume config-ref="Web_Service_Consumer_Config" operation="attachOperation">
+			<wsc:message-customizations forceXMLProlog="true"/>
+		</wsc:consume>
+	</flow>
+</mule>
+```
+---
+
+# Web Service Consumer - Example 2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example lists an inventory of t-shirts and Web Service Consumer Connector returns if
+there is an error such as `BAD_RESPONSE` or `EMPTY_RESPONSE`.
+
+![Web Service Consumer Example flow in Studio canvas](_images/wsc-example-2.png)
+
+## XML for Consuming a Web Service
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<mule xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit-soap="http://www.mulesoft.org/schema/mule/apikit-soap" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/apikit-soap http://www.mulesoft.org/schema/mule/apikit-soap/current/mule-apikit-soap.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd">
+    <http:listener-config name="api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081"/>
+    </http:listener-config>
+    	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config"  basePath="/" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+		<wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config"  >
+		<wsc:connection wsdlLocation="http://localhost:8081/TshirtService/TshirtServicePort?wsdl" service="TshirtService" port="TshirtServicePort" address="#['http://localhost:8081/TshirtService/TshirtServicePort?result=' ++ attributes.queryParams.result]" >
+			<wsc:custom-transport-configuration >
+				<wsc:default-http-transport-configuration timeout="60000" />
+			</wsc:custom-transport-configuration>
+			<wsc:web-service-security actor="http://schemas.xmlsoap.org/soap/actor/next" />
+		</wsc:connection>
+	</wsc:config>
+    <apikit-soap:config httpStatusVarName="httpStatus" name="soapkit-config" port="TshirtServicePort" service="TshirtService" wsdlLocation="tshirt2 (1).wsdl"/>
+    <flow name="api-main">
+        <http:listener config-ref="api-httpListenerConfig" path="/TshirtService/TshirtServicePort">
+            <http:response statusCode="#[attributes.additionalTransportData.statusCode default 200]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[attributes.protocolHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[attributes.additionalTransportData.statusCode default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[attributes.protocolHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit-soap:router config-ref="soapkit-config">
+            <apikit-soap:message>#[payload]</apikit-soap:message>
+            <apikit-soap:attributes>#[
+              %dw 2.0
+              output application/java
+              ---
+              {
+                  headers: attributes.headers,
+                  method: attributes.method,
+                  queryString: attributes.queryString
+            }]</apikit-soap:attributes>
+        </apikit-soap:router>
+    </flow>
+    <flow name="ListInventory:\soapkit-config">
+		<choice doc:name="Choice" doc:id="c632fc13-961d-470d-be98-b48b71e6c262">
+			<when expression="#[(payload.headers[0].choice default '') == 'empty']">
+				<set-payload value="#[output application/xml --- readUrl('classpath://soap_empty.xml', 'application/xml')]" doc:name="Set Payload"  />
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Transform Message" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+ns ms http://mulesoft.org/tshirt-service
+---
+{
+    body: {
+        ms#ListInventoryResponse:
+        	{
+			ms#inventory: [
+				{
+			    ms#productCode: "4aa458e4f00d017021bbb509d700f008",
+        		ms#size: "S",
+        		ms#description: "Mens Summit Road T-Shirt",
+        		ms#count: 100
+        		},
+	        	{
+        		ms#productCode: "d8a63dea402e11edb8780242ac120002",
+        		ms#size: "M",
+        		ms#description: "Japanese Car EJ Engine Blueprint Illustration T-shirt",
+        		ms#count: 200
+        		}
+        	]
+        	}
+        } write "application/xml"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+    </flow>
+	<flow name="mule-http-listener-api" >
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config1" path="/api" responseStreamingMode="NEVER" />
+		<set-variable value="#[attributes.queryParams.result default '']" doc:name="Set Variable"  variableName="choice"/>
+		<set-payload value="#[output application/xml --- readUrl('classpath://request.xml', 'application/xml')]" doc:name="Set Payload"  />
+		<flow-ref doc:name="Flow Reference"  name="consume-Flow" />
+		<logger level="INFO" doc:name="Logger" message="#[payload]" />
+	</flow>
+	<flow name="consume-Flow" >
+		<wsc:consume operation="ListInventory" config-ref="Web_Service_Consumer_Config" doc:name="Consume" >
+			<wsc:message>
+				<wsc:headers ><![CDATA[#[%dw 2.0
+output application/xml
+---
+headers : {
+	choice: vars.choice
+
+}]]]></wsc:headers>
+			</wsc:message>
+		</wsc:consume>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue"  type="WSC:BAD_RESPONSE" >
+				<choice doc:name="Choice" >
+					<when expression='#[error.exception.additionalTransportData["statusCode"] as String == "200"]' >
+						<logger level="INFO" doc:name="Logger" message='#["Empty Response with HTTP status code: " ++ error.exception.additionalTransportData["statusCode"] as String]' />
+					</when>
+					<otherwise >
+						<raise-error doc:name="Raise error" type="WSC:EMPTY_RESPONSE_NOT_200" description="HTTP Status is not 200" />
+					</otherwise>
+				</choice>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>
+```
+

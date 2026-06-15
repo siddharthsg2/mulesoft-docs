@@ -1,0 +1,2498 @@
+﻿# Anypoint Platform Private Cloud Edition - Full Documentation
+
+# Limiting Concurrent Login in Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can limit concurrent logins to Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)
+so that a user can sign in from only one browser or device at a time. This applies to users in your
+organization who log in to the platform to use other features (for example, to use Runtime Manager,
+API Manager, or Access Management). When you limit concurrent logins, a new sign-in from another
+browser or device signs the user out of the previous session.
+
+> [!NOTE] The concurrent login limit configuration isnât persistent. When you upgrade Anypoint
+> Platform PCE, the upgrade reverts this configuration. After upgrading, repeat the steps in this
+> section to restore the concurrent login limit.
+
+## Configure Concurrent Login Limit
+
+Run these commands in a terminal where `kubectl` is configured for your Anypoint Platform PCE
+cluster and you have permissions to operate on it. No specific directory is required.
+
+1.  Patch the authentication-server configmap:
+
+    kubectl patch configmap authentication-server-env -p
+    '{"data":{"AUTH_SERVER_FEATURES_LIMITCONCURRENTSESSION":"true"}}' -n access-management
+
+2.  Restart the authentication-server:
+
+    kubectl rollout restart deployment authentication-server -n access-management
+
+The concurrent login limit takes effect after you restart the authentication-server.
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Configuring a Disclaimer for Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To configure a disclaimer for your Anypoint Platform Private Cloud Edition (Anypoint Platform PCE),
+add a custom message to your login page that users in your organization see every time they log in:
+
+1.  From Anypoint Platform, select **Access Management** > **Disclaimer**.
+2.  Enter your disclaimer text (you can also set up a custom HTML message).
+3.  Select **Save**.
+
+![Disclaimer window to enter text under the Access Mananagemet UI](_images/on-prem-features-d22af.png)
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Configuring DNS on Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+For Mule runtime engine (Mule) to communicate with Anypoint Platform, you must provide the DNS or IP
+address where your Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) installation is
+exposed to the local network. To do so, follow these steps:
+
+1.  From Anypoint Platform, click **Access Management**.
+2.  Click **DNS/IP**.
+3.  In **Platform DNS/IP**, enter the address where you are hosting the platform.
+4.  Click **Save**.
+
+> [!NOTE] If you perform a DNS update that changes the endpoints that Mule instances use to connect
+> to Runtime Manager, you must restart the Mule instances before they can connect to the new
+> endpoints.
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Configuring Security for Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To use Anypoint Platform Private Cloud Edition (Anypoint Platform PCE), you must supply TLS
+credentials. Upload a certificate via the Anypoint Platform UI under **Access Management**, and
+configure the platform to use this certificate to secure communications. Ensure that every machine
+connected to the platform, including Mule runtime engine (Mule), trusts this certificate.
+Additionally, you have the option to specify custom ciphers and Diffie-Hellman (DH) groups for the
+key exchange method if needed.
+
+When you replace or change the certificate, Anypoint Platform restarts the nginx server.
+
+![Certificate and Private Key configuration under the Security tab in Access Management](_images/on-prem-features-5f98d.png)
+
+To configure the security, follow these steps:
+
+1.  Create a certificate.
+
+    Generate your certificate using a tool like OpenSSL. To be compatible with Anypoint Platform,
+    ensure your certificate is in an `nginx` friendly format. The certificate must include the
+    domain name of your installation as both the Common Name (CN) and the Subject Alternative Name
+    (SAN).
+
+2.  From Anypoint Platform, select **Access Management**.
+3.  Select **Security**.
+4.  Under **Certificate**, select **Browse** to select the certificate on your local system.
+5.  Under **Key**, select **Browse** to select the private key for your certificate.
+6.  For additional security, you can upload your own cipher and Diffie-Hellman group file.
+
+    Note that this step is optional.
+    1.  Deselect **Use default ciphers and DH Group**.
+    2.  Enter a set of ciphers from the list of valid NGINX ciphers. If you are using Open SSL, you
+        can view this list by running the `openssl ciphers` command. The cipher you enter must be in
+        an `nginx` compatible format, for example:
+
+        ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384
+
+    3.  Generate `dhparam.pem` (the Diffie-Hellman group file) using the following `openssl`
+        command:
+
+        openssl dhparam 2048 -out dhparam.pem
+
+    4.  Upload the `dhparam.pem` file from your system.
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Configuring SMTP in Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Because Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) does not provide an SMTP
+server, you must set up your own SMTP email server to deliver email alerts generated by Runtime
+Manager. The SMTP email server also sends email messages for platform infrastructure alerts,
+including CPU, memory, and disk alerts.
+
+You must direct your local installation of Anypoint Platform PCE to this server from the Access
+Management panel.
+
+> [!NOTE] Only SMTP servers with authentication are supported (anonymous SMTP relay servers are not
+> supported). SMTPS is not supported.
+
+## Connect to an Existing SMTP Server
+
+1.  From Anypoint Platform, select **Access Management**.
+2.  Select **SMTP**.
+3.  Provide the following parameters information for your SMTP server:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Field</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p>Host</p></div></div></td><td><div><div><p>Host name of your SMTP server.</p></div></div></td><td><div><div><p><code>smtp.gmail.com</code></p></div></div></td></tr><tr><td><div><div><p>Port</p></div></div></td><td><div><div><p>Port used to communicate to your SMTP server.</p></div></div></td><td><div><div><p><code>587</code></p></div></div></td></tr><tr><td><div><div><p>Username</p></div></div></td><td><div><div><p>Username to authenticate to your SMTP server.</p></div></div></td><td><div><div><p><code>mulesoft.onprem.smtp@gmail.com</code></p></div></div></td></tr><tr><td><div><div><p>Password</p></div></div></td><td><div><div><p>SMTP password.</p></div></div></td><td><div><div><p><code>examplepassphrase</code></p></div></div></td></tr></tbody></table>
+
+> [!NOTE] To use anonymous logins for your SMTP server, leave the **Username** and **Password**
+> fields empty.
+
+4.  After entering your configuration, select **Save**.
+
+![SMTP configuration window under the Access Management UI](_images/on-premises-features-2c60a.png)
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Adding Compatible Java Versions for Assets Using the Maven Client
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Add the compatible Java versions of assets for Anypoint Platform Private Cloud Edition (Anypoint
+Platform PCE) using the Maven Facade API (v1 and v2). The Java versions display in the Exchange UI,
+Exchange API, and GraphQL console for Anypoint Platform PCE environments. Only Java 8, 11, and 17
+are supported.
+
+To add the Java version compatibility, in the POM file, add the properties section and set each Java
+version to either true or false.
+
+This example snippet shows the properties section:
+
+```xml
+<properties>
+   <type>app</type>
+   <tags>connector, mulesoft</tags>
+   <isJava8Supported>false</isJava8Supported>
+   <isJava11Supported>true</isJava11Supported>
+   <isJava17Supported>true</isJava17Supported>
+</properties>
+```
+
+In the example, Java 8 is set to `false`. Only version 11 and 17 appear for the asset version in the
+Exchange UI, Exchange API, and the GraphQL console.
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+---
+
+# Configuring Backup and Restore for Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) requires you to install, configure,
+and manage an NFS server, ensuring frequent backups are configured and performed.
+
+To preserve your data:
+
+- Enable automatic backups to protect against system failures or operational issues.
+- Schedule backups at least daily, or more frequently based on your needs.
+- Store backups externally, outside the Anypoint Platform cluster.
+
+The backup and restore process is controlled via Anypoint Platform PCE APIs.
+
+## Create a Backup
+
+To create a backup, run the following command:
+
+`curl -k <platform-dns>/platform/backup-X POST -H 'Authorization: Bearer ${token}' -H 'Content-Type: application/json' -d '{"backup-file-name": "${backupFileName}.tar.gz"}'`
+
+### Backup Content
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Information</th><th>Included in Anypoint Platform PCE Backup</th></tr></thead><tbody><tr><td><p>Databases</p></td><td><p>Yes</p></td></tr><tr><td><p>Configurations</p></td><td><p>Yes</p></td></tr><tr><td><p>Secrets</p></td><td><p>Yes</p></td></tr><tr><td><p>Object Store</p></td><td><p>Yes</p></td></tr><tr><td><p>Disclaimer settings</p></td><td><p>Yes</p></td></tr><tr><td><p>SMTP settings</p></td><td><p>Yes</p></td></tr><tr><td><p>DNS settings</p></td><td><p>No</p></td></tr><tr><td><p>Platform certificate</p></td><td><p>No</p></td></tr><tr><td><p>NFS settings</p></td><td><p>No</p></td></tr><tr><td><p>NFS files</p></td><td><p>No</p></td></tr><tr><td><p>Drives</p></td><td><p>No</p></td></tr><tr><td><p>Runtimes*</p></td><td><p>No</p></td></tr><tr><td><p>Anypoint Monitoring metrics</p></td><td><p>No</p></td></tr></tbody></table>
+
+\*Anypoint Platform PCE has information only about runtimes, such as their names and status.
+
+## Perform a System Restore
+
+Consider the following before you perform a system restore:
+
+- Before running a restore, configure certain settings, such as NFS, certificates, and DNS because
+  they are not included in the backup.
+- Backups cannot be transferred between different versions of Anypoint Platform PCE; therefore, your
+  new installation must match the version of your backup.
+
+To perform the restore, run the following command:
+
+`curl -k <platform-dns>/platform/restore-X POST -H 'Authorization: Bearer ${token}' -H 'Content-Type: application/json' -d '{"backup-file-name": "${backupFileName}.tar.gz"}`
+
+The backup file is stored on the NFS storage.
+
+## Create an InfluxDB Backup
+
+To create an InfluxDB backup, run the this command:
+
+`curl -k <platform-dns>/platform/amv/backup-X POST -H 'Authorization: Bearer ${token}' -H 'Content-Type: application/json' -d '{"backup-file-name": "${backupFileName}.tar.gz"}'`
+
+## Perform an InfluxDB Restore
+
+To perform an InfluxDB restore, run this command:
+
+`curl -k <platform-dns>/platform/amv/restore-X POST -H 'Authorization: Bearer ${token}' -H 'Content-Type: application/json' -d '{"backup-file-name": "${backupFileName}.tar.gz"}'`
+
+The backup file is stored on the NFS storage.
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+- [Installing Anypoint Platform Private Cloud](install-workflow)
+- [Upgrade Anypoint Platform Private Cloud](upgrade)
+---
+
+# Allowing Addresses for API Platform Proxies
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To allow addresses in Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) version 4.0
+and later, follow these steps:
+
+1.  From the api-manager/api-platform-web-env configmap verify if `APW_FEATURES_PROXYWHITELIST` is
+    set to `true` by running the following command:
+
+`kubectl get cm -n api-manager api-platform-web-env -o jsonpath={.data.APW_FEATURES_PROXYWHITELIST} true`
+
+2.  If the response is not `true`, then set the value to `true` running the following command:
+
+`kubectl patch cm -n api-manager api-platform-web-env -p '{"data":{"APW_FEATURES_PROXYWHITELIST": "true" }}`
+
+3.  Update the `APW_PROXYWHITELIST_RULES` in the same configmap by running the following command to
+    patch the configmap with desired allow list rules:
+
+`kubectl patch cm -n api-manager api-platform-web-env -p '{"data":{"APW_PROXYWHITELIST_RULES": ".**\\.somewhere\\.com,.**\\.somewhereelse\\.com" }}`
+
+The previous example shows how to allow requests to `.somewhere.com/` and `.somewhereelse.com/`
+domains, where `*` is any part of a DNS name or URL, then list the rules separated by commas.
+
+4.  Verify the patch was applied correctly. After confirmed, re-create the pods to ensure each node
+    in the cluster uses the most recent configuration by running this command:
+
+`kubectl delete pod -n api-manager -l component=api-platform-web`
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+---
+
+# Configuring Anypoint Studio for Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio 7.19 and later adds support for Anypoint Platform Private Cloud Edition (Anypoint
+Platform PCE) version 4.0.0.
+
+## Configure Your PCE Certificates into Studio
+
+Integrate your Studio installation with the Anypoint Platform components in an Anypoint Platform PCE
+deployment.
+
+### Determine the Java Version and Location
+
+1.  In Studio, go to **Anypoint Studio** > **Settings**.
+2.  Select **Java** > **Installed JRES**.
+3.  Check the location of the JRE you use: Java 8 or Java 17.
+
+![JRE location in Anypoint Studio](../../studio/_images/pce4-jre-location.png)
+
+### Export the Certificate Using the Platform DNS
+
+Run the following command by replacing `<ANYPOINT_DNS>` with your actual server URL:
+
+`keytool -printcert -sslserver <ANYPOINT_DNS>:443 -rfc > /tmp/PCE_Certificate.cer`
+
+For example:
+
+```xml
+keytool -printcert -sslserver $ANYPOINT_DNS:443 -rfc > /tmp/PCE_Certificate.cer
+```
+
+Starting with Anypoint Studio 7.17, the default JDK version for Studio is Java 17. To ensure proper
+functionality, add the certificate to the default JDK version that Studio supports.
+
+- If you use an external JDK, add the certificate to the external JDK that you use with Studio.
+- If you use the default JDK Studio provides, add the certificate to the default JDK, regardless of
+  the JDK version you use in your project. After installing the certificate, if you have Studio
+  open, restart it.
+
+### Import the Certificate
+
+Run the following command by replacing `<JAVA_HOME>` with the path to your embedded Java in Studio:
+
+`sudo keytool -import -trustcacerts -keystore <JAVA_HOME>/lib/security/cacerts -storepass changeit -file /tmp/PCE_Certificate.cer`
+
+For example, if youâre using the embedded Java 17 on macOS:
+
+```xml
+sudo keytool -import -trustcacerts -keystore /Applications/AnypointStudio.app/Contents/Eclipse/plugins/org.mule.tooling.jdk.macosx.x86_64_1.3.0/Contents/Home/jre/lib/security/cacerts -storepass changeit -file /tmp/PCE_Certificate.cer`
+```
+
+For example, if youâre using the embedded Java 17 on Windows:
+
+```xml
+keytool -import -trustcacerts -keystore C:[...]\AnypointStudio\plugins\org.mule.tooling.jdk.win32.x86_64_1.3.3\lib\security\cacerts -storepass changeit -file /tmp/PCE_Certificate.cer (1)
+```
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The path changes with each Studio version because the JDK plugin version is included in the Windows path, and Studio includes a different JDK plugin version with each release.</td></tr></tbody></table>
+
+### Set a Private Cloud Instance URL
+
+1.  In Studio, go to **Anypoint Studio** > **Settings**.
+2.  Select **Anypoint Studio** > **Anypoint Platform**.
+
+    ![Anypoint Studio highlighted in the navigation bar.](../../reuse/_images/studio-anypoint-platform-settings.png)
+
+3.  Select the **Use a Private Cloud Instance URL**.
+4.  Type the URL of your PCE installation in **Private Cloud Instance URL**.
+
+    ![*Private Cloud Instance URL* field highlighted in the in the *PCE Settings* section.](../../studio/_images/pce-properties.png)
+
+5.  Click **Apply and Close**.
+6.  Restart Studio.
+
+## Configure your PCE User Login
+
+The first time you configure your userâs login, Studio asks you to confirm your PCE certificate:
+
+1.  Open the preferences view.  
+    Either navigate to **Anypoint Studio** > **Preferencesâ¦â** or press `cmd + ,`.
+2.  Expand **Anypoint Studio** in the left navigation bar, select **Authentication** > **Add**.
+
+    ![*Authentication* option and *Add* button highlighted in the *Preference* window.](../../studio/_images/preferences-authentication-add.png)
+
+3.  Select **Yes** in the **Invalid Certificate** message that appears.
+
+    ![*Yes* button highlighted in the *Invalid Certificate* message window.](../../studio/_images/invalid-certificate-pce.png)
+
+4.  Add your PCE credentials and sign-in.
+5.  Select **Apply and Close**.
+6.  Restart Studio.
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+- [Deploying Mule Apps to Anypoint PCE Using Anypoint Code Builder](#deploy-mule-apps-acb.adoc)
+---
+
+# Configuring Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+After you complete the Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) installation,
+review the following task to deploy and manage applications, register APIs, and use API Exchange on
+an Anypoint Platform PCE environment running on your own local network.
+
+- [Deleting the Local User after Installing Anypoint Platform PCE](install-disable-local-user)
+- [Configuring an External Identity Provider in Anypoint Platform PCE](install-config-ldap-pce)
+- [Configuring SMTP in Anypoint Platform PCE](access-management-SMTP)
+- [Configuring DNS in Anypoint Platform PCE](access-management-dns)
+- [Configuring Security in Anypoint Platform PCE](access-management-security)
+- [Configuring a Disclaimer in Anypoint Platform PCE](access-management-disclaimer)
+- [Limiting Concurrent Login in Anypoint Platform PCE](access-management-concurrent-login)
+
+## See Also
+
+- [About Servers, Server Groups, and Clusters](../../runtime-manager/managing-servers)
+- [Uploading Custom Policies](../../mule-gateway/policies-custom-upload-to-exchange)
+- [Maven facade API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/exchange-maven-facade-api-http/)
+---
+
+# Uploading Custom Policies and Publish Assets to Exchange Using the Maven Client
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+There are differences between Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) and
+the cloud version of Anypoint Platform that you must consider when uploading custom policies and
+publishing assets to Anypoint Exchange using the Maven client.
+
+For details of the cloud version of Anypoint Platform, see:
+
+- [Getting started with Custom Policies development](../../mule-gateway/policies-custom-getting-started)
+- [Uploading Custom Policies](../../mule-gateway/policies-custom-upload-to-exchange)
+- [Maven facade API](https://anypoint.mulesoft.com/exchange/portals/anypoint-platform/f1e97bc6-315a-4490-82a7-23abe036327a.anypoint-platform/exchange-maven-facade-api-http/)
+
+Perform the following steps for Anypoint Platform PCE:
+
+1.  Add the server and repository sections in the `settings.xml` file to set up the archetype for
+    your project:
+
+    The following snippet shows the relevant sections:
+
+    ```xml
+        ...
+        <server>
+           <id>apce-repository</id>
+           <username>myusername</username>
+           <password>mypassword</password>
+        </server>
+        ...
+        <repository>
+           <id>apce-repository</id>
+           <name>Anypoint PCE Repository</name>
+           <url>https://${ANYPOINT_DNS}/exchange/maven</url>
+        </repository>
+        ...
+    ```
+
+    In the following examples, ${ANYPOINT_DNS} is set to your DNS for Anypoint Platform PCE. The
+    `username` and `password` must correspond with your installation.
+
+2.  Generate the archetype:
+
+    Follow the standard process:
+    [Getting started with Custom Policies development](../../mule-gateway/policies-custom-getting-started).
+    For example:
+
+    mvn -Parchetype-repository archetype:generate \\ -DarchetypeGroupId=org.mule.tools \\
+    -DarchetypeArtifactId=api-gateway-custom-policy-archetype \\ -DarchetypeVersion=1.0.0 \\
+    -DgroupId=${orgId} \\
+    -DartifactId=${policyName} \\ -Dversion=1.0.0-SNAPSHOT \\
+    -Dpackage=mule-policy
+
+3.  Replace the `exchange.url` in the `pom.xml` file. By default, `exchange.url` points to the cloud
+    version of Anypoint Platform. `maven.anypoint.mulesoft.com` must point to the Anypoint Platform
+    PCE endpoint:
+
+    <exchange.url>https://${ANYPOINT\_DNS}/exchange/maven/api/v1/organizations/${orgId}/maven</exchange.url>
+
+    The `repositoryId` must match the one you configured for Maven in the `settings.xml` file.
+
+4.  Package the custom policy.
+
+    Follow the same process as documented for the cloud version of Anypoint Platform in
+    [Packaging a Custom Policy](../../mule-gateway/policies-custom-package).
+
+5.  Upload the custom policy.
+
+    Follow the same process as documented for the cloud version of Anypoint Platform in
+    [Uploading a Custom Policy to Exchange](../../mule-gateway/policies-custom-upload-to-exchange).
+
+    If you receive an error similar to:
+
+    \[ERROR\] Failed to execute goal org.apache.maven.plugins:maven-deploy-plugin:2.8.2:deploy
+    (default-deploy) on project
+    ${policyName}:
+    Failed to retrieve remote metadata ${groupId}:${policyName}:1.0.0-SNAPSHOT/maven-metadata.xml:
+    Could not transfer metadata ${orgId}:${policyName}:1.0.0-SNAPSHOT/maven-metadata.xml from/to
+    exchange-server (https://${ANYPOINT\_DNS}/exchange/maven/api/v1/organizations/${orgId}/maven):
+    PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to
+    find valid certification path to requested target -> \[Help 1\]
+
+    This means the certificate of the platform is not trusted by the local Maven. The solution is to
+    trust the certificate in the environment where Maven is running, as shown in the following
+    example:
+
+    keytool -printcert -sslserver ${ANYPOINT_DNS}:443 -rfc > /tmp/anypoint.crt keytool -importcert
+    -alias my-company.com -keystore /etc/ssl/certs/java/cacerts -storepass changeit -file
+    /tmp/anypoint.crt
+
+    In the previous example, $ANYPOINT_DNS is set to the DNS for Anypoint Platform PCE. Replace the
+    location and password for your JVMâs truststore.
+
+6.  Verify your policy was uploaded by directly visiting
+    `https://${ANYPOINT_DNS}/exchange/?type=policy` or
+    `https://${ANYPOINT_DNS}/exchange/${orgID}/${artifactId}/`.
+
+    For an API managed by Mule 4 or later, the policy is displayed in the **Apply Policy** dialog.
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+---
+
+# Configuring Grafana Dashboards
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Monitor the health of your Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)
+installation and its running applications with Grafana dashboards. These dashboards provide a visual
+representation of the data collected by the monitoring tools in your Anypoint Platform PCE
+installation.
+
+The Grafana application uses a Kubernetes service of type `NodePort` to expose the service to the
+external network. To access Grafana, configure the load balancer to forward traffic to port `32380`.
+
+Alternatively, use the `kubectl port-forward` command to access Grafana locally:
+
+```bash
+kubectl -n monitoring port-forward $(kubectl -n monitoring get svc --selector='app.kubernetes.io/name=grafana' -oname | head -n 1) 3000:80
+```
+
+## Access the Grafana Dashboard
+
+To retrieve credentials for Grafana, use these commands:
+
+```bash
+kubectl -n monitoring get secrets grafana-creds -ojsonpath='{.data.admin-user}' | base64 --decode
+kubectl -n monitoring get secrets grafana-creds -ojsonpath='{.data.admin-password}' | base64 --decode
+```
+
+## Create a Custom Dashboard
+
+You can create custom dashboards in Grafana using its web interface. However, these dashboards are
+lost if the Grafana pod restarts. To create a custom dashboard that persists across restarts, create
+a ConfigMap with the label `grafana_dashboard=1`.
+
+This example demonstrates how to create a ConfigMap with a custom dashboard:
+
+1.  Create a file with the dashboard configuration, for example, `example-redis.yaml`:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-custom-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  example-redis.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "timezone": "browser",
+      "title": "My Example Redis Dashboard",
+      "description": "",
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "id": 29,
+      "iteration": 1645573265624,
+      "links": [],
+      "panels": [
+        {
+          "aliasColors": {
+            "Max": "#890F02",
+            "Used": "#7EB26D",
+            "max": "#BF1B00"
+          },
+          "bars": false,
+          "dashes": false,
+          "datasource": null,
+          "editable": false,
+          "error": false,
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "hiddenSeries": false,
+          "id": 7,
+          "isNew": true,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "h": 11,
+            "w": 24
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "nullPointMode": "null as zero",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "7.5.10",
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "sum by (pod)(redis_used_memory{pod=~\"$pod\"})",
+              "interval": "",
+              "legendFormat": "{{pod}}",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Memory Usage",
+          "tooltip": {
+            "msResolution": false,
+            "shared": true,
+            "sort": 0,
+            "value_type": "cumulative"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "label": "",
+              "logBase": 1,
+              "max": null,
+              "min": 0,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        }
+      ],
+      "refresh": false,
+      "schemaVersion": 27,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "allValue": null,
+            "current": {
+              "selected": false,
+              "text": "All",
+              "value": "$__all"
+            },
+            "datasource": null,
+            "definition": "label_values(redis_maxmemory, pod)",
+            "description": null,
+            "error": null,
+            "hide": 0,
+            "includeAll": true,
+            "label": "Pod",
+            "multi": true,
+            "name": "pod",
+            "options": [],
+            "query": {
+              "query": "label_values(redis_maxmemory, pod)",
+              "refId": "StandardVariableQuery"
+            },
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "tagValuesQuery": "",
+            "tags": [],
+            "tagsQuery": "",
+            "type": "query",
+            "useTags": false
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {
+        "refresh_intervals": [
+          "5s",
+          "10s",
+          "30s",
+          "1m",
+          "5m",
+          "15m",
+          "30m",
+          "1h",
+          "2h",
+          "1d"
+        ],
+        "time_options": [
+          "5m",
+          "15m",
+          "1h",
+          "6h",
+          "12h",
+          "24h",
+          "2d",
+          "7d",
+          "30d"
+        ]
+      }
+    }
+```
+
+2.  Create the ConfigMap with the following command:
+
+```bash
+kubectl apply -f example-redis.yaml
+```
+
+To update the dashboard, modify the ConfigMap, and the dashboard updates automatically.
+
+## Delete a Custom Dashboard
+
+To delete a custom dashboard, delete the corresponding ConfigMap. The dashboard associated with the
+ConfigMap is removed automatically.
+
+```bash
+kubectl -n monitoring delete cm my-custom-dashboard
+```
+
+## List All Persistent Dashboards
+
+To get a list of all ConfigMaps with the label `grafana_dashboard=1`, use this command:
+
+kubectl get configmaps --selector='grafana_dashboard=1' -A
+
+## See Also
+
+- [Grafana documentation](https://grafana.com/docs/grafana/latest/visualizations/dashboards/)
+---
+
+# Anypoint Platform PCE Overview
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Run and manage Mule apps on your local servers following your security policies by using Anypoint
+Platform Private Cloud Edition (Anypoint Platform PCE). Anypoint Platform PCE offers local MuleSoft
+control plane functionality, with no external system interactions or internet connectivity required,
+maintaining all data storage, processing, and transmission. Anypoint Platform PCE uses Kubernetes
+for built-in high availability and scalability. While you can install it without deep Kubernetes
+knowledge, understanding these tools is essential for management and troubleshooting.
+
+Anypoint Platform PCE version 4.x runs on enterprise-ready Kubernetes Red Hat OpenShift, Amazon EKS
+Anywhere (EKS-A), and Rancher Kubernetes Engine (RKE2). Additionally, it supports Java 17, in
+addition to Java 8 and 11.
+
+For information about a previous version of Anypoint Platform PCE, select the version in the
+documentation sidebar.
+
+## Before You Begin
+
+### Upgrade to Anypoint Platform PCE version 4.X
+
+If you are upgrading from version 3.2.3 of Anypoint Platform PCE to version 4.X, see
+[Upgrading Anypoint Platform PCE 3.2.3 to 4.x](upgrade).
+
+> [!NOTE] If youâre using a version of Anypoint Platform PCE earlier than 3.2.3, upgrade to version
+> 3.2.3 first. Then proceed with upgrading to version 4.x.
+
+### Install Anypoint Platform PCE 4.X
+
+If you are installing Anypoint Platform PCE version 4.x for the first time, see
+[Installing Anypoint Platform PCE](install-workflow).
+
+To install Anypoint Platform PCE on OpenShift, see
+[Installing Anypoint Platform PCE on OpenShift](install-openshift).
+
+## Anypoint Platform PCE Components
+
+This table provides component information for Anypoint Platform PCE:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Component</th><th>Included</th><th>Description</th></tr></thead><tbody><tr><td><p>Access Management</p></td><td><p>Yes</p></td><td><p>Enables you to create your Anypoint Platform account or configure external federated identity.</p></td></tr><tr><td><p>Anypoint API Manager</p></td><td><p>Yes</p></td><td><p>Enables you to manage your registered APIs.</p></td></tr><tr><td><p>Anypoint Analytics - API</p></td><td><p>No</p></td><td><p>Provides insight into how your APIs are being used and how they are performing.</p></td></tr><tr><td><p>Anypoint Analytics - Anypoint Visualizer</p></td><td><p>Yes</p></td><td><p>Enables you to explore your application network via an application network graph.</p></td></tr><tr><td><p>Anypoint Analytics - Insights</p></td><td><p>No</p></td><td><p>Provides in-depth visibility into business transactions and events on your Mule apps deployed to CloudHub and on-premises servers.</p></td></tr><tr><td><p>Anypoint Code Builder</p></td><td><p>Yes</p></td><td><p>Enables you to create API specifications, implementations, and integration projects.</p></td></tr><tr><td><p>Anypoint Exchange</p></td><td><p>Yes</p></td><td><p>Enables your organization to share various assets for reuse across integration projects.</p></td></tr><tr><td><p>Anypoint Monitoring</p></td><td><p>No</p></td><td><p>Provides visibility into integrations, Mule flows, and components in your application network.</p></td></tr><tr><td><p>Anypoint MQ</p></td><td><p>No</p></td><td><p>A multi-tenant cloud messaging service that enables you to perform advanced asynchronous messaging scenarios between tenant applications.</p></td></tr><tr><td><p>Anypoint Runtime Fabric Management</p></td><td><p>No</p></td><td><p>Automates the deployment and orchestration of customer-hosted Mule applications and API gateways.</p></td></tr><tr><td><p>Anypoint Runtime Manager</p></td><td><p>Yes</p></td><td><p>Enables you to track and manage your deployed Mule applications.</p></td></tr><tr><td><p>API Testing</p></td><td><p>No</p></td><td><p>Provides a testing framework that enables you to easily build automated tests for your integrations and APIs.</p></td></tr><tr><td><p>Object Store</p></td><td><p>No</p></td><td><p>Object Store v2 allows CloudHub applications to store data and states across batch processes, Mule components, and applications, either from within an application or by using the Object Store REST API.</p></td></tr><tr><td><p>Secrets Manager</p></td><td><p>No</p></td><td><p>Stores and manages secrets for supported Anypoint Platform services.</p></td></tr></tbody></table>
+
+## Mule Runtime Version Compatibility
+
+- Anypoint Platform PCE is compatible with Mule runtime engine versions 4.3 - 4.6. Use version 4.6
+  LTS to get the best performance from all Anypoint Platform connectors.
+- Anypoint Platform PCE supports the Mule runtime engine LTS and Edge release channels. The
+  recommended customer profile is LTS. For more information, visit
+  [Edge and LTS Releases for Mule](../../release-notes/mule-runtime/lts-edge-release-cadence).
+
+## Java Version Compatibility
+
+Anypoint Platform PCE is compatible with Java 17, 11, and 8.
+
+## Features Shipped with Anypoint Platform PCE Version 4.X
+
+Refer to
+[Anypoint Platform Private Cloud Release Notes](../../release-notes/pce/anypoint-private-cloud-release-notes)
+for detailed release information.
+
+Anypoint Platform PCE version 4.2 contains these features:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Component</th><th>Feature Description</th><th>Feature Version</th></tr></thead><tbody><tr><td rowspan="6"><p>Access Management</p></td><td><p>Audit Log</p></td><td><p>v5.1.67</p></td></tr><tr><td><p>Authentication Server</p></td><td><p>v1.2.548</p></td></tr><tr><td><p>Authentication Server UI</p></td><td><p>v2.1.269-8.develop</p></td></tr><tr><td><p>Anypoint Sign In</p></td><td><p>v3.2.161</p></td></tr><tr><td><p>Anypoint Roles Client</p></td><td><p>v8.1.1573</p></td></tr><tr><td><p>ARC Informer</p></td><td><p>1.0.374</p></td></tr><tr><td rowspan="3"><p>API Designer</p></td><td><p>API Designer DC Projects Service</p></td><td><p>v3.18.10</p></td></tr><tr><td><p>API Designer DC XAPI Service</p></td><td><p>v2.15.7</p></td></tr><tr><td><p>API Designer DC UI</p></td><td><p>v2.75.8</p></td></tr><tr><td rowspan="9"><p>API Manager</p></td><td><p>API Manager API DB Migrations</p></td><td><p>v1.0.500</p></td></tr><tr><td><p>API Manager API Platform Web</p></td><td><p>v1.15.226</p></td></tr><tr><td><p>API Manager API Proxy Builder Service</p></td><td><p>v1.3.92</p></td></tr><tr><td><p>API Manager API</p></td><td><p>v2.31.26</p></td></tr><tr><td><p>API Manager Contract Caching DB Migrations</p></td><td><p>v1.0.259</p></td></tr><tr><td><p>API Manager Contract Caching Service</p></td><td><p>v1.1.459</p></td></tr><tr><td><p>API Manager Proxies XAPI Service</p></td><td><p>v1.24.11</p></td></tr><tr><td><p>API Manager RAML Parser Service</p></td><td><p>v0.3.173</p></td></tr><tr><td><p>API Manager Web</p></td><td><p>v1.29.13</p></td></tr><tr><td><p>API Modeling Framework (AMF)</p></td><td><p>AMF Service</p></td><td><p>v1.4.66</p></td></tr><tr><td><p>Connectivity</p></td><td><p>REST Connect Service</p></td><td><p>v1.14.57</p></td></tr><tr><td rowspan="24"><p>Exchange</p></td><td><p>Asset Manager DB Migrations</p></td><td><p>v2.0.51</p></td></tr><tr><td><p>Asset Manager Service</p></td><td><p>v1.0.885</p></td></tr><tr><td><p>Asset Portals DB Migrations</p></td><td><p>v2.0.57</p></td></tr><tr><td><p>Asset Portals Service</p></td><td><p>v0.6.1576</p></td></tr><tr><td><p>Content Provider</p></td><td><p>v1.0.29</p></td></tr><tr><td><p>Custom Assets Facade Service</p></td><td><p>v1.0.7</p></td></tr><tr><td><p>Customization Service</p></td><td><p>v0.6.658</p></td></tr><tr><td><p>Dependency Resolver Service</p></td><td><p>v0.8.77</p></td></tr><tr><td><p>File Service</p></td><td><p>v1.1.288</p></td></tr><tr><td><p>File Upload Service</p></td><td><p>v1.1.226</p></td></tr><tr><td><p>Maven Facade Service</p></td><td><p>v0.8.109</p></td></tr><tr><td><p>Region Synchronizer Service</p></td><td><p>v0.2.163</p></td></tr><tr><td><p>Exchange API Metadata DB Migrations</p></td><td><p>v2.0.40</p></td></tr><tr><td><p>Exchange API Metadata Service</p></td><td><p>v1.1.1</p></td></tr><tr><td><p>Exchange Asset Reviews DB Migrations</p></td><td><p>v2.0.36</p></td></tr><tr><td><p>Exchange Asset Reviews Service</p></td><td><p>v0.8.435</p></td></tr><tr><td><p>Exchange Customization DB Migrations</p></td><td><p>2.0.31</p></td></tr><tr><td><p>Exchange Customization Service</p></td><td><p>0.6.658</p></td></tr><tr><td><p>Exchange Graph Node Service</p></td><td><p>0.2.664</p></td></tr><tr><td><p>Exchange Search DB Migrations</p></td><td><p>2.0.38</p></td></tr><tr><td><p>Exchange Search Service</p></td><td><p>v1.0.215</p></td></tr><tr><td><p>Exchange UI</p></td><td><p>v1.0.265</p></td></tr><tr><td><p>Exchange XAPI Service</p></td><td><p>v0.8.2848</p></td></tr><tr><td><p>Mocking Service</p></td><td><p>v2.77.0-17.pce</p></td></tr><tr><td rowspan="6"><p>Runtime Manager</p></td><td><p>Application Manager DB Migration</p></td><td><p>v1.2.11</p></td></tr><tr><td><p>Application Manager Service</p></td><td><p>v2.33.51</p></td></tr><tr><td><p>Atlas Service</p></td><td><p>v1.9.121</p></td></tr><tr><td><p>Mule Agent</p></td><td><p>v2.6.6</p></td></tr><tr><td><p>Jafar Service</p></td><td><p>0.3.167</p></td></tr><tr><td><p>MCM Service</p></td><td><p>v2.17.347</p></td></tr><tr><td rowspan="3"><p>Runtime Services</p></td><td><p>Anypoint Flash Platform Messages DB Migrations</p></td><td><p>1.1.43</p></td></tr><tr><td><p>Platform Messages</p></td><td><p>v2.2.43</p></td></tr><tr><td><p>Mule Message Processor</p></td><td><p>v3.2.40</p></td></tr></tbody></table>
+
+## See Also
+
+- [Anypoint Platform PCE Prerequisites](install-checklist)
+- [Installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)](install-workflow)
+- [Upgrading Anypoint Platform PCE v3.X to v4.X](upgrade)
+- [Deploying Mule Apps to Anypoint PCE Using Anypoint Code Builder](#deploy-mule-apps-acb.adoc)
+---
+
+# Anypoint Platform PCE Prerequisites
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You can install Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) version 4.x and
+later in the Kubernetes (K8s) cluster that you provision and manage.
+
+MuleSoft performed installations on popular K8s providers, which are listed in the following
+sections. The hardware and software requirements for installing Anypoint Platform PCE on your chosen
+provider are dictated by that provider, unless otherwise specified in this document.
+
+Before you begin, make sure that your organizationâs operations, networking, and security teams
+review the listed infrastructure prerequisites. These include the K8s cluster, hardware, software,
+networking, NFS storage, container registry, installer node, and storage requirements.
+
+> [!NOTE] Contact MuleSoft Professional Services prior to installing Anypoint Platform PCE, as they
+> are involved with your installation.
+>
+> Installing Anypoint Platform PCE requires specific versions of operating systems, NFS, and other
+> software. Most issues experienced with Anypoint Platform PCE occur because the required
+> environment was not set up prior to installing or upgrading.
+
+## Kubernetes Cluster Requirements
+
+- Supported Kubernetes providers:
+  - Amazon EKS Anywhere
+  - Amazon EKS
+  - Rancher Kubernetes Engine (RKE2)
+  - Red Hat OpenShift
+  - vSphere Kubernetes Service (VKS)
+
+- Cluster configurations:
+  - Run Kubernetes control plane components on dedicated nodes. Preferably, allocate three nodes for
+    the Kubernetes control plane.
+  - Have cluster worker nodes exclusively dedicated to Anypoint Platform PCE workloads. Donât run
+    any Anypoint Platform PCE pods on the K8s control plane nodes. Check the prerequisites to make
+    sure that PCE workloads can be scheduled and run on worker nodes.
+
+> [!NOTE] Running Anypoint Platform PCE workloads on K8s control plane nodes can degrade both
+> Anypoint Platform PCE and cluster performance.
+
+## Hardware Requirements
+
+Anypoint Platform PCE runs as a Kubernetes application and these are the minimum required hardware
+for all services to be scheduled and running:
+
+- 32 vCPUs
+- 128 GiB Memory
+- x86_64 Architecture
+
+You can provision and distribute these resources across a minimum of four worker nodes. PCE requires
+at least three worker nodes as hosts for data services that are deployed and configured in a cluster
+setup with three replicas. Make sure these three replicas run on three separate nodes to honor the
+anti-affinity rules.
+
+### Sample Worker Node Configurations
+
+Anypoint Platform PCE offers flexibility in how you configure your Kubernetes worker nodes. You can
+use different numbers of worker nodes (for example, 4, 5, 8, or 10 nodes) with varying resource
+allocations per node. The key requirement is that your clusterâs total resources meet or exceed the
+minimum requirements of 32 vCPUs and 128 GiB memory.
+
+This table shows sample worker node configurations that MuleSoftâs performance teams tested and
+validated:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Number of Worker Nodes</th><th>Node Composition</th><th>Total Resources</th></tr></thead><tbody><tr><td><p>4</p></td><td><p>8 vCPU and 32 GiB memory</p></td><td><p>32 vCPU and 128 GiB memory</p></td></tr><tr><td><p>10</p></td><td><p>4 vCPU and 16 GiB memory</p></td><td><p>40 vCPU and 160 GiB memory</p></td></tr></tbody></table>
+
+> [!NOTE] These configurations are reference examples to help you understand how Anypoint Platform
+> PCE can work with different worker node configurations. They are not strict requirements. You can
+> customize your cluster configuration based on your infrastructure and operational needs, as long
+> as the total resource requirements are met.
+
+### Load Balancer Configuration
+
+You can configure your load balancer to use any method for distributing client requests. Use a a
+round robin strategy for better results in most contexts. Make sure the load balancer is accessible
+through an IP address that is available to all machines on your network.
+
+Make sure your load balancer routes these TCP ports:
+
+<table><caption>Table 1. TCP Port Routing Requirements</caption> <colgroup><col> <col> <col></colgroup><thead><tr><th>Load Balancer Port</th><th>Instance Port</th><th>Internal Usage</th></tr></thead><tbody><tr><td><p><code>80</code></p></td><td><p><code>30080</code></p></td><td><p>HTTP redirects to HTTPs</p></td></tr><tr><td><p><code>443</code></p></td><td><p><code>30443</code></p></td><td><p>HTTPS port</p></td></tr><tr><td><p><code>8083</code></p></td><td><p><code>30883</code></p></td><td><p>HTTPS port for Mule runtimes to authenticate and renew certificates</p></td></tr><tr><td><p><code>8889</code></p></td><td><p><code>30889</code></p></td><td><p>WebSocket port for Mule runtimes to connect</p></td></tr></tbody></table>
+
+In each case, configure your load balancer to listen on the load balancer port and redirect incoming
+requests to the instance port. Your Anypoint Platform PCE installation includes an internal NGINX
+server that listens on each of the configured instance ports, and then performs the action listed in
+the Internal Usage column.
+
+Make sure your load balancer polls the address `HTTP:10256/healthz` to run a health check on your
+platform servers and confirm that they are accessible.
+
+> [!NOTE] Donât configure SSL certificates in your load balancer. The platform handles the TLS
+> termination with the certificates configured using Access Management. See
+> [Configure Anypoint Platform PCE](config-workflow).
+
+For more information, see the provider specific requirements:
+
+- [Amazon EKS](https://docs.aws.amazon.com/eks/latest/userguide/create-cluster.html)
+
+  AWS EKS is only tested with default networking add-ons.
+
+- [Amazon EKS Anywhere (EKS-A)](https://anywhere.eks.amazonaws.com/docs/getting-started/baremetal/bare-prereq/)
+- [Rancher Kubernetes Engine (RKE2) - Hardware](https://docs.rke2.io/install/requirements#hardware)
+- [Red Hat OpenShift](https://docs.redhat.com/en/documentation/openshift_container_platform/4.16/html/installation_overview/ocp-installation-overview)
+- [vSphere Kubernetes Service (VKS)](https://techdocs.broadcom.com/us/en/vmware-cis/vcf/vsphere-supervisor-services-and-standalone-components/latest/managing-vsphere-kubernetes-service/running-tkg-service-clusters/tkg-service-components.html)
+
+## Software Requirements
+
+These are the requirements:
+
+- Operating system: RHEL 8.10, 9.4, 9.6
+
+For more information, see the provider specific requirements:
+
+- [Amazon EKS](https://docs.aws.amazon.com/eks/latest/userguide/create-cluster.html)
+- [Amazon EKS Anywhere (EKS-A)](https://anywhere.eks.amazonaws.com/docs/getting-started/baremetal/bare-prereq/)
+- [Rancher Kubernetes Engine (RKE2) - Software](https://docs.rke2.io/install/requirements#operating-systems)
+- [Red Hat OpenShift](https://docs.redhat.com/en/documentation/openshift_container_platform/4.16/html/installation_overview/ocp-installation-overview)
+
+## Networking Requirements
+
+Use these ports to communicate with Anypoint Platform PCE:
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Protocol</th><th>Port / Range</th><th>Purpose</th><th>Source</th><th>Destination</th></tr></thead><tbody><tr><td><p>TCP</p></td><td><p>30080</p></td><td><p>HTTP public access</p></td><td><p>Load balancer</p></td><td><p>Anypoint Platform PCE nodes</p></td></tr><tr><td><p>TCP</p></td><td><p>30443</p></td><td><p>HTTPS public access</p></td><td><p>Load balancer</p></td><td><p>Anypoint Platform PCE nodes</p></td></tr><tr><td><p>TCP</p></td><td><p>30889</p></td><td><p>Mule Runtime Websocket</p></td><td><p>Load balancer</p></td><td><p>Anypoint Platform PCE nodes</p></td></tr><tr><td><p>TCP</p></td><td><p>30883</p></td><td><p>Mule Runtime Authentication Service (for certificate renewals)</p></td><td><p>Load balancer</p></td><td><p>Anypoint Platform PCE nodes</p></td></tr></tbody></table>
+
+Anypoint Platform PCE nodes need to hit the platform API address on the load balancer via HTTPS.
+
+For more information, see the provider specific requirements:
+
+- [Amazon EKS - Networking](https://docs.aws.amazon.com/eks/latest/userguide/eks-networking.html)
+- [Amazon EKS Anywhere (EKS-A) - Networking](https://anywhere.eks.amazonaws.com/docs/clustermgmt/networking/networking-and-security/)
+- [Rancher Kubernetes Engine (RKE2) - Networking](https://docs.rke2.io/install/requirements#operating-systems)
+- [Red Hat OpenShift - Networking](https://docs.redhat.com/en/documentation/openshift_container_platform/4.16/html/networking/understanding-networking)
+
+## NFS Storage Requirements
+
+A pre-installed Container Storage Interface (CSI) driver in the Kubernetes cluster is a mandatory
+requirement for Anypoint Platform PCE 4.2.0. Anypoint Platform PCE uses the CSI driver to mount NFS
+volumes into pods.
+
+For detailed configuration instructions, including EFS-specific volume handle setup and NFS mount
+option overrides, see [NFS Server Prerequisites](verify-nfs).
+
+## Container Registry Requirements
+
+These are the requirements:
+
+- Must be secured over TLS.
+- Must be accessible from installer nodes and Kubernetes clusters.
+- Must be secured with either a username and password, or Certificate-based authentication. Make
+  sure that the new or updated certificates are distributed to all nodes to facilitate uninterrupted
+  TLS communication.
+
+## Installer Node Requirements
+
+These are the requirements:
+
+- Operating system: RHEL, Ubuntu, or any Linux-based systems.
+- Storage required a minimum 100GB.
+- Access to Kubernetes cluster using kubeconfig.yaml
+  - The cluster needs `cluster:admin` access, as Anypoint Platform PCE installer needs to create
+    resources of different types.
+  - The cluster needs `read/write` access in the pce-core namespace to run Anypoint Platform PCE
+    installer jobs and other supporting services.
+
+- Access and connectivity to private container registry
+- For OpenShift use SecurityContextConstraints for installing Anypoint Platform PCE.
+
+Before executing the `pcectl` binary for Anypoint Platform PCE 4.2, make sure that you follow these
+requirements:
+
+- Use a Linux based operating system
+- Use glibc (GNU C library) version 2.28 or higher  
+  To check the glibc version, run this command:
+
+  ldd --version
+
+- Use Python version 3.12 or newer  
+  To check your Python version, run this command:
+
+  python --version
+
+- Use gpg (GnuPG) version 2.1 or higher  
+  To check your gpg version, run this command:
+
+  gpg --version
+
+## Storage Requirements
+
+These are the requirements:
+
+In Anypoint Platform PCE version 4.2 and later, all the persistent data is stored in the Persistent
+Volume Claims (PVCs). Kubernetes Storage Class commands the PVCs.
+
+These services use PVCs with minimum and default storage size:
+
+- SeaweedFS - S3 Object Store service - Total 120Gi
+- Stolon - PostgreSQL HA database - Total 100 Gi
+- Prometheus - TSDB for k8s metrics (optional) - Default 50Gi
+
+The storage class for the previous services can be the same. Depending on the type of underlying
+infrastructure or storage solution you select, the storage class configuration can vary.
+
+You can update the PVC storage size during the installation by updating the `input.yaml` file. See
+these sections to update the storage size:
+
+```json
+# Storage class configuration for persistent data services
+storageConfiguration:
+ pceobjectstore:
+   type: "persistentVolumeClaim"
+   storageClass: "<storage-class-name>"
+   controlPlaneSize: "20Gi" # Optional. Defaults to 10Gi
+   volumeSize: "200Gi" # Optional. Defaults to 100Gi
+   volumeIndexSize: "20Gi" # Optional. Defaults to 10Gi
+ stolon:
+   type: "persistentVolumeClaim"
+   storageClass: "<storage-class-name>"
+   size: "300Gi" # Optional. Defaults to 100Gi
+```
+
+In the previous example, you can see the storage for SeaweedFS that is Object Store has increased to
+240GiB and stolon has increased to 300 Gi.
+
+Similarly, to set the storage size for monitoring stack, use this configuration:
+
+```json
+# Configuration options for monitoring stack
+monitoringAppConfiguration:
+ monitoringStack:
+   enabled:  True # Defaults to True. Must be set to False for Openshift clusters.
+   values: | # Optional. If not provided, the default values will be used.
+      prometheus:
+        prometheusSpec:
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                storageClassName: 'local-path',
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 50Gi
+```
+
+## Platform Configuration
+
+To make Anypoint Platform PCE accessible, configure these specifications in the input configuration
+file before installing Anypoint Platform PCE:
+
+- Platform DNS
+- File System DNS
+- First User Account details
+  - Org Name
+  - Username
+  - Email
+  - Password
+
+- Platform certificate and certificate key with the Subject Alternative Name (SAN) of the platform
+  DNS.
+
+## See Also
+
+- [Installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)](install-workflow)
+---
+
+# Configuring an External Identity Provider in Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) requires an external identity
+provider. All users must be registered via external identity except the admin you register in the
+installation wizard. The following external identity providers are supported:
+
+- [Configuring LDAP in Anypoint Platform PCE](../../access-management/conf-ldap-private-cloud-task)
+- [Configuring Ping Federate](../../access-management/conf-client-mgmt-pf-task)
+- [Configuring SAML](../../access-management/conf-saml-sso)
+- [Configuring OpenID Connect](../../access-management/conf-openid-connect-task)
+
+For troubleshooting information, see
+[Anypoint Platform Single Sign-On (SSO) using OpenID Connect (OIDC) Troubleshooting Guide](https://help.salesforce.com/s/articleView?id=001114931&type=1).
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Deleting the Local User After Installing Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+During installation, Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) creates a local
+Anypoint Platform user that enables you to configure platform components during installation. The
+credentials for this user are stored locally in Anypoint Platform. However, after configuring an
+external authentication provider such as LDAP, you should delete this user to improve security.
+
+1.  Before deleting the local user, perform the following steps:
+    - Install and configure your external identity provider.
+    - Ensure that `SystemAdmin` user is not the owner of any other organizations.
+
+2.  Select the new user to whom you want to assign administrator privileges. This user must be
+    defined in your external identity provider.
+3.  Determine the internal user ID for this user.
+    1.  From Anypoint Platform, select **Access Management**.
+    2.  Select **Users**.
+    3.  Select the name of the user.
+    4.  Record the internal user ID. This ID appears in the URL as:
+
+        ![Example of User ID in the URL](_images/access-management-user-id.png)
+
+4.  Configure your installer machine with \`kubeconfig.yaml to access the Anypoint Platform PCE K8s
+    cluster.
+    1.  Set the environment variable `KUBECONFIG=/path/to/kubeconfig.yaml`.
+    2.  Check access to kubernetes cluster with `kubectl get nodes`.
+
+5.  Identify one of the `authentication-server` containers:
+
+    kubectl get pods -n access-management -l component=authentication-server
+
+6.  Change the owner, providing the internal the `authentication-server` container and user ID
+    obtained earlier:
+
+    kubectl exec -it -n access-management <authentication-server-pod> -c application â node
+    bin/change_owner.js --new-owner-id <user_id>
+
+    This command changes the owner from the default system user to a new user managed by the
+    external authentication provider. The command you use should be similar to the following
+    example:
+
+    kubectl exec -it -n access-management <authentication-server-pod> -c application â node
+    bin/change_owner.js --new-owner-id a363279f-982f-493c-b08f-9feb91be90d4
+
+7.  Disable and delete the `System Admin` user.
+    1.  Log in as the user you just added as the organization owner.
+    2.  From Anypoint Platform, select **Access Management**.
+    3.  Select **Users**.
+    4.  Select `username` in the same row as `SystemAdmin`.
+    5.  Select **Disable**.
+    6.  Select **Delete**.
+
+This removes the default user from the platform.
+
+## See Also
+
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Installing Anypoint Platform PCE on OpenShift
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Before installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) on OpenShift
+configure Security Context Constraints (SCC) to grant the required permissions for pods and create
+roles for Prometheus, allowing it to collect metrics from the services. After these configurations
+are complete, proceed with installing Anypoint Platform PCE.
+
+> [!NOTE] You must have an operational OpenShift cluster prior to installing Anypoint Platform PCE.
+> If you do not have one set up, refer to the OpenShift documentation for setup instructions.
+
+Contact MuleSoft Professional Services to perform the installation of Anypoint Platform PCE.
+
+> [!NOTE] Anypoint Platform PCE 4.2.0 is installed and validated on OpenShift 4.16.
+
+## Configure the Openshift Environment
+
+To configure the OpenShift Environment, configure Security Context Constraints (SCC) and roles for
+Prometheus.
+
+### Configure Security Context Constraints (SCC)
+
+This snippet contains the SCC configuration:
+
+```yaml
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: anypoint-anyuid
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+users: []
+groups: []
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - MKNOD
+runAsUser:
+  type: MustRunAs
+  uid: 2020
+seLinuxContext:
+  type: MustRunAs
+seccompProfiles:
+  - runtime/default
+supplementalGroups:
+  type: RunAsAny
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: anypoint-scc
+  namespace: pce-core
+rules:
+  - apiGroups: ["security.openshift.io"]
+    resourceNames:
+      - anypoint-anyuid
+    resources: ["securitycontextconstraints"]
+    verbs: ["use"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anypoint-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: anypoint-scc
+subjects:
+  - kind: ServiceAccount
+    name: pce-cluster-ssl-app
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: default
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: anypoint-install
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: anypoint-install
+    namespace: dias
+  - kind: ServiceAccount
+    name: default
+    namespace: pce
+  - kind: ServiceAccount
+    name: default
+    namespace: access-management
+  - kind: ServiceAccount
+    name: authentication-server-service-account
+    namespace: access-management
+  - kind: ServiceAccount
+    name: default
+    namespace: api-console-proxy
+  - kind: ServiceAccount
+    name: default
+    namespace: amf
+  - kind: ServiceAccount
+    name: default
+    namespace: arm
+  - kind: ServiceAccount
+    name: default
+    namespace: api-manager
+  - kind: ServiceAccount
+    name: default
+    namespace: mozart
+  - kind: ServiceAccount
+    name: default
+    namespace: mocking
+  - kind: ServiceAccount
+    name: default
+    namespace: api-manager
+  - kind: ServiceAccount
+    name: default
+    namespace: audit-log
+  - kind: ServiceAccount
+    name: default
+    namespace: trusted-domains
+  - kind: ServiceAccount
+    name: default
+    namespace: api-designer
+  - kind: ServiceAccount
+    name: monitoring
+    namespace: pce
+  - kind: ServiceAccount
+    name: default
+    namespace: exchange
+  - kind: ServiceAccount
+    name: xapi-service-deployment-manager
+    namespace: exchange
+  - kind: ServiceAccount
+    name: default
+    namespace: core-paas
+  - kind: ServiceAccount
+    name: default
+    namespace: monitoring-center
+  - kind: ServiceAccount
+    name: default
+    namespace: visualizer
+  - kind: ServiceAccount
+    name: secrets-robot
+    namespace: dias
+  - kind: ServiceAccount
+    name: default
+    namespace: dias
+  - kind: ServiceAccount
+    name: default
+    namespace: amc
+  - kind: Group
+    name: system:serviceaccounts:monitoring
+  - kind: ServiceAccount
+    name: default
+    namespace: anypoint-flash
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: anypoint-anyuid-privileged
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+users: []
+groups: []
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - MKNOD
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+seccompProfiles:
+  - runtime/default
+supplementalGroups:
+  type: RunAsAny
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+  - nfs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: anypoint-scc-privileged
+  namespace: pce-core
+rules:
+  - apiGroups: ["security.openshift.io"]
+    resourceNames:
+      - anypoint-anyuid-privileged
+    resources: ["securitycontextconstraints"]
+    verbs: ["use"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anypoint-scc-privileged
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: anypoint-scc-privileged
+subjects:
+  - kind: ServiceAccount
+    name: stolon
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: default
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: anypoint-install
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: seaweedfs-rw-sa
+    namespace: pce-core
+  - kind: ServiceAccount
+    name: default
+    namespace: api-manager
+  - kind: ServiceAccount
+    name: default
+    namespace: design-center
+  - kind: ServiceAccount
+    name: default
+    namespace: exchange
+  - kind: ServiceAccount
+    name: default
+    namespace: logging-internal
+  - kind: ServiceAccount
+    name: default
+    namespace: pce
+  - kind: ServiceAccount
+    name: monitoring
+    namespace: pce
+  - kind: ServiceAccount
+    name: default
+    namespace: trusted-domains
+  - kind: ServiceAccount
+    name: default
+    namespace: mocking
+
+---
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: anypoint-pce-monitoring
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+users: []
+groups: []
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - MKNOD
+runAsUser:
+  type: MustRunAs
+  uid: 472
+seLinuxContext:
+  type: MustRunAs
+seccompProfiles:
+  - runtime/default
+supplementalGroups:
+  type: RunAsAny
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: anypoint-pce-monitoring
+rules:
+  - apiGroups: ["security.openshift.io"]
+    resourceNames:
+      - anypoint-pce-monitoring
+    resources: ["securitycontextconstraints"]
+    verbs: ["use"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anypoint-pce-monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: anypoint-pce-monitoring
+subjects:
+  - kind: ServiceAccount
+    name: grafana
+    namespace: monitoring
+```
+
+Save this file as `openshift-scc.yaml` and apply it to the OpenShift cluster:
+
+```none
+oc apply -f openshift-scc.yaml
+```
+
+### Configure Roles for Prometheus
+
+Prometheus requires specific roles to collect metrics from Anypoint Platform PCE services. The
+following snippet provides the necessary roles configuration:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pce-prometheus
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+      - pods
+      - services
+      - nodes
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pce-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pce-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+```
+
+Save this file as `openshift-monitoring.yaml` and apply it to the OpenShift cluster:
+
+```none
+oc apply -f openshift-monitoring.yaml
+```
+
+## Install Anypoint Platform PCE on OpenShift
+
+The following snippet provides an example installation manifest for deploying Anypoint Platform PCE
+on an OpenShift cluster:
+
+```yaml
+containerRegistry:
+  endpoint: registry.pce.example.com
+  username: username
+  password: password
+  certificate: ""
+  subproject: example
+  tlsSkipVerify: true
+postInstallConfiguration:
+  platformDNS: anypoint.pce.example.com
+  fileSystemDNS: fs.pce.example.com
+  firstUserAccount:
+    organizationName: Example Org
+    username: username
+    email: username@mulesoft.com
+    password: password
+  platformCertificate: cert.pem
+  platformCertificateKey: key.pem
+amvInstallConfiguration:
+  enabled: false
+storageConfiguration:
+  pceobjectstore:
+    type: persistentVolumeClaim
+    storageClass: example-csi
+  stolon:
+    type: persistentVolumeClaim
+    storageClass: example-csi
+monitoringAppConfiguration:
+  monitoringStackEnabled: false
+  grafana:
+    enabled: true
+    values: |
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+          - name: Prometheus
+            type: prometheus
+            url: https://prometheus-k8s.openshift-monitoring.svc:9091
+            access: proxy
+            isDefault: true
+            jsonData:
+              tlsSkipVerify: true
+              httpHeaderName1: 'Authorization'
+            secureJsonData:
+              httpHeaderValue1: 'Bearer <Token>'
+```
+
+Note the `monitoringAppConfiguration` section in the snippet. This section disables the monitoring
+stack for Anypoint Platform PCE and enables only the Grafana application. It is recommended to
+disable the monitoring stack because OpenShift includes Prometheus by default. Enable Grafana and
+configure its datasource to connect to Prometheus.
+
+To obtain the token for connecting to Prometheus, run this command:
+
+```none
+oc create token prometheus-k8s -n openshift-monitoring --duration=87600h
+```
+
+After completing the installation, run the following commands to allow Prometheus in OpenShift to
+collect metrics from platform services:
+
+```none
+oc label namespace default openshift.io/cluster-monitoring="true" --overwrite
+oc label namespace pce openshift.io/cluster-monitoring="true" --overwrite
+```
+
+## See Also
+
+- [Installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)](install-workflow)
+- [Anypoint Platform PCE Prerequisites](install-checklist)
+---
+
+# Installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The process to install Anypoint Platform Private Cloud Edition (Anypoint Platform PCE), consist of
+the following steps:
+
+1.  Setting up and verifying your infrastructure
+2.  Performing a pre-installation verification
+3.  Installing Anypoint Platform PCE
+
+> [!NOTE] Contact MuleSoft Professional Services before performing the pre-installation verification
+> and installation of Anypoint Platform PCE because they are involved in these processes.
+
+> [!NOTE] To install Anypoint Platform PCE on OpenShift, see
+> [Installing Anypoint Platform PCE on OpenShift](install-openshift).
+
+## Set Up and Verify your Infrastructure
+
+Before you install Anypoint Platform PCE, ensure your infrastructure team installed and configured
+correctly the infrastructure for your organization following the requirements as described in
+[Anypoint Platform PCE Prerequisites](install-checklist).
+
+## Perform a Pre-installation Verification
+
+To perform the pre-installation healthcheck verification for the Kubernetes (K8s) cluster, follow
+these steps:
+
+1.  Confirm your Kubernetes cluster version is 1.34.x or 1.33.x.
+2.  Create an `input.yaml` file using this template and update it with your environment details:
+
+```json
+# Container Registry configuration to upload PCE images
+containerRegistry:
+  endpoint: "" # Container Registry Endpoint
+  username: "" # Provide either Username/Password OR Certificate to authenticate with container registry
+  password: ""
+  certificate: "/etc/registry/certificate/ca.crt"
+  subproject: "mulesoft" # Container registry subproject under which all the PCE images will be part of.
+  tlsSkipVerify: True  # True or False.
+# Platform configuration using CSI driver for filesystem access
+platformConfiguration:
+  platformDNS: ""
+  fileSystemCsiDriverName: "" # CSI driver name (e.g., nfs.csi.k8s.io, efs.csi.aws.com)
+  # Provide NFS DNS and path (not required if using EFS CSI Driver)
+  # fileSystemDNS: ""
+  # fileSystemPath: ""
+  # Provide individual NFS volume handles (all 4 are required if using EFS CSI Driver. You'll need to create 4 access points pointing to the same dir in the EFS)
+  fileSystemWcCsiVolumeHandle: "" # CSI volume handle for wc filesystem. E.g.: fs-0835b0d1eb7588eb1::fsap-03f6c68563ceb5acf
+  fileSystem01CsiVolumeHandle: "" # CSI volume handle for 01 filesystem
+  fileSystemBareCsiVolumeHandle: "" # CSI volume handle for bare filesystem
+  fileSystemBackupRestoreCsiVolumeHandle: "" # CSI volume handle for backup-restore filesystem
+  platformCertificate: /path/to/platform/certificate/cert.crt
+  platformCertificateKey: path/to/platform/certificate/cert.key
+  firstUserAccount:
+    organizationName: 'Test Org'
+    username: 'username'
+    email: 'username@mulesoft.com'
+    password: '<a-valid-password>'
+# Storage class configuration for persistent data services
+storageConfiguration:
+  pceobjectstore:
+    type: "persistentVolumeClaim"
+    storageClass: "<storage-class-name>"
+    controlPlaneSize: "10Gi" # Optional. Defaults to 10Gi
+    volumeSize: "100Gi" # Optional. Defaults to 100Gi
+    volumeIndexSize: "10Gi" # Optional. Defaults to 10Gi
+  stolon:
+    type: "persistentVolumeClaim"
+    storageClass: "<storage-class-name>"
+    size: "100Gi" # Optional. Defaults to 100Gi
+  backupRestoreTmp:
+    storageClass: "<storage-class-name>" # Storage class for backup/restore temporary storage
+# Configuration options for monitoring stack
+monitoringAppConfiguration:
+  monitoringStack:
+    enabled:  True # Defaults to True. Must be set to False for Openshift clusters.
+#    values: | # Optional. If not provided, the default values will be used.
+#      prometheus:
+#        prometheusSpec:
+#          storageSpec:
+#            volumeClaimTemplate:
+#              spec:
+#                storageClassName: 'local-path',
+#                accessModes: ["ReadWriteOnce"]
+#                resources:
+#                  requests:
+#                    storage: 50Gi
+
+## The following section is used to configure Grafana for an Openshift cluster. It is recommended to disable the monitoring stack as OpenShift includes Prometheus by default.
+#  grafana:
+#    enabled: False # Defaults to False.
+#    values: |
+#      datasources:
+#        datasources.yaml:
+#          apiVersion: 1
+#          datasources:
+#          - name: Prometheus
+#            type: prometheus
+#            url: https://prometheus-k8s.openshift-monitoring.svc:9091
+#            access: proxy
+#            isDefault: true
+#            jsonData:
+#              tlsSkipVerify: true
+#              httpHeaderName1: 'Authorization'
+#            secureJsonData:
+#              httpHeaderValue1: 'Bearer <Token>'
+```
+
+3.  Obtain the `license.lic` file from the MuleSoft Professional Services team.
+4.  Set the `KUBECONFIG` environment variable to the path to the `kubeconfig` file of the cluster.
+5.  Verify that the cluster satisfies the prerequisites by running the following command against
+    your `input.yaml` file and the `license.lic` file:
+
+    `./pcectl pre-install-check --input-file/path/to/input.yaml --license-file /path/to/license.lic`
+
+6.  For Anypoint Platform PCE workload to be scheduled on designated nodes, apply the following
+    labels to all worker nodes:
+    - `mulesoft-role=node`
+    - `redis-role=node`
+
+7.  Apply the following labels to any three worker nodes. These do not need to be the same three
+    nodes:
+    - `stolon-keeper=yes`
+    - `pce-data-nodes=yes`
+
+8.  (Optional) Apply taints to controlplane nodes to ensure that no Anypoint Platform PCE workload
+    is scheduled on the control plane. This also affects any other workload your organization may
+    want to run on control plane nodes. Consult with your Kubernetes cluster admin to perform this
+    step:
+
+    `mulesoft.pce/controlplane-node=true:NoSchedule`
+
+## Install Anypoint Platform PCE
+
+After your infrastructure is correctly set up and you performed a pre-installation verification,
+MuleSoft Professional Services will assist you with the installation of Anypoint Platform PCE.
+
+To install Anypoint Platform PCE, run this command:
+
+`./pcectl install --input-file /path/to/input.yaml --license-file /path/to/license.lic`
+
+## See Also
+
+- [Anypoint Platform PCE Prerequisites](install-checklist).
+---
+
+# Managing Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+After your installation is complete, your instance of Anypoint Platform Private Cloud Edition
+(Anypoint Platform PCE) is ready to use.
+
+## Users Using Anypoint Platform PCE
+
+Ensure that users registered in your external identity service have access to your Anypoint Platform
+[organization](../../access-management/managing-business-groups).
+
+You can also [register servers](../../runtime-manager/managing-servers) so that you can then
+[deploy to them](../../runtime-manager/deploying-to-your-own-servers), and so on.
+
+## Mule Developers Using Anypoint Studio
+
+Mule app developers in your organization who create Mule apps through the
+[Anypoint Studio](../../studio/) IDE must set up their editors so the Mule apps interface with your
+locally installed Anypoint Platform rather than the default cloud Anypoint Platform.
+
+## Mule Developers Using Anypoint Code Builder
+
+You can also use Anypoint Code Builder to develop and deploy Mule apps to your Anypoint PCE
+environment. For more information, see
+[Deploying Mule Apps to Anypoint PCE Using Anypoint Code Builder](#deploy-mule-apps-acb.adoc).
+
+## Manage Anypoint Platform PCE
+
+The following topics describe how to manage Anypoint Platform PCE:
+
+- [Backing up and restoring for Anypoint Platform PCE](backup-and-disaster-recovery)
+- [Allowing addresses for API Platform proxies](config-add-proxy-allowlist)
+- [Uploading custom policies and publish assets to exchange using the Maven client](custom-policies)
+- [Adding Compatible Java Versions for Assets Using the Maven Client](adding-compatible-java-versions-using-the-maven-client)
+- [Configuring Anypoint Studio for Anypoint Platform PCE](config-studio)
+- [Deploying Mule Apps to Anypoint PCE Using Anypoint Code Builder](#deploy-mule-apps-acb.adoc)
+- [Analyzing Business and API Data Using ELK](operating-about)
+- [Troubleshooting Mule Runtime Engine Registration](register-server)
+- [Updating Nodes](restarting-a-node)
+
+## See Also
+
+- [Installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)](install-workflow)
+- [Configuring Anypoint Platform PCE](config-workflow)
+---
+
+# Anypoint Platform Private Cloud Edition Release Notes
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+- [Anypoint Platform Private Cloud Edition 4.2.0 Release Notes](../../release-notes/pce/anypoint-private-cloud-4.2.0-release-notes)
+- [Anypoint Platform Private Cloud Edition 4.1.3 Release Notes](../../release-notes/pce/anypoint-private-cloud-4.1.3-release-notes)
+- [Anypoint Platform Private Cloud Edition 4.1.2 Release Notes](../../release-notes/pce/anypoint-private-cloud-4.1.2-release-notes)
+- [Anypoint Platform Private Cloud Edition 4.1.0 Release Notes](../../release-notes/pce/anypoint-private-cloud-4.1.0-release-notes)
+- [Anypoint Platform Private Cloud Edition 4.0.0 Release Notes](../../release-notes/pce/anypoint-private-cloud-4.0.0-release-notes)
+- [Anypoint Platform Private Cloud Edition 3.2.5 Release Notes](../../release-notes/pce/anypoint-private-cloud-3.2.5-release-notes)
+- [Anypoint Platform Private Cloud Edition 3.2.4 Release Notes](../../release-notes/pce/anypoint-private-cloud-3.2.4-release-notes)
+- [Anypoint Platform Private Cloud Edition 3.2.3 Release Notes](../../release-notes/pce/anypoint-private-cloud-3.2.3-release-notes)
+- [Anypoint Platform Private Cloud Edition 3.2.2 Release Notes](../../release-notes/pce/anypoint-private-cloud-3.2.2-release-notes)
+- [Anypoint Platform Private Cloud Edition 3.2.1 Release Notes](../../release-notes/pce/anypoint-private-cloud-3.2.1-release-notes)
+- [Anypoint Platform Private Cloud Edition 3.2.0 Release Notes](../../release-notes/pce/anypoint-private-cloud-3.2.0-release-notes)
+---
+
+# Troubleshooting Mule Runtime Engine Registration
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you encounter a Mule runtime engine (Mule) registration error when
+[creating a server in Runtime Manager](../../runtime-manager/servers-create), configure Mule to
+trust the TLS certificates you are using.
+
+To do so:
+
+1.  Get the public certificate for Anypoint Platform Private Cloud Edition (Anypoint Platform PCE).
+2.  Add the certificate to the truststore of the JVM you are using for Mule.
+
+Using the following example, set `$ANYPOINT_DNS` to your DNS for Anypoint Platform PCE. Replace the
+keystore location and password for your JVM truststore.
+
+$ keytool -printcert -sslserver $ANYPOINT\_DNS:443 -rfc > /tmp/PCE\_Certificate.cer
+$ keytool
+-importcert -alias anypoint.my-company -keystore <path to keystore> -storepass changeit -file
+/tmp/PCE_Certificate.cer
+
+For more information about the CA certificate truststore, see your JVM vendorâs documentation:
+[Oracle documentation](https://docs.oracle.com/).
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+---
+
+# Updating Nodes
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+## Before You Begin
+
+- Set up and test the backup procedure on all clusters.
+- Perform a backup before attempting node maintenance to preserve data in the event of a failure.
+
+## Update Nodes for Clusters
+
+See the following topics for details on each provider:
+
+- [Rancher Kubernetes Engine (RKE2) OS Upgrade Process](https://support.scc.suse.com/s/redirect?language=en_US&id=000021301)
+- OpenShift: Starting with version 4.16, the Machine Config Operator manages the nodeâs OS updates
+  as part of the cluster update process. For more on node updates and the Machine Config Operator,
+  see:
+  - [Openshift Updates](https://docs.openshift.com/en/container-platform/4.16/updating/understanding_updates/intro-to-updates.html)
+  - [Openshift Update Service](https://docs.openshift.com/en/container-platform/4.16/updating/understanding_updates/intro-to-updates.html#update-service-about_understanding-openshift-updates)
+  - [Machine Config Operator Functionality](https://docs.openshift.com/en/container-platform/4.16/updating/understanding_updates/how-updates-work.html)
+
+## See Also
+
+- [Managing Anypoint Platform PCE](operating-about)
+---
+
+# Supported Configurations for Anypoint Platform PCE
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+These are the supported configurations for Anypoint Platform Private Cloud (Anypoint Platform PCE).
+
+## Anypoint Platform PCE 4.2 Architecture
+
+The diagram illustrates MuleSoftâs planes (control plane and runtime plane) and their general
+traffic flow within the Anypoint Platform PCE context:
+
+![Anypoint Platform PCE 4.2 architecture](_images/pce4-diagram-architecture.png)
+
+Control plane:
+
+- A subset of Anypoint Platform services is deployed to a supported Kubernetes distribution (RKE2,
+  EKS-A, or OpenShift).
+- This constitutes the MuleSoft Control Plane, a web-based management and administration tool for
+  the lifecycle of MuleSoft integration apps and APIs.
+- Starting with Anypoint Platform PCE v4.0, use a dedicated Kubernetes control plane to separate
+  cluster management components from customer workloads.
+
+Runtime plane:
+
+- MuleSoft offers various runtime planes.
+- Within the Anypoint Platform PCE context, use the Hybrid runtime plane to deploy and manage
+  runtimes via the MuleSoft control plane.
+
+## Mule Runtime Engine and Mule Applications
+
+This table shows the recommended and maximum number of Mule instances and Mule applications that
+Anypoint Platform PCE supports:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Description</th><th>Supported Capacity</th></tr></thead><tbody><tr><td><p>Maximum number of Mule instances per environment</p></td><td><p>500</p></td></tr><tr><td><p>Maximum number of Mule instances across all environments</p></td><td><p>4000</p></td></tr><tr><td><p>Maximum number of Mule instances per server group</p></td><td><p>20</p></td></tr><tr><td><p>Maximum Mule instances per cluster</p></td><td><p>8</p></td></tr><tr><td><p>Mule applications under management per environment (recommended)</p></td><td><p>Fewer than 200</p></td></tr><tr><td><p>Mule applications under management per environment (maximum)</p></td><td><p>500</p></td></tr><tr><td><p>Mule applications per Mule runtime engine (recommended)</p></td><td><p>Fewer than 25</p></td></tr><tr><td><p>Mule applications per Mule runtime engine (maximum)</p></td><td><p>100</p></td></tr><tr><td><p>Number of Mule applications</p></td><td><p>15000</p></td></tr><tr><td><p>Number of Mule application replicas. An application can run on multiple Mule instances in a server group or cluster.</p></td><td><p>30000</p></td></tr></tbody></table>
+
+## APIs and API Manager
+
+This table shows the maximum number of instances per API, number of client applications, applied
+policies, and created contracts that Anypoint Platform PCE supports:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Description</th><th>Supported Capacity</th></tr></thead><tbody><tr><td><p>Maximum instances per API group</p></td><td><p>100</p></td></tr><tr><td><p>Client applications (per user)</p></td><td><p>5000</p></td></tr><tr><td><p>Client applications (per root organization)</p></td><td><p>10000</p></td></tr><tr><td><p>Maximum API instances managed per root organization</p></td><td><p>12000</p></td></tr><tr><td><p>Applied policies</p></td><td><p>36000</p></td></tr><tr><td><p>Created contracts</p></td><td><p>24000</p></td></tr></tbody></table>
+
+## Access Management
+
+This table shows the maximum number of business groups and number of Access Management users that
+Anypoint Platform PCE supports:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Description</th><th>Supported Capacity</th></tr></thead><tbody><tr><td><p>Maximum number of supported business groups</p></td><td><p>75</p></td></tr><tr><td><p>Maximum number of users</p></td><td><p>10000</p></td></tr><tr><td><p>Maximum number of client providers</p></td><td><p>25</p></td></tr></tbody></table>
+
+## Exchange
+
+This table shows the maximum number of Anypoint Exchange (Exchange) assets and file size information
+that Anypoint Platform PCE supports:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Description</th><th>Supported Capacity</th></tr></thead><tbody><tr><td><p>Maximum Exchange assets</p></td><td><p>60,000</p></td></tr><tr><td><p>Maximum file size when publishing asset through UI</p></td><td><p>5 MB</p></td></tr><tr><td><p>Maximum uncompressed file size</p></td><td><p>50 MB</p></td></tr><tr><td><p>Maximum file size when publishing asset through Maven</p></td><td><p>200 MB</p></td></tr><tr><td><p>Maximum number of dependencies for a single asset</p></td><td><p>100</p></td></tr><tr><td><p>Maximum icon size</p></td><td><p>2 MB</p></td></tr><tr><td><p>Maximum number of resources (attachments) per asset portal</p></td><td><p>100</p></td></tr><tr><td><p>Maximum resource size for attachments to the asset portal</p></td><td><p>2 MB</p></td></tr><tr><td><p>Maximum indexable asset content for RAML or asset portal</p></td><td><p>1 MB</p></td></tr><tr><td><p>Maximum number of categories per organization</p></td><td><p>500</p></td></tr><tr><td><p>Maximum number of custom configurations per organization</p></td><td><p>500</p></td></tr><tr><td><p>Maximum number of pages in a portal</p></td><td><p>50</p></td></tr><tr><td><p>Maximum length of page name</p></td><td><p>128 characters</p></td></tr><tr><td><p>Maximum review title length</p></td><td><p>30 characters</p></td></tr><tr><td><p>Maximum review text length</p></td><td><p>2048 characters</p></td></tr></tbody></table>
+
+## API Designer and API Mocking Service
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Maximum number of projects</p></td><td><p>Limited by version control system</p></td></tr><tr><td><p>Maximum number of concurrent users</p></td><td><p>16</p></td></tr><tr><td><p>Maximum number of mocking service instances</p></td><td><p>One per API version</p></td></tr><tr><td><p>Maximum number of mocking service users</p></td><td><p>16</p></td></tr></tbody></table>
+
+## See Also
+
+- [Anypoint Platform PCE Overview](./)
+---
+
+# Troubleshooting NFS Errors
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!IMPORTANT] Setting up and configuring an NFS server should be performed by your infrastructure
+> team. If you experience problems with any of the following instructions, contact your
+> infrastructure team for assistance.
+
+You must have a connection from each node to NFS.
+
+## âServer Not Respondingâ
+
+Use a tool such as ping, traceroute, or tracepath to verify that the client and server machines can
+communicate with each other. If communication fails between the client and server machines, examine
+the network interface card (NIC) settings using either `ifconfig` or `ethtool` to verify the IP
+settings.
+
+## âAccess Deniedâ or "Permission Denied"
+
+Check the export permissions for the NFS file system. You can do this from the client or from the
+server.
+
+From the client:
+
+`showmount -e server_name`
+
+From the server:
+
+`exportfs -a`
+
+## "rpc mount export: RPC: Timed out"
+
+The error message `Unable to access file system at [NFS SERVER]: rpc mount export: RPC: Timed out`
+is caused by a DNS name resolution issue. NFS (RPC) needs reverse name resolution. If the NFS server
+or client cannot resolve their name, this error occurs. Check the DNS configuration and the
+`/etc/hosts` configuration.
+
+## Mounting the NFS Server Fails
+
+If the mount fails, you are probably missing some NFS-required libraries. If this happens, install
+them by running:  
+`yum install nfs-utils nfs-utils-lib`
+
+### "mount failed: Not Permitted"
+
+The error message `mount failed: exit status 32. Mounting command â¦â not permitted` might occur when
+trying to mount using the `noresvport` option because the ports might be limited. If this happens,
+remove the `noresvport` option and add the `insecure` flag to the mount command.
+
+## See Also
+
+- [Verify NFS Server Communication](verify-nfs)
+---
+
+# Upgrading Anypoint Platform PCE v3.X to v4.X
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To migrate an Anypoint Platform Private Cloud Edition (Anypoint Platform PCE) deployment from
+version 3.x to 4.x, perform a full state backup on your existing source cluster (Cluster 1) and
+restore that data onto a newly provisioned target cluster (Cluster 2) running Anypoint Platform PCE
+4.x.
+
+Before proceeding, make sure that in your Anypoint PCE 3.x cluster, you have `ssh` access to your
+cluster nodes and the necessary `kubectl` permissions for both environments.
+
+## Configure Environment and Security
+
+Before generating the backup files, you must correctly identify the platform via DNS and secure it
+with valid certificates.
+
+### Define DNS and Platform Identification
+
+1.  In Amazon Route 53, create a new A or CNAME record to point your load balancer to the PCE 3.x
+    DNS (for example, `pce3.mulesoft.com`).
+2.  In the Anypoint Platform UI, navigate to **Access Management > DNS/IP** and enter the Platform
+    DNS address hosting your 3.x instance.
+3.  In the Anypoint Platform UI, click **Save** to apply the DNS changes to the platform
+    configuration.
+
+### Set Up SSL Certificates
+
+1.  In your local terminal, generate a 2048-bit RSA key and a self-signed certificate by running the
+    provided `openssl` command.
+
+    openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out cert.pem
+
+2.  In the Anypoint Platform UI, navigate to **Access Management > Security**.
+3.  In the Anypoint Platform UI, click **Choose File** for both the **Certificate** and **Private
+    Key** fields to upload the `cert.pem` and `key.pem` files generated in the previous step.
+
+## Back Up Platform State and Infrastructure
+
+This section focuses on capturing the database state and service configurations using the Gravity
+and Kubernetes CLI tools.
+
+### Patch Kubernetes Configuration
+
+1.  In the PCE Cluster Terminal, apply the configuration patch to exclude incompatible secrets and
+    buckets from the 4.x migration.
+
+    kubectl apply -f pce3-update-config.yaml
+
+    apiVersion: v1 kind: ConfigMap metadata: name: backup-restore-config data: namespaces: "default
+    access-management amf amc arm audit-log api-designer api-manager core-paas design-center
+    exchange mocking mozart pce pce-core visualizer dias monitoring-center" ignore-buckets:
+    "cpc-resources static-assets healthz" ignore-databases: crowdmigrator ^db\\S\*$ sw_database
+    ignore-secrets: "objectstore-s3-secret telegraf-influxdb-creds nginx-ssl cluster-ca
+    cluster-default-ssl dias-insight-cassandra-connection-password hybrid-rest-cloudhub-keystore
+    hybrid-rest-root-cert runtime-manager-keystore runtime-manager-truststore cloudhub-mcm-keystore"
+    #these hybrid/runtime-manager secrets are ignored since they are generated based on the platform
+    DNS, which is not modified by b/r. See
+    https://github.com/mulesoft/onprem-config-api/blob/master/assets/cloudhub-mcm-keystore/create-keystore.sh
+    ignore-releases: "core-paas-namespaces stolon stolon-amv pce-seaweedfs-app pce-cluster-ssl-app
+    dias-prov-k8s-am-influxdb-comp dias-prov-k8s-am-ingestor-comp" pvc-to-delete:
+    "dias-prov-k8s-cassandra-comp dias-prov-k8s-insight-comp" skip-version-check: "true"
+
+    apiVersion: v1 data: backup_s3_continue_if_error: "false" backup_s3_max_attempts: "3"
+    backup_s3_sequentially_bucket_names: "" backup_s3_sleep_time_seconds: "30" ignore-buckets:
+    cpc-resources static-assets healthz ignore-databases: crowdmigrator ^db\\S\*$ sw_database
+    ignore-releases: core-paas-namespaces stolon stolon-amv pce-seaweedfs-app pce-cluster-ssl-app
+    dias-prov-k8s-am-influxdb-comp dias-prov-k8s-am-ingestor-comp ignore-secrets:
+    objectstore-s3-secret telegraf-influxdb-creds nginx-ssl cluster-ca cluster-default-ssl
+    dias-insight-cassandra-connection-password hybrid-rest-cloudhub-keystore hybrid-rest-root-cert
+    runtime-manager-keystore runtime-manager-truststore cloudhub-mcm-keystore namespaces: default
+    access-management amf amc arm audit-log api-designer api-manager core-paas design-center
+    exchange mocking mozart pce pce-core visualizer dias monitoring-center pithos_pod_count: "2"
+    pvc-to-delete: dias-prov-k8s-cassandra-comp dias-prov-k8s-insight-comp restore_in_parallel:
+    "false" restore_s3_max_attempts: "3" restore_s3_sleep_time_seconds: "30" skip-version-check:
+    "true" kind: ConfigMap metadata: name: backup-restore-config
+
+### Execute Gravity System Backup
+
+1.  In the PCE Cluster Terminal (Backup Node), trigger the core platform state backup by executing
+    the gravity backup command.
+
+    gravity backup /var/lib/gravity/planet/share/backup-3x-$(date +%d-%m-%y).tar.gz
+
+2.  In the PCE Cluster Terminal (Backup Node), generate the Anypoint Monitoring and Visualizer (AMV)
+    specific backup using the internal restore script.
+
+    /var/lib/gravity/site/packages/unpacked/gravitational.io/anypoint/3.2.0\*/resources/kubernetes/amv-backup-restore/amv-backup-restore.sh
+
+## Preserve Persistent Data (NFS/EFS)
+
+In addition to the database state, you must manually preserve the project files and working
+directories stored on the distributed file system.
+
+### Mount the External Storage
+
+1.  In the PCE Cluster Terminal, create a mount point and install the necessary NFS utilities.
+
+    mkdir nfs_mount_folder sudo yum install nfs-utils -y
+
+2.  In the PCE Cluster Terminal, mount your AWS EFS (or external NFS) to the local directory.
+
+    sudo mount -t nfs4 -o rw,vers=4.1 <your-efs-dns-address>:/ /home/ec2-user/nfs_mount_folder
+
+### Compress and Offload Assets
+
+1.  In the PCE Cluster Terminal, navigate to the mounted folder and compress the project and working
+    directories.
+
+    tar -cvzf projects.tar.gz projects tar -cvzf working_Directories.tar.gz working_Directories
+
+2.  In your Local Terminal, securely download the four critical artifacts (Platform Backup, AMV
+    Backup, Projects Archive, and Working Directories Archive) to your local machine.
+
+    scp -i your-key.pem ec2-user@<pce-node-ip>:/tmp/backup-files/\*.tar.gz
+    ~/Downloads/pce_migration_assets/
+
+## Initialize the Target 4.x Environment
+
+Before restoring data, you must configure the new cluster to recognize the platform identity and
+security parameters.
+
+### Update Platform Routing and Identification
+
+1.  In Amazon Route 53, update your DNS records to point the load balancer to the new Anypoint PCE
+    4.x cluster (Cluster 2).
+2.  In the Anypoint Platform UI (New Cluster), navigate to **Access Management > DNS/IP** and enter
+    the new DNS address assigned to your PCE 4.x instance.
+
+### Apply New Security Certificates
+
+1.  In the Anypoint Platform UI (New Cluster), navigate to **Access Management > Security** and
+    upload the certificates generated for the 4.x environment.
+2.  In the PCE 4.x Cluster Terminal, monitor the cluster to ensure all jobs related to DNS and
+    certificate updates complete successfully and that all platform pods are in a `Running` state.
+
+## Transfer and Stage Migration Assets
+
+Move the data extracted from PCE 3.x into the target 4.x infrastructure.
+
+### Mount the Target External Storage
+
+1.  In the PCE 4.x Cluster Terminal, create the `nfs_mount_folder` and ensure the `nfs-utils`
+    package is installed on the node.
+2.  In the PCE 4.x Cluster Terminal, mount your AWS EFS or external storage to the local mount point
+    using the `mount -t nfs4` command.
+
+### Upload and Extract Backup Data
+
+1.  In your Local Terminal, transfer the backup archives and project directories from your local
+    machine to the new EC2 instance using the `scp` command.
+2.  In the PCE 4.x Cluster Terminal, extract the `projects.tar.gz` and `working_Directories.tar.gz`
+    files into their respective persistent storage paths.
+
+## Execute the Restoration Process
+
+Finalize the migration by updating system flags and triggering the restoration services via API.
+
+### Adjust Kubernetes Migration Settings
+
+1.  In the PCE 4.x Cluster Terminal, open the backup-restore configuration for editing by running
+    the `kubectl edit` command.
+
+    kubectl edit cm backup-restore-config -n pce-core
+
+2.  In the editor, update the `skip-version-check` property to true to authorize the version-jump
+    migration.
+
+### Invoke Restoration Services via API
+
+1.  In your Local Terminal, obtain an authentication bearer token by providing your credentials to
+    the login endpoint.
+
+    curl -k --request POST \\ --header "Content-Type: application/json" \\ --data
+    '{"username":"<username>", "password": "<password>"}' \\ https://<platform-dns>/accounts/login
+
+2.  In your Local Terminal, trigger the core platform restoration using the backup file and target
+    NFS server details.
+
+    curl -k https://<platform-dns>/platform/restore -X POST \\ -H "Authorization: Bearer
+    ${token}" \\
+     -H "Content-Type: application/json" \\
+     -d "{\\"backup-file-name\\": \\"${backupFileName}.tar.gz\\",
+    \\"nfs-server\\": \\"${fileSystemDns}\\", \\"nfs-path\\": \\"/\\"}"
+
+3.  In your Local Terminal, trigger the AMV restoration to migrate Monitoring and Visualizer data.
+
+    curl -k https://<platform-dns>/platform/amv/restore -X POST \\ -H "Authorization: Bearer
+    ${token}" \\
+     -H "Content-Type: application/json" \\
+    -d "{\\"backup-file-name\\": \\"${backupFileName}.tar.gz\\",
+    \\"nfs-server\\": \\"${fileSystemDns}\\", \\"nfs-path\\": \\"/\\"}"
+
+## See Also
+
+- [Anypoint Platform PCE Overview](./)
+- [Installing Anypoint Platform Private Cloud Edition (Anypoint Platform PCE)](install-workflow)
+---
+
+# NFS Server Prerequisites
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!IMPORTANT] Before you install Anypoint Platform Private Cloud Edition (Anypoint Platform PCE),
+> your infrastructure team must review each of the following sections and verify that your
+> environment meets the stated requirements. If needed, contact your MuleSoft representative for
+> assistance to ensure your NFS server is configured correctly.
+
+## CSI Driver Requirement
+
+Starting with Anypoint Platform PCE 4.2.0, a pre-installed Container Storage Interface (CSI) driver
+is a mandatory requirement. Anypoint Platform PCE uses the Kubernetes CSI driver to mount NFS
+volumes into pods, replacing the previous method that relied on host binaries.
+
+Some key benefits:
+
+- Enhanced support for environments where custom tools cannot be installed on host nodes.
+- Direct support for Amazon EKS users who can only use the Amazon EFS CSI Driver.
+
+### Configure the CSI Driver
+
+In the `platformConfiguration` section of your `input.yaml` file, specify the CSI driver name:
+
+```yaml
+platformConfiguration:
+  fileSystemCsiDriverName: "" # CSI driver name (e.g., nfs.csi.k8s.io, efs.csi.aws.com)
+```
+
+### EFS CSI Driver Configuration
+
+When using the Amazon EFS CSI Driver (for example, for Amazon EKS with EFS installations), provide
+four individual CSI volume handles. These volume handles must point to four access points that all
+target the same directory in the EFS:
+
+```yaml
+platformConfiguration:
+  fileSystemCsiDriverName: "efs.csi.aws.com"
+  fileSystemWcCsiVolumeHandle: "" # CSI volume handle for wc filesystem
+  fileSystem01CsiVolumeHandle: "" # CSI volume handle for 01 filesystem
+  fileSystemBareCsiVolumeHandle: "" # CSI volume handle for bare filesystem
+  fileSystemBackupRestoreCsiVolumeHandle: "" # CSI volume handle for backup-restore filesystem
+```
+
+Each volume handle value follows the format `<file-system-id>::<access-point-id>`, for example:
+`fs-0835b0d1eb7588eb1::fsap-03f6c68563ceb5acf`.
+
+> [!NOTE] When using the EFS CSI Driver, you do not need to provide `fileSystemDNS` or
+> `fileSystemPath` values.
+
+## Verify NFS Server Setup
+
+Anypoint Platform PCE version 2.0 and later requires a Network File System (NFS) server and an
+available NFS endpoint. Your NFS server must meet the following requirements:
+
+- Must be running on a filesystem that has at least 250 GB available.
+- Must be using NFS 4.x.
+- Can be backed by a network-attached storage (NAS) system.
+- Must have port 2049 enabled for both TCP and UDP.
+- Configure your network so that all of the PCE nodes can access the NFS server. The direct NFS
+  client is Kubernetes 1.9 and requires conformance with NFS version 4.
+
+NFS 4.x does not use the `portmapper` service.
+
+## Verify Required Port Is Open
+
+The NFS server requires port 2049 to be open for TCP and UDP.
+
+On each node, use netcat or a similar utility to verify that the required port is open. Netcat is a
+computer networking utility used to read and write to network connections using TCP or UDP.
+
+On each node, run: `nc -zv <host_name> 2049`
+
+> [!NOTE] By default, the netcat tool is not included with Anypoint Platform PCE. If you receive a
+> `command not found` error, you can download and install netcat or a similar utility.
+
+When the responses from netcat are successful, you receive a response similar to the following
+example:
+
+\[ec2-user@ip-10-1-1-97 ~\]$ nc -zv <nfs_host_name> 2049 Ncat: Version 7.50 ( https://nmap.org/ncat
+) Ncat: Connected to 10.1.0.155:2049. Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+
+## Verify NFS Server Is Mounted
+
+On each node, mount the NFS server in a temporary directory.
+
+1.  Switch to root:  
+    `sudo su`
+2.  To mount the NFS in a temporary directory, run the following commands and replace both the
+    `<nfs-server>` and the `<nfs-path>` with your own values:  
+    `mkdir -p /mnt/home`  
+    `mount -t nfs4 -o proto=tcp,port=2049 <nfs-server>:<path> /mnt/home/`  
+    If the mount fails, you do not have the required permissions.
+
+## Verify NFS Performance
+
+Perform careful analysis of your environment, both from the client and server point of view for
+optimal NFS performance. This involves:
+
+- Testing the performance and latency of your NFS server. Specifically, these operations will
+  transfer data from the client (Anypoint Platform PCE environment) to the NFS server and measure
+  how long each transfer takes.
+- Using the command
+  `time dd if=/dev/zero of=/mnt/home/<nameOfFile> bs=<blockSize> count=<amountOfBlocks>` to test NFS
+  server performance while transferring files and specifying the following parameters:
+  - Names `<nameOfFile>`
+  - Block size and number of blocks in the transfer: `<blockSize>` and `<amountOfBlocks>`,
+    respectively.
+
+- Validating how Anypoint Platform PCE handles NFS file transfers. Perform read and write operations
+  with both large (128MB) and small (80KB) files.
+
+Perform all tests on each node.
+
+### Test Writing and Reading Large Files on the NFS Server
+
+Perform the following read and write tests using large files:
+
+- File size: 128 MB
+- Block size: 4 KB
+- Number of blocks: 32768
+
+While the tests are running, different files are generated (one file per test).
+
+1.  Create a directory in which to mount the NFS server:
+
+    sudo su mkdir -p /mnt/home
+
+2.  Mount the NFS server:
+
+    mount -t nfs4 -o proto=tcp,port=2049 <nfs-server>:<path> /mnt/home/
+
+3.  Perform writes (five files of 128 MB each) on the NFS server:
+
+    time for i in {1..5}; do dd if=/dev/zero of=/mnt/home/greatfile$i.test bs=4k count=32768; done
+
+    The command output is similar to the following:
+
+    \[root@ip-10-1-1-97 ec2-user\]# time for i in {1..5}; do dd if=/dev/zero
+    of=/mnt/home/greatfile$i.test bs=4k count=32768; done 32768+0 records in 32768+0 records out
+    134217728 bytes (134 MB) copied, 2.12805 s, 63.1 MB/s . . . real 0m8.378s user 0m0.034s sys
+    0m0.792s
+
+    The `real` parameter in the test output should be less than 15 seconds.
+
+#### Validate Read Performance
+
+1.  Unmount the NFS server:
+
+    umount /mnt/home
+
+2.  Remount the NFS server:
+
+    mount -t nfs4 -o proto=tcp,port=2049 <nfs-server>:<path> /mnt/home/
+
+3.  Perform reads from the NFS server by running the following command:
+
+    time for i in {1..5}; do dd if=/mnt/home/greatfile$i.test of=/dev/null bs=4k; done
+
+    The `real` parameter in the test output should be less than 15 seconds.
+
+#### Clear the Caches
+
+Unmount the NFS server to clear out any caches:
+
+umount /mnt/home
+
+### Test Writing and Reading Small Files on the NFS Server
+
+Test small files as you did large files but with these sizes:
+
+- File size: 80 KB
+- Block size: 4 KB
+- Number of blocks: 20
+
+Before starting the test, verify that the `/mnt/home` directory from the previous test is created.
+
+1.  Mount the NFS server:
+
+    mount -t nfs4 -o proto=tcp,port=2049 <nfs-server>:<path> /mnt/home/
+
+2.  Perform writes (five files of 80 KB each) on the NFS server:
+
+    time for i in {1..30}; do dd if=/dev/zero of=/mnt/home/smallfile$i.test bs=4k count=20; done
+
+    The `real` parameter in the test output should be around 2 seconds.
+
+#### Validate Read Performance
+
+1.  Unmount the NFS server:
+
+    umount <nfs-server>
+
+2.  Remount the NFS server:
+
+    mount -t nfs4 -o proto=tcp,port=2049 <nfs-server>:<path> /mnt/home/
+
+3.  Perform reads from the NFS server:
+
+    time for i in {1..30}; do dd if=/mnt/home/smallfile$i.test of=/dev/null bs=4k; done
+
+    The important parameter in the test output is the `real` parameter, which should be around 2
+    seconds.
+
+#### Delete the Test Files
+
+When you finish the performance testing, delete the test files.
+
+1.  Remove all generated files by running:
+
+    rm -f /mnt/home/\*.test
+
+2.  Unmount the NFS server:
+
+    umount /mnt/home
+
+## Override NFS Mount Options
+
+By default, Anypoint Platform PCE 4.2.0 sets the `noresvport` NFS mount option, which is strongly
+recommended for AWS and other cloud environments. If this default conflicts with your environment
+requirements, you can override the NFS mount options by providing a comma-separated string in the
+`platformConfiguration` section of your `input.yaml` file:
+
+```yaml
+platformConfiguration:
+  fileSystemBareMountOptionsOverride: ""
+  fileSystemWcMountOptionsOverride: ""
+  fileSystem01MountOptionsOverride: ""
+```
+
+For example, to remove the `noresvport` option, provide a string with your custom mount options:
+
+nfsvers=4.0,retrans=2,rsize=1048576,soft,sync,timeo=600,wsize=1048576
+
+> [!NOTE] These fields are optional. If not specified, the default mount options are used.
+
+## See Also
+
+- [Troubleshoot NFS](troubleshoot-nfs)
+- [Anypoint Platform PCE Prerequisites](install-checklist)
+- [Installing Anypoint Platform PCE](install-workflow)
+

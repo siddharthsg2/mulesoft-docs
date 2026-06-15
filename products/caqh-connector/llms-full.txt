@@ -1,0 +1,1215 @@
+﻿# CAQH Connector - Full Documentation
+
+# CAQH Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+CAQH Connector v1.0
+
+Release Notes:
+[CAQH Connector Release Notes](../../release-notes/connector/caqh-connector-release-notes-mule-4)
+
+The main class of an extension, is the entry point from which configurations, connection providers,
+operations and sources are going to be declared.
+
+## Configurations
+
+---
+
+### Default Configuration
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Address</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Version</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime purges the instances when it sees fit.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+This class (as its name implies) provides connection instances and the functionality to disconnect
+and validate those connections. All connection related parameters (values required to create a
+connection) must be declared in the connection providers. This particular example is a
+PoolingConnectionProvider which declares that connections resolved by this provider will be pooled
+and reused. There are other implementations like CachedConnectionProvider which lazily creates and
+caches connections or simply ConnectionProvider if you want a new connection each time something
+requires one.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Use Persistent Connections</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If false, each connection will be closed after the first request is completed.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Max Connections</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of outbound connections that will be kept open at the same time. By default the number of connections is unlimited.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Idle Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The number of milliseconds that a connection can remain idle before it is closed. The value of this attribute is only used when persistent connections are enabled.</p></td><td><p>60000</p></td><td></td></tr><tr><td><p>Stream Response</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether or not received responses should be streamed, meaning processing will continue as soon as all headers are parsed and the body streamed as it arrives. When enabled, the response MUST be eventually read since depending on the configured buffer size it may not fit into memory and processing will stop until space is available.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Response Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The space in bytes for the buffer where the HTTP response will be stored.</p></td><td><p>-1</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td></td><td><p>60000</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Protocol to use for communication. Valid values are HTTP and HTTPS. Default value is HTTP. When using HTTPS the HTTP communication is going to be secured using TLS / SSL. If HTTPS was configured as protocol then the user needs to configure at least the keystore in the tls:context child element of this listener-config.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Add Providers - DirectAssure](#addToRosterRequestDa)
+- [Add Providers - ProView](#addToRosterRequestPv)
+- [Delete Providers - ProView (POST)](#deleteFromProviewApi)
+- [Delete Providers - DirectAssure (POST)](#deleteFromProviewApiDa)
+- [Delete Providers - DirectAssure (PUT)](#deleteFromRosterRequestDaByPutRequest)
+- [Delete Providers - ProView (PUT)](#deleteFromRosterRequestPv)
+- [Get Provider Credentials](#getProviderCredentials)
+- [Get Provider Documents](#getProviderDocument)
+- [Get Provider Status - DirectAssure](#getProviderStatusDa)
+- [Get Provider Status - ProView](#getProviderStatusProview)
+- [Get Status - Add to Roster](#getResultOfAddRequest)
+- [Get Status - Delete from Roster](#getResultOfDeleteRequest)
+- [Get Status - Update to Roster](#getResultOfUpdateRequest)
+- [Update Providers - DirectAssure (POST)](#updateToProviewApiDa)
+- [Update Providers - DirectAssure (PUT)](#updateToRosterRequestDaByPutRequest)
+- [Update Providers - ProView (POST)](#updateToRosterRequestPv)
+- [Update Providers - ProView (PUT)](#updateToRosterRequestPvByPutRequest)
+
+## Operations
+
+### Add Providers - DirectAssure
+
+`<caqh:add-to-roster-request-da>`
+
+A partner organization (PO) can add one or more providers to the roster by submitting a call to the
+API. For this there are different required and optional fields for the Quick Add verses the Initial
+Add. Returns the batch_id that is generated on successful addition of providers on the roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Add To DA Bodies</p></td><td><div><div><p>Array of <a href="#RequestToAddRosterPVDTO">Request To Add Roster PVDTO</a></p></div></div></td><td><p>List of providers to be added to roster</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Add Providers - ProView
+
+`<caqh:add-to-roster-request-pv>`
+
+A PO can add one or more providers to the roster by submitting a call to the API. For this there are
+different required and optional fields for the Quick Add verses the Initial Add. This method returns
+the batch_id that is generated on successful addition of Providers on roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Add Request Bodies</p></td><td><div><div><p>Array of <a href="#RequestToAddRosterPVDTO">Request To Add Roster PVDTO</a></p></div></div></td><td><p>List of providers to be added to Roster.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Delete Providers - ProView (POST)
+
+`<caqh:delete-from-proview-api>`
+
+Method to delete one or more providers from the roster using POST. Returns the batch_id that is
+generated on successful deletion of Providers from roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Delete Proview Bodies</p></td><td><div><div><p>Array of <a href="#RequestToDeleteRosterDADTO">Request To Delete Roster DADTO</a></p></div></div></td><td><p>List of providers to be deleted from Proview.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:RETRY_EXHAUSTED
+- CAQH:CONNECTIVITY
+
+### Delete Providers - DirectAssure (POST)
+
+`<caqh:delete-from-proview-api-da>`
+
+Method to delete one or more providers from the roster. Returns the batch_id that is generated on
+successful deletion of Providers from roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Delete DA By Post Bodies</p></td><td><div><div><p>Array of <a href="#RequestToDeleteRosterDADTO">Request To Delete Roster DADTO</a></p></div></div></td><td><p>List of providers to be deleted from Proview.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Delete Providers - DirectAssure (PUT)
+
+`<caqh:delete-from-roster-request-da-by-put-request>`
+
+Method to delete one or more providers from the roster. Returns the batch_id that is generated on
+successful deletion of Providers from roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Delete DA By Put Bodies</p></td><td><div><div><p>Array of <a href="#RequestToDeleteRosterDADTO">Request To Delete Roster DADTO</a></p></div></div></td><td><p>List of providers to be deleted from the roster</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Delete Providers - ProView (PUT)
+
+`<caqh:delete-from-roster-request-pv>`
+
+Method to delete one or more providers from the roster using PUT. Returns the batch_id that is
+generated on successful deletion of Providers from roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Delete Request Bodies</p></td><td><div><div><p>Array of <a href="#RequestToDeleteRosterDADTO">Request To Delete Roster DADTO</a></p></div></div></td><td><p>List of providers to be deleted from Roster.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:RETRY_EXHAUSTED
+- CAQH:CONNECTIVITY
+
+### Get Provider Credentials
+
+`<caqh:get-provider-credentials>`
+
+This method returns the xml response received by Credentialing API web service which is used by
+Participating Organizations to access real-time provider data from CAQH ProView. Before requesting
+the Credentialing API access, POs should have a business case and an existing application with which
+to consume and use the web service. The credentialing API is designed to accept one CAQH Provider ID
+at a time and disseminate information for that provider based on other parameters provided in the
+API call. The Credentialing API service will return provider data only if it satisfies all of the
+following criteria:
+
+1.  Provider application status is Complete.
+2.  Provider has Authorized the Participating Organization to see their information. participating
+    organization roster status of the provider is active. Data will be filtered based on
+    Delegated/Non-Delegated and Participating/Non-Participating relationships between the
+    participating organization and the requested provider.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td><p>CAQH assigned provider Identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Participating Organization Identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Attestation Date</p></td><td><div><div><p>String</p></div></div></td><td><p>Date on which provider was last first attested.Required (Only within the past 3 years).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Credential Section</p></td><td><div><div><p>String</p></div></div></td><td><p>(Optional) If not specified, the service will return all sections.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Get Provider Documents
+
+`<caqh:get-provider-document>`
+
+This method returns the PDF document in response to request that allows a participating organization
+to retrieve a providerâs supporting document The supporting documents will be returned only if the
+following are true:
+
+1.  The requesting userâs associated PO ID matches with the incoming PO ID, or if the incoming is
+    the child of the userâs associated PO ID.
+2.  The provider is on the participating organizationâs roster.
+3.  The provider has given authorization to the participating organization.
+4.  The providerâs CAQH ProView data profile is in a complete status, e.g. Initial Profile Complete
+    or Re-attestation. If these criteria are not satisfied then the supporting document for that
+    CAQH Provider ID is not be returned and the appropriate response code is be supplied.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Caqh Provider_id</p></td><td><div><div><p>String</p></div></div></td><td><p>CAQH assigned provider Identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Organization_id</p></td><td><div><div><p>String</p></div></div></td><td><p>Participating Organization Identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Doc_ Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Single Supporting Document Type.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Get Provider Status - DirectAssure
+
+`<caqh:get-provider-status-da>`
+
+The DirectAssure Status Check API web service can be used by Participating Organizations to view the
+status of providers in CAQH ProView. Before requesting DirectAssure Status Check API access, partner
+organizations should have a business case and an existing application with which to consume and use
+the web service. The DirectAssure Status Check API accepts one provider at a time.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Organization_ Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Participating organization identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Caqh_ Provider_ Id</p></td><td><div><div><p>String</p></div></div></td><td><p>CAQH assigned provider identifier</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#GetProviderStatusDTO">Get Provider Status DTO</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Get Provider Status - ProView
+
+`<caqh:get-provider-status-proview>`
+
+The ProView Status Check API web service can be used by Participating Organizations to view the
+status of providers in CAQH ProView. Before requesting ProView Status Check API access, POs should
+have a business case and an existing application with which to consume and use the web service. The
+ProView Status Check API accepts one provider at a time. This method returns a JSON response with
+the status of provider or indicate that a provider could not be found with Provider_Found_Flag equal
+to N.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Organization_ Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Participating Organization Identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Caqh_ Provider_ Id</p></td><td><div><div><p>String</p></div></div></td><td><p>CAQH assigned provider Identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#GetProviderStatusDTO">Get Provider Status DTO</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Get Status - Add to Roster
+
+`<caqh:get-result-of-add-request>`
+
+Method to get the status of a previous Add to Roster request, and the results if the request is
+complete. If a provider is unable to be added to the roster due to an Exception, then the
+Exception_Description field contains a value and the identifying fields submitted in the Add to
+Roster Web Service is returned instead of the values from the system.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch_id</p></td><td><div><div><p>String</p></div></div></td><td><p>System-generated unique Batch ID from ADD request.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#GetAddStatusDTO">Get Add Status DTO</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Get Status - Delete from Roster
+
+`<caqh:get-result-of-delete-request>`
+
+GET request to receive the status of a previous Delete from Roster request, and the results if the
+request is complete. If a provider is unable to be deleted from the roster due to an exception, then
+the Delete_Description field contains the exception.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch_id</p></td><td><div><div><p>String</p></div></div></td><td><p>System-generated unique Batch ID from UPDATE request.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#GetDeleteResultDTO">Get Delete Result DTO</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Get Status - Update to Roster
+
+`<caqh:get-result-of-update-request>`
+
+GET request to receive the status of a previous Update on Roster request, and the results if the
+request is complete. If a provider is unable to be updated on the roster due to an exception, then
+the Update_Description field contains the exception.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Batch_id</p></td><td><div><div><p>String</p></div></div></td><td><p>System-generated unique Batch ID from UPDATE request.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#GetUpdateResultDTO">Get Update Result DTO</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Update Providers - DirectAssure (POST)
+
+`<caqh:update-to-proview-api-da>`
+
+Method to update one or more providers existing on roster. Returns the batch_id that is generated on
+successful update of providers on the roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Update DA By Post Requests</p></td><td><div><div><p>Array of <a href="#RequestToUpdateDADTO">Request To Update DADTO</a></p></div></div></td><td><p>List of providers to be updated in ProView</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Update Providers - DirectAssure (PUT)
+
+`<caqh:update-to-roster-request-da-by-put-request>`
+
+Method to update one or more providers existing on roster. Returns the batch_id that is generated on
+successful update of providers on the roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Update DA By Put Requests</p></td><td><div><div><p>Array of <a href="#RequestToUpdateDADTO">Request To Update DADTO</a></p></div></div></td><td><p>List of providers to be updated in roster</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Update Providers - ProView (POST)
+
+`<caqh:update-to-roster-request-pv>`
+
+Method to update one or more providers existing on roster using POST. Returns the batch_id that is
+generated on successful update of Providers on roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Update Proview Details</p></td><td><div><div><p>Array of <a href="#RequestToUpdatePVDTO">Request To Update PVDTO</a></p></div></div></td><td><p>List of providers to be updated in Proview.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+### Update Providers - ProView (PUT)
+
+`<caqh:update-to-roster-request-pv-by-put-request>`
+
+Method to update one or more providers existing on roster using PUT. Returns the batch_id that is
+generated on successful update of Providers on roster.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Details</p></td><td><div><div><p>Array of <a href="#RequestToUpdatePVDTO">Request To Update PVDTO</a></p></div></div></td><td><p>List of providers to be updated in Roster.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable to store the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#ResponseStatus">Response Status</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Default Configuration](#config)
+
+#### Throws
+
+- CAQH:METHOD_NOT_ALLOWED
+- CAQH:INTERNAL_SERVER_ERROR
+- CAQH:NOT_ACCEPTABLE
+- CAQH:REQUEST_TIMEOUT
+- CAQH:GENERIC_EXCEPTION
+- CAQH:BAD_GATEWAY
+- CAQH:NOT_IMPLEMENTED
+- CAQH:RETRY_EXHAUSTED
+- CAQH:EMPTY_HEAD_COUNT
+- CAQH:CONFLICT
+- CAQH:SERVICE_UNAVAILABLE
+- CAQH:DEAD_TOKEN
+- CAQH:BAD_REQUEST
+- CAQH:FORBIDDEN
+- CAQH:UNAUTHORIZED
+- CAQH:NOT_FOUND
+- CAQH:CONNECTIVITY
+
+## Types
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma-separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the trust store.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the trust store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the trust store.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the key store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the key store contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file will be used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the key store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the key store.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Only verify the last element of the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer CRLs</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method (the one not selected before).</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server can not be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make..</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Response Status
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Headers</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status Code</p></td><td><div><div><p>Number</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Request To Add Roster PVDTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Affiliation Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Application Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Delegation Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Last Recredential Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Next Recredential Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Po Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Provider</p></td><td><div><div><p><a href="#ProviderDTO">Provider DTO</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Region Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Provider DTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Address1</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Address2</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Birthdate</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>City</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Dea</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Email</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Fax</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>First Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Gender</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Last Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>License Number</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>License State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Middle Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Name Suffix</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Npi</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Phone</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Practice State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Short Ssn</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Ssn</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Tax Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Upin</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Zip</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Zip Extn</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of memory to allocate to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it will start to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Request To Delete Roster DADTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Get Provider Status DTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Authorization Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Po Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Provider Found Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Provider Practice State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Provider Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Provider Status Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Roster Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Get Add Status DTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Batch Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Batch Time</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Roster Result</p></td><td><div><div><p>Array of <a href="#RosterResponse">Roster Response</a></p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Roster Response
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Affiliation Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Anniversary Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Authorization Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Delegation Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Exception Description</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Non Responder Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Po Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Provider</p></td><td><div><div><p><a href="#Provider">Provider</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Roster Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Provider
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Address1</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Address2</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Address City</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Address State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Address Zip</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Birthdate</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Dea</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>First Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Last Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>License Number</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>License State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Middle Name</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Npi</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Practice State</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Status Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Upin</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Get Delete Result DTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Batch Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Batch Time</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Deroster Result</p></td><td><div><div><p>Array of <a href="#DerosterResult">Deroster Result</a></p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Deroster Result
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Delete Description</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Get Update Result DTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Batch Status</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Batch Time</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Roster Result</p></td><td><div><div><p>Array of <a href="#RosterResult">Roster Result</a></p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Roster Result
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Update Description</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Request To Update DADTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Po Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Request To Update PVDTO
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Affiliation Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Application Type</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Caqh Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Delegation Flag</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Last Recredential Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Next Recredential Date</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Organization Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Po Provider Id</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# CAQH Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+CAQH Connector v1.0
+
+Anypoint Connector for the Council for Affordable Quality Healthcare (CAQH Connector) provides
+access to a nonprofit that collects, stores, monitors, and validates healthcare providersâ
+information.
+
+CAQH ProViewÂ® is a web-based solution that many providers use to self-report and share wide-ranging
+demographic and professional information with healthcare organizations. CAQH DirectAssureÂ®, which
+ensures the accuracy of provider directories, works in tandem with CAQH ProView, so providers can
+update their directory information in one place and share it with participating organizations.
+
+CAQH ProView and DirectAssure APIs enable users to retrieve information about providers in real time
+for credentialing and other purposes. Participating organizations (POs) can use the APIs to add a
+provider to roster in CAQH ProView. CAQH Connector simplifies access to the CAQH ProView and
+DirectAssure APIs to define complex integrations visually for enhanced provider management and
+credentialing.
+
+Release Notes:
+[CAQH Connector Release Notes](../../release-notes/connector/caqh-connector-release-notes-mule-4)  
+Exchange: [CAQH Connector](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-caqh-connector/)
+
+## Before You Begin
+
+To use this information, you should be familiar with CAQH ProView, DirectAssure, Mule concepts,
+Anypoint connectors, Anypoint Studio, the elements in a Mule flow, and global elements. The APIs use
+basic authentication, based on username and password. You need a CAQH account and credentials to use
+the connector.
+
+To use the CAQH connector with Maven, find dependency information on the Dependency Snippets tab of
+CAQH connectorâs page on the Anypoint Exchange.
+
+## POM File Information
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-caqh-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Add the Connector to Your Studio Project
+
+Anypoint Studio provides two ways to add the connector to your Studio project: from the Exchange
+button in the Studio taskbar or from the Mule Palette view.
+
+### Add the Connector Using Exchange
+
+1.  In Studio, create a Mule project.
+2.  Click the Exchange icon **(X)** in the upper-left of the Studio task bar.
+3.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+4.  In Exchange, search for "caqh".
+5.  Select the connector and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+### Add the Connector in Studio
+
+1.  In Studio, create a Mule project.
+2.  In the Mule Palette view, click **(X) Search in Exchange**.
+3.  In **Add Modules to Project**, type "caqh" in the search field.
+4.  Click this connectorâs name in **Available modules**.
+5.  Click **Add**.
+6.  Click **Finish**.
+
+## Connector Namespace and Schema
+
+When you drag the connector from the Mule Palette view in Anypoint Studio to the canvas, Studio
+populates the XML code for the connector namespace, schema location, and POM file. If you create an
+app outside of Studio, use this information in the XML:
+
+Namespace: `http://www.mulesoft.org/schema/mule/caqh`  
+Schema Location: `http://www.mulesoft.org/schema/mule/caqh/current/mule-caqh.xsd`
+
+## Configure CAQH Connector in Anypoint Studio
+
+1.  In Anypoint Studio, create a new Mule project. Ensure that you have **HTTP Listener**
+    configured.
+2.  Drag the connector to the Studio Canvas.
+3.  Configure the connectorâs global element. You can either enter your credentials as global
+    configuration properties or reference a configuration file that contains these values. For
+    simpler maintenance and better reuse of your project, MuleSoft recommends that you use a
+    configuration file.
+    - **Address**: URL to access CAQH API
+    - **Username**: The user name to access CAQH API
+    - **Password**: Password to access CAQH API
+
+      > [!TIP] An example configuration file for CAQH is available at
+      > `src/main/resources/configuration.yml`. You can add this file in the Configuration
+      > Properties of the Global Configuration Elements.
+
+4.  To ensure that your connection is successful, Click **Test Connection**.
+5.  Select a connector operation.
+
+## Use Cases
+
+The following use cases demonstrate how you can use this connector to:
+
+- Update providers from Salesforce to CAQH using ProView
+- Delete Providers from Roster Using ProView
+
+To test these the use case examples:
+
+1.  Create a Mule application, and set the connector configuration properties in the configuration
+    file in the `src/main/resources`. For example,
+
+    ```yaml
+    caqh:
+      address: "<url-to-access-caqh-api>"
+      user: "<username-to-access-caqh-api>"
+      password: "<password-to-access-caqh-api>"
+    ```
+
+2.  Add the configuration file for the CAQH connector to the Configuration Properties of the
+    **Global Configuration Elements**.
+
+### Update a Provider from Salesforce to CAQH Using ProView
+
+In this example, a Mule application queries Salesforce contacts to find a provider. It then updates
+the providerâs status in CAQH and gets the status of the update request.
+
+![Update Providers Flow](_images/caqh-update-provider-from-sf.png)
+
+In your Mule application,
+
+1.  Drag an HTTP Listener to the canvas and configure it.
+2.  From the **Palette**, search for the Salesforce connector and drag **Query** operation.
+3.  For the purpose of this demo, use the following query to get the contact from Salesforce.
+
+    ```sql
+    SELECT firstName, LastName, Id,
+    	CAQH_Provider_ID__c,
+    	SF_Provider_ID__c,
+    	CAQH_organization_id__c,
+    	Provider_name__c,
+    	caqh_batch_id__c
+    from CONTACT
+    where name = ':name'
+    ```
+
+4.  Select and drag Transform Message at the flow on the canvas to prepare the input for the CAQH
+    connector.
+
+    ```yaml
+    output application/java
+    ---
+     [{
+      "caqh_provider_id": payload[0].CAQH_Provider_ID__c,
+      "organization_id": payload[0].CAQH_organization_id__c,
+      "po_provider_id": payload[0].Id,
+      "last_recredential_date": "",
+      "next_recredential_date": "05/05/2019",
+      "delegation_flag": "Y",
+      "application_type": "A",
+      "affiliation_flag": ""
+    }]
+    ```
+
+5.  Use the `Update Providers - ProView (PUT)` connector operation after the listener, and select
+    the connector configuration that you created.
+6.  Set the **General** section in the connector configuration to `payload`.
+7.  Set the **Target Value** in the Advanced section to `#[payload]`.
+8.  Use another Transform Message component to add minimum 1 minute of wait time because it takes a
+    few minutes to update the provider in CAQH.
+
+    ```yaml
+    %dw 2.0
+    import * from dw::Runtime
+    output application/json
+    ---
+     payload
+    wait 60000
+    ```
+
+9.  To check whether the update request was successful, drag `Get Status - Update to Roster`
+    operation after the **Transform Message**.
+10. In the **General** section of the operation configuration,
+    1.  Set the **Batch_id** to `#[payload.batch_Id]`.
+    2.  Set **Target Value** in the Advanced section to `#[payload]`.
+
+11. Add a Transform Message component at the end of the flow to transform the output message to JSON
+    format. Set the output of the Transform Message to,
+
+    ```yaml
+    %dw 2.0
+    output application/json
+    ---
+    payload
+    ```
+
+12. Run the application and point your browser to `http://localhost:8081/update-provider`.
+
+### Delete a Provider from Roster Using ProView
+
+In this example, a Mule application queries Salesforce contacts to find a provider. It then deletes
+the provider in CAQH using the ProView API and gets the status of the delete request.
+
+> [!NOTE] The delete request sets the provider status in CAQH to `Inactive`.
+
+![Delete Providers Flow](_images/caqh-delete-provider.png)
+
+The process of implementing this flow is similar to updating a provider, except you use the **Delete
+Providers - ProView (PUT)** and **Get Status - Delete** from Roster operations
+
+## Use Cases: XML
+
+### Update a Provider from Salesforce to CAQH Using ProView
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:caqh="http://www.mulesoft.org/schema/mule/caqh"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/caqh
+	http://www.mulesoft.org/schema/mule/caqh/current/mule-caqh.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <flow name="UPDATE_PROVIDER_SALESFORCE_TO_CAQH">
+        <http:listener
+		doc:name="update-provider"
+		config-ref="HTTP_Listener_config1"
+		path="/UpdateProviderFlow"/>
+        <salesforce:query doc:name="Query Salesforce Contact" config-ref="Salesforce_Config">
+            <salesforce:salesforce-query >SELECT firstName, LastName, Id,CAQH_Provider_ID__c,SF_Provider_ID__c,CAQH_organization_id__c,Provider_name__c,caqh_batch_id__c from CONTACT where name = ':name'
+            </salesforce:salesforce-query>
+            <salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	name : "kiuwxinj xwehonru"
+}]]]></salesforce:parameters>
+        </salesforce:query>
+        <ee:transform doc:name="">
+            <ee:message >
+                <ee:set-payload ><![CDATA[output application/java
+---
+ [{
+  "caqh_provider_id": payload[0].CAQH_Provider_ID__c,
+  "organization_id": payload[0].CAQH_organization_id__c,
+  "po_provider_id": payload[0].Id,
+  "last_recredential_date": "",
+  "next_recredential_date": "05/05/2019",
+  "delegation_flag": "Y",
+  "application_type": "A",
+  "affiliation_flag": ""
+}]
+  ]]>                </ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <caqh:update-to-roster-request-pv-by-put-request
+	doc:name="Update Providers to Roster - Proview"
+	config-ref="CAQH_Config1">
+        </caqh:update-to-roster-request-pv-by-put-request>
+        <ee:transform doc:name="Wait for 1 Minute">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::Runtime
+output application/json
+---
+ payload
+wait 60000]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <caqh:get-result-of-update-request
+		doc:name="Get status of update to roster request"
+		config-ref="CAQH_Config1"
+		batch_id="#[payload.batch_Id]" />
+        <ee:transform doc:name="Transform CAQH response to JSON">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
+```
+
+### Delete a Provider from Roster Using ProView
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:caqh="http://www.mulesoft.org/schema/mule/caqh"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/caqh
+	http://www.mulesoft.org/schema/mule/caqh/current/mule-caqh.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <flow name="DELETE_SALESFORCE_PROVIDER_FROM_ROSTER">
+        <http:listener
+		doc:name="Listener"
+		config-ref="HTTP_Listener_config1"
+		path="/deleteProviderFlow"/>
+        <salesforce:query
+		doc:name="Query Salesforce Contacts"
+		config-ref="Salesforce_Config">
+            <salesforce:salesforce-query >SELECT firstName, LastName, Id,CAQH_Provider_ID__c,SF_Provider_ID__c,CAQH_organization_id__c,Provider_name__c,caqh_batch_id__c from CONTACT where name = ':name'</salesforce:salesforce-query>
+            <salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	name : "kiuwxinj xwehonru"
+}]]]></salesforce:parameters>
+        </salesforce:query>
+        <ee:transform doc:name="Mapping from Salesforce to CAQH">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+ [{
+	"caqh_provider_id": payload[0].CAQH_Provider_ID__c,
+	"organization_id": payload[0].CAQH_organization_id__c
+}]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <caqh:delete-from-roster-request-pv
+		doc:name="Delete provider from roster using ProView"
+		config-ref="CAQH_Config1">
+        </caqh:delete-from-roster-request-pv>
+        <ee:transform doc:name="Wait for 1 Minute">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::Runtime
+output application/json
+---
+ payload
+wait 60000]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <caqh:get-result-of-delete-request
+		doc:name="Get status of delete from roster request"
+		config-ref="CAQH_Config1"
+		batch_id="#[payload.batch_Id]" />
+        <ee:transform doc:name="Transform CAQH response to JSON">
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
+```
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+- [CAQH Solutions](https://www.caqh.org/solutions)
+

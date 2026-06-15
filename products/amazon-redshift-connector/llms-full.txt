@@ -1,0 +1,999 @@
+﻿# Amazon Redshift Connector - Full Documentation
+
+# Amazon Redshift Connector 1.2 Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This example shows you how to use Anypoint Connector for Amazon Redshift (Amazon Redshift Connector)
+to load data from Amazon S3 to Amazon Redshift.
+
+## Create the Mule Project
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter `redshift-demo` as the name for your Mule project and click **Finish**.
+3.  Open the `redshift-demo.xml` file in `src/main/mule` folder.
+4.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+5.  In **Add Modules to Project**, type `redshift` in the search field.
+6.  Click **Amazon Redshift Connector** in **Available modules**.
+7.  Click **Add**.
+8.  Click **Finish**.
+9.  Repeat the previous steps to also add the Amazon S3 Connector (search for `amazon s3`) and File
+    Connector (search for `file`) to the Mule project.
+
+## XML Code for This Example
+
+Overwrite the contents of `redshift-demo.xml` file with the following XML snippet:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	  xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	  xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+	  xmlns:redshift="http://www.mulesoft.org/schema/mule/redshift"
+	  xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	  xmlns="http://www.mulesoft.org/schema/mule/core"
+	  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/redshift http://www.mulesoft.org/schema/mule/redshift/current/mule-redshift.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" basePath="/">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<redshift:config name="Amazon_Redshift_Connector_Config" doc:name="Amazon Redshift Connector Config">
+		<redshift:basic-connection
+				clusterId="${redshift.cluster_id}"
+				database="${redshift.database}"
+				user="${redshift.user}"
+				password="${redshift.password}"
+				region="${redshift.region}"
+				port="${redshift.port}"
+		/>
+	</redshift:config>
+
+     <redshift:config name="Amazon_Redshift_Connector_Config_Fips" doc:name="Amazon Redshift Connector Config Fips">
+		<redshift:iam-connection
+                clusterId="${redshift.cluster_id}"
+                database="${redshift.database}"
+                user="${redshift.user}"
+                accessKey="${redshift.password}"
+                secretKey="${redshift.secret_key}" customStsEndpoint="${redshift.fips.sts}">
+            <redshift:role arn="${redshift.role_arn}" />
+		</redshift:iam-connection>
+	</redshift:config>
+
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration">
+		<s3:basic-connection accessKey="${s3.access_key}" secretKey="${s3.secret_key}" region="${s3.region}"/>
+	</s3:config>
+
+	<file:config name="File_Config" doc:name="File Config">
+		<file:connection workingDir="${mule.home}/apps/${app.name}/" />
+	</file:config>
+
+	<configuration-properties doc:name="Configuration properties" file="mule-artifact.properties" />
+
+	<flow name="Create-Redshift-Table-S3-Bucket-S3-Object-Flow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/init"/>
+		<set-variable value="username-bucket" doc:name="Bucket Name" variableName="bucket" />
+		<redshift:execute-ddl doc:name="Execute DDL" config-ref="Amazon_Redshift_Connector_Config">
+			<redshift:sql ><![CDATA[CREATE TABLE username (Username VARCHAR(50), Identifier INTEGER, First_Name VARCHAR(50), Last_Name VARCHAR(50));]]></redshift:sql>
+		</redshift:execute-ddl>
+		<s3:create-bucket doc:name="Create bucket" config-ref="Amazon_S3_Configuration" bucketName="#[vars.bucket]"/>
+		<file:read doc:name="Read" config-ref="File_Config" path="username.csv"/>
+		<s3:create-object doc:name="Create object" config-ref="Amazon_S3_Configuration" bucketName="#[vars.bucket]" key="username.csv" contentType="text/csv"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	success: true,
+	redshiftTable: "username",
+	s3bucket: vars.bucket,
+	s3object: "username.csv"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<flow name="Execute-Copy-Command-Flow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/execute"/>
+		<set-variable value="#['s3://username-bucket/username.csv']" doc:name="Bucket Name" variableName="bucketNameEndpoint"/>
+		<set-variable value="${copy.access_key}" doc:name="Access Key" variableName="access_key"/>
+		<set-variable value="${copy.secret_key}" doc:name="Secret Key" variableName="secret_key"/>
+		<redshift:execute-script doc:name="Execute script" config-ref="Amazon_Redshift_Connector_Config">
+			<redshift:sql ><![CDATA[#["copy username from " ++ "'" ++ vars.bucketNameEndpoint ++ "'" ++ " access_key_id " ++ "'" ++ vars.access_key ++ "'" ++ " secret_access_key " ++ "'" ++ vars.secret_key ++ "'" ++ " delimiter ';' IGNOREHEADER 1 IGNOREBLANKLINES"]]]></redshift:sql>
+		</redshift:execute-script>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"success": true
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<flow name="Delete-Redshift-Table-S3-Bucket-Flow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/deleteAll"/>
+		<set-variable value="username-bucket" doc:name="Set Variable" variableName="bucketDelete"/>
+		<redshift:execute-ddl doc:name="Execute DDL" config-ref="Amazon_Redshift_Connector_Config">
+			<redshift:sql ><![CDATA[DROP TABLE username;]]></redshift:sql>
+		</redshift:execute-ddl>
+		<s3:delete-bucket doc:name="Delete bucket" config-ref="Amazon_S3_Configuration" force="true" bucketName='#[vars.bucketDelete]'/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"success": true
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+    <flow name="redshiftFipsDemoFlow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/redshift"/>
+		<redshift:select doc:name="Select" config-ref="Amazon_Redshift_Connector_Config_Fips">
+			<redshift:sql ><![CDATA[select * from <your-tableName>]]></redshift:sql>
+		</redshift:select>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger"  message="#[payload]"/>
+	</flow>
+</mule>
+```
+
+## Configure Global Elements
+
+1.  Create a file named `mule-artifact.properties` in the `src/main/resources/` folder.
+2.  Add the following properties in the `mule-artifact.properties` file and assign the correct
+    values:
+
+    s3.access_key= s3.secret_key= s3.region=
+
+    redshift.cluster_id= redshift.region= redshift.port= redshift.database= redshift.user=
+    redshift.password=
+
+    copy.access_key= copy.secret_key=
+
+    ***
+    - You must have Amazon S3 credentials to create and delete buckets and to create an object.
+    - Amazon Redshift credentials are required to establish a connection to the database.
+    - This example is using a `COPY` command to load a table in parallel from a data file on Amazon
+      S3.
+
+      To use the `COPY` command, you must authenticate using your IAM user credentials with the
+      correct policies attached to it, therefore, it is best to use the Amazon S3 Read only policy
+      for the `copy.access_key` and `copy.secret_key` properties.
+
+    - Alternatively, it is possible to use an IAM Role instead of the Access and Secret key pair.
+
+      To do this, you must ensure the role has the correct policies attached to it. It is best to
+      use the Amazon S3 Read only policy for this purpose.
+
+    - To create an IAM role to allow your Redshift cluster to communicate with the Amazon S3 service
+      on your behalf, follow the steps in this
+      [Amazon Redshift tutorial](https://docs.aws.amazon.com/redshift/latest/mgmt/authorizing-redshift-service.html).
+
+3.  Open the Amazon Redshift configuration, scroll down, and configure the JDBC driver in the
+    **Required libraries** section. In this example, choose the **Add recommended library** option.
+    If this doesnât work, add the Amazon Maven repository to your `pom.xml` file and try again:
+
+    ```xml
+    <repositories>
+    ...
+        <repository>
+            <id>redshift</id>
+            <url>https://s3.amazonaws.com/redshift-maven-repository/release</url>
+        </repository>
+    </repositories>
+    ```
+
+The following images show the Amazon S3 and Amazon Redshift configurations:
+
+![Amazon S3 configuration](_images/s3-configuration.png)
+
+Figure 1. Amazon S3 Configuration
+
+![Amazon Redshift Basic configuration](_images/redshift-configuration.png)
+
+Figure 2. Amazon Redshift Basic Configuration
+
+![Amazon Redshift IAM configuration](_images/redshift-configuration-iam.png)
+
+Figure 3. Amazon Redshift IAM Configuration
+
+![Amazon Redshift IAM configuration Advanced tab](_images/redshift-advanced-configuration.png)
+
+Figure 4. Amazon Redshift IAM Configuration Advanced Tab
+
+## Prepare the Data File
+
+Prepare a data file to upload to Amazon S3. This data file will then be used as the data set in the
+`COPY` command for the Amazon Redshift table.
+
+1.  Create a file named `username.csv` in the `src/main/resources/` folder in your Mule project.
+2.  Populate the `username.csv` file with the following sample data:
+
+```csv
+Username; Identifier;First name;Last name
+booker12;9012;Rachel;Booker
+grey07;2070;Laura;Grey
+johnson81;4081;Craig;Johnson
+jenkins46;9346;Mary;Jenkins
+smith79;5079;Jamie;Smith
+```
+
+## Flows in This Example
+
+The following screenshots show the Anypoint Studio app flows for this example:
+
+- This flow creates the Amazon Redshift table, Amazon S3 bucket and object:
+
+  ![Flow for creating the Redshift table Amazon S3 bucket and Amazon S3 object](_images/create-flow.png)
+
+- This flow executes the `COPY` command, which leverages the Amazon Redshift massively parallel
+  processing (MPP) architecture to load data in parallel from a file in an Amazon S3 bucket:
+
+  ![Execute the Copy command flow](_images/execute-flow.png)
+
+- This flow deletes the Amazon Redshift table and Amazon S3 bucket:
+
+  ![Flow for deleting the Amazon Redshift table and Amazon S3 bucket](_images/delete-flow.png)
+
+## Run the Example
+
+1.  Right-click in the projectâs canvas and select **Run project redshift-demo**.
+2.  Open `localhost:8081/init` in a web browser and wait until it returns a response containing
+    `success:true` with the created table, bucket, and an object.
+3.  Verify that the new Amazon S3 bucket `username-bucket` was created in your Amazon S3 instance.
+4.  Verify that the new Redshift table `username` was created in your Amazon Redshift instance.
+5.  Open `localhost:8081/execute` in a web browser and wait until it returns a response containing
+    `success:true`.
+6.  Verify that the `username` table contains data from the `username.csv` file you added to the
+    Mule project in [Prepare the Data File](#prepare-data-file).
+7.  Open `localhost:8081/delete` in a web browser and wait until it returns a response containing
+    `success:true`.
+8.  Verify that both the `username` Amazon Redshift table and `username-bucket` Amazon S3 bucket
+    were deleted.
+
+### See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon Redshift Connector 1.2 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Amazon Redshift (Amazon Redshift Connector) is a bulk-load connector that
+enables you to connect to the Amazon Redshift database to perform inserts, deletes, updates, and to
+execute SQL queries.
+
+## Configurations
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#Config_BasicConnection">Basic Connection</a></p></li><li><p><a href="#Config_IamConnection">IAM Connection</a></p></li></ul></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></td><td></td><td></td></tr></tbody></table>
+
+## Connection Types
+
+### Basic Connection
+
+This connection uses database credentials for authentication.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Provides a way to configure database connection pooling.</p></td><td></td><td></td></tr><tr><td><p>Column Types</p></td><td><div><div><p>Array of <a href="#ColumnType">Column Type</a></p></div></div></td><td><p>Specifies non-standard column types.</p></td><td></td><td></td></tr><tr><td><p>Transaction Isolation</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>READ_COMMITTED</p></li><li><p>READ_UNCOMMITTED</p></li><li><p>REPEATABLE_READ</p></li><li><p>SERIALIZABLE</p></li><li><p>NOT_CONFIGURED</p></li></ul></div></div></td><td><p>Transaction isolation level to set on the driver when connecting to the database.</p></td><td><p>NOT_CONFIGURED</p></td><td></td></tr><tr><td><p>Use XA Transactions</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether or not the created datasource must support XA transactions. The default is false.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Cluster Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Cluster identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Region Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Region to use for authentication against the database.</p></td><td><p>us-east-1</p></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Configures the port of the database.</p></td><td><p>5439</p></td><td></td></tr><tr><td><p>Database</p></td><td><div><div><p>String</p></div></div></td><td><p>Database name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User</p></td><td><div><div><p>String</p></div></div></td><td><p>Database user name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Specifies a list of custom key-value connection properties to configure on the driver when connecting to the database.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to use for authentication against the database.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+### IAM Connection
+
+This connection uses IAM credentials to retrieve temporary database credentials for authentication.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Provides a way to configure database connection pooling.</p></td><td></td><td></td></tr><tr><td><p>Column Types</p></td><td><div><div><p>Array of <a href="#ColumnType">Column Type</a></p></div></div></td><td><p>Specifies non-standard column types.</p></td><td></td><td></td></tr><tr><td><p>Transaction Isolation</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>READ_COMMITTED</p></li><li><p>READ_UNCOMMITTED</p></li><li><p>REPEATABLE_READ</p></li><li><p>SERIALIZABLE</p></li><li><p>NOT_CONFIGURED</p></li></ul></div></div></td><td><p>Transaction isolation level to set on the driver when connecting to the database.</p></td><td><p>NOT_CONFIGURED</p></td><td></td></tr><tr><td><p>Use XA Transactions</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates whether or not the created datasource must support XA transactions. The default is false.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Cluster Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Cluster identifier.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Region Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Region to use for authentication against the database.</p></td><td><p>us-east-1</p></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Configures the port of the database.</p></td><td><p>5439</p></td><td></td></tr><tr><td><p>Database</p></td><td><div><div><p>String</p></div></div></td><td><p>Database name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>User</p></td><td><div><div><p>String</p></div></div></td><td><p>Database user name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Specifies a list of custom key-value connection properties to configure on the driver when connecting to the database.</p></td><td></td><td></td></tr><tr><td><p>Access Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Access key provided by Amazon for retrieving temporary database credentials.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Secret Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Secret key provided by Amazon for retrieving temporary database credentials.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Role</p></td><td><div><div><p><a href="#Role">Role</a></p></div></div></td><td><p>Role configuration.</p></td><td></td><td></td></tr><tr><td><p>Custom STS Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>Sets a custom STS endpoint. Useful when a non-standard service endpoint is required, such as a VPC or FIPS endpoint. The custom STS endpoint might not work if <code>DefaultAWSCredentialsProviderChain</code> is used. Instead, use AWS environment variables such as <code>AWS_STS_REGIONAL_ENDPOINTS</code>, <code>AWS_REGION</code>, and <code>AWS_ENDPOINT_URL</code>.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+## Sources
+
+## On Table Row
+
+`<redshift:listener>`
+
+Selects from a table at a regular interval and generates one message per row that is obtained.
+Optionally, watermark and ID columns can be provided. If a watermark column is provided, the values
+taken from that column will be used to filter the contents of the next poll, so that only rows with
+a greater watermark value are returned. If an ID column is provided, this component automatically
+ensures that the same row is not picked twice by concurrent polls.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Table</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the table to select from.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Watermark Column</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the column to use for the watermark. Values taken from the watermark column will be used to filter the contents of the next poll, so that only rows with a greater watermark value are processed.</p></td><td></td><td></td></tr><tr><td><p>Id Column</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the column to use as the row ID. If provided, this component ensures that the same row is not processed twice by concurrent polls.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_BEGIN</p></li><li><p>NONE</p></li></ul></div></div></td><td><p>The type of beginning action that sources can take for transactions.</p></td><td><p>NONE</p></td><td></td></tr><tr><td><p>Transaction Type</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>LOCAL</p></li><li><p>XA</p></li></ul></div></div></td><td><p>The type of transaction to create. Availability depends on Mule version.</p></td><td><p>LOCAL</p></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should only be executed on the primary node when running in a cluster</p></td><td></td><td></td></tr><tr><td><p>Scheduling Strategy</p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><p>Configures the scheduler that triggers the polling</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message</p></td><td></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+## Operations
+
+- [Bulk Delete](#BulkDelete)
+- [Bulk Insert](#BulkInsert)
+- [Bulk Update](#BulkUpdate)
+- [Delete](#Delete)
+- [Execute DDL](#ExecuteDdl)
+- [Execute Script](#ExecuteScript)
+- [Insert](#Insert)
+- [Query Single](#QuerySingle)
+- [Select](#Select)
+- [Stored Procedure](#StoredProcedure)
+- [Update](#Update)
+
+## Bulk Delete
+
+`<redshift:bulk-delete>`
+
+Enables the execution of one delete statement at various times using different parameter bindings.
+This uses a single database statement, which has performance advantages compared to executing a
+single delete operation at various times.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Array of Object</p></div></div></td><td><p>A <code>java.util.List</code> of <code>java.util.Maps</code> in which every list item represents a row to be inserted. The map contains the parameter names as keys and the value the parameter is bound to.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Bulk Insert
+
+`<redshift:bulk-insert>`
+
+Enables the execution of one insert statement at various times using different parameter bindings.
+This uses a single database statement, which has performance advantages compared to executing a
+single update operation at various times.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Array of Object</p></div></div></td><td><p>A java.util.List of java.util.Maps in which every list item represents a row to be inserted. The map contains the parameter names as keys and the value the parameter is bound to.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Bulk Update
+
+`<redshift:bulk-update>`
+
+Enables the execution of one update statement at various times using different parameter bindings.
+This uses a single database statement, which has performance advantages compared to executing a
+single update operation at various times.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Array of Object</p></div></div></td><td><p>A java.util.List of java.util.Maps in which every list item represents a row to be inserted. The map contains the parameter names as keys and the value the parameter is bound to.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Delete
+
+`<redshift:delete>`
+
+Deletes data in a database.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Execute DDL
+
+`<redshift:execute-ddl>`
+
+Enables execution of DDL queries against a database.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>Text of the SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Execute Script
+
+`<redshift:execute-script>`
+
+Executes a SQL script in a single database statement. The script is executed as provided by the
+user, without any parameter binding.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td></td></tr><tr><td><p>Script Path</p></td><td><div><div><p>String</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Number</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Insert
+
+`<redshift:insert>`
+
+Inserts data into a database.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Auto Generate Keys</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates when to make auto-generated keys available for retrieval.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Auto Generated Keys Column Indexes</p></td><td><div><div><p>Array of Number</p></div></div></td><td><p>List of column indexes that indicates which auto-generated keys to make available for retrieval.</p></td><td></td><td></td></tr><tr><td><p>Auto Generated Keys Column Names</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of column names that indicates which auto-generated keys to make available for retrieval.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#StatementResult">Statement Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Query Single
+
+`<redshift:query-single>`
+
+Selects a single result from a database. If the specified SQL query returns more than one record,
+only the first record is returned. Streaming is not used for this operation, so you must be careful
+because all selected fields will be loaded to memory.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Select
+
+`<redshift:select>`
+
+Selects data from a database. Streaming is automatically applied to avoid performance and memory
+issues that can be caused by preemptive consumption of results.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryIterable">Repeatable In Memory Iterable</a></p></li><li><p><a href="#RepeatableFileStoreIterable">Repeatable File Store Iterable</a></p></li><li><p>non-repeatable-iterable</p></li></ul></div></div></td><td><p>Configure if repeatable streams should be used and their behavior</p></td><td></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+
+## Stored Procedure
+
+`<redshift:stored-procedure>`
+
+Invokes a Stored Procedure on the database. When the stored procedure returns one or more
+java.sql.ResultSet instances, streaming is automatically applied to avoid performance and memory
+issues that can be caused by preemptive consumption of results.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></td><td></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input - Output Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Output Parameters</p></td><td><div><div><p>Array of <a href="#OutputParameter">Output Parameter</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Auto Generate Keys</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates when to make auto-generated keys available for retrieval.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Auto Generated Keys Column Indexes</p></td><td><div><div><p>Array of Number</p></div></div></td><td><p>List of column indexes that indicates which auto-generated keys to make available for retrieval.</p></td><td></td><td></td></tr><tr><td><p>Auto Generated Keys Column Names</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of column names that indicates which auto-generated keys to make available for retrieval.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Update
+
+`<redshift:update>`
+
+Updates data in a database.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Transactional Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ALWAYS_JOIN</p></li><li><p>JOIN_IF_POSSIBLE</p></li><li><p>NOT_SUPPORTED</p></li></ul></div></div></td><td><p>The type of joining action that operations can take for transactions.</p></td><td><p>JOIN_IF_POSSIBLE</p></td><td></td></tr><tr><td><p>Query Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the minimum amount of time before a running statement is canceled. By default, no timeout is used.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Query Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Query Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Fetch Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Limit for the number of records to retrieve in a single page.</p></td><td></td><td></td></tr><tr><td><p>Max Rows</p></td><td><div><div><p>Number</p></div></div></td><td><p>Indicates the maximum number of rows to fetch from the result set.</p></td><td></td><td></td></tr><tr><td><p>SQL Query Text</p></td><td><div><div><p>String</p></div></div></td><td><p>SQL query to execute.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Parameter Types</p></td><td><div><div><p>Array of <a href="#ParameterType">Parameter Type</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Input Parameters</p></td><td><div><div><p>Object</p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Auto Generate Keys</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Indicates when to make auto-generated keys available for retrieval.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Auto Generated Keys Column Indexes</p></td><td><div><div><p>Array of Number</p></div></div></td><td><p>List of column indexes that indicates which auto-generated keys to make available for retrieval.</p></td><td></td><td></td></tr><tr><td><p>Auto Generated Keys Column Names</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of column names that indicates which auto-generated keys to make available for retrieval.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong>.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#StatementResult">Statement Result</a></p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#configurations)
+
+### Throws
+
+- REDSHIFT:BAD_SQL_SYNTAX
+- REDSHIFT:CONNECTIVITY
+- REDSHIFT:QUERY_EXECUTION
+- REDSHIFT:RETRY_EXHAUSTED
+
+## Types
+
+### Pooling Profile
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Pool Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Min Pool Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Acquire Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Prepared Statement Cache Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>5</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Additional Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Column Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Id</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Class Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy will run in a separate, non-blocking thread</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy will run in a separate, non-blocking thread</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Role
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Arn</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Amazon Resource Name (ARN) of the role to assume.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>External Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A unique identifier that might be required when you assume a role in another account. If the administrator of the account to which the role belongs provides an external ID, then provide that value in this field.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Duration</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The duration of the role session.</p></div></div></td><td><div><div><p>3600</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Duration Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the Duration value.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Referred Policy Arns</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>The Amazon Resource Names (ARNs) of the IAM-managed policies to use as managed session policies. The policies must exist in the same account as the role.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Tags</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>A list of session tags that you want to pass. Each session tag consists of a key name and an associated value.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance is allowed to be idle before itâs considered eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use. If not set, the default is SHA-256.</p></div></div></td><td><div><div><p>SHA-256</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Identifier</strong></p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><div><div><p>Defines which strategy is used to identify the messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>ObjectStore</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property may only be set if <strong>Use Secure Hash</strong> is false.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Parameter Type
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type Classifier</strong></p></td><td><div><div><p><a href="#TypeClassifier">Type Classifier</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Type Classifier
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BIT</p></li><li><p>TINYINT</p></li><li><p>SMALLINT</p></li><li><p>INTEGER</p></li><li><p>BIGINT</p></li><li><p>FLOAT</p></li><li><p>REAL</p></li><li><p>DOUBLE</p></li><li><p>NUMERIC</p></li><li><p>DECIMAL</p></li><li><p>CHAR</p></li><li><p>VARCHAR</p></li><li><p>LONGVARCHAR</p></li><li><p>DATE</p></li><li><p>TIME</p></li><li><p>TIMESTAMP</p></li><li><p>BINARY</p></li><li><p>VARBINARY</p></li><li><p>LONGVARBINARY</p></li><li><p>NULL</p></li><li><p>OTHER</p></li><li><p>JAVA_OBJECT</p></li><li><p>DISTINCT</p></li><li><p>STRUCT</p></li><li><p>ARRAY</p></li><li><p>BLOB</p></li><li><p>CLOB</p></li><li><p>REF</p></li><li><p>DATALINK</p></li><li><p>BOOLEAN</p></li><li><p>ROWID</p></li><li><p>NCHAR</p></li><li><p>NVARCHAR</p></li><li><p>LONGNVARCHAR</p></li><li><p>NCLOB</p></li><li><p>SQLXML</p></li><li><p>UNKNOWN</p></li></ul></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Statement Result
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Affected Rows</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Generated Keys</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of instances to initially keep in memory to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full. Default value is 100 instances.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Iterable
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Objects</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of instances to keep in memory. If more than that is required, content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory that will be allocated to consume the stream and provide random access to it. If the stream contains more data than can be fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which all these attributes are expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed content on the disk is buffered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which maxInMemorySize is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Output Parameter
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Type Classifier</strong></p></td><td><div><div><p><a href="#TypeClassifier">Type Classifier</a></p></div></div></td><td><div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Amazon Redshift Connector 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a Source](#configure-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [View the app log](#view-app-log).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for Amazon Redshift (Amazon Redshift Connector) to your Mule project to
+automatically populate the XML code with the connectorâs namespace and schema location and add the
+required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `redshift` in the search field.
+3.  Click **Amazon Redshift Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Amazon Redshift Connector:
+
+- **On Table Row**
+
+  Select rows from a database table at a regular interval and generates one message per row that is
+  obtained.
+
+- **HTTP > Listener**
+
+  Initiates a flow each time it receives a request on the configured host and port
+
+- **Scheduler**
+
+  Initiates a flow when a time-based condition is met
+
+To configure the **On Table Row** source, follow these steps:
+
+1.  In the **Mule Palette** view, select **Redshift**.
+2.  Drag **On Table Row** to the Studio canvas.
+3.  On the **On Table Row** properties window, optionally change the value of the **Display Name**
+    field.
+4.  Select the created connector configuration or click the plus sign (**+**) next to the
+    \*Connector configuration field to configure a new global element.
+
+    Follow the steps in [Configure a global element for the connector](#configure-global-element).
+
+5.  On the **General** tab, complete the following fields:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Name used to reference this connector instance</p></div></div></td></tr><tr><td><p><strong>Table</strong></p></td><td><div><div><p>Name of the table to select from</p></div></div></td></tr></tbody></table>
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for <connector name>, follow these steps:
+
+1.  In the **Mule Palette** view, select **Amazon Redshift** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials that the connector requires to access the target Amazon Redshift cluster.
+
+Amazon Redshift Connector supports:
+
+- Basic authentication, which uses **user** and **password** field values to connect to the database
+- IAM authentication, which uses **access key** and **secret key** field values to retrieve the
+  temporary password for the specified user in order to connect to the database
+- Optionally, you can specify the **ARN** field value in the **Role** field if the connector should
+  first assume an IAM role for a set of temporary security IAM credentials and use those to retrieve
+  the password.
+
+When you configure a global element, you can reference a configuration file that contains ANT-style
+property placeholders (recommended), or you can enter your authorization credentials in the global
+configuration properties. For information about the benefits of using property placeholders and how
+to configure them, see
+[Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+To configure a global element, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  On the **General** tab, configure the fields depending on the connection type.
+    - Basic Connection
+
+      <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Name used to reference the connector instance</p></div></div></td></tr><tr><td><p><strong>Cluster id</strong></p></td><td><div><div><p>Cluster identifier</p></div></div></td></tr><tr><td><p><strong>Region Endpoint</strong></p></td><td><div><div><p>Region Endpoint (optional)</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Database port (optional)</p></div></div></td></tr><tr><td><p><strong>Database</strong></p></td><td><div><div><p>Database name</p></div></div></td></tr><tr><td><p><strong>User</strong></p></td><td><div><div><p>Database username</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>Password to use for authentication against the database</p></div></div></td></tr></tbody></table>
+
+    - IAM Connection
+
+      <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Name used to reference the connector instance</p></div></div></td></tr><tr><td><p><strong>Cluster id</strong></p></td><td><div><div><p>Cluster identifier</p></div></div></td></tr><tr><td><p><strong>Region Endpoint</strong></p></td><td><div><div><p>Region Endpoint (optional)</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Database port (optional)</p></div></div></td></tr><tr><td><p><strong>Database</strong></p></td><td><div><div><p>Database name</p></div></div></td></tr><tr><td><p><strong>User</strong></p></td><td><div><div><p>Database username</p></div></div></td></tr><tr><td><p><strong>Access key</strong></p></td><td><div><div><p>Access key provided by Amazon for retrieving temporary database credentials</p></div></div></td></tr><tr><td><p><strong>Secret key</strong></p></td><td><div><div><p>Secret key provided by Amazon for retrieving temporary database credentials</p></div></div></td></tr><tr><td><p><strong>Role</strong></p></td><td><div><div><p>Role configuration (optional)</p></div></div></td></tr><tr><td><p><strong>Custom STS Endpoint</strong></p></td><td><div><div><p>Sets a custom STS endpoint. Useful when a non-standard service endpoint is required, such as a VPC or FIPS endpoint (optional and on Advanced tab).</p></div></div></td></tr></tbody></table>
+
+4.  Scroll down and configure the JDBC driver in the **Required libraries** section. You can choose
+    to select **Use local file**, **Add recommended library**, or **Add Maven dependency**.
+
+    If you try to select **Add recommended library** or **Add Maven dependency** and this doesnât
+    work, add the Amazon Maven repository to your `pom.xml` file and try again.
+
+    ```xml
+    <repositories>
+    ...
+        <repository>
+            <id>redshift</id>
+            <url>https://s3.amazonaws.com/redshift-maven-repository/release</url>
+        </repository>
+    </repositories>
+    ```
+
+5.  On the **Advanced** tab, optionally add JDBC connection properties and reconnection information,
+    including a reconnection strategy.
+6.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+7.  Click **OK**.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`. You can configure the location of
+the log path in the app log file `log4j2.xml`.
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Amazon Redshift Connector Reference](amazon-redshift-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon Redshift Connector 1.2 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+  editor or from a text editor, you can access the connector from your app by adding reference
+  statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+- If you add the connector in Studio, Studio automatically populates the XML code with the
+  connectorâs namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/redshift
+http://www.mulesoft.org/schema/mule/redshift/current/mule-redshift.xsd
+```
+
+This example shows how the namespace and schema statements are placed in the XML:
+
+```xml
+<mule xmlns:redshift="http://www.mulesoft.org/schema/mule/redshift"
+    xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/redshift http://www.mulesoft.org/schema/mule/redshift/current/mule-redshift.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access
+to this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-amazon-redshift-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `amazon redshift`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[example](amazon-redshift-connector-example).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon Redshift Connector 1.2
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Amazon Redshift (Amazon Redshift Connector) is a bulk-load connector that
+enables you to connect to Amazon Redshift database to perform inserts, deletes, updates, and to
+execute SQL queries.
+
+For compatibility information and fixed issues, see the Amazon Redshift Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Amazon Redshift API
+- Anypoint Connectors
+- Mule runtime (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have:
+
+- Credentials to access the Amazon Redshift target resource
+- Anypoint Platform
+- Anypoint Studio or Anypoint Code Builder
+
+## Common Use Cases for the Connector
+
+Some possible uses for this connector include:
+
+- Analytics
+
+  Amazon Redshift operates as an optimized data warehouse that can store large volumes of data,
+  which can then be analyzed using a business intelligence (BI) tool such as Tableau.
+
+- Real-time processing of social media feeds
+
+  Stream data from your social media feeds, such as a Twitter feed, into Amazon Kinesis Data
+  Streams, and then store that data in a data warehouse, such as Amazon Redshift to perform
+  real-time analytics.
+
+## Authentication Types
+
+Amazon Redshift Connector uses the following connection methods:
+
+- Basic authentication, which uses **user** and **password** field values to connect to the database
+- IAM authentication, which uses **access key** and **secret key** field values to retrieve the
+  temporary password for the specified user in order to connect to the database
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Amazon Redshift Reference](amazon-redshift-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+

@@ -1,0 +1,2155 @@
+﻿# Amazon SQS Connector - Full Documentation
+
+# Amazon SQS Connector 5.12 Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Configure additional functionality such as controlling polling behavior globally and locally,
+receiving messages on the primary node only, creating the FIFO queue, and managing large payloads.
+
+## Control Polling Behavior
+
+Since version 5.9, the default behavior of the Receive Messages source and the Read operation is to
+use long polling:
+
+- With long polling, SQS Connector returns the query results as soon as possible, if any messages
+  are present.
+
+  Otherwise, SQS Connector waits the specified amount of seconds before returning an empty response.
+
+- With short polling, SQS Connector always returns the query results as soon as possible, even if
+  that means returning an empty response.
+
+Long polling can reduce the number of network requests without affecting the throughput.
+
+You can control polling behavior either globally or at the individual source and operation level.
+
+### Control Polling Behavior Globally
+
+To control polling behavior globally, use the Default Wait Time field on the Advanced tab of the
+global element configuration screen for the Receive Messages source, Read operation, or both:
+
+- Set this field to a value between `1` and `20` to use long polling. With long polling, if there
+  are messages available immediately, the connector returns the query results immediately. If not,
+  the connector waits up to the specified amount of seconds for a message to be added before
+  returning an empty response.
+- Set this field to `0` to use short polling. With short polling, the connector always returns the
+  query results as soon as possible, even if that means returning an empty response.
+
+In the following screenshot, the Default Wait Time field is set to `20`. This value directs the
+connector to use long polling and to wait 20 seconds before returning an empty response.
+
+![Default Wait Time Configuration](_images/amazon-sqs-config-wait-time.png)
+
+### Control Polling Behavior Locally
+
+To control polling behavior locally, use the Wait Time field on the Advanced tab of the Receive
+Messages source properties window, the Read operation properties window, or both.
+
+## Receive Messages on the Primary Node Only
+
+The default behavior of the Receive Messages source is to receive messages on all nodes when running
+in cluster mode.
+
+If you want the app to receive messages on the primary node only:
+
+1.  In Studio, select the **Receive Messages** source for your flow.
+2.  On the **Advanced** sub-tab of the **Receive messages** tab, select the **Primary node only**
+    checkbox:
+
+    ![Read message configuration Advanced tab with Primary node only option selected](_images/amazon-sqs-primary-node-only.png)
+
+The multi-node cluster behavior depends on the selected SQS queue type. When using the Standard
+queue, SQS guarantees that a message is delivered at least once. However, duplicate messages might
+be introduced in the queue. To avoid duplication of messages in the queue, you can use a FIFO
+(First-In-First-Out) queue to ensure that a message is delivered only once and that it remains
+available until a consumer processes and deletes it.
+
+For more information about queue types, see
+[AWS SQS Standard Queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues.html)
+and
+[AWS SQS FIFO Queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/).
+
+## Create the FIFO Queue
+
+FIFO queues deliver messages in the order in which they are sent.
+
+To create the FIFO queue, use the **Create queue** operation in the connector, and set the
+**FifoQueue** and **ContentBasedDeduplication** field values to `true`.
+
+End the **queue name** value with the `.fifo` extension, for example:  
+`MyTestFIFOQueue.fifo`.
+
+When you create the FIFO queues, select any of the 15 regions that Amazon supports.
+
+When you use Amazon SQS Connector to send messages to the FIFO queue, use the same queue URL and
+region name that you used when creating the FIFO queue. You must also provide a value for the
+attribute `message group id` in the connector configuration while sending messages.
+
+## Manage Large Payloads
+
+To enable support for managing large message payloads in Amazon SQS Connector, follow these steps:
+
+1.  In Studio, click the **Global Elements tab** at the base of the canvas.
+2.  Select the **Amazon SQS Configuration** you previously created and click **Edit**.
+3.  In the **Connection** section, click the **Advanced** tab.
+4.  In the **Large Payload Support** field, choose either:
+    - **Expression or Bean Reference**
+    - **Edit Inline**
+
+      ![Large Payload Support configuration](_images/amazon-sqs-studio-large-payload-support.png)
+
+5.  Configure the parameters as follows:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p>Bucket</p></td><td><p>Name of the bucket to use for storing large message payloads. The bucket must already be created and configured in AWS S3. Enabling this feature incurs additional charges for using AWS S3.</p></td></tr><tr><td><p>Message Size Threshold</p></td><td><p>Message size threshold value for storing message payloads in the AWS S3 bucket. The default value for message size threshold is 256 KB and the maximum threshold size value is 256KB. The maximum message size is 2GB.</p></td></tr><tr><td><p>Message Size Threshold Unit</p></td><td><p>Represents the data unit for the message size threshold.</p></td></tr></tbody></table>
+
+    After you specify the values for these fields, Amazon SQS Connector is ready to manage large
+    payload messages and store them automatically in the specified AWS S3 bucket when the message
+    size threshold value is exceeded.
+
+For an example of sending and receiving messages with large payload messages, see
+[Send and Receive Large Messages Example](amazon-sqs-connector-examples#send-and-receive-large-messages).
+
+## Next
+
+After you create the FIFO queue, you can try the
+[Amazon SQS Connector Examples](amazon-sqs-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon SQS Connector 5.12 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following examples show several Mule flows for Amazon SQS Connector:
+
+- [Send and Receive Messages](#send-and-receive-messages)
+- [Send and Receive Large Messages](#send-and-receive-large-messages)
+
+## Send and Receive Messages
+
+This example sends a message with metadata to an Amazon SQS queue and then receives the message from
+the queue. The example contains two flows:
+
+- The first flow sends a message with metadata and gets the count of the messages in the queue to
+  validate that the message was sent.
+- The second flow receives the message and logs the message body.
+
+![Send and Receive Messages flows](_images/amazon-sqs-message-flow.png)
+
+### Configure the First Flow
+
+Configure the first flow that sends a message to the queue. Creating the first flow involves
+configuring a **Listener** component, a **Transform Message** component, a **Send message**
+operation, a **Logger** component, a **Get approximate number of messages** operation, and a second
+**Logger** component.
+
+#### Configure the HTTP Listener
+
+Configure the **Listener** component to initiate a Mule flow when a call is made to the `/` path:
+
+1.  Create a new Mule project in Studio.
+2.  From the **Mule Palette** view, select **HTTP** and drag the **Listener** component to the
+    canvas.
+3.  In the properties window, click **+** next to the **Connector configuration** field to add a
+    global element.
+4.  Accept the defaults.
+5.  In the properties window, set the **Path** field value to `/`.
+
+#### Add the Transform Message Component
+
+Add the **Transform Message** component to attach the metadata and convert the values from the HTTP
+input form to Java format so they can be used as input to the **Send message** operation:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Transform Message** component to
+    the right of **Listener**.
+2.  In the properties window, overlay the brackets in the **Output** section with this DataWeave
+    code:
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	delaySeconds: 0,
+    	body: "Hello World",
+    	messageAttributes: {
+    		"AccountId": {
+    			"stringValue" : "000123456",
+    			"dataType" : "String.AccountId"
+    		} as Object {
+    			class: "org.mule.extension.sqs.api.model.MessageAttributeValue"
+    		},
+    		"NumberId": {
+    			"stringValue" : "230.000000000000000001",
+    			"dataType" : "Number"
+    		} as Object {
+    			class : "org.mule.extension.sqs.api.model.MessageAttributeValue"
+    		}
+    	} as Object {
+    		class: "java.util.HashMap"
+    	}
+    } as Object {
+    	class: "org.mule.extension.sqs.api.model.Message"
+    }
+    ```
+
+#### Add the Send Message Operation
+
+Add the **Send message** operation to send the message to the specified queue:
+
+1.  From the **Mule Palette** view, select **Amazon SQS** and drag the **Send message** operation to
+    the right of **Transform Message**.
+2.  In the properties window, click **+** next to the **Connector configuration** field to add a
+    global element.
+3.  Configure the global element as follows:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>Name used to reference the configuration.</p></td></tr><tr><td><p>Session Token</p></td><td><p>Session token used to validate the temporary security credentials.</p></td></tr><tr><td><p>Access Key</p></td><td><p>Alphanumeric text string that uniquely identifies the user who owns the account.</p></td></tr><tr><td><p>Secret Key</p></td><td><p>Key that acts as a password.</p></td></tr><tr><td><p>Region Endpoint</p></td><td><p>Queue region.</p></td></tr><tr><td><p>SQS Endpoint</p></td><td><p>SQS endpoint for Amazon VPC support.</p></td></tr><tr><td><p>Default Global Queue URL</p></td><td><p>Default Amazon SQS queue URL credentials.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Send Message** configuration of the global
+    element:
+
+    ![Send Message global element configuration window](_images/amazon-sqs-studio-global-config-new.png)
+
+4.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>Message</p></td><td><p><code>payload</code></p></td></tr><tr><td><p>Queue url</p></td><td><p>Amazon SQS queue URL.</p><p>If provided, the value of this field takes precedence over the value of the <strong>Default Global Queue URL</strong> field on the <strong>Global Configuration Elements</strong> window.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Send Message** configuration in the properties
+    window:
+
+    ![Send Message properties window configuration](_images/amazon-sqs-send-message.png)
+
+#### Add the First Logger Component
+
+Add the first **Logger** component to display the response in the Mule console:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component to the right of
+    **Send message**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Response</code>.</p></td></tr><tr><td><p>Message</p></td><td><p><code>Sent Message: `#[payload]`</code></p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Logger** configuration in the properties window:
+
+    ![Logger properties window configuration](_images/amazon-sqs-logger.png)
+
+#### Add the Get Approximate Number of Messages Operation
+
+Add the **Get approximate number of messages** operation to obtain the number of messages in the
+queue:
+
+1.  From the **Mule Palette** view, select **Amazon SQS** and drag the **Get approximate number of
+    messages** operation to the right of **Logger**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>Queue url</p></td><td><p><code>${sqs.queueUrl}</code></p></td></tr></tbody></table>
+
+    The following image shows an example of the **Get approximate number of messages** configuration
+    in the properties window:
+
+    ![Get Approximate Number of Messages properties window configuration](_images/amazon-sqs-get-message-count.png)
+
+#### Add the Second Logger Component
+
+Add the second **Logger** component to display the message count in the Mule console:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component to the right of
+    **Get approximate number of messages**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Count</code>.</p></td></tr><tr><td><p>Message</p></td><td><p><code>Sent Message: `#[payload]`</code></p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Logger** configuration in the properties window:
+
+    ![Logger properties window configuration](_images/amazon-sqs-logger2.png)
+
+### Configure the Second Flow
+
+Configure the second flow that receives and logs the messages before the messages are deleted from
+the queue. Creating the second flow involves configuring a **Receive messages** source and a
+**Logger** component.
+
+#### Add the Receive Messages Source
+
+Add the **Receive messages** source to retrieve messages:
+
+1.  From the **Mule Palette** view, select **Amazon SQS** and drag the **Receive messages** source
+    to the canvas.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>Number of messages</p></td><td><p><code>1</code></p></td></tr><tr><td><p>Queue url</p></td><td><p>Amazon SQS queue URL.</p><p>If provided, the value of this field takes precedence over the value of the <strong>Default Global Queue URL</strong> field on the <strong>Global Configuration Elements</strong> window.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Receive messages** configuration in the properties
+    window:
+
+    ![Receive Messages properties window configuration](_images/amazon-sqs-receive-message.png)
+
+#### Add the Logger Component
+
+Add the **Logger** component to display the message in the Mule console:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component to the right of
+    **Receive messages**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Receipt</code>.</p></td></tr><tr><td><p>Message</p></td><td><p><code>`#[payload]`</code></p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Logger** configuration in the properties window:
+
+    ![Logger properties window configuration](_images/amazon-sqs-logger-receive.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<mule xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http
+  http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+  http://www.mulesoft.org/schema/mule/ee/core
+  http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+  http://www.mulesoft.org/schema/mule/sqs
+	http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<sqs:config name="Amazon_SQS_Configuration" doc:name="Amazon SQS Configuration"
+	defaultQueueUrl="${sqs.queueUrl}" >
+		<sqs:basic-connection accessKey="${sqs.accessKey}" secretKey="$sqs.secretKey}" region="us-east-1"/>
+	</sqs:config>
+	<flow name="sqs-send-messageFlow" >
+		<http:listener doc:name="Listener"
+		config-ref="HTTP_Listener_config"
+		path="/"/>
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	delaySeconds: 0,
+	body: "Hello World",
+	messageAttributes: {
+		"AccountId": {
+			"stringValue" : "000123456",
+			"dataType" : "String.AccountId"
+		} as Object {
+			class: "org.mule.extension.sqs.api.model.MessageAttributeValue"
+		},
+		"NumberId": {
+			"stringValue" : "230.000000000000000001",
+			"dataType" : "Number"
+		} as Object {
+			class : "org.mule.extension.sqs.api.model.MessageAttributeValue"
+		}
+	} as Object {
+		class: "java.util.HashMap"
+	}
+} as Object {
+	class: "org.mule.extension.sqs.api.model.Message"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<sqs:send-message doc:name="Send message"/>
+		<logger level="INFO"
+		doc:name="Log Response"
+		message="payload"/>
+		<sqs:get-approximate-number-of-messages
+		doc:name="Get approximate number of messages"
+		config-ref="Amazon_SQS_Configuration"
+		queueUrl="${sqs.queueUrl}"/>
+		<logger level="INFO" doc:name="Log Count"
+		message="Sent Message: `#[payload]`"/>
+	</flow>
+	<flow name="sqs-receive-message-flow" >
+		<sqs:receivemessages doc:name="Receive messages"
+		config-ref="Amazon_SQS_Configuration"/>
+		<logger level="INFO" doc:name="Log Receipt" />
+	</flow>
+</mule>
+```
+
+## Send and Receive Large Messages
+
+> [!NOTE] Enabling this feature incurs additional charges associated with using AWS S3.
+
+This example sends a large message with metadata to an Amazon SQS queue that references the AWS S3
+bucket to use for storing large message payloads, and then receives the large message from the
+queue. The example contains two flows:
+
+- The first flow sends a large message with metadata and gets the count of the messages in the queue
+  to validate that the large message was sent.
+- The second flow receives the large message and logs the message body.
+
+![Send and Receive Large Messages flows](_images/amazon-sqs-large-message-flow.png)
+
+### Before You Begin
+
+Before you begin, you must have:
+
+- Access to the Amazon SQS target resource and Anypoint Platform
+- A file containing a payload larger than 256 KB
+- An AWS S3 bucket created on AWS S3 to use for storing the large payload messages
+- AWS Identity and Access Management (IAM) credentials
+
+### Configure the First Flow
+
+Configure the first flow that sends a large message to the queue. Creating the first flow involves
+configuring a **Listener** component, a **Read** operation, a **Transform Message** component, a
+**Send Message** operation, a **Logger** component, a **Get approximate number of messages**
+operation, and a second **Logger** component.
+
+#### Configure the HTTP Listener
+
+Configure the **Listener** component to initiate a Mule flow when a call is made to the
+`/largePayload` path:
+
+1.  Create a new Mule project in Studio.
+2.  From the **Mule Palette** view, select **HTTP** and drag the **Listener** component to the
+    canvas.
+3.  In the properties window, click **+** next to the **Connector configuration** field to add a
+    global element.
+4.  Accept the defaults.
+5.  In the properties window, set the **Path** field value to `/largePayload`.
+
+#### Add the Read Operation
+
+Add the **Read** operation to read the large payload:
+
+1.  From the **Mule Palette** view, select **File** and drag the **Read** operation to the right of
+    **Listener**.
+2.  In the properties window, click **+** next to the **Connector configuration** field to add a
+    global element.
+3.  Select the **Connection** checkbox.
+4.  In **Working Directory**, enter the directory that will serve as the root directory for every
+    relative path used with this connector.  
+    The default is your user home directory.
+
+    In this example, the file is read from `src/main/resources` of the Mule application:
+
+    ![Working Directory configuration window for Read operation](_images/amazon-sqs-file-global-config.png)
+
+5.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>File Path</p></td><td><p>Path to the file to read.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Read** configuration in the properties window:
+
+    ![Read properties window configuration](_images/amazon-sqs-file-config.png)
+
+#### Add the Transform Message Component
+
+Add the **Transform Message** component to attach the metadata and convert the values from the HTTP
+input form to Java format so they can be used as input to the **Send message** operation:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Transform Message** component to
+    the right of **Read**.
+2.  In the properties window, overlay the brackets in the **Output** section with this DataWeave
+    code:
+
+    ```dataweave
+    %dw 2.0
+    output application/java
+    ---
+    {
+    	delaySeconds: 0,
+    	body: "Hello World",
+    	messageAttributes: {
+    		"AccountId": {
+    			"stringValue" : "000123456",
+    			"dataType" : "String.AccountId"
+    		} as Object {
+    			class: "org.mule.extension.sqs.api.model.MessageAttributeValue"
+    		},
+    		"NumberId": {
+    			"stringValue" : "230.000000000000000001",
+    			"dataType" : "Number"
+    		} as Object {
+    			class : "org.mule.extension.sqs.api.model.MessageAttributeValue"
+    		}
+    	} as Object {
+    		class: "java.util.HashMap"
+    	}
+    } as Object {
+    	class: "org.mule.extension.sqs.api.model.Message"
+    }
+    ```
+
+#### Add the Send Message Operation
+
+Add the **Send message** operation to send the large message to the specified queue:
+
+1.  From the **Mule Palette** view, select **Amazon SQS** and drag the **Send message** operation to
+    the right of **Transform Message**.
+2.  In the properties window, click **+** next to the **Connector configuration** field to add a
+    global element.
+3.  Configure the global element as follows:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>Name used to reference the configuration.</p></td></tr><tr><td><p>Session Token</p></td><td><p>Session token used to validate the temporary security credentials.</p></td></tr><tr><td><p>Access Key</p></td><td><p>Alphanumeric text string that uniquely identifies the user who owns the account.</p></td></tr><tr><td><p>Secret Key</p></td><td><p>Key that acts as a password.</p></td></tr><tr><td><p>Region Endpoint</p></td><td><p>Queue region.</p></td></tr><tr><td><p>SQS Endpoint</p></td><td><p>SQS endpoint for Amazon VPC support.</p></td></tr><tr><td><p>Default Global Queue URL</p></td><td><p>Default Amazon SQS queue URL credentials.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Send Message** configuration of the global
+    element:
+
+    ![Send Message global element configuration window](_images/amazon-sqs-studio-global-config-new.png)
+
+4.  In the **Connection** section, click the **Advanced** tab.
+5.  In the **Large Payload Support** field, select one of the following:
+    - **Expression or Bean reference**
+    - **Edit inline**
+
+      Configure the fields as follows:
+
+      <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Bucket</p></td><td><p>Name of the AWS S3 bucket to use for storing large message payloads. The bucket must already be created and configured in AWS S3. Enabling this feature incurs additional charges for using AWS S3.</p></td></tr><tr><td><p>Message Size Threshold</p></td><td><p>Message size threshold for storing message payloads in the AWS S3 bucket. The default value for message size threshold is 256 KB and the maximum threshold size value is 256 KB. The maximum message size is 2 GB.</p></td></tr><tr><td><p>Message Size Threshold Unit</p></td><td><p>Data unit for the message size threshold.</p></td></tr><tr><td><p>Custom S3 Endpoint</p></td><td><p>Amazon S3 endpoint URL for VPC support.</p></td></tr></tbody></table>
+
+      The following image shows an example of the **Large Payload Support** fields configuration:
+
+      ![Large Payload Support fields configuration window](_images/amazon-sqs-studio-large-payload-support.png)
+
+6.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>Message</p></td><td><p><code>payload</code></p></td></tr><tr><td><p>Queue url</p></td><td><p>Amazon SQS queue URL.</p><p>If provided, the value of this field takes precedence over the value of the <strong>Default Global Queue URL</strong> field on the <strong>Global Configuration Elements</strong> window.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Send Message** configuration in the properties
+    window:
+
+    ![Send Message properties window configuration](_images/amazon-sqs-send-message.png)
+
+#### Add the First Logger Component
+
+Add the first **Logger** component to display the response in the Mule console:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component to the right of
+    **Send message**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Response</code>.</p></td></tr><tr><td><p>Message</p></td><td><p><code>Sent Message: `#[payload]`</code></p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Logger** configuration in the properties window:
+
+    ![Logger properties window configuration](_images/amazon-sqs-logger.png)
+
+#### Add the Get Approximate Number of Messages Operation
+
+Add the **Get approximate number of messages** operation to obtain the number of messages in the
+queue:
+
+1.  From the **Mule Palette** view, select **Amazon SQS** and drag the **Get approximate number of
+    messages** operation to the right of **Logger**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>Queue url</p></td><td><p><code>${sqs.queueUrl}</code></p></td></tr></tbody></table>
+
+    The following image shows an example of the **Get approximate number of messages** configuration
+    in the properties window:
+
+    ![Get Approximate Number of Messages properties window configuration](_images/amazon-sqs-get-message-count.png)
+
+#### Add the Second Logger Component
+
+Add the second **Logger** component to display the message count in the Mule console:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component to the right of
+    **Get approximate number of messages**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Count</code>.</p></td></tr><tr><td><p>Message</p></td><td><p><code>Sent Message: `#[payload]`</code></p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Logger** configuration in the properties window:
+
+    ![Logger properties window configuration](_images/amazon-sqs-logger2.png)
+
+### Configure the Second Flow
+
+Configure the second flow that receives and logs the large messages before the large messages are
+deleted from the queue. Creating the second flow involves configuring a **Receive messages** source
+and a **Logger** component.
+
+#### Add the Receive Messages Source
+
+Add the **Receive messages** source to retrieve large messages:
+
+1.  From the **Mule Palette** view, select **Amazon SQS** and drag the **Receive messages** source
+    to the canvas.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the connector operation.</p></td></tr><tr><td><p>Connector configuration</p></td><td><p>Global configuration you just created.</p></td></tr><tr><td><p>Number of messages</p></td><td><p><code>1</code></p></td></tr><tr><td><p>Queue url</p></td><td><p>Amazon SQS queue URL.</p><p>If provided, the value of this field takes precedence over the value of the <strong>Default Global Queue URL</strong> field on the <strong>Global Configuration Elements</strong> window.</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Receive messages** configuration in the properties
+    window:
+
+    ![Receive Messages properties window configuration](_images/amazon-sqs-receive-message.png)
+
+#### Add the Logger Component
+
+Add the **Logger** component to display the large message in the Mule console:
+
+1.  From the **Mule Palette** view, select **Core** and drag a **Logger** component to the right of
+    **Receive messages**.
+2.  In the properties window, configure the following fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Display Name</p></td><td><p>Name for the logger, such as <code>Log Receipt</code>.</p></td></tr><tr><td><p>Message</p></td><td><p><code>`#[payload]`</code></p></td></tr><tr><td><p>Level</p></td><td><p>INFO (Default)</p></td></tr></tbody></table>
+
+    The following image shows an example of the **Logger** configuration in the properties window:
+
+    ![Logger properties window configuration](_images/amazon-sqs-logger-receive.png)
+
+### XML for This Example
+
+Paste this code into the Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<mule xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+  http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+  http://www.mulesoft.org/schema/mule/ee/core
+  http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+  http://www.mulesoft.org/schema/mule/file
+  http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+  http://www.mulesoft.org/schema/mule/sqs
+	http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<sqs:config name="Amazon_SQS_Configuration" doc:name="Amazon SQS Configuration"
+	defaultQueueUrl="${sqs.queueUrl}" >
+		<sqs:basic-connection accessKey="${sqs.accessKey}" secretKey="$sqs.secretKey}" region="us-east-1" />
+	</sqs:config>
+
+	<sqs:config name="Amazon_SQS_Large_Payload_Configuration" doc:name="Amazon SQS Configuration"
+	defaultQueueUrl="${sqs.queueUrl}" >
+		<sqs:basic-connection accessKey="${sqs.accessKey}" secretKey="$sqs.secretKey}" region="us-east-1" >
+			<sqs:large-payload-support bucket="large-sqs-payload-bucket" messageSizeThreshold="256" messageSizeThresholdUnit="KB" />
+		</sqs:basic-connection>
+	</sqs:config>
+
+	<file:config name="File_Config" doc:name="File Config" >
+		<file:connection workingDir="${app.home}" />
+	</file:config>
+
+	<flow name="sqs-send-LargeMessageFlow" >
+		<http:listener doc:name="Listener"
+		config-ref="HTTP_Listener_config"
+		path="/largePayload"/>
+		<file:read doc:name="Read" config-ref="File_Config" path="largePayload.txt"/>
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	delaySeconds: 0,
+	body: payload,
+	messageAttributes: {
+		"AccountId": {
+			"stringValue" : "000123456",
+			"dataType" : "String.AccountId"
+		} as Object {
+			class: "org.mule.extension.sqs.api.model.MessageAttributeValue"
+		},
+		"NumberId": {
+			"stringValue" : "230.000000000000000001",
+			"dataType" : "Number"
+		} as Object {
+			class : "org.mule.extension.sqs.api.model.MessageAttributeValue"
+		}
+	} as Object {
+		class: "java.util.HashMap"
+	}
+} as Object {
+	class: "org.mule.extension.sqs.api.model.Message"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<sqs:send-message doc:name="Send message" configref="Amazon_SQS_Large_Payload_Configuration" config-ref="Amazon_SQS_Large_Payload_Configuration"/>
+		<logger level="INFO"
+		doc:name="Log Response"
+		message="payload"/>
+		<sqs:get-approximate-number-of-messages
+		doc:name="Get approximate number of messages"
+		config-ref="Amazon_SQS_Large_Payload_Configuration"
+		queueUrl="${sqs.queueUrl}"/>
+		<logger level="INFO" doc:name="Log Count"
+		message="Sent Message: `#[payload]`"/>
+	</flow>
+	<flow name="sqs-receive-large-message-flow" >
+		<sqs:receivemessages doc:name="Receive messages"
+		config-ref="Amazon_SQS_Large_Payload_Configuration"/>
+		<logger level="INFO" doc:name="Log Receipt" />
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon SQS Connector 5.12 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!NOTE] Where possible, we changed noninclusive terms to align with our company value of Equality.
+> We maintained certain terms to avoid any effect on customer implementations.
+
+Anypoint Connector for Amazon SQS (Amazon SQS Connector) enables you to interface with the Amazon
+Simple Queue Service (Amazon SQS) API and manage SQS queueing services without having to interact
+with the Amazon SQS API directly.
+
+## Configuration
+
+Default Configuration for Amazon SQS Connector.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#config_basic">Basic</a></p></li><li><p><a href="#config_role">Role</a></p></li></ul></div></div></td><td><div><div><p>Connection types for this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Default Global Queue URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>This value is used when you do not set the queue URL at the operation level. If you do not specify the queue URL here or at the operation level, an exception is thrown.</p></div><div><p>A queue URL is constructed in the following format:&nbsp;<code>https://sqs.{REGION}.amazonaws.com/{ACCOUNT_NUMBER}/{QUEUE_NAME}</code>, for example: <code>https://sqs.us-east-1.amazonaws.com/123456789101/test-queue</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Default Wait Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Default value for the maximum duration of a single poll, in seconds:</p></div><div><ul><li><p>Set this field to a value between <code>1</code> and <code>20</code> to use long polling. With long polling, if there are messages available immediately, the connector returns the query results immediately. If not, the connector waits up to the specified amount of seconds for a message to be added before returning an empty response.</p></li><li><p>Set this field to <code>0</code> to use short polling. With short polling, the connector always returns the query results as soon as possible, even if that means returning an empty response.</p></li></ul></div></div></td><td><div><div><p><code>20</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Basic Connection Type
+
+Uses a session token provided by Amazon STS to connect to Amazon SQS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Session Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Session token provided by Amazon STS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Test Queue ARN</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Use this parameter to test the connection to Amazon SQS Connector. If you do not specify this parameter, the test connection is not performed.</p></div><div><p>A queue ARN is constructed in the following format: <code>arn:aws:{REGION}:{ACCOUNT_NUMBER}:{QUEUE_NAME}</code>, for example:&nbsp;<code>arn:aws:sqs:us-east-1:123456789101:test-queue</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Large Payload Support</strong></p></td><td><div><div><p><a href="#LargePayloadSupport">Large Payload Support</a></p></div></div></td><td><div><div><p>Support large message payloads on Amazon SQS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long the connector waits before timing out when establishing a connection to the remote service. A value of <code>0</code> means infinity and is not recommended.</p></div></div></td><td><div><div><p><code>50000</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connections</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Sets the maximum number of allowed open HTTP connections.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Socket Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long to wait for data to be transferred over an established, open connection before the connection times out. A value of <code>0</code> means infinity and is not recommended.</p></div></div></td><td><div><div><p><code>50000</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Socket Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Socket Timeout</strong> field.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Access Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Access key provided by Amazon.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Secret Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secret key provided by Amazon.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Try Default AWSCredentials Provider Chain</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Set this field to <code>true</code> to obtain credentials from the AWS environment. Refer to <a href="https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials.html">Using Credentials</a>.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Region Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Sets the topic region endpoint.</p></div></div></td><td><div><div><p><code>US_EAST_1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom SQS Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Sets a custom SQS endpoint. Use this parameter when a non-standard service endpoint is required, such as a Virtual Private Cloud (VPC) endpoint.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div><div><p>Configures TLS. If using the HTTPS protocol, you must configure TLS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy host.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Optional proxy port.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy username.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy password.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy domain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Workstation</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy workstation.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Role Connection Type
+
+Configures the Amazon role ARN that uniquely identifies the role to assume to allow cross-account
+access.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Role ARN</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Role ARN that uniquely identifies the role to assume to gain cross-account access.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>External ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A unique identifier that might be required when you assume a role in another account. If the administrator of the account to which the role belongs provides an external ID, then provide that value in this field.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Test Queue ARN</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Use this parameter to test the connection to Amazon SQS Connector. If you do not specify this parameter, the test connection is not performed.</p></div><div><p>A queue ARN is constructed in the following format: <code>arn:aws:{REGION}:{ACCOUNT_NUMBER}:{QUEUE_NAME}</code>, for example:&nbsp;<code>arn:aws:sqs:us-east-1:123456789101:test-queue</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Large Payload Support</strong></p></td><td><div><div><p><a href="#LargePayloadSupport">Large Payload Support</a></p></div></div></td><td><div><div><p>Support large message payloads on Amazon SQS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long the connector waits before timing out when establishing a connection to the remote service. A value of <code>0</code> means infinity and is not recommended.</p></div></div></td><td><div><div><p><code>50000</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connections</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Sets the maximum number of allowed open HTTP connections.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Socket Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long to wait for data to be transferred over an established, open connection before the connection times out. A value of <code>0</code> means infinity and is not recommended.</p></div></div></td><td><div><div><p><code>50000</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Socket Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Socket Timeout</strong> field.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Access Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Access key provided by Amazon.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Secret Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secret key provided by Amazon.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Try Default AWSCredentials Provider Chain</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Set this field to <code>true</code> to obtain credentials from the AWS environment. Refer to <a href="https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials.html">Using Credentials</a>.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Region Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Sets the topic region endpoint.</p></div></div></td><td><div><div><p><code>US_EAST_1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom STS Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Sets a custom STS endpoint. Use this parameter when a non-standard service endpoint is required, such as a Virtual Private Cloud (VPC) endpoint. The custom STS endpoint might not work if <code>DefaultAWSCredentialsProviderChain</code> is used. Instead, use AWS environment variables such as <code>AWS_STS_REGIONAL_ENDPOINTS</code>, <code>AWS_REGION</code>, and <code>AWS_ENDPOINT_URL</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom SQS Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Sets a custom SQS endpoint. Use this parameter when a non-standard service endpoint is required, such as a Virtual Private Cloud (VPC) endpoint.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div><div><p>Configures TLS. If using the HTTPS protocol, you must configure TLS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy host.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Optional proxy port.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy username.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy password.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy domain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Workstation</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Optional proxy workstation.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Sources
+
+- [Receive messages](#receivemessages)
+
+### Receive messages
+
+`<sqs:receivemessages>`
+
+Retrieves one or more messages from a server but triggers a flow for each message separately.
+
+> [!NOTE] In Amazon SQS Connector 5.12.5 and later, the **Receive messages** source performs initial
+> validation of the queue URL. If the validation fails, the source stops running. To enable queue
+> URL validation, ensure that the IAM role includes an additional policy granting the
+> `sqs:GetQueueAttributes` permission.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Visibility Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Period of time during which other consumers are prevented from receiving and processing the same message in the queue.</p></div></div></td><td><div><div><p><code>30</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Visibility Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Visibility Timeout</strong> field.</p></div></div></td><td><div><div><p><code>SECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Preserve Messages</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Preserve messages after they are read rather than deleting them immediately from the queue after they are read.</p></div></div></td><td><div><div><p><code>false</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Number Of Messages</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of messages to retrieve on each call. The maximum is <code>10</code>.</p></div></div></td><td><div><div><p><code>1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue in which to receive messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Wait time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum duration of a single poll, in seconds:</p></div><div><ul><li><p>Set this field to a value between <code>1</code> and <code>20</code> to use long polling. With long polling, if there are messages available immediately, the connector returns the query results immediately. If not, the connector waits up to the specified amount of seconds for a message to be added before returning an empty response.</p></li><li><p>Set this field to <code>0</code> to use short polling. With short polling, the connector always returns the query results as soon as possible, even if that means returning an empty response.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Number of consuming threads</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of threads used to consume the messages in the inbound flow. This value must be an integer greater than <code>0</code>.</p></div></div></td><td><div><div><p><code>1</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Determines whether to execute this source on only the primary node when running Mule instances in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>number</p></div></div></td><td><div><div><p>Frequency at which the connector polls for incoming messages, in the time unit specified in the <strong>Time unit</strong> field. If you set this value to <code>0</code>, the connector polls as fast as possible.</p></div></div></td><td><div><div><p><code>1000</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Start delay</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount of time that the connector waits before it starts polling for incoming messages, in the time unit specified in the <strong>Time unit</strong> field. The default value of <code>0</code> means that the connector starts polling immediately.</p></div></div></td><td><div><div><p><code>0</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Time unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Frequency</strong> and <strong>Start delay</strong> fields.</p></div></div></td><td><div><div><p><code>MILLISECONDS</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p>Object</p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+## Operations
+
+- [Add Permission](#addPermission)
+- [Change Message Visibility](#changeMessageVisibility)
+- [Change Message Visibility Batch](#changeMessageVisibilityBatch)
+- [Create Queue](#createQueue)
+- [Delete Message](#deleteMessage)
+- [Delete Message Batch](#deleteMessageBatch)
+- [Delete Queue](#deleteQueue)
+- [Get Approximate Number Of Messages](#getApproximateNumberOfMessages)
+- [Get Queue Attributes](#getQueueAttributes)
+- [Get Queue Url](#getQueueUrl)
+- [List Dead Letter Source Queues](#listDeadLetterSourceQueues)
+- [List Queues](#listQueues)
+- [Purge Queue](#purgeQueue)
+- [Read](#read)
+- [Remove Permission](#removePermission)
+- [Send Message](#sendMessage)
+- [Send Message Batch](#sendMessageBatch)
+- [Set Queue Attributes](#setQueueAttributes)
+
+### Add Permission
+
+`<sqs:add-permission>`
+
+Adds a permission to a message queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for this permission.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Account Ids</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>IDs of the AWS accounts to share this queue with.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Actions</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>List to indicate how much to share (<strong>Send Message</strong>, <strong>Receive Message</strong>, <strong>Change Message Visibility</strong>, <strong>Delete Message</strong>, and <strong>Get Queue Attributes</strong>).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue in which to add permissions to. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:OVER_LIMIT
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Change Message Visibility
+
+`<sqs:change-message-visibility>`
+
+Changes the visibility timeout of a specified message in a queue to a new value, not to exceed 12
+hours.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Receipt Handle</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Receipt handle associated with the message whose visibility timeout must change.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Visibility Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>New value of the message visibility timeout (up to 4300 seconds or 12 hours).</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Visibility Timeout Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Visibility Timeout</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue to act on. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_NOT_IN_FLIGHT
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Change Message Visibility Batch
+
+`<sqs:change-message-visibility-batch>`
+
+Changes the visibility timeout of up to 10 ChangeMessageVisibility requests, with each result
+reported individually in the response.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Receipt Handles</strong></p></td><td><div><div><p>Array of <a href="#ChangeMessageVisibilityBatchRequestEntry">Change Message Visibility Batch Request Entry</a></p></div></div></td><td><div><div><p>List of receipt handles of the messages for which the visibility timeout must be changed.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue to act on. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BatchResult">Batch Result</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Create Queue
+
+`<sqs:create-queue>`
+
+Creates a new queue or returns the URL of an existing one.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the queue to create.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Map of attributes with their corresponding values. Refer to the <a href="#queue-attributes">Queue Attributes</a> table below.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Queue Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>DelaySeconds</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Length of time, in seconds, for which the delivery of all messages in the queue is delayed. Valid values are an integer from <code>0</code> to <code>900</code> seconds (15 minutes).</p></div></div></td><td><div><div><p><code>0</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>MaximumMessageSize</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Limit of how many bytes a message can contain before Amazon SQS rejects it. Valid values are an integer from <code>1024</code> bytes (1 KiB) to <code>262,144</code> bytes (256 KiB).</p></div></div></td><td><div><div><p><code>262,144</code> (256 KiB)</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>MessageRetentionPeriod</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Length of time, in seconds, for which Amazon SQS retains a message. Valid values are an integer from <code>60</code> seconds (1 minute) to <code>1,209,600</code> seconds (14 days).</p></div></div></td><td><div><div><p><code>345,600</code> (4 days)</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Policy</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Queueâs policy. A valid AWS policy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>ReceiveMessageWaitTimeSeconds</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Length of time, in seconds, for which a ReceiveMessage action waits for a message to arrive. Valid values are an integer from <code>0</code> to <code>20</code> (seconds).</p></div></div></td><td><div><div><p><code>0</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>RedrivePolicy</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>String that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>VisibilityTimeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Visibility timeout for the queue, in seconds. Valid values are an integer from <code>0</code> to <code>43,200</code> (12 hours).</p></div></div></td><td><div><div><p><code>30</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>KmsDataKeyReusePeriodSeconds</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Length of time, in seconds, for which Amazon SQS can reuse a data key to encrypt or decrypt messages before calling AWS KMS again. Valid values are an integer representing seconds, between <code>60</code> seconds (1 minute) and <code>86,400</code> seconds (24 hours).</p></div></div></td><td><div><div><p><code>300</code> (5 minutes)</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>FifoQueue</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Designates a queue as FIFO. Valid values are <code>true</code> or <code>false</code>. If you donât specify this attribute, Amazon SQS creates a standard queue. You must provide this attribute during queue creation, and you canât change it for an existing queue. When you set this attribute, you must also explicitly provide the MessageGroupId for your messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>ContentBasedDeduplication</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Enables content-based deduplication. Valid values are <code>true</code> or <code>false</code>. Every message must have a unique MessageDeduplicationId.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>ApproximateNumberOfMessages</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Approximate number of messages available for retrieval from the queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>ApproximateNumberOfMessagesDelayed</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Approximate number of messages in the queue that are delayed and not available for reading immediately. This can happen when the queue is configured as a delay queue or when a message has been sent with a delay parameter.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>ApproximateNumberOfMessagesNotVisible</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Approximate number of messages that are in flight. Messages are considered to be in flight if they have been sent to a client but have not yet been deleted or have not yet reached the end of their visibility window.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>CreatedTimestamp</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Time when the queue was created, in seconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>LastModifiedTimestamp</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Time when the queue was last changed, in seconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>QueueArn</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Amazon resource name (ARN) of the queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Redrive Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>deadLetterTargetArn</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Amazon Resource Name (ARN) of the dead-letter queue to which Amazon SQS moves messages after the value of maxReceiveCount is exceeded.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>maxReceiveCount</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of times a message is delivered to the source queue before being moved to the dead-letter queue. When the ReceiveCount for a message exceeds the maxReceiveCount for a queue, Amazon SQS moves the message to the dead-letter queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:QUEUE_ALREADY_EXISTS
+- SQS:QUEUE_DELETED_RECENTLY
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Delete Message
+
+`<sqs:delete-message>`
+
+Deletes the message identified by the message object in the queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Receipt Handle</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Receipt handle of the message to delete.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Delete Message Batch
+
+`<sqs:delete-message-batch>`
+
+Deletes up to 10 messages from the specified queue. This is a batch version of **Delete Message**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Entries</strong></p></td><td><div><div><p>Array of <a href="#DeleteMessageBatchRequestEntry">Delete Message Batch Request Entry</a></p></div></div></td><td><div><div><p>List of receipt handles for the messages to delete.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue to delete messages as a batch from. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BatchResult">Batch Result</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Delete Queue
+
+`<sqs:delete-queue>`
+
+Deletes the message queue represented by this object and can even delete a non-empty queue. Because
+deleting a queue can take up to 60 seconds, wait at least that long before you create a new queue
+with the same name.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue to delete. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Get Approximate Number Of Messages
+
+`<sqs:get-approximate-number-of-messages>`
+
+Retrieves an approximate number of visible messages for a queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Number</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Get Queue Attributes
+
+`<sqs:get-queue-attributes>`
+
+Shows queue attributes to expose the underlying functionality.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Attribute Names</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>List of attributes to retrieve information for.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue to take action on. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Get Queue Url
+
+`<sqs:get-queue-url>`
+
+Returns the URL of an existing queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the queue whose URL must be fetched.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Owner AWS Account Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AWS account ID of the owner that created the queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### List Dead Letter Source Queues
+
+`<sqs:list-dead-letter-source-queues>`
+
+Returns a list of the queues that have the Redrive Policy queue attribute configured with a
+dead-letter queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of a dead-letter queue. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### List Queues
+
+`<sqs:list-queues>`
+
+Returns a list of your queues. The maximum number of queues that can be returned is 1000.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Name Prefix</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>String to use for filtering the list results. Queues only with names beginning with the specified string are returned.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Purge Queue
+
+`<sqs:purge-queue>`
+
+Deletes the messages in a queue specified by the queue URL.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue from which messages are fetched. This parameter is optional and if unspecified, you must specify the Default Global Queue URL at the configuration level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:PURGE_QUEUE_IN_PROGRESS
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Read
+
+`<sqs:read>`
+
+Reads a number of messages from a queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Number Of Messages</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of messages to read.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Wait time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum duration of a single poll, in seconds:</p></div><div><ul><li><p>Set this field to a value between <code>1</code> and <code>20</code> to use long polling.</p><div><p>With long polling, if there are messages available immediately, the connector returns the query results immediately. If not, the connector waits up to the specified amount of seconds for a message to be added before returning an empty response.</p></div></li><li><p>Set this field to <code>0</code> to use short polling. With short polling, the connector always returns the query results as soon as possible, even if that means returning an empty response.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of <a href="#Message">Message</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:OVER_LIMIT
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Remove Permission
+
+`<sqs:remove-permission>`
+
+Removes a permission from this message queue.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for the permission to remove.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue in which permissions are deleted from.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Send Message
+
+`<sqs:send-message>`
+
+Sends a message to a specified queue. The message must be between 1 and 256K bytes long.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Message</strong></p></td><td><div><div><p><a href="#Message">Message</a></p></div></div></td><td><div><div><p>Message to send.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue in which to send the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#SendMessageResult">Send Message Result</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Send Message Batch
+
+`<sqs:send-message-batch>`
+
+Delivers up to 10 messages to the specified queue. This is a batch version of **Send Message**.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Messages</strong></p></td><td><div><div><p>Array of <a href="#Message">Message</a></p></div></div></td><td><div><div><p>List of Message items.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue in which to send the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#BatchResult">Batch Result</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+- SQS:OPT_IN_REQUIRED
+- SQS:PARAMETER_OUT_OF_RANGE
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:S3_BUCKET_ACCESS_DENIED
+- SQS:S3_BUCKET_NOT_FOUND
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+### Set Queue Attributes
+
+`<sqs:set-queue-attributes>`
+
+Sets the value of one or more queue attributes, which can take up to 60 seconds to propagate
+throughout the SQS system (although changes made to the MessageRetentionPeriod attribute can take up
+to 15 minutes).
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Map of attributes to set.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Queue Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the queue.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>String</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#RequestIDAttribute">Request ID Attribute</a></p></div></div></td></tr></tbody></table>
+
+#### Associated Configurations
+
+- [Configuration](#config)
+
+#### Throws
+
+- SQS:ACCESS_DENIED
+- SQS:CONNECTIVITY
+- SQS:INTERNAL_FAILURE
+- SQS:INVALID_CREDENTIALS
+- SQS:INVALID_DATA
+- SQS:OPT_IN_REQUIRED
+- SQS:REQUEST_EXPIRED
+- SQS:RETRY_EXHAUSTED
+- SQS:SERVICE_UNAVAILABLE
+- SQS:THROTTLING_EXCEPTION
+
+## Object Types
+
+- [Batch Result](#BatchResult)
+- [Batch Result Error Entry](#BatchResultErrorEntry)
+- [Change Message Visibility Batch Request Entry](#ChangeMessageVisibilityBatchRequestEntry)
+- [CRL File](#CrlFile)
+- [Custom OCSP Responder](#CustomOcspResponder)
+- [Delete Message Batch Request Entry](#DeleteMessageBatchRequestEntry)
+- [Expiration Policy](#ExpirationPolicy)
+- [Keystore](#KeyStore)
+- [Large Payload Support](#LargePayloadSupport)
+- [Message](#Message)
+- [Reconnect](#Reconnect)
+- [Reconnect Forever](#ReconnectForever)
+- [Reconnection](#Reconnection)
+- [Redelivery Policy](#RedeliveryPolicy)
+- [Request ID Attribute](#RequestIDAttribute)
+- [Send Message Result](#SendMessageResult)
+- [Standard Revocation Check](#StandardRevocationCheck)
+- [TLS](#Tls)
+- [Truststore](#TrustStore)
+
+### Batch Result
+
+For each message in the batch, the response contains a String representing the entry ID if the
+message succeeds or a BatchResultErrorEntry tag if the message fails.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Failed</strong></p></td><td><div><div><p>Array of <a href="#BatchResultErrorEntry">BatchResultErrorEntry</a></p></div></div></td><td><div><div><p>List of <a href="#BatchResultErrorEntry">Batch Result Error Entry</a> items.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Successful</strong></p></td><td><div><div><p>Array of String</p></div></div></td><td><div><div><p>List of String items representing the entry ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Batch Result Error Entry
+
+Used in the responses of a batch API to give a detailed description of the result of an action on
+each entry in the request.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Code</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Error code that represents why the action failed on this entry.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of an entry in a batch request.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Message that explains why the action failed on this entry.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sender Fault</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether the error happened due to the senderâs fault.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Change Message Visibility Batch Request Entry
+
+Used to change the visibility timeout of messages.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Identifier for this particular receipt handle. This is used to communicate the result. The IDs of a batch request must be unique within the request.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Receipt Handle</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Receipt handle for this entry.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Visibility Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>New value (in seconds) for the messageâs visibility timeout.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Delete Message Batch Request Entry
+
+Used to delete messages in batch.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Identifier for this particular receipt handle. This is used to communicate the result. The IDs of a batch request must be unique within the request.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Receipt Handle</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Receipt handle for this entry.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures an expiration policy strategy.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Keystore
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the keystore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Large Payload Support
+
+Supports large message payloads on Amazon SQS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Bucket</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the AWS S3 bucket in which to store large payload messages. The AWS S3 bucket must already be created and configured in AWS S3. Enabling this feature incurs additional charges for using AWS S3.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Message Size Threshold</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Message size threshold value for storing message payloads in the AWS S3 bucket. The default value for the message size threshold is 256 KB and the maximum threshold size value is 256 KB. The maximum message size is 2 GB.</p></div></div></td><td><div><div><p><code>256</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Size Threshold Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li></ul></div></div></td><td><div><div><p>Data unit for the <strong>Message Size Threshold</strong> field.</p></div></div></td><td><div><div><p>KB</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom S3 Endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Sets a custom S3 endpoint. Useful when a non-standard service endpoint is required, such as a VPC endpoint.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>S3 Key Prefix</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Prefix to prepend to Amazon S3 object keys when storing large message payloads in the S3 bucket.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Message
+
+Output attributes for a sent message.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>body</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Message body to send.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>deduplicationId</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Token for deduplicating sent messages. If multiple messages are sent with the same deduplication ID, Amazon SQS accepts the messages successfully, but delivers only the first message during the deduplication interval (5 minutes by default).</p></div><div><p>For FIFO queues, set <strong>ContentBasedDeduplication</strong> to <code>true</code> at a queue level to automatically generate the value for the <strong>deduplicationId</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>delaySeconds</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of seconds that a specific message is delayed. Valid values are <code>0</code> through <code>900</code>. If no value is specified, the default value for the queue is used.</p></div><div><p>The <strong>delaySeconds</strong> field cannot be set per message when <strong>FifoQueue</strong> is set; <strong>delaySeconds</strong> can only be set at a queue level.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>groupId</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Group this message belongs to in the FIFO queue. This parameter applies only to FIFO queues. When creating a FIFO queue, this parameter is required.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Unique identifier for the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>message Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Map of typed key-value pairs to send as message attributes. You must specify a value, key, and data type for each entry.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>receipt Handle</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Receipt handle for this entry.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts the Mule app can make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p><code>true</code></p><div><p>Allow the deployment to fail.</p></div></li><li><p><code>false</code></p><div><p>Ignore the results of the connectivity test.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>One or more expressions that determine when a message was redelivered. This property can be set only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Configures the object store that stores the redelivery counter for each message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Request ID Attribute
+
+Used for a request ID.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Request Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AWS request ID used when a service call isnât working as expected, and you need to work with AWS support to debug an issue.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Send Message Result
+
+Sends the result of the message.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>MD5 Of Message Attributes</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>MD5 digest of the non-URL-encoded message attribute string. This can be used to verify that Amazon SQS received the message correctly. The first URL in Amazon SQS decodes the message before creating the MD5 digest. For information about MD5, refer to <a href="http://www.faqs.org/rfcs/rfc1321.html">RFC 1321 - The MD5 Message-Digest Algorithm</a>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>MD5 Of Message Body</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>MD5 digest of the non-URL-encoded message body string. This can be used to verify that Amazon SQS received the message correctly. The first URL in Amazon SQS decodes the message before creating the MD5 digest. For information about MD5, refer to <a href="http://www.faqs.org/rfcs/rfc1321.html">RFC 1321 - The MD5 Message-Digest Algorithm</a>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Element containing the message ID of the message sent to the queue. For more information, refer to <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-queue-message-identifiers.html">Amazon SQS Queue and Message Identifiers</a>.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Which elements to verify in the certificate chain:</p></div><div><ul><li><p><code>true</code></p><div><p>Verify only the last element in the certificate chain.</p></div></li><li><p><code>false</code></p><div><p>Verify all elements in the certificate chain.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>How to check certificate validity:</p></div><div><ul><li><p><code>true</code></p><div><p>Check the Certification Revocation List (CRL) for certificate validity.</p></div></li><li><p><code>false</code></p><div><p>Use the Online Certificate Status Protocol (OCSP) to check certificate validity.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use the secondary method to check certificate validity:</p></div><div><ul><li><p><code>true</code></p><div><p>Use the method that wasnât specified in the <strong>Prefer Crls</strong> field (the secondary method) to check certificate validity.</p></div></li><li><p><code>false</code></p><div><p>Do not use the secondary method to check certificate validity.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if the revocation server canât be reached or is busy:</p></div><div><ul><li><p><code>true</code></p><div><p>Avoid verification failure.</p></div></li><li><p><code>false</code></p><div><p>Allow the verification to fail.</p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><div><div><p>Configures the TLS truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Keystore</a></p></div></div></td><td><div><div><p>Configures the TLS keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td><div><div><p>Configures a revocation checking mechanism.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the truststore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule stops performing certificate validations. Setting this to <code>true</code> can make connections vulnerable to attacks.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon SQS Connector 5.12 Studio Configuration
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Configure a global element for the connector](#configure-global-element).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Amazon SQS Connector Reference](amazon-sqs-connector-reference#node-behavior).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Amazon SQS Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `amazon sqs` in the search field.
+3.  Click **Amazon SQS** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these input
+sources to use with Amazon SQS Connector:
+
+- **Receive messages**  
+  Retrieves one or more messages from the specified queue
+- **HTTP > Listener**  
+  Initiates a flow each time it receives a request on the configured host and port
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure the **Receive messages** source operation, follow these steps:
+
+1.  In the **Mule Palette** view, select **Amazon SQS > Receive messages**.
+2.  Drag **Receive messages** to the Studio canvas.
+3.  On the **Receive messages** configuration screen, optionally change the value of the **Display
+    Name** field.
+4.  Specify values for the following fields:
+    - **Visibility Timeout**  
+      Period of time during which other consumers are prevented from receiving and processing the
+      same message in the queue
+    - **Visibility Timeout unit**  
+      The time unit for the Visibility Timeout:
+      - NANOSECONDS
+      - MICROSECONDS
+      - MILLISECONDS
+      - SECONDS
+      - MINUTES
+      - HOURS
+      - DAYS
+
+    - **Preserve Messages**  
+      Preserve messages after they are read rather than immediately deleting them from the queue
+      after they are read
+    - **Number Of Messages**  
+      Number of messages to retrieve
+    - **Queue Url**  
+      URL of the queue in which to receive messages
+
+5.  If you are using the **Receive messages** source in cluster mode and want to receive messages on
+    the primary node only, select the **Primary node only** checkbox on the **Receive messages >
+    Advanced** tab:
+
+    ![Read message configuration Advanced tab with Primary node only option selected](_images/amazon-sqs-primary-node-only.png)
+
+    For more information, see
+    [Receiving Messages in Cluster Mode](amazon-sqs-connector-config-topics#node-behavior).
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target Amazon SQS system. Amazon SQS
+supports the Basic and Role authentication methods for connections.
+
+You can either enter your credentials into the global configuration properties or reference a
+configuration placed in a file in the `src` folder of your project file that contains these values.
+For simpler maintenance and better reuse of your project, use a configuration file.
+
+1.  Drag a connector operation onto the Studio canvas.
+2.  To create a global element for the connector, click the **Global Elements** tab at the base of
+    the canvas, and then click **Create**.
+3.  In the **Choose Global Type** window, expand **Connector Configuration** and select **Amazon SQS
+    Configuration**:
+
+    ![Select Connector for Global Element](_images/amazon-sqs-studio-select-global.png)
+
+4.  Click **OK**.
+5.  Specify the global element properties:
+
+    ![Configure Global Element](_images/amazon-sqs-studio-global-config-new.png)
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>Name used to reference the configuration</p></td></tr><tr><td><p>Session Token</p></td><td><p>Session token used to validate the temporary security credentials</p></td></tr><tr><td><p>Access Key</p></td><td><p>Alphanumeric text string that uniquely identifies the user who owns the account</p></td></tr><tr><td><p>Secret Key</p></td><td><p>Key that acts as a password</p></td></tr><tr><td><p>Try AWS Credentials Provider Chain</p></td><td><p>Drop-down menu that controls whether to use temporary credentials</p></td></tr><tr><td><p>Region Endpoint</p></td><td><p>Regional endpoint to process your requests</p></td></tr><tr><td><p>SQS Endpoint</p></td><td><p>SQS endpoint for Amazon VPC support.</p></td></tr><tr><td><p>Default Global URL</p></td><td><p>URL of the Amazon SQS queue to act upon</p></td></tr></tbody></table>
+
+    When you provide a queue URL in the **Default Global Queue URL** field of the global element,
+    the connector automatically creates the queue and sets the URL of this queue as the provided
+    value. All Amazon SQS message processors that reference the global element perform operations
+    using this queue URL.
+
+    To reference a different queue URL for a particular message processor in the flow, perform the
+    operation using the `Queue URL` attribute provided by the message processor.
+
+6.  Leave the default entries for the **Proxy** tab.
+7.  Click **Test Connection** to confirm that the parameters of your global configuration are
+    accurate and that Mule is able to connect successfully to your instance of Amazon SQS.  
+    To test the connection, you must specify a value for the **Test Queue Arn** field in the
+    configuration. If a value is not specified, the test connection is not performed, and the
+    console displays a warning when the operation is invoked.
+8.  Click **OK**.
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## Next Step
+
+After configuring this connector in Studio, see
+[Additional Configuration Information](amazon-sqs-connector-config-topics) for more configuration
+steps.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting Amazon SQS Connector 5.12
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for Amazon SQS (Amazon SQS Connector), become familiar with the
+information about interpreting commonly thrown exception messages.
+
+## Enable SSL Logging
+
+Enable SSL logs to investigate an issue related to TLS communications.
+
+Set your SSL log level depending on your required level of detail:
+
+1.  Enable only SSL log details:
+
+    `javax.net.debug=ssl`
+
+2.  Enable only handshaking details. (The handshake protocol is a series of messages exchanged over
+    the record protocol.)
+
+    `javax.net.debug=ssl:handshake`
+
+3.  Enable handshaking details and SSL details at the same time:
+
+    `javax.net.debug=ssl, handshake`
+
+4.  Enable the dumping of all details and traffic data:
+
+    `javax.net.debug=all`
+
+    > [!NOTE] This option is very verbose and under normal circumstances is not necessary.
+
+> [!WARNING] SSL logging results in a performance impact for HTTPS or other TLS connections. Enable
+> SSL logging only to troubleshoot a specific issue and do not enable it for extended periods. SSL
+> logging produces a significant amount of log messages and can inundate your log file if it is left
+> enabled and unattended.
+
+To enable SSL logs:
+
+Set the debug parameter as an argument in the runtime configuration for the application.
+
+1.  In Studio, right-click on the project and select **Run > Run Configurations**.
+2.  Go to the **Arguments** tab and add `-M-Djavax.net.debug=ssl` in the **VM arguments** section.
+
+## Enable Verbose Exception Logging
+
+Enable verbose exception logs to show a complete stack trace of the error instead of the default
+truncated output:
+
+1.  In Studio, right-click on the project and select **Run > Run Configurations**.
+2.  Go to the **Arguments** tab and append the arguments in the **VM arguments** section to add the
+    `mule.verbose.exceptions` property. For example:
+
+    `-XX:PermSize=128M -XX:MaxPermSize=256M -Dmule.verbose.exceptions=true`
+
+## Enable Verbose Logging
+
+To get a better understanding of why an applicationâs interaction with Amazon SQS Connector is
+failing, temporarily enable verbose logging for the connector.
+
+Remember to always disable enhanced verbosity after troubleshooting, because it can affect your Mule
+applicationâs performance.
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="org.mule.extension.sqs" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Troubleshoot AWS STS Regionalized Endpoints
+
+In AWS SDK v2, the endpoint that the STS client of the `AssumeRoleConnectionProvider` uses to get
+session tokens is now regionalized instead of global. See the
+[AWS STS Regionalized endpoints](https://docs.aws.amazon.com/sdkref/latest/guide/feature-sts-regionalized-endpoints.html)
+documentation for details. As explained in the
+[AWS Security Token Service endpoints and quotas](https://docs.aws.amazon.com/general/latest/gr/sts.html)
+documentation, regionalized endpoints shouldnât cause changes in the connectorâs functionality. AWS
+recommends using Regional STS endpoints to reduce latency, build in redundancy, and increase session
+token validation.
+
+If you encounter any issues as a result of the change in endpoints to regionalized, you can force
+Amazon SQS Connector to use the global endpoint by specifying the URL endpoint
+`https://sts.amazonaws.com` in the **Custom STS Endpoint** field located in the **Advanced** tab of
+the **Global Elements** properties configuration window of the connector.
+
+## Understand Commonly Thrown Exceptions
+
+Here is a list of commonly thrown exception messages and how to interpret them:
+
+- SQS:ACCESS_DENIED
+
+  The user does not have permission to execute this operation.
+
+- SQS:CONNECTIVITY
+
+  The connection to the Amazon SQS server is interrupted.
+
+- SQS:INTERNAL_FAILURE
+
+  The request fails due to an unknown error, exception, or failure.
+
+- SQS:INVALID_CREDENTIALS
+
+  Authentication against the Amazon SQS server fails due to invalid credentials.
+
+- SQS:INVALID_DATA
+
+  The test connection cannot be performed because the Test Queue ARN parameter is not set.
+
+- SQS:MESSAGE_NOT_IN_FLIGHT
+
+  The specified message is not in flight.
+
+- SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE
+
+  The message threshold size is not between 0 and 256 KB.
+
+- SQS:OPT_IN_REQUIRED
+
+  The AWS access key ID requires a subscription for the service.
+
+- SQS:OVER_LIMIT
+
+  The attempted action exceeds a limit, for example, if the Recieve Messages source receives the
+  maximum number of inflight messages or if the Add Permission operation reaches the maximum number
+  of permissions for the queue.
+
+- SQS:PARAMETER_OUT_RANGE
+
+  The value is not within the specified range.
+
+- SQS:PURGE_QUEUE_IN_PROGRESS
+
+  The specified queue receives a Purge Queue request within the last 60 seconds.
+
+- SQS:QUEUE_ALREADY_EXISTS
+
+  There is a queue with this name already and the request includes different attributes from the
+  existing queue with this name.
+
+- SQS:QUEUE_DELETED_RECENTLY
+
+  A queue with the same name is deleted within the last 60 seconds.
+
+- SQS:REQUEST_EXPIRED
+
+  The request reaches the service more than 15 minutes after the request date stamp or the request
+  expiration date, or the request date stamp is more than 15 minutes in the future.
+
+- SQS:RETRY_EXHAUSTED
+
+  The retries of a certain execution block are exhausted.
+
+- SQS:S3_BUCKET_ACCESS_DENIED
+
+  The server returns an AmazonSQSException with a 403 HTTP status code.
+
+- SQS:S3_BUCKET_NOT_FOUND
+
+  The server returns an AmazonSQSException with a 404 HTTP status code.
+
+- SQS:SERVICE_UNAVAILABLE
+
+  The server is experiencing a temporary failure.
+
+- SQS:THROTTLING_EXCEPTION
+
+  The request fails due to request throttling.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Amazon SQS Connector Reference](amazon-sqs-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Upgrading and Migrating Amazon SQS Connector to 5.12
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for Amazon SQS to 5.12 to improve and optimize the performance of your
+projects using long polling, multithreading, and more control over the polling parameters.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>5.x</p></div></div></td><td><div><div><p>5.12</p></div></div></td></tr></tbody></table>
+
+### 5.12
+
+- Amazon SQS Connector now supports passing an external ID in Role-based authentication.
+- In the **Receive messages** source, the **Time unit** field is renamed to **Start delay time
+  unit**, and its default value is changed from `MILLISECONDS` to `SECONDS`.
+
+  > [!NOTE] This was changed back in v5.12.2. The field in the **Receive messages** source is now
+  > called **Time unit** again, and its default value is set back to `MILLISECONDS`.
+
+### 5.11
+
+All of the Amazon SQS Connector error types are now exported. You can see specific error messages
+instead of MULE:UNKNOWN.
+
+### 5.10
+
+Amazon SQS Connector now supports the addition of an SQS endpoint, which you can use with Amazon
+Virtual Private Cloud (VPC).
+
+### 5.9
+
+With release 5.9 you now have the ability to enable long polling for the Read Message source and
+Read operation and to control the time interval for the polling. Long polling can reduce the number
+of network requests without affecting throughput.
+
+Additionally, you can now configure the number of threads for your sources, allowing for a higher
+throughput in some situations.
+
+### 5.8
+
+Amazon SQS Connector now supports sending and receiving large messages with payloads of up to 2 GB.
+This is beneficial when your application requires large amounts of data to be stored in queues.
+
+> [!NOTE] This feature requires the use of the Amazon S3 service. Large payload transmissions are
+> billed as one SQS request and one S3 request. Billing for the payload is based on the amount of
+> data stored in Amazon S3.
+
+### 5.7
+
+The Messages object now contains a new `deduplicationId` field. If multiple messages are sent with
+the same deduplication ID, Amazon SQS accepts the messages successfully, but delivers only the first
+message during the 5-minute deduplication interval.
+
+### 5.6
+
+Cluster node support was added back to the `Receive Messages` input source and works the same as it
+did in version 5.4.3. The input source listens for messages on all cluster nodes by default, but you
+can change this behavior by using the `Primary node only` field on the `Advanced` sub-tab on the
+`Receive Messages` tab. For more information, see
+[Receiving Messages in Cluster Mode](amazon-sqs-connector-config-topics#node-behavior).
+
+### 5.5
+
+Version 5.5.0 was deprecated because cluster mode support was removed from that version.
+
+### 5.4.2
+
+The Amazon SDK for Java dependency was upgraded to version 1.11.649.
+
+## Requirements
+
+Ensure your system meets the following requirements before you perform the upgrade:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Application/Service</th><th>Version</th></tr></thead><tbody><tr><td><p>Mule</p></td><td><p>4.1.1 and later</p></td></tr><tr><td><p>Java</p></td><td><p>11</p></td></tr><tr><td><p>Anypoint Studio</p></td><td><p>7.0 and later</p></td></tr></tbody></table>
+
+See the
+[Amazon SQS Connector Release Notes](../../release-notes/connector/amazon-sqs-connector-release-notes-mule-4)
+for updated compatibility information for patch updates.
+
+## Upgrade Prerequisites
+
+Before you upgrade, create a backup of your files, data, and configurations in case you need to
+restore them.
+
+## Upgrade Steps
+
+Follow these steps to perform the upgrade:
+
+1.  In Anypoint Studio, create a Mule project.
+2.  In the **Mule Palette** view, click **Search in Exchange**.
+3.  Enter `sqs` in the search field.
+4.  In the **Available modules** section, select **Amazon SQS Connector** and click **Add**.
+5.  Click **Finish**.
+6.  Verify that the `mule-amazon-sqs-connector` dependency version is `5.9.x` in the `pom.xml` file
+    in the Mule project. Replace `x` with the version that corresponds to the connector you are
+    using.
+7.  In version 5.5.0, the `Receive Messages` input source received messages on the primary node
+    only. To obtain the same behavior in this version, access the **Advanced** tab in the **Receive
+    Messages** source operation configuration and select the **Primary node only** field.
+
+    If youâre upgrading from version 5.4.x or earlier to version 5.8 or later, this step is not
+    needed.
+
+Studio upgrades the connector automatically.
+
+## Post Upgrade Steps
+
+After you install the latest version of the connector, verify the upgrade:
+
+1.  In Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Verify that there are no problems in the project `pom.xml` file.
+3.  Test the connection and verify that the operations work.
+
+## Troubleshooting
+
+If there are problems with caching the parameters and metadata, try restarting Studio.
+
+## Revert the Upgrade
+
+If you must revert to your previous version of Amazon SQS Connector, change the
+`mule-amazon-sqs-connector` dependency version `5.9.x` in the projectâs `pom.xml` to the latest
+version which is not deprecated, `5.8`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon SQS Connector 5.12 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+If you manually code a Mule app in XML either from the Anypoint Studio XML editor or from a text
+editor, you can access Anypoint Connector for Amazon SQS (Amazon SQS Connector) in your app by
+adding reference statements to your XML Mule flow and in the Apache Maven `pom.xml` file.
+
+> [!NOTE] You can avoid the manual process described next by using Studio. When you install Amazon
+> SQS Connector in Studio, Studio automatically populates the XML code with the Amazon SQS Connector
+> namespace and schema location, and adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/amazon-sqs
+http://www.mulesoft.org/schema/mule/amazon-sqs/current/mule-amazon-sqs.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sqs
+http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>mule-amazon-sqs-connector</artifactId>
+    <version>x.x.x</version>
+    <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `amazon sqs`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[example](amazon-sqs-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Amazon SQS Connector 5.12
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Amazon SQS (Amazon SQS Connector) provides an easy way to interface with the
+Amazon Simple Queue Service (Amazon SQS) API, enabling Mule users to manage SQS queueing services
+without having to interact with the API directly.
+
+Amazon SQS offers a reliable, highly scalable hosted queue for storing messages as they travel
+between computers. You can use Amazon SQS to move data between distributed application components
+and perform different tasks without losing messages or requiring each component to be always
+available. Amazon SQS makes it easy to build an automated workflow that works closely with Amazon
+Elastic Compute Cloud (Amazon EC2) and other AWS infrastructure web services.
+
+The AWS SDK for Java provides a Java API for AWS infrastructure services. Amazon SQS Connector is
+built using the SDK for Java.
+
+For compatibility information and fixed issues, see the Amazon SQS Connector Release Notes.
+
+## Grant Amazon SQS API Permissions to Perform Actions
+
+To use Amazon SQS Connector, you must first configure your AWS user to operate an AWS resource. For
+the configuration, you must grant API permissions to perform Amazon SQS actions, which enables you
+to set up access control and write permissions policies that you can attach to an IAM identity.
+Refer to
+[Amazon SQS API permissions](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-api-permissions-reference.html)
+documentation for details.
+
+## Cluster Mode
+
+Amazon SQS Connector supports listening for messages on the primary node only or on all nodes when
+running in cluster mode. For information, see
+[Receiving Messages in Cluster Mode](amazon-sqs-connector-config-topics#node-behavior).
+
+## Queue Support
+
+Amazon SQS Connector provides support for two types of queues:
+
+- Standard Queues
+
+  Standard queues have high throughput. However, using these queues can occasionally result in
+  having duplicate copies of messages delivered out of order.
+
+- FIFO Queues
+
+  FIFO (First-In-First-Out) queues deliver messages in the order in which they are sent. However,
+  these queues have limited throughput.
+
+For information about creating FIFO queues, see
+[Additional Configuration Topics](amazon-sqs-connector-config-topics).
+
+## Before You Begin
+
+Before creating an app, you must:
+
+- Have access to the Amazon SQS target resource and Anypoint Platform
+- Understand how to create a Mule app using Anypoint Studio
+- Have AWS Identity and Access Management (IAM) credentials
+
+## Common Use Cases for the Connector
+
+Common use cases for Amazon SQS Connector include:
+
+- **Queue Messaging**  
+  Send messages to a queue and retrieve messages from a queue.
+- **Asynchronous Processing Patterns**  
+  Improve reliability of loosely-coupled architecture by implementing asynchronous messaging that
+  buffers incoming payloads for consumption at the pace of the consuming services.
+- **Microservice Decoupling**  
+  Build a set of loosely coupled systems that can evolve independently and flexibly by implementing
+  a one-way messaging pattern or a request-response messaging.
+- **Workload Distribution**  
+  For large workload distribution, maintain a queue of all tasks, efficiently distribute the tasks
+  between the machines or the functions doing the work, and guarantee that every part of the work is
+  only done once.
+- **Batch Job Scheduling**  
+  Maintain a queue of jobs, handle retries, track job status, and so on.
+
+For examples of these use cases, refer to
+[Amazon SQS Connector Examples](amazon-sqs-connector-examples).
+
+## Authentication Types
+
+Amazon SQS Connector connections use the following authentication types:
+
+- Basic  
+  Uses a session token provided by Amazon STS to connect to Amazon SQS
+- Role  
+  Uses the Amazon role ARN that uniquely identifies the role to assume to allow cross-account access
+
+## Next Step
+
+After you complete the prerequisites and experiment with examples, you are ready to create an app
+with [Anypoint Studio](amazon-sqs-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Amazon SQS Connector on Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-amazon-sqs-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+

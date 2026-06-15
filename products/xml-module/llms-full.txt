@@ -1,0 +1,1423 @@
+﻿# XML Module - Full Documentation
+
+# XML Module 1.3
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The XML Module process and extracts data from an XML document. Although DataWeave is recommended for
+most XML-related cases, use the XML Module for cases that involve the usage of XML standards such as
+XSLT, XPath, and XQuery, or XSD.
+
+For compatibility information and fixed issues, see the XML Module Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have access to Anypoint Platform and Anypoint Studio.
+
+## Common Use Cases for the Connector
+
+Common use cases for XML Module include the following:
+
+- Validate documents against an XSD schema
+- Take XML input and transform it using an XSL style sheet
+- Evaluate Xpath expressions in XML input content and extract the result
+- Take XML input content and transform it based on XQuery expressions
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# XML Module Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To fully benefit from using XML module, see the following examples of configuring the module
+operations:
+
+- [Configure XQuery Transformations](xml-xquery)  
+  Configure the **Xquery transform** operation to take XML input content and transform it based on
+  XQuery expressions.
+- [Configure XPath Extractions](xml-xpath)  
+  Configure the **Xpath extract** operation to evaluate Xpath expressions in XML input content and
+  extract the result. The operation also enables you to set namespace mapping.
+- [Configure Xslt Transformations](xml-xslt)  
+  Configure the **Xslt transform** operation to take XML input and transform it using an XSL style
+  sheet.
+- [Validate Documents against an XSD Schema](xml-xslt)  
+  Configure the **Validate schema** operation to validate documents against an XSD schema.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting XML Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot XML module, become familiar with the information about enabling verbose logging and
+interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+To get a better understanding of why an applicationâs interaction with the XML Module is failing,
+temporarily enable verbose logging for XML module.
+
+Remember to always disable the enhanced verbosity after troubleshooting because it affects your Mule
+application performance.
+
+To enable verbose logging:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="org.mule.module.xml" level="DEBUG"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+## Troubleshoot Validation Against Schema Issues
+
+When using the XML module to validate against a schema that has references to other local schema
+files, the validation can fail with the error:
+
+```none
+The supplied schemas were not valid. schema_reference: Failed to read schema document schemadocumentname.xsd, because file access is not allowed due to restriction set by the accessExternalSchema property
+```
+
+In the Studio Console, the error looks like this:
+
+```none
+ERROR 2021-03-25 18:42:34,499 [[MuleRuntime].uber.03: [bug-xsd-schema-not-found-support].bug-xsd-schema-not-foundFlow.CPU_INTENSIVE @52ec9ec0] [processor: ; event: 026a10a0-8db3-11eb-80a6-3c22fb270222] org.mule.runtime.core.internal.exception.DefaultSystemExceptionStrategy:
+********************************************************************************
+Message               : The supplied schemas were not valid. schema_reference: Failed to read schema document 'schemadocumentname.xsd', because 'file' access is not allowed due to restriction set by the accessExternalSchema property.
+Element               : bug-xsd-schema-not-foundFlow/processors/2 @ bug-xsd-schema-not-found-support:main.xml:16 (Validate schema)
+Element DSL           : <xml-module:validate-schema schemas="ref/despatchAdviceMessages/despatchAdviceMessage.xsd"></xml-module:validate-schema>
+Error type            : XML-MODULE:INVALID_SCHEMA
+FlowStack             : at bug-xsd-schema-not-foundFlow(bug-xsd-schema-not-foundFlow/processors/2 @ bug-xsd-schema-not-found-support:main.xml:16 (Validate schema))
+  (set debug level logging or '-Dmule.verbose.exceptions=true' for everything)
+********************************************************************************
+```
+
+This error occurs because the access was restricted in the XML module global element configuration
+by setting the **Expand entities** field to the default value of **NEVER**. This value prevents XXE
+(XML External Entity) and DoS (Denial of Service) attacks.
+
+To resolve this issue, set the **Expand entities** field to **INTERNAL**:
+
+1.  In Studio, open your project and access your Mule app flow.
+2.  Navigate to the **Global Element** tab.
+3.  Select the **XML Config** configuration and click **Edit**.
+4.  In the **Global Element Properties** window, set the **Expand entities** field to **INTERNAL**.
+5.  Click **OK**.
+
+![XML module global configuration Expand entities field](_images/xml-validate-schema-4.png)
+
+In the **Configuration XML** editor, the `<expandEntities>` configuration looks like this:
+
+```xml
+<xml-module:config name="XML_Config" expandEntities="INTERNAL"/>
+```
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them:
+
+- XML-MODULE:INVALID_INPUT_XML
+
+  The input document is not a valid XML.
+
+- XML-MODULE:INVALID_SCHEMA
+
+  The supplied schema is invalid.
+
+- XML-MODULE:INVALID_XPATH_EXPRESSION
+
+  The supplied XPath expression is invalid.
+
+- XML-MODULE:NULL_CONTEXT_PROPERTY
+
+  A context property with a null value was supplied.
+
+- XML-MODULE:SCHEMA_NOT_HONOURED
+
+  The input XML document does not honor its schema.
+
+- XML-MODULE:SCHEMA_NOT_FOUND
+
+  The schema could not be found.
+
+- XML-MODULE:TRANSFORMATION
+
+  There was an error transforming an XML document.
+
+- XML-MODULE:SCHEMA_INPUT_ERROR
+
+The Validate schema operation failed because both the Schema and the Schema Content fields were used
+at the same time during the operationâs execution. You can only use one of these fields to validate
+schema XSD content.
+
+## See Also
+
+- [XML Module Reference](xml-reference)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# XML Module XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/xml-module
+http://www.mulesoft.org/schema/mule/xml-module/current/mule-xml-module.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:<connector>="http://www.mulesoft.org/schema/mule/xml-module"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/xml-module
+	http://www.mulesoft.org/schema/mule/xml-module/current/mule-xml-module.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>org.mule.modules</groupId>
+  <artifactId>mule-xml-module</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `xml module`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# XML Module Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+XML Module v1.4
+
+The XML Module can process and extract data from an XML document. This module should be used for
+advanced use cases or use cases associated with XML standards such as XSLT, XPath, and XQuery or
+XSD. DataWeave is not only perfectly capable to handle most of those use cases and can replace those
+standards the majority of the times, but itâs also our recommended approach.
+
+Release Notes: [XML Module Release Notes](../../release-notes/mule-runtime/module-xml)
+
+## Configurations
+
+---
+
+### Default Configuration
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Namespaces</p></td><td><div><div><p>Array of <a href="#namespace">Namespace</a></p></div></div></td><td><p>Allows to globally map prefixes to namespace URIs. On this version, the xpath-extract operation is the only one to consume these mappings</p></td><td></td><td></td></tr><tr><td><p>Expand Entities</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NEVER</p></li><li><p>INTERNAL</p></li><li><p>ALL</p></li></ul></div></div></td><td><p>Defines how to treat entity expansion. Setting a value different than NEVER renders the application vulnerable to XXE and/or DoS attacks</p></td><td><p>NEVER</p></td><td></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime actually purges the instances when it sees fit.</p></td><td></td><td></td></tr></tbody></table>
+
+## Operations
+
+- [Validate Schema](#validateSchema)
+- [XPath Extract](#xpathExtract)
+- [XQuery Transform](#xqueryTransform)
+- [XSLT Transform](#xsltTransform)
+
+### Validate Schema
+
+`<xml-module:validate-schema>`
+
+Validates that the input content is compliant with a given schema. This operation supports
+referencing many schemas (using comma as a separator) which include each other.
+
+> [!NOTE] To add your schema content, you only provide either schema or schema content, but not
+> both. You can either upload your file in the **Schemas** field, or manually add the direct schema
+> text content in the **Schema contents** field.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Schemas</p></td><td><div><div><p>String</p></div></div></td><td><p>The path to the schema file. You can specify multiple schema locations by using a comma separator</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Schema Contents</p></td><td><div><div><p>Array of <a href="#SchemaContent">Schema Content</a></p></div></div></td><td><p>Schema text content for performing a schema validation.</p></td><td></td><td></td></tr><tr><td><p>Schema Language</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>W3C</p></li><li><p>RELAXNG</p></li></ul></div></div></td><td><p>The schema language to use.</p></td><td><p>W3C</p></td><td></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>the XML content to validate</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Expand Entities</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NEVER</p></li><li><p>INTERNAL</p></li><li><p>ALL</p></li></ul></div></div></td><td><p>Set to NEVER to prevent XXE and DoS attacks</p></td><td></td><td></td></tr></tbody></table>
+
+#### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- XML-MODULE:INVALID_INPUT_XML
+- XML-MODULE:INVALID_SCHEMA
+- XML-MODULE:SCHEMA_NOT_FOUND
+- XML-MODULE:SCHEMA_NOT_HONOURED
+- XML-MODULE:TRANSFORMATION
+- XML-MODULE:SCHEMA_INPUT_ERROR
+
+### XPath Extract
+
+`<xml-module:xpath-extract>`
+
+Evaluates an XPath expression the input content and returns the result. <p> Because XPath
+expressions can match any number of individual elements, this operation returns a List of Strings.
+If no element matched the expression, an empty list will be returned. <p> XPath expressions are also
+namespace aware, which is why this operation allows setting namespace mappings. These mappings will
+be merged with those optionally defined in the referenced namespace-directory, meaning that the
+evaluation will combine both sets of namespace mappings.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>the XML content on which the XPath is evaluated</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Xpath</p></td><td><div><div><p>String</p></div></div></td><td><p>the XPath script</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Context Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Properties that will be made available to the transform context.</p></td><td></td><td></td></tr><tr><td><p>Namespaces</p></td><td><div><div><p>Array of <a href="#namespace">Namespace</a></p></div></div></td><td><p>namespace mappings that will be used in this evaluation. They will be combined with the ones in the config element</p></td><td></td><td></td></tr><tr><td><p>Namespace Directory</p></td><td><div><div><p><a href="#namespaceDirectory">Namespace Directory</a></p></div></div></td><td><p>the namespace directory from which take base namespace mappings</p></td><td></td><td></td></tr><tr><td><p>Expand Entities</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NEVER</p></li><li><p>INTERNAL</p></li><li><p>ALL</p></li></ul></div></div></td><td><p>Set to NEVER to prevent XXE and DoS attacks</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operationâs output will be placed</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that will be evaluated against the operationâs output and the outcome of that expression will be stored in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Array of String</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- XML-MODULE:INVALID_INPUT_XML
+- XML-MODULE:INVALID_XPATH_EXPRESSION
+- XML-MODULE:NULL_CONTEXT_PROPERTY
+- XML-MODULE:TRANSFORMATION
+
+### XQuery Transform
+
+`<xml-module:xquery-transform>`
+
+Uses XQuery to transform the input content. You can set transformation context properties which will
+be made available on the XQuery execution
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>the XML content to transform</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Xquery</p></td><td><div><div><p>String</p></div></div></td><td><p>The XQuery script definition</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Context Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Properties that will be made available to the transform context.</p></td><td></td><td></td></tr><tr><td><p>Expand Entities</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NEVER</p></li><li><p>INTERNAL</p></li><li><p>ALL</p></li></ul></div></div></td><td><p>Set to NEVER to prevent XXE and DoS attacks</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operationâs output will be placed</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that will be evaluated against the operationâs output and the outcome of that expression will be stored in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Array of String</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- XML-MODULE:INVALID_INPUT_XML
+- XML-MODULE:NULL_CONTEXT_PROPERTY
+- XML-MODULE:TRANSFORMATION
+
+### XSLT Transform
+
+`<xml-module:xslt-transform>`
+
+Uses XSLT to transform the input content. You can set transformation context properties which will
+be made available on the stylesheet.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><div><div><p>Binary</p></div></div></td><td><p>the XML content to transform</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Xslt</p></td><td><div><div><p>String</p></div></div></td><td><p>the XSLT script definition</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Context Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Properties that will be made available to the transform context.</p></td><td></td><td></td></tr><tr><td><p>Expand Entities</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NEVER</p></li><li><p>INTERNAL</p></li><li><p>ALL</p></li></ul></div></div></td><td><p>Set to NEVER to prevent XXE and DoS attacks</p></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operationâs output will be placed</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression that will be evaluated against the operationâs output and the outcome of that expression will be stored in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+[Default Configuration](#config)
+
+#### Throws
+
+- XML-MODULE:INVALID_INPUT_XML
+- XML-MODULE:NULL_CONTEXT_PROPERTY
+- XML-MODULE:TRANSFORMATION
+
+## Types
+
+### Namespace
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Prefix</p></td><td><div><div><p>String</p></div></div></td><td><p>The prefix used in the XML document</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Uri</p></td><td><div><div><p>String</p></div></div></td><td><p>The namespace URI</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Schema Content
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Schema Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Schema name content to define.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Schema Text</p></td><td><div><div><p>String</p></div></div></td><td><p>Schema text content to define.</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Namespace Directory
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Namespaces</p></td><td><div><div><p>Array of <a href="#namespace">Namespace</a></p></div></div></td><td><p>Globally maps prefixes to namespace uris. On this version, the xpath-extract operation is the only one to consume these mappings</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Validate Documents Against an XSD Schema with the XML Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The XML module **Validate schema** operation validates that the input content is compliant with a
+given XSD schema. The operation supports referencing many schemas, using a comma (`,`) as a
+separator. By default, this operation looks for the input document at the message payload level, but
+you can supply your own input as well. Note that you can use the **Validate schema** operation
+inside the Validation module **All** scope.
+
+## Configure the Validation Schema Operation in Studio
+
+In the following example, you validate XML schemas that contain a script:
+
+1.  In Studio, drag the **Validate schema** operation to your flow. In the **Schemas** field, add
+    your schema files, separating filenames by using a comma, for example,
+    `schema1.xsd, schema2.xsd`.
+2.  Drag a **Flow Reference** component to the right of the **Validate schema** operation.
+3.  Set **Flow name** to `processValidDocument`.
+
+![In the Schemas field](_images/xml-validate-schema-1.png)
+
+In the **Configuration XML** editor, the `<xml-module:validate-schema>` configuration looks like
+this:
+
+```xml
+<flow name="process">
+    <xml-module:validate-schema schemas="schema1.xsd, schema2.xsd" />
+    <flow-ref name="processValidDocument" />
+</flow>
+```
+
+In the following example, you configure the **Validate schema** operation by supplying your own
+input:
+
+1.  In Studio, drag the File **Read** operation to your flow.
+2.  In the configuration screen, set **File Path** to `document.xml`.
+3.  In the **Advanced** tab, set **Target Variable** to `xmlDoc`.
+4.  Drag the XML module **Validate schema** operation to the right of the **Read** operation.
+5.  In the **Schemas** field, add your schemas and separate their names by using commas, for
+    example, `schema1.xsd, schema2.xsd`.
+6.  Set the **Content** field to the XML content to validate, for example, `#[vars.xmlDoc]`.
+7.  Drag a **Flow Reference** component to the right of the **Validate schema** operation.
+8.  Set **Flow name** to `processValidDocument`.
+
+![In the Content field](_images/xml-validate-schema-2.png)
+
+In the **Configuration XML** editor, the `<xml-module:validate-schema>` and `<xml-module:content>`
+configurations look like this:
+
+```xml
+<flow name="process">
+    <file:read path="document.xml" target="xmlDoc" />
+    <xml-module:validate-schema schemas="schema1.xsd, schema2.xsd">
+        <xml-module:content>#[vars.xmlDoc]</xml-module:content>
+    </xml:module:validate-schema>
+    <flow-ref name="processValidDocument" />
+</flow>
+```
+
+## Manage the Validation Error
+
+If the validation is successful, the flow continues to the next operation. However, if the
+validation fails, an `XML-MODULE:SCHEMA_NOT_HONOURED` error is raised.  
+Because the validation can fail for more than one reason, the error description contains a list of
+messages. Each message contains a `SchemaViolation` object that has the following structure:
+
+```yaml
+{ lineNumber: Number, columnNumber: Number, description: String }
+```
+
+In the following example, you configure the **Validate schema** operation and the
+`XML-MODULE:SCHEMA_NOT_HONOURED` error in the Error Handler component:
+
+1.  In Studio, drag the **Try** scope component to your flow.
+2.  Drag the XML module **Validate schema** operation into the **Try** scope component.
+3.  In the **Schemas** field, add your schema, for example, `schema.xsd`.
+4.  In your flow, click the **Error handling** arrow to expand the error-handling section.
+5.  Drag the **On Error Propagate** component into the **Error handling** section.
+6.  Set the **Type** field to the Mule error handled by this on-error strategy, for example,
+    `XML-MODULE:SCHEMA_NOT_HONOURED`.
+7.  Deselect **Enable Notifications** and **Log Exception** fields.
+8.  Drag a **For Each** scope component into the **On Error Propagate** component to iterate over
+    each `errorMessage.payload`.
+9.  Set the **Collection** field to the expression that splits the payload into individual pieces,
+    for example, `#[error.errorMessage.payload]`.
+10. Drag a **Logger** component into the **For Each** scope component to log the XML module error.
+11. Set the **Message** field to the expression that contains the `SchemaViolation` objects that
+    describe the message, for example,
+    `#['At line: $(payload.lineNumber), column: $(payload.columnNumber) â $(payload.description)']`.
+12. Save your changes.
+13. Click the project name in **Package Explorer** and then click **Run > Run As > Mule
+    Application**.
+14. Navigate to the Console view to read the logger message:
+
+    ```none
+    ERROR 2018-02-16 14:35:45,722 [[MuleRuntime].cpuIntensive.01: [SchemaValidationTestCase#extractErrorsUsingExpressions].extractErrorsFromException.CPU_INTENSIVE @411e886b] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: At line: -1, column: -1 -> cvc-complex-type.2.4.a: Invalid content was found starting with element 'fail'. One of '{used}' is expected.
+    ```
+
+    ![The XML module manage validation error flow](_images/xml-validate-schema-3.png)
+
+In the **Configuration XML** editor, the
+`<on-error-propagate type="XML-MODULE:SCHEMA_NOT_HONOURED">` configuration looks like this:
+
+```xml
+ <flow name="extractErrorsFromException">
+    <try>
+        <xml-module:validate-schema schemas="schema.xsd" />
+        <error-handler>
+            <on-error-propagate type="XML-MODULE:SCHEMA_NOT_HONOURED">
+                <foreach collection="#[error.errorMessage.payload]">
+                    <logger level="ERROR" message="#['At line: $(payload.lineNumber), column: $(payload.columnNumber) -> $(payload.description)']" />
+                </foreach>
+            </on-error-propagate>
+        </error-handler>
+    </try>
+</flow>
+```
+
+## Configure Schema Text Content
+
+In the following example, you configure the **Schema contents** field of the **Validate schema**
+operation. Enter the schema text into this field to perform a schema validation.
+
+> [!NOTE] To add your schema content, you only provide either schema or schema content, but not
+> both. You can either upload your file in the **Schemas** field, or manually add the direct schema
+> text content in the **Schema contents** field.
+
+1.  In Studio, select the **Validate schema** operation from your flow.
+2.  In the **Validate schema** operation configuration screen, set **Schema contents** to **Edit
+    inline**.
+
+![Schema content field set to Edit inline in the Validate schema configuration screen](_images/xml-schema-content-1.png)
+
+3.  Click the plus sign to add a schema name and text.
+4.  In the **Schema content** windowâs **Schema name** field, enter a schema name, for example,
+    `schema1.xsd`.
+5.  In the **Schema text** field, enter the schema text content, for example:
+
+```xml
+<?xml version = "1.0"?>
+<xs:schema xmlns:xs = "http://www.w3.org/2001/XMLSchema">
+   <xs:element name = 'class'>
+      <xs:complexType>
+         <xs:sequence>
+             <xs:element name = 'student' type = 'StudentType' minOccurs = '0'
+                maxOccurs = 'unbounded' />
+         </xs:sequence>
+      </xs:complexType>
+   </xs:element>
+
+   <xs:complexType name = "StudentType">
+      <xs:sequence>
+         <xs:element name = "firstname" type = "xs:string"/>
+         <xs:element name = "lastname" type = "xs:string"/>
+         <xs:element name = "nickname" type = "xs:string"/>
+         <xs:element name = "marks" type = "xs:positiveInteger"/>
+      </xs:sequence>
+      <xs:attribute name = 'rollno' type = 'xs:positiveInteger'/>
+   </xs:complexType>
+</xs:schema>
+```
+
+![Schema content window with the Schema name and Schema text fields](_images/xml-schema-content-2.png)
+
+6.  Click **Finish**.
+
+## See Also
+
+- [XML Module Examples](xml-module-examples)
+- [XML Module Overview](./)
+---
+
+# Using XPath with the XML Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The `<xml-module:xpath-extract>` operation supports the evaluation of XPath expressions.
+
+Because XPath expressions can match any number of individual elements, this operation returns a list
+of Strings. If no element matches the expression, the operation returns an empty list.
+
+XPath expressions are also namespace-aware, so this operation allows namespace mappings. These
+mappings are merged with any `namespaces` defined in the referenced `namespace-directory`, meaning
+that the evaluation combines both sets of namespace mappings.
+
+Although MuleSoft supports the XPath standard, DataWeave is capable of achieving the same use cases
+and is the recommended tool for extracting and transforming XML documents.
+
+This example shows how to work with XML that contains the script of the play Othello by William
+Shakespeare. The XML file looks like this:
+
+```xml
+<?xml version="1.0"?>
+<!--<!DOCTYPE PLAY SYSTEM "play.dtd">-->
+<PLAY>
+    <TITLE>The Tragedy of Othello, the Moor of Venice</TITLE>
+    <FM>
+        <P>Text placed in the public domain by Moby Lexical Tools, 1992.</P>
+        <P>SGML markup by Jon Bosak, 1992-1994.</P>
+        <P>XML version by Jon Bosak, 1996-1998.</P>
+        <P>This work may be freely copied and distributed worldwide.</P>
+    </FM>
+    <PERSONAE>
+        <TITLE>Dramatis Personae</TITLE>
+
+        <PERSONA>DUKE OF VENICE</PERSONA>
+        <PERSONA>BRABANTIO, a senator.</PERSONA>
+        <PERSONA>Other Senators.</PERSONA>
+        <PERSONA>GRATIANO, brother to Brabantio.</PERSONA>
+        <PERSONA>LODOVICO, kinsman to Brabantio.</PERSONA>
+        <PERSONA>OTHELLO, a noble Moor in the service of the Venetian state.</PERSONA>
+        <PERSONA>CASSIO, his lieutenant.</PERSONA>
+        <PERSONA>IAGO, his ancient.</PERSONA>
+        <PERSONA>RODERIGO, a Venetian gentleman.</PERSONA>
+        <PERSONA>MONTANO, Othello's predecessor in the government of Cyprus.</PERSONA>
+        <PERSONA>Clown, servant to Othello. </PERSONA>
+        <PERSONA>DESDEMONA, daughter to Brabantio and wife to Othello.</PERSONA>
+        <PERSONA>EMILIA, wife to Iago.</PERSONA>
+        <PERSONA>BIANCA, mistress to Cassio.</PERSONA>
+        <PERSONA>Sailor, Messenger, Herald, Officers, Gentlemen, Musicians, and Attendants.</PERSONA>
+    </PERSONAE>
+
+    <SCNDESCR>SCENE  Venice: a Sea-port in Cyprus.</SCNDESCR>
+    <PLAYSUBT>OTHELLO</PLAYSUBT>
+    <ACT><TITLE>ACT I</TITLE>
+    <SCENE><TITLE>SCENE I.  Venice. A street.</TITLE>
+    <STAGEDIR>Enter RODERIGO and IAGO</STAGEDIR>
+    <SPEECH>
+        <SPEAKER>RODERIGO</SPEAKER>
+        <LINE>Tush! never tell me; I take it much unkindly</LINE>
+        <LINE>That thou, Iago, who hast had my purse</LINE>
+        <LINE>As if the strings were thine, shouldst know of this.</LINE>
+    </SPEECH>
+
+.....
+<!-- A LOT MORE CONTENT -->
+```
+
+Assumethat you have the text of the entire play in the format shown above. You can use this script
+to extract all lines that contain the word `handkerchief`:
+
+XPath Script
+
+```xml
+<xml-module:xpath-extract xpath="//LINE[contains(., $word)]"> (1)
+    <xml-module:context-properties>#[{'word': 'handkerchief'}]</xml-module:context-properties> (2)
+</xml-module:xpath-extract>
+```
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>Provides an XPath expression that uses the <code>$</code> prefix to reference context properties.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Uses DataWeave in the <code>context-properties</code> parameter to produce the context properties.</td></tr></tbody></table>
+
+The XPath script above outputs the following List of Strings, where each `LINE` is a different item
+in the list:
+
+Output
+
+```xml
+<LINE>For the same handkerchief?</LINE>
+<LINE>What handkerchief?</LINE>
+<LINE>What handkerchief?</LINE>
+<LINE>Have you not sometimes seen a handkerchief</LINE>
+<LINE>I know not that; but such a handkerchief--</LINE>
+<LINE>Where should I lose that handkerchief, Emilia?</LINE>
+<LINE>Lend me thy handkerchief.</LINE>
+<LINE>That handkerchief</LINE>
+<LINE>Fetch me the handkerchief: my mind misgives.</LINE>
+<LINE>The handkerchief!</LINE>
+<LINE>The handkerchief!</LINE>
+<LINE>The handkerchief!</LINE>
+<LINE>Sure, there's some wonder in this handkerchief:</LINE>
+<LINE>But if I give my wife a handkerchief,--</LINE>
+<LINE>But, for the handkerchief,--</LINE>
+<LINE>Boding to all--he had my handkerchief.</LINE>
+<LINE>--Handkerchief--confessions--handkerchief!--To</LINE>
+<LINE>--Is't possible?--Confess--handkerchief!--O devil!--</LINE>
+<LINE>mean by that same handkerchief you gave me even now?</LINE>
+<LINE>By heaven, that should be my handkerchief!</LINE>
+<LINE>And did you see the handkerchief?</LINE>
+<LINE>That handkerchief which I so loved and gave thee</LINE>
+<LINE>By heaven, I saw my handkerchief in's hand.</LINE>
+<LINE>I saw the handkerchief.</LINE>
+<LINE>It was a handkerchief, an antique token</LINE>
+<LINE>O thou dull Moor! that handkerchief thou speak'st of</LINE>
+<LINE>How came you, Cassio, by that handkerchief</LINE>
+```
+
+By default, the operation attempts to transform an XML document at the message payload level.
+However, you can use the `content` parameter to supply the input document:
+
+```xml
+<flow name="linesFromOthello">
+    <file:read path="othello.xml" target="othello" />
+    <xml-module:xpath-extract xpath="//LINE[contains(., $word)]">
+        <xml-module:content>#[vars.othello]</xml-module:content>
+        <xml-module:context-properties>#[{'word': 'handkerchief'}]</xml-module:context-properties>
+    </xml-module:xpath-extract>
+</flow>
+```
+
+The example above gets the content from elsewhere (in this case, from a file in the filesystem) and
+then references it using a simple expression.
+
+## Mapping Namespaces
+
+There are cases in which the input XML document contains elements with different namespaces, for
+example:
+
+```xml
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body foo="bar">
+    <ns1:echo xmlns:mule="http://simple.component.mule.org/">
+      <ns1:echo>Hello!</ns1:echo>
+    </ns1:echo>
+  </soap:Body>
+</soap:Envelope>
+```
+
+The following example maps each `prefix` used in the XPath expressions to the corresponding
+namespace `uri`.
+
+```xml
+ <flow name="xpathWithInlineNs">
+    <xml-module:xpath-extract xpath="/soap:Envelope/soap:Body/mule:echo/mule:echo">
+        <xml-module:namespaces>
+            <xml-module:namespace prefix="soap" uri="http://schemas.xmlsoap.org/soap/envelope/"/>
+            <xml-module:namespace prefix="mule" uri="http://simple.component.mule.org/"/>
+        </xml-module:namespaces>
+    </xml-module:xpath-extract>
+</flow>
+```
+
+But what happens if you need to execute several XPath expressions that use the same namespaces? To
+avoid performing the mapping each time, you can create a `namespace-directory` for the mappings and
+then reference that directory, for example:
+
+```xml
+<xml-module:namespace-directory name="fullNs"> (1)
+    <xml-module:namespaces>
+        <xml-module:namespace prefix="soap" uri="http://schemas.xmlsoap.org/soap/envelope/"/>
+        <xml-module:namespace prefix="mule" uri="http://simple.component.mule.org/"/>
+    </xml-module:namespaces>
+</xml-module:namespace-directory>
+
+<flow name="xpathWithFullNs">
+    <xml-module:xpath-extract
+      xpath="/soap:Envelope/soap:Body/mule:echo/mule:echo"
+      namespaceDirectory="fullNs"/> (2)(3)
+</flow>
+```
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>The <code>namespace-directory</code> element is used to map prefixes to the actual namespace URIs. Notice these prefixes should match those used in the input document.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>You can then reference those prefixes in your XPath expression.</td></tr><tr><td><i data-value="3"></i><b>3</b></td><td>Finally, use the <code>namespaceDirectory</code> parameter to reference the mapping created in step 1.</td></tr></tbody></table>
+
+Finally, you can combine use cases. For example, you can have a global `namespaceDirectory` that
+contains some mappings and then add additional ones at the operation level. This combination is
+useful if you have a lot of documents that all contain the `soap` namespace but only one of them
+contains the `mule` namespace:
+
+```xml
+<xml-module:namespace-directory name="partialNs"> (1)
+    <xml-module:namespaces>
+        <xml-module:namespace prefix="soap" uri="http://schemas.xmlsoap.org/soap/envelope/"/>
+    </xml-module:namespaces>
+</xml-module:namespace-directory>
+
+<flow name="xpathWithMergedNs">
+    <xml-module:xpath-extract
+      xpath="/soap:Envelope/soap:Body/mule:echo/mule:echo"
+      namespaceDirectory="partialNs"> (2) (3)
+        <xml-module:namespaces>
+            <xml-module:namespace prefix="mule" uri="http://simple.component.mule.org/"/> (4)
+        </xml-module:namespaces>
+    </xml-module:xpath-extract>
+</flow>
+```
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>As you did previously, declare a <code>namespace-directory</code>, but supply only the common namespaces.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Provide your XPath expression.</td></tr><tr><td><i data-value="3"></i><b>3</b></td><td>Reference the partial namespace directory.</td></tr><tr><td><i data-value="4"></i><b>4</b></td><td>Provide the additional mapping.</td></tr></tbody></table>
+
+It is important to note that the prefixes used in the mappings and XPath expressions must match the
+ones used in the input document.
+
+## Using XPath as a Function
+
+The XML module provides a DataWeave function for extracting values using XPath. This is useful in
+cases such as a `<choice>` or `<foreach>` routers.
+
+Note that you can also use this function inside any DataWeave transformation.
+
+## Using the XPath Function with <foreach>
+
+In the following example, `<foreach>` is used to iterate over all the lines in the previous
+[Othello lines](#othello_lines) example, and process them separately:
+
+```xml
+<foreach collection="#[XmlModule::xpath('//LINE', payload, {})]">
+    <flow-ref name="processLine" />
+</foreach>
+```
+
+- The first argument is the XPath expression.
+- The second argument is the input document, which, in this case, is the message payload.
+- The third argument is the context properties, which, in this case, are not required, so the
+  function passes an empty object (`{}`).
+- The fourth argument is **optional** and provides the namespaces to evaluate the expression xpath.
+
+## Using XPath Function with <choice>
+
+Returning to the [Othello lines](#othello_lines) example, suppose you want to do something if the
+input document does not contain the word `handkerchief`.
+
+```xml
+<choice>
+    <when expression="#[isEmpty(XmlModule::xpath('//LINE[contains(., \$word)]', vars.untrustedOthello, {'word': 'handkerchief'}))]">
+        <flow-ref name="alteredOthello" />
+    </when>
+</choice>
+```
+
+- Since the `XmlModule::xpath` function returns a list, the previous example uses the DataWeave
+  `isEmpty()` function to test whether or not the output is empty.
+- The first argument of the XPath function is an expression that uses the `$word` context property.
+- The second argument is the input document within a variable.
+- The third argument provides the context properties values.
+- The fourth argument is **optional** and provides the namespaces to evaluate the expression xpath.
+
+## Using XPath Function with Namespaces
+
+When the input document has XML namespaces, the XPath function needs that information to perform the
+evaluation. In the following examples, you use the `set-payload` component to get the bookâs title,
+authorâs name and bookâs year tag from an input document. The document has an explicit default
+`xmlns` attribute and other `xmlns` attributes for languages and author:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Book xmlns="http://www.books.org/2001/XMLSchema"
+      xmlns:lang="http://www.books.org/2001/XMLLang"
+      xmlns:author="http://www.books.org/2001/XMLAuthors">
+    <Title>Fundamentals</Title>
+    <Year>2001</Year>
+    <author:name>David Mills</author:name>
+    <lang:name>English</lang:name>
+</Book>
+```
+
+In the first example, in order to get the bookâs title, configure the `set-payload` component as
+follows:
+
+```xml
+<set-payload value="#[XmlModule::xpath('/b:Book/b:Title/text()', payload, {}, [{prefix:'b', uri:'http://www.books.org/2001/XMLSchema'}])]" />
+```
+
+The result output is `Fundamentals`.
+
+In the second example, to get the authorâs name, configure the `set-payload` component as follows:
+
+```xml
+<set-payload value="#[XmlModule::xpath('/b:Book/author:name/text()', payload, {}, [{prefix:'b', uri:'http://www.books.org/2001/XMLSchema'}, {prefix:'author', uri:'http://www.books.org/2001/XMLAuthors'}])]" />
+```
+
+The result output is `David Mills`.
+
+In the third example, to get the bookâs year tag, configure the `set-payload` component as follows:
+
+```xml
+<set-payload value="#[XmlModule::xpath('/b:Book/b:Year', payload, {}, [{prefix:'b', uri:'http://www.books.org/2001/XMLSchema'}])]" />
+```
+
+The result output that contains the `xmlns` attribute is
+`<Year xmlns="http://www.books.org/2001/XMLSchema">2001</Year>`.
+
+## See Also
+
+[XML Module Overview](./)
+---
+
+# Using XQuery with the XML Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The `<xml-module:xquery-transform>` operation supports the evaluation of XQuery expressions.
+
+Because XQuery expressions can match any number of individual elements, this operation returns a
+List of Strings. If no element matches the expression, the operation returns an empty list.
+
+Note that though MuleSoft supports the XQuery standard, DataWeave is capable of achieving the same
+use cases and is the recommended tool for extracting and transforming XML documents.
+
+This example shows how to use XQuery to manipulate a list of books:
+
+Input: Book List
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<BOOKLIST xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="books.xsd">
+    <BOOKS>
+        <ITEM CAT="MMP">
+            <TITLE>Pride and Prejudice</TITLE>
+            <AUTHOR>Jane Austen</AUTHOR>
+            <PUBLISHER>Modern Library</PUBLISHER>
+            <PUB-DATE>2002-12-31</PUB-DATE>
+            <LANGUAGE>English</LANGUAGE>
+            <PRICE>9</PRICE>
+            <QUANTITY>187</QUANTITY>
+            <ISBN>0679601686</ISBN>
+            <PAGES>352</PAGES>
+            <DIMENSIONS UNIT="in">8.3 5.7 1.1</DIMENSIONS>
+            <WEIGHT UNIT="oz">6.1</WEIGHT>
+        </ITEM>
+        <ITEM CAT="P">
+            <TITLE>Wuthering Heights</TITLE>
+            <AUTHOR>Charlotte Bronte</AUTHOR>
+            <PUBLISHER>Penguin Classics</PUBLISHER>
+            <PUB-DATE>2002-12-31</PUB-DATE>
+            <LANGUAGE>English</LANGUAGE>
+            <PRICE>9.040000000000001</PRICE>
+            <QUANTITY>113</QUANTITY>
+            <ISBN>0141439556</ISBN>
+            <PAGES>430</PAGES>
+            <DIMENSIONS UNIT="in">1.0 5.2 7.8</DIMENSIONS>
+            <WEIGHT UNIT="oz">11.2</WEIGHT>
+        </ITEM>
+        <ITEM CAT="P">
+            <TITLE>Tess of the d'Urbervilles</TITLE>
+            <AUTHOR>Thomas Hardy</AUTHOR>
+            <PUBLISHER>Bantam Classics</PUBLISHER>
+            <PUB-DATE>1984-05-01</PUB-DATE>
+            <LANGUAGE>English</LANGUAGE>
+            <PRICE>12.5</PRICE>
+            <QUANTITY>85</QUANTITY>
+            <ISBN>0553211684</ISBN>
+            <PAGES>480</PAGES>
+            <DIMENSIONS UNIT="in">6.8 4.2 0.8</DIMENSIONS>
+            <WEIGHT UNIT="oz">7.7</WEIGHT>
+        </ITEM>
+        <ITEM CAT="P">
+            <TITLE>Jude the Obscure</TITLE>
+            <AUTHOR>Thomas Hardy</AUTHOR>
+            <PUBLISHER>Penguin Classics</PUBLISHER>
+            <PUB-DATE>1998-09-01</PUB-DATE>
+            <LANGUAGE>English</LANGUAGE>
+            <PRICE>7</PRICE>
+            <QUANTITY>129</QUANTITY>
+            <ISBN>0140435387</ISBN>
+            <PAGES>528</PAGES>
+            <DIMENSIONS UNIT="in">7.8 5.2 0.9</DIMENSIONS>
+            <WEIGHT UNIT="oz">10.9</WEIGHT>
+        </ITEM>
+        <ITEM CAT="H">
+            <TITLE>The Big Over Easy</TITLE>
+            <AUTHOR>Jasper Fforde</AUTHOR>
+            <PUBLISHER>Hodder &amp; Stoughton</PUBLISHER>
+            <PUB-DATE>2005-07-11</PUB-DATE>
+            <LANGUAGE>English</LANGUAGE>
+            <PRICE>14.55</PRICE>
+            <QUANTITY>129</QUANTITY>
+            <ISBN>0340835672</ISBN>
+            <PAGES>346</PAGES>
+            <DIMENSIONS UNIT="cm">22.5 18.0 3.5</DIMENSIONS>
+            <WEIGHT UNIT="g">390</WEIGHT>
+        </ITEM>
+        <ITEM CAT="P">
+            <TITLE>The Eyre Affair</TITLE>
+            <AUTHOR>Jasper Fforde</AUTHOR>
+            <PUBLISHER>Penguin</PUBLISHER>
+            <PUB-DATE>2003-02-25</PUB-DATE>
+            <LANGUAGE>English</LANGUAGE>
+            <PRICE>15</PRICE>
+            <QUANTITY>129</QUANTITY>
+            <ISBN>0142001805</ISBN>
+            <PAGES>384</PAGES>
+            <DIMENSIONS UNIT="in">7.8 5.0 0.9</DIMENSIONS>
+            <WEIGHT UNIT="oz">9.0</WEIGHT>
+        </ITEM>
+    </BOOKS>
+    <CATEGORIES DESC="Miscellaneous categories">
+        <CATEGORY CODE="P" DESC="Paperback"/>
+        <CATEGORY CODE="MMP" DESC="Mass-market Paperback"/>
+        <CATEGORY CODE="H" DESC="Hard Cover"/>
+    </CATEGORIES>
+</BOOKLIST>
+```
+
+This example uses XQuery to transform the book list above:
+
+XQuery Transformation Script
+
+```xml
+ <xml-module:xquery-transform>
+    <xml-module:xquery><![CDATA[
+        xquery version "3.0";
+        declare copy-namespaces no-preserve, inherit;
+        declare variable $document external;
+
+        for $b in $document//BOOKS/ITEM
+        order by string-length($b/TITLE) return
+        <book>
+            <author> { $b/AUTHOR } </author>
+            <title> { $b/TITLE } </title>
+        </book>
+    ]]></xml-module:xquery>
+</xml-module:xquery-transform>
+```
+
+The XQuery transformation produces a List of Strings in which each entry corresponds to each of the
+following `<book>` elements:
+
+Output XML
+
+```xml
+<book>
+   <author>
+      <AUTHOR>Jasper Fforde</AUTHOR>
+   </author>
+   <title>
+      <TITLE>The Eyre Affair</TITLE>
+   </title>
+</book>
+<book>
+   <author>
+      <AUTHOR>Thomas Hardy</AUTHOR>
+   </author>
+   <title>
+      <TITLE>Jude the Obscure</TITLE>
+   </title>
+</book>
+<book>
+   <author>
+      <AUTHOR>Charlotte Bronte</AUTHOR>
+   </author>
+   <title>
+      <TITLE>Wuthering Heights</TITLE>
+   </title>
+</book>
+<book>
+   <author>
+      <AUTHOR>Jasper Fforde</AUTHOR>
+   </author>
+   <title>
+      <TITLE>The Big Over Easy</TITLE>
+   </title>
+</book>
+<book>
+   <author>
+      <AUTHOR>Jane Austen</AUTHOR>
+   </author>
+   <title>
+      <TITLE>Pride and Prejudice</TITLE>
+   </title>
+</book>
+<book>
+   <author>
+      <AUTHOR>Thomas Hardy</AUTHOR>
+   </author>
+   <title>
+      <TITLE>Tess of the d'Urbervilles</TITLE>
+   </title>
+</book>
+```
+
+By default, the operation attempts to transform an XML document at the message payload level.
+However, you can use the `content` parameter to supply the input document:
+
+Example: Using the content Parameter
+
+```xml
+<flow name="books">
+    <file:read path="books.xml" target="books" />
+    <xml-module:xquery-transform>
+        <xml-module:content>#[vars.books]</xml-module:content>
+        <xml-module:xquery><![CDATA[
+            xquery version "3.0";
+            declare copy-namespaces no-preserve, inherit;
+            declare variable $document external;
+
+            for $b in $document//BOOKS/ITEM
+            order by string-length($b/TITLE) return
+            <book>
+                <author> { $b/AUTHOR } </author>
+                <title> { $b/TITLE } </title>
+            </book>
+        ]]></xml-module:xquery>
+    </xml-module:xquery-transform>
+</flow>
+```
+
+The example above gets the content from elsewhere (in this case, from a file in the filesystem) and
+then references it through a simple expression.
+
+## Externalizing the XQuery Script to a Separate File
+
+To avoid embedding the XQuery script in your Mule app, you can pass it to the module through a file,
+for example:
+
+Example
+
+```xml
+<xml-module:xquery-transform>
+    <xml-module:xquery>${file::scripts/books.xquery}</xml-module:xquery>
+</xml-module:xquery-transform>
+```
+
+In a more complex use case, the script you use might depend on some external condition. For example,
+imagine a multi-tenant integration in which the actual transformation to use depends on a `userID`:
+
+Complex Example
+
+```xml
+<flow name="multitenantExample">
+    <http:listener path="transform" allowedMethods="POST" config-ref="httpListener" /> (1)
+    <file:read path="#['xquery/$(attributes.queryParam.userId).xquery']" target="xquery" /> (2)
+     <xml-module:xquery-transform>
+        <xml-module:xquery>#[vars.xquery]</xml-module:xquery>
+    </xml-module:xquery-transform>
+</flow>
+```
+
+1.  This flow is triggered through an HTTP request.
+2.  Assuming that the `userID` is provided as a query parameter, the example uses the File connector
+    read the correct XQuery script and store it in a variable.
+3.  The module executes a transformation using an expression that points to the XQuery script
+    retrieved through the Read operation.
+
+Note that the HTTP and File connectors are simply used as examples. They are not required to perform
+similar use cases.
+
+## Using Context Properties and Multiple Inputs
+
+Like its `xpath` and `xslt` counterparts, the `xquery` operation supports context parameters that
+can pass arguments to the transformation.
+
+For example, assume that you want to combine the `books` XML above with the following `cities` XML
+document:
+
+Input
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<cities>
+    <city name="milan" country="italy" pop="5"/>
+    <city name="paris" country="france" pop="7"/>
+    <city name="munich" country="germany" pop="4"/>
+    <city name="lyon" country="france" pop="2"/>
+    <city name="venice" country="italy" pop="1"/>
+</cities>
+```
+
+Letâs look at an example for this use case:
+
+XQuery Transformation Script
+
+```xml
+<flow name="multipleInputs">
+  <file:read path="books.xml" target="books" />
+  <file:read path="cities.xml" target="cities" /> (1)
+  <xml-module:xquery-transform>
+    <xml-module:xquery>
+      <![CDATA[
+          xquery version "3.0";
+          declare variable $document external;
+          declare variable $cities external; (2)
+          declare variable $books external; (3)
+          <mixes>
+            {
+              for $b in fn:doc($books)/BOOKLIST/BOOKS/ITEM,
+                $c in fn:doc($cities)/cities/city (4)
+
+              return <mix title="{$b/TITLE/text()}" city="{$c/@name}" /> (5)
+            }
+          </mixes>
+      ]]>
+    </xml-module:xquery>
+    <xml-module:context-properties>
+      #[{'books' : vars.books, 'cities': vars.cities}]
+    </xml-module:context-properties> (6)
+  </xml-module:xquery-transform>
+</flow>
+```
+
+<table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>Read the input documents, and store the contents in variables. This example uses the File connector, but any data source is acceptable.</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Declare the <code>$cities</code> variable in the XQuery script.</td></tr><tr><td><i data-value="3"></i><b>3</b></td><td>Declare the <code>$books</code> variable in the XQuery script.</td></tr><tr><td><i data-value="4"></i><b>4</b></td><td>Reference both documents using the <code>$</code> prefix, and iterate both of them.</td></tr><tr><td><i data-value="5"></i><b>5</b></td><td>Produce the output elements.</td></tr><tr><td><i data-value="6"></i><b>6</b></td><td>Use DataWeave and the <code>&lt;xml-module:context-properties&gt;</code> parameter to bind the properties.</td></tr></tbody></table>
+
+The script will output a List of Strings with only one item:
+
+Output
+
+```xml
+<mixes>
+   <mix title="Pride and Prejudice" city="milan"/>
+   <mix title="Pride and Prejudice" city="paris"/>
+   <mix title="Pride and Prejudice" city="munich"/>
+   <mix title="Pride and Prejudice" city="lyon"/>
+   <mix title="Pride and Prejudice" city="venice"/>
+   <mix title="Wuthering Heights" city="milan"/>
+   <mix title="Wuthering Heights" city="paris"/>
+   <mix title="Wuthering Heights" city="munich"/>
+   <mix title="Wuthering Heights" city="lyon"/>
+   <mix title="Wuthering Heights" city="venice"/>
+   <mix title="Tess of the d'Urbervilles" city="milan"/>
+   <mix title="Tess of the d'Urbervilles" city="paris"/>
+   <mix title="Tess of the d'Urbervilles" city="munich"/>
+   <mix title="Tess of the d'Urbervilles" city="lyon"/>
+   <mix title="Tess of the d'Urbervilles" city="venice"/>
+   <mix title="Jude the Obscure" city="milan"/>
+   <mix title="Jude the Obscure" city="paris"/>
+   <mix title="Jude the Obscure" city="munich"/>
+   <mix title="Jude the Obscure" city="lyon"/>
+   <mix title="Jude the Obscure" city="venice"/>
+   <mix title="The Big Over Easy" city="milan"/>
+   <mix title="The Big Over Easy" city="paris"/>
+   <mix title="The Big Over Easy" city="munich"/>
+   <mix title="The Big Over Easy" city="lyon"/>
+   <mix title="The Big Over Easy" city="venice"/>
+   <mix title="The Eyre Affair" city="milan"/>
+   <mix title="The Eyre Affair" city="paris"/>
+   <mix title="The Eyre Affair" city="munich"/>
+   <mix title="The Eyre Affair" city="lyon"/>
+   <mix title="The Eyre Affair" city="venice"/>
+</mixes>
+```
+
+## See Also
+
+[XML Module Overview](./)
+---
+
+# XSLT Transformations with the XML Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The `<xml-module:xslt-transform>` element can take an input XML document and transform it using an
+XSL style sheet.
+
+Although MuleSoft supports the XSLT standard, DataWeave is the recommended tool for extracting and
+transforming XML documents.
+
+This is an example XML input document:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<cities>
+    <city name="milan"  country="italy"   pop="5"/>
+    <city name="paris"  country="france"  pop="7"/>
+    <city name="munich" country="germany" pop="4"/>
+    <city name="lyon"   country="france"  pop="2"/>
+    <city name="venice" country="italy"   pop="1"/>
+</cities>
+```
+
+You can transform the XML input document like this:
+
+```xml
+<xml-module:xslt-transform>
+    <xml-module:xslt><![CDATA[
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">
+            <table>
+            <tr>
+                <th>Country</th>
+                <th>City List</th>
+                <th>Population</th>
+            </tr>
+            <xsl:for-each-group select="cities/city" group-by="@country">
+                <tr>
+                    <td>
+                        <xsl:value-of select="@country"/>
+                    </td>
+                    <td>
+                        <xsl:value-of select="current-group()/@name" separator=", "/>
+                    </td>
+                    <td>
+                        <xsl:value-of select="sum(current-group()/@pop)"/>
+                    </td>
+                </tr>
+            </xsl:for-each-group>
+            </table>
+        </xsl:template>
+    </xsl:stylesheet>
+]]></xml-module:xslt>
+</xml-module:xslt-transform>
+```
+
+This script outputs the following document:
+
+```xml
+<table>
+    <tr>
+        <th>Country</th>
+        <th>City List</th>
+        <th>Population</th>
+    </tr>
+    <tr>
+        <td>italy</td>
+        <td>milan, venice</td>
+        <td>6</td>
+    </tr>
+    <tr>
+        <td>france</td>
+        <td>paris, lyon</td>
+        <td>9</td>
+    </tr>
+    <tr>
+        <td>germany</td>
+        <td>munich</td>
+        <td>4</td>
+    </tr>
+</table>
+```
+
+Although this operation looks for the input document at the message payload level by default, you
+can supply your own input. For example, imagine that the cities are a JSON array inside the payload.
+You could then first transform the JSON to XML, and then run the XSL transformation:
+
+```xml
+<xml-module:xslt-transform>
+    <xml-module:content><![CDATA[
+                %dw 2.0
+                input payload application/json encoding='UTF-8'
+                output application/xml encoding='UTF-8'
+                ---
+                payload.cities
+    ]]></xml-module:content>
+    <xml-module:xslt><![CDATA[
+        // THE XSLT
+    ]]></xml-module:xslt>
+</xml-module:xslt-transform>
+```
+
+## Externalizing the XSL Style Sheet to a Separate File
+
+To avoid embedding the XSLT script in your Mule app, you can pass it to the module through a file,
+for example:
+
+```xml
+<xml-module:xslt-transform>
+    <xml-module:xslt>${file::xslt/cities.xslt}</xml-module:xslt>
+</xml-module:xslt-transform>
+```
+
+In a more complex use case, the script you use might depend on some external condition. For example,
+imagine a multi-tenant integration in which the transformation to use depends on a `userId`:
+
+```xml
+<flow name="multitenantExample">
+    <http:listener path="transform" allowedMethods="POST" config-ref="httpListener" /> // 1
+    <file:read path="#['xslt/$(attributes.queryParam.userId).xslt']" target="xslt" />
+    <xml-module:xslt-transform>
+        <xml-module:xslt>#[vars.xslt]</xml-module:xslt>
+    </xml-module:xslt-transform>
+</flow>
+```
+
+1.  The example flow is triggered through an HTTP request.
+2.  The example is based on the `userId` value being provided as a query parameter and the File
+    Connector being used to read the file that contains the correct XSL and store it in a variable.
+3.  The example then executes a transformation using an expression to point to the XSL sheet
+    obtained through the `Read` operation.
+
+The HTTP and File Connectors are used as examples and are not required to perform similar use cases.
+
+## Using Context Properties
+
+The XML module, like the XSL language, provides context properties that can pass parameters to the
+transformation. In this example, the `<xml-module:context-properties/>` element contains a DataWeave
+expression that constructs an arguments map.
+
+```xml
+<xml-module:xslt-transform>
+    <xml-module:xslt><![CDATA[
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="3.0">
+        <xsl:output method="xml"/>
+
+        <xsl:param name="vtn" /> (1)
+        <xsl:template match="/parameter">
+            <param><xsl:value-of select="$vtn"/></param> (2)
+        </xsl:template>
+    </xsl:stylesheet>
+]]></xml-module:xslt>
+    <xml-module:context-properties>#[{'vtn' : 'some value'}] (3)
+    </xml-module:context-properties>
+</xml-module:xslt-transform>
+```
+
+1.  The XSL style sheet declares a `param` called `vtn`.
+2.  The style sheet references the assigned value of the `param` using the `$` prefix.
+3.  The example uses the `context-properties` parameter to pass in the values.
+
+## Output MIME Type
+
+The most common use case for XSLT is to output a new XML document. However, XSLT can produce
+documents in other formats, such as JSON, CSV, or a text or number value, which means that the
+produced value does not have any specific MIME type assigned. You should specify a MIME type using
+the `outputMimeType` parameter.
+
+## See Also
+
+[XML Module](./)
+

@@ -1,0 +1,800 @@
+﻿# NetSuite Restlet Connector - Full Documentation
+
+# NetSuite Restlet Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for NetSuite Restlet (NetSuite Restlet Connector) synchronizes data and automates
+business processes between NetSuite and third-party applications, either on-premises or in the
+cloud. NetSuite provides cloud-based business management software that helps companies manage core
+business processes, ERP financials, CRM, e-commerce, inventory, and more.
+
+NetSuite Restlet Connector provides the following features:
+
+- Generation of NetSuite business objects
+- Different authentication levels
+- Error-handling support
+- Access to NetSuite using REST calls to RESTlets that expose APIs created with SuiteScript
+
+For compatibility information and fixed issues, see the NetSuite Restlet Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The NetSuite API
+- Anypoint connectors
+- Mule runtime engine (Mule)
+- Elements in a Mule flow
+- Global elements
+- How to create a Mule app using Anypoint Studio
+
+You must also have a NetSuite account with the Web Services features enabled.
+
+## Connection Types
+
+> [!NOTE] NetSuite Restlet Connector supports OAuth 1.0 only.
+
+NetSuite Restlet connections use the following authentication types:
+
+- Restlet Login
+
+  Authenticates to NetSuite by invoking login
+
+- Restlet Token
+
+  Authenticates to NetSuite by using either a consumer and token key or secret pairs, which are
+  established within the NetSuite environment
+
+For information about configuring authentication types, refer to
+[Configure a Global Element for the Connector](netsuite-restlet-studio-configure#configure-global-element).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [NetSuite Restlet Reference](netsuite-restlet-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Call NetSuite RESTlets Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This example shows how to:
+
+- Create a script that calls NetSuite RESTlets that are deployed in NetSuite instances to create,
+  retrieve, and delete a customer record
+- Deploy the RESTlet script
+- Configure the applicationâs properties to connect to NetSuite and deploy the app
+
+## Create and Deploy a Script as a RESTlet
+
+Create and then deploy a script that creates, retrieves, and deletes a customer record:
+
+1.  Create a sample JavaScript script:
+
+    ```javascript
+    // Get a standard NetSuite record
+    function getRecord(datain) {
+      return nlapiLoadRecord(datain.recordtype, datain.id);
+      // for example, recordtype="customer", id="769"
+    }
+
+    // Create a standard NetSuite record
+
+    function createRecord(datain) {
+      var err = new Object();
+
+      // Validate if mandatory record type is set in the request
+      if (!datain.recordtype) {
+        err.status = "failed";
+        err.message = "missing recordtype";
+        return err;
+      }
+
+      var record = nlapiCreateRecord(datain.recordtype);
+
+      for (var fieldname in datain) {
+        if (datain.hasOwnProperty(fieldname)) {
+          if (fieldname != "recordtype" && fieldname != "id") {
+            var value = datain[fieldname];
+            if (value && typeof value != "object") // ignore other type of parameters
+            {
+              record.setFieldValue(fieldname, value);
+            }
+          }
+        }
+      }
+      var recordId = nlapiSubmitRecord(record);
+      nlapiLogExecution("DEBUG", "id=" + recordId);
+      var nlobj = nlapiLoadRecord(datain.recordtype, recordId);
+      return nlobj;
+    }
+
+    // Delete a standard NetSuite record
+    function deleteRecord(datain) {
+      nlapiDeleteRecord(datain.recordtype, datain.id);
+      // for example: recordtype="customer", id="769"
+    }
+    ```
+
+2.  Enable SuiteScript and NetSuite Web Services in your account:
+    1.  Log in to NetSuite.
+    2.  Click **Set Up > Company > Enable Features > SuiteCloud**:
+
+        ![Enable SuiteScript page](_images/netsuite-enable-suitescript.png)
+
+3.  Upload the file you [previously created](#deploy-a-script-as-restlet):
+    1.  Go to **Customization > Scripting > Scripts > New**.
+    2.  Select the script file, click **Create Script Record**, and select **RESTlet**:
+
+        ![Select Script Type page](_images/netsuite-script-type.png)
+
+4.  Complete the form using the content of the script you uploaded, and deploy the script:
+
+    ![Setup Script page](_images/netsuite-setup-script.png)
+
+5.  Select your audience to view the following page:
+
+    ![Script Deployment page](_images/netsuite-script-deployment.png)
+
+6.  Write down the script and deploy numbers that appear in the external URL, because you need them
+    to call the RESTlet later.
+
+## Create a Mule Project
+
+In Studio, create a new Mule project and configure the credentials, deployed script, and deploy IDs
+to connect to NetSuite:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+3.  In **Package Explorer**, open the `src/main/resources/mule-app.properties` file that is located
+    in the Studio project you created.
+4.  Configure the following values:
+
+    ```javascript
+    netsuite.email=
+    netsuite.password=
+    netsuite.account=
+    netsuite.roleId=
+    netsuite.applicationId=
+    netsuite.subsidiary=
+    netsuite.script=
+    netsuite.deploy=
+    ```
+
+    The `netsuite.script` and `netsuite.deploy` values are the values you wrote down in the last
+    step of [Create and Deploy a Script as a RESTlet](#deploy-a-script-as-restlet).
+
+## Add the Connector to Your Mule Project
+
+Add NetSuite Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `netsuite` in the search field.
+3.  Click the connector name in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+## Create the App Flow
+
+1.  In the Studio canvas, click **Configuration XML**.
+2.  Delete all the contents after the line `<?xml version="1.0" encoding="UTF-8"?>`.
+3.  Copy and paste the following XML after the line `<?xml version="1.0" encoding="UTF-8"?>`:
+
+    ```xml
+    <mule xmlns:netsuite-restlet="http://www.mulesoft.org/schema/mule/netsuite-restlet"
+          xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+          xmlns:http="http://www.mulesoft.org/schema/mule/http"
+          xmlns="http://www.mulesoft.org/schema/mule/core"
+          xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+    http://www.mulesoft.org/schema/mule/netsuite-restlet http://www.mulesoft.org/schema/mule/netsuite-restlet/current/mule-netsuite-restlet.xsd">
+    	<configuration-properties file="mule-app.properties" doc:name="Configuration properties"/>
+    	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+    		<http:listener-connection host="0.0.0.0" port="8081" />
+    	</http:listener-config>
+    	<netsuite-restlet:rest-config name="NetSuite_Rest_config" doc:name="NetSuite Rest config" >
+    		<netsuite-restlet:restlet-token-connection
+    				consumerKey="${netsuite.consumerKey}"
+    				consumerSecret="${netsuite.consumerSecret}"
+    				tokenId="${netsuite.tokenId}"
+    				tokenSecret="${netsuite.tokenSecret}"
+    				account="${netsuite.account}"
+    				readTimeout="${netsuite.readTimeout}"
+    				connectionTimeout="${netsuite.connectTimeout}"/>
+    	</netsuite-restlet:rest-config>
+    	<flow name="html-form-flow">
+            <http:listener config-ref="HTTP_Listener_config" path="/" doc:name="/"/>
+            <parse-template location="form.html" doc:name="Parse Template"/>
+        </flow>
+        <flow name="restletGet">
+            <http:listener config-ref="HTTP_Listener_config" path="/get" doc:name="/get"/>
+            <ee:transform doc:name="Transform GET Input" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/java
+    ---
+    {
+        "id": attributes.queryParams.id,
+        "recordtype": attributes.queryParams.recordtype
+    }]]></ee:set-payload>
+    			</ee:message>
+    		</ee:transform>
+            <netsuite-restlet:call-restlet-get config-ref="NetSuite_Rest_config" script="${netsuite.script}" deploy="${netsuite.deploy}" doc:name="Call RESTlet (GET)" />
+            <ee:transform doc:name="to JSON" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/json
+    ---
+    payload]]></ee:set-payload>
+    			</ee:message>
+    		</ee:transform>
+            <logger level="INFO" doc:name="Logger"/>
+        </flow>
+        <flow name="restletPost">
+            <http:listener config-ref="HTTP_Listener_config" path="/post" doc:name="/post"/>
+            <ee:transform doc:name="Transform POST Input" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/java
+    ---
+    payload]]></ee:set-payload>
+    			</ee:message>
+    		</ee:transform>
+            <netsuite-restlet:call-restlet-post config-ref="NetSuite_Rest_config" deploy="${netsuite.deploy}" script="${netsuite.script}" doc:name="NetSuite RESTlet (POST)"/>
+            <ee:transform doc:name="to JSON" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/json
+    ---
+    payload]]></ee:set-payload>
+    			</ee:message>
+    		</ee:transform>
+            <logger level="INFO" doc:name="Logger"/>
+        </flow>
+        <flow name="restletDelete">
+            <http:listener config-ref="HTTP_Listener_config" path="/delete" doc:name="/delete"/>
+            <ee:transform doc:name="Transform DELETE Input" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/java
+    ---
+    {
+        "id": attributes.queryParams.id,
+        "recordtype": attributes.queryParams.'recordtype'
+    }]]></ee:set-payload>
+    			</ee:message>
+    		</ee:transform>
+            <netsuite-restlet:call-restlet-delete config-ref="NetSuite_Rest_config" deploy="${netsuite.deploy}" script="${netsuite.script}" doc:name="NetSuite RESTlet (DELETE)"/>
+            <set-payload value="Record deleted successfully" doc:name="Set Payload"/>
+            <logger  level="INFO" doc:name="Logger"/>
+        </flow>
+    	</mule>
+    ```
+
+4.  Save the project.
+
+### About the Flows
+
+1.  The `html-form` flow renders the HTML form with a `parseTemplate` component:
+
+    ![HMTL Form Studio flow](_images/netsuite-html-form-flow.png)
+
+2.  The `restletGet` flow calls the GET function of a RESTlet:
+
+    ![Restlet Get Studio flow](_images/netsuite-restlet-get.png)
+
+3.  The `restletPost` flow calls the POST function of a RESTlet:
+
+    ![Restlet Post Studio flow](_images/netsuite-restlet-post.png)
+
+4.  The `restletDelete` flow calls the DELETE function of a RESTlet:
+
+    ![Restlet Delete Studio flow](_images/netsuite-restlet-delete.png)
+
+## Run the App
+
+Run, deploy, and verify the app:
+
+1.  Click **Global Elements** at the base of the projectâs canvas.
+2.  In **Global Configuration Elements**, select **NetSuite Rest config** and click **Edit**.
+3.  Click **Test Connection** to ensure there is connectivity with the sandbox.
+
+    A success message appears:
+
+    ![Test connection successful message](_images/netsuite-demo-connection-test.png)
+
+4.  Click the project name in **Package Explorer** and click **Run > Run As > Mule Application**.  
+    In the console, look for the message `Mule is up and kicking` to verify that the application
+    started successfully.
+5.  Open a browser and access the URL `http://localhost:8081`.  
+    You can see that the application deployed:
+
+    ![Demo page](_images/netsuite-demo-main-page.png)
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [NetSuite Connector Overview](./)
+- [NetSuite Connector Reference](netsuite-restlet-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# NetSuite Restlet Connector 1.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for NetSuite Restlet (NetSuite Restlet Connector) synchronizes data and automates
+business processes between NetSuite and third party applications, either on-premises or in the
+cloud.
+
+## Rest Configuration
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#RestConfig_RestletLogin">Restlet Login</a></p></li><li><p><a href="#RestConfig_RestletToken">Restlet Token</a></p></li></ul></div></div></td><td><p>The connection types that can be provided to this configuration.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+## Connection Types
+
+> [!NOTE] NetSuite Restlet Connector supports OAuth 1.0 only.
+
+### Restlet Login
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Web Service Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>The Web Service endpoint.</p></td><td></td><td></td></tr><tr><td><p>Read Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time that the client will wait for a response before it times out.</p></td><td><p>60000</p></td><td></td></tr><tr><td><p>Read Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Read Timeout</strong> parameter.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time in milliseconds that the client attempts to establish a connection before it times out. 0 specifies that the client continues to attempt to open a connection indefinitely.</p></td><td><p>60000</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit for Connection Timeout.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Hostname of the HTTP proxy, for example localhost. If used, you must also set the <strong>Port</strong> value.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>The port number of the HTTP proxy, for example 3128. The port number must be specified if the <strong>Hostname</strong> is also specified.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>The username which should be supplied to the HTTP proxy on every request to NetSuite. This field is optional, since a user might want to pass through an unauthenticated HTTP proxy.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password which would be supplied to the HTTP proxy on every request to NetSuite. This field is optional, since a user might want to pass through an unauthenticated HTTP proxy.</p></td><td></td><td></td></tr><tr><td><p>E-mail</p></td><td><div><div><p>String</p></div></div></td><td><p>The login email of both NetSuite UI and SuiteTalk</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The login password of both the NetSuite UI and SuiteTalk</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Account</p></td><td><div><div><p>String</p></div></div></td><td><p>NetSuite SuiteTalk WebService account ID</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Role ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The ID of the role used to login in SuiteTalk, which determines the Processor privileges</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Application ID</p></td><td><div><div><p>String</p></div></div></td><td><p>The ID related to the Integration record to be used. Integration records are set up on the NetSuite environment.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Characteristics of the connection pool</p></td><td></td><td></td></tr></tbody></table>
+
+### Restlet Token
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Web Service Endpoint</p></td><td><div><div><p>String</p></div></div></td><td><p>The Web Service endpoint.</p></td><td></td><td></td></tr><tr><td><p>Read Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time that the client will wait for a response before it times out.</p></td><td><p>60000</p></td><td></td></tr><tr><td><p>Read Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit for Read Timeout.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the amount of time that the client attempts to establish a connection before it times out. 0 specifies that the client will continue to attempt to open a connection indefinitely.</p></td><td><p>60000</p></td><td></td></tr><tr><td><p>Connection Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit for Connection Timeout.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>TLS configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>Defines a configuration for TLS, which can be used from both the client and server sides to secure communication for the Mule app. When using the HTTPS protocol, the HTTP communication is secured using TLS or SSL. If HTTPS is configured as the protocol then the user needs to configure at least the keystore in the <code>tls:context</code> child element of the <code>listener-config</code>.</p></td><td></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Hostname of the HTTP proxy, for example localhost. If used, you must also set the <strong>Port</strong> value.</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>The port number of the HTTP proxy, for example 3128. The port number must be specified if the <strong>Hostname</strong> is also specified.</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username that is supplied to the HTTP proxy upon every request to NetSuite. This field is optional, since a user might want to pass through an unauthenticated HTTP proxy.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password that is supplied to the HTTP proxy upon every request to NetSuite. This field is optional, since a user might want to pass through an unauthenticated HTTP proxy.</p></td><td></td><td></td></tr><tr><td><p>Consumer Key</p></td><td><div><div><p>String</p></div></div></td><td><p>Consumer key value for the token based authentication-enabled integration record that is being used.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Consumer Secret</p></td><td><div><div><p>String</p></div></div></td><td><p>Consumer secret value for the token based authentication-enabled integration record that is being used.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Token ID</p></td><td><div><div><p>String</p></div></div></td><td><p>Token ID that represents the unique combination of a user and integration generated within the NetSuite environment.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Token Secret</p></td><td><div><div><p>String</p></div></div></td><td><p>The respective token secret for the user/integration pair.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Account</p></td><td><div><div><p>String</p></div></div></td><td><p>NetSuite SuiteTalk WebService account ID.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Signature Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Algorithm used to compute the SHA hash signature.</p></td><td><p>HMAC_SHA_256</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Characteristics of the connection pool.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Associated Operations
+
+- [Call RESTlet (DELETE)](#CallRestletDelete)
+- [Call RESTlet (GET)](#CallRestletGet)
+- [Call RESTlet (POST)](#CallRestletPost)
+- [Call RESTlet (PUT)](#CallRestletPut)
+
+## Operations
+
+## Call RESTlet (DELETE)
+
+`<netsuite-restlet:call-restlet-delete>`
+
+Calls a NetSuite RESTlet using the DELETE method.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Script</p></td><td><div><div><p>Number</p></div></div></td><td><p>The ID of the deployed script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Deploy</p></td><td><div><div><p>Number</p></div></div></td><td><p>The deploy number corresponding to the script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Data</p></td><td><div><div><p>Object</p></div></div></td><td><p>The input data for the script.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Rest Configuration](#RestConfig)
+
+### Throws
+
+- NETSUITE-RESTLET:CONNECTIVITY
+- NETSUITE-RESTLET:ERROR_FAULT
+- NETSUITE-RESTLET:MAPPING_ERROR
+- NETSUITE-RESTLET:PARSING_ERROR
+- NETSUITE-RESTLET:RETRY_EXHAUSTED
+
+## Call RESTlet (GET)
+
+`<netsuite-restlet:call-restlet-get>`
+
+Calls a NetSuite RESTlet using the GET method.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Script</p></td><td><div><div><p>Number</p></div></div></td><td><p>The ID of the deployed script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Deploy</p></td><td><div><div><p>Number</p></div></div></td><td><p>The deploy number corresponding to the script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Data</p></td><td><div><div><p>Object</p></div></div></td><td><p>The input data for the script.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to use to execute this component</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Array of Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Rest Configuration](#RestConfig)
+
+### Throws
+
+- NETSUITE-RESTLET:CONNECTIVITY
+- NETSUITE-RESTLET:ERROR_FAULT
+- NETSUITE-RESTLET:MAPPING_ERROR
+- NETSUITE-RESTLET:PARSING_ERROR
+- NETSUITE-RESTLET:RETRY_EXHAUSTED
+
+## Call RESTlet (POST)
+
+`<netsuite-restlet:call-restlet-post>`
+
+Calls a NetSuite RESTlet using the POST method.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Script</p></td><td><div><div><p>Number</p></div></div></td><td><p>The ID of the deployed script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Deploy</p></td><td><div><div><p>Number</p></div></div></td><td><p>The deploy number corresponding to the script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Data</p></td><td><div><div><p>Object</p></div></div></td><td><p>The input data for the script.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to be used to execute this component</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Array of Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Rest Configuration](#RestConfig)
+
+### Throws
+
+- NETSUITE-RESTLET:CONNECTIVITY
+- NETSUITE-RESTLET:ERROR_FAULT
+- NETSUITE-RESTLET:MAPPING_ERROR
+- NETSUITE-RESTLET:PARSING_ERROR
+- NETSUITE-RESTLET:RETRY_EXHAUSTED
+
+## Call RESTlet (PUT)
+
+`<netsuite-restlet:call-restlet-put>`
+
+Calls a NetSuite RESTlet using the PUT method.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Script</p></td><td><div><div><p>Number</p></div></div></td><td><p>The ID of the deployed script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Deploy</p></td><td><div><div><p>Number</p></div></div></td><td><p>The deploy number corresponding to the script.</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Data</p></td><td><div><div><p>Object</p></div></div></td><td><p>The input data for the script.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to be used to execute this component</p></td><td></td><td><p><strong>x</strong></p></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operationâs output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Array of Object</p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Rest Configuration](#RestConfig)
+
+### Throws
+
+- NETSUITE-RESTLET:CONNECTIVITY
+- NETSUITE-RESTLET:ERROR_FAULT
+- NETSUITE-RESTLET:MAPPING_ERROR
+- NETSUITE-RESTLET:PARSING_ERROR
+- NETSUITE-RESTLET:RETRY_EXHAUSTED
+
+## Types
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>A comma separated list of cipher suites enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the trust store.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the trust store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the trust store.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The location (which will be resolved relative to the current classpath and file system, if possible) of the key store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The type of store used.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the key store contains many private keys, this attribute indicates the alias of the key that should be used. If not defined, the first key in the file will be used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>The password used to protect the key store.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>The algorithm used by the key store.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Only verify the last element of the certificate chain.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method (the one not selected before).</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server can not be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>The URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>The reconnection strategy to use</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often (in ms) to reconnect</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If false, the reconnection strategy will run in a separate, non-blocking thread</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often (in ms) to reconnect</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If false, the reconnection strategy will run in a separate, non-blocking thread</p></td><td></td><td></td></tr></tbody></table>
+
+### Pooling Profile
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Active</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls the maximum number of Mule components that can be borrowed from a session at one time. When set to a negative value, there is no limit to the number of components that may be active at one time. When maxActive is exceeded, the pool is said to be exhausted.</p></td><td></td><td></td></tr><tr><td><p>Max Idle</p></td><td><div><div><p>Number</p></div></div></td><td><p>Controls the maximum number of Mule components that can sit idle in the pool at any time. When set to a negative value, there is no limit to the number of Mule components that may be idle at one time.</p></td><td></td><td></td></tr><tr><td><p>Max Wait</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the number of milliseconds to wait for a pooled component to become available when the pool is exhausted and the exhaustedAction is set to WHEN_EXHAUSTED_WAIT.</p></td><td></td><td></td></tr><tr><td><p>Min Eviction Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Determines the minimum amount of time an object may sit idle in the pool before it is eligible for eviction. When non-positive, no objects will be evicted from the pool due to idle time alone.</p></td><td></td><td></td></tr><tr><td><p>Eviction Check Interval Millis</p></td><td><div><div><p>Number</p></div></div></td><td><p>Specifies the number of milliseconds between runs of the object evictor. When non-positive, no object evictor is executed.</p></td><td></td><td></td></tr><tr><td><p>Exhausted Action</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WHEN_EXHAUSTED_GROW</p></li><li><p>WHEN_EXHAUSTED_WAIT</p></li><li><p>WHEN_EXHAUSTED_FAIL</p></li></ul></div></div></td><td><p>Specifies the behavior of the Mule component pool when the pool is exhausted. Possible values are: "WHEN_EXHAUSTED_FAIL", which will throw a NoSuchElementException, "WHEN_EXHAUSTED_WAIT", which will block by invoking Object.wait(long) until a new or idle object is available, or WHEN_EXHAUSTED_GROW, which will create a new Mule instance and return it, essentially making maxActive meaningless. If a positive maxWait value is supplied, it will block for at most that many milliseconds, after which a NoSuchElementException will be thrown. If maxThreadWait is a negative value, it will block indefinitely.</p></td><td></td><td></td></tr><tr><td><p>Initialisation Policy</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIALISE_NONE</p></li><li><p>INITIALISE_ONE</p></li><li><p>INITIALISE_ALL</p></li></ul></div></div></td><td><p>Determines how components in a pool should be initialized. The possible values are: INITIALISE_NONE (will not load any components into the pool on startup), INITIALISE_ONE (will load one initial component into the pool on startup), or INITIALISE_ALL (will load all components in the pool on startup)</p></td><td></td><td></td></tr><tr><td><p>Disabled</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether pooling should be disabled</p></td><td></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# NetSuite Restlet - XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio. When
+you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/netsuite-restlet
+http://www.mulesoft.org/schema/mule/netsuite-restlet/current/mule-netsuite-restlet.xsd
+```
+
+This example shows how the namespace statements are placed in the XML:
+
+```xml
+<mule xmlns:netsuite-restlet="http://www.mulesoft.org/schema/mule/netsuite-restlet"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/netsuite
+	http://www.mulesoft.org/schema/mule/netsuite-restlet/current/mule-netsuite-restlet.xsd">
+```
+
+## Add a POM File Dependency
+
+The `pom.xml` Apache Maven file generated by Anypoint Studio contains dependencies for a Mule app.
+When you code a Mule app manually, include this XML snippet in your POM file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-netsuite-restlet-connector</artifactId>
+  <version>1.0.0</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `netsuite restlet`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[Call NetSuite Restlets Example](netsuite-restlet-call-restlets-example).
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure NetSuite Restlet Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see
+[NetSuite Restlet Reference](netsuite-restlet-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add NetSuite Restlet Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `netsuite restlet` in the search field.
+3.  Click the connector name in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source
+
+An input source initiates a flow when a specified condition is met. You can configure one of these
+input sources to use with NetSuite Restlet Connector:
+
+- `HTTP Listener`, which initiates a flow each time it receives a request on the configured host and
+  port
+- `Scheduler`, which initiates a flow when a time-based condition is met
+
+For example, to configure HTTP Listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of `HTTP Listener` in the app.
+6.  On the **General** tab, specify connection information.
+7.  On the **TLS** tab, optionally specify TLS information.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specific server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for NetSuite Restlet, follow these steps:
+
+1.  In the **Mule Palette** view, select **NetSuite Restlet** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target NetSuite system.
+
+To configure the global element for NetSuite Restlet Connector, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+3.  On the **General** tab, select an authentication mechanism and configure it as described:
+
+    > [!NOTE] NetSuite Restlet Connector supports OAuth 1.0 only.
+    - [Request-Based Authentication](#restlet-login-authentication)
+    - [Token Authentication](#restlet-token-authentication)
+
+      > [!NOTE] To configure NetSuite authentication, you must have the account ID for SuiteTalk
+      > NetSuite Web Services, which you can find within the NetSuite sandbox UI under **Setup >
+      > Integration > Web Service Preferences**.
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+### Restlet Login Authentication
+
+Use this strategy to authenticate to NetSuite by invoking login.
+
+![Request based authentication global elements properties window](_images/netsuite-request-studio.png)
+
+-
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Name for the configuration to reference in subsequent configurations of NetSuite Restlet Connector instances</p></div></div></td></tr><tr><td><p><strong>Email</strong></p></td><td><div><div><p>Email used to log in to the NetSuite UI</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>Corresponding password to log in to the NetSuite UI</p></div></div></td></tr><tr><td><p><strong>Account</strong></p></td><td><div><div><p>Account ID for SuiteTalk NetSuite Web Services</p></div></div></td></tr><tr><td><p><strong>Role Id</strong></p></td><td><div><div><p>Role ID for the user in SuiteTalk, which determines the processor privileges</p></div></div></td></tr><tr><td><p><strong>Application Id</strong></p></td><td><div><div><p>Application ID corresponding to the integration record to use</p></div></div></td></tr></tbody></table>
+
+### Restlet Token Authentication
+
+This token-based authentication method uses either a consumer and token key or secret pairs, which
+are established within the NetSuite environment:
+
+![Token authentication global elements properties window](_images/netsuite-token-studio.png)
+
+-
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th></tr></thead><tbody><tr><td><p><strong>Consumer Key</strong></p></td><td><div><div><p>Consumer key value for the token-based authentication-enabled integration record to use</p></div></div></td></tr><tr><td><p><strong>Consumer Secret</strong></p></td><td><div><div><p>Consumer secret value for the token-based authentication-enabled integration record to use</p></div></div></td></tr><tr><td><p><strong>Token ID</strong></p></td><td><div><div><p>Token ID that represents the unique combination of a user and an integration record that is generated within the NetSuite environment</p></div></div></td></tr><tr><td><p><strong>Token Secret</strong></p></td><td><div><div><p>Respective token secret for the user and an integration record pair</p></div></div></td></tr><tr><td><p><strong>Account</strong></p></td><td><div><div><p>Account ID for SuiteTalk NetSuite Web Services</p></div></div></td></tr><tr><td><p><strong>Signature algorithm</strong></p></td><td><div><div><p>Type of HMAC signature algorithm</p></div></div></td></tr></tbody></table>
+
+## Next Steps
+
+After configuring Studio, see the
+[Call NetSuite RESTlets Example](netsuite-restlet-call-restlets-example) topic for more
+configuration ideas.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [NetSuite Restlet Connector Overview](./)
+- [NetSuite Connector Reference](netsuite-restlet-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting NetSuite Restlet Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+You might encounter the following issues when working with the Anypoint Connector for NetSuite
+Restlet (NetSuite Restlet Connector):
+
+- [Connectivity test failure during application startup.](#connectivity-test-failure)
+- [The connector returns a permissions error when fetching metadata.](#permissions-error)
+
+## Connectivity Test Failure During Application Startup
+
+If a connectivity test fails during application startup and you see the following statement in the
+stack trace, configure a reconnection strategy for the connector:
+
+```xml
+Caused by: java.lang.InterruptedException
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer.doAcquireSharedInterruptibly(AbstractQueuedSynchronizer.java:998) ~[?:1.8.0_221]
+```
+
+To configure a reconnection strategy for the connector in Anypoint Studio (Studio), add these lines
+to the **Configure XML** tab in the connector properties window:
+
+```xml
+<reconnection failsDeployment="true">
+	<reconnect count="2" frequency="5" />
+</reconnection>
+```
+
+For example, the configuration XML for the connector might look like this after you add the
+reconnection strategy:
+
+```xml
+<netsuite-restlet:rest-config name="NetSuite_Config" doc:name="NetSuite Config" doc:id="8a4f73c2-e5e1-4f5d-8978-980069828ff0" >
+	<netsuite-restlet:restlet-login-connection email="${netsuite.email}" password="${netsuite.password}" account="${netsuite.account}" roleId="${netsuite.roleId}" applicationId="${netsuite.applicationId}" readTimeout="60000" connectionTimeout="60000">
+		<reconnection failsDeployment="true">
+			<reconnect count="2" frequency="5" />
+		</reconnection>
+	</netsuite-restlet:restlet-login-connection>
+```
+
+In Studio, you can also use the **Advanced** tab in the connector properties window to configure a
+reconnection strategy. To do so, complete the following fields:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Reconnection strategy</p></td><td><p><code>Standard</code></p></td></tr><tr><td><p>Frequency (ms)</p></td><td><p><code>5</code></p></td></tr><tr><td><p>Reconnection Attempts</p></td><td><p><code>2</code></p></td></tr></tbody></table>
+
+## Permissions Error When Fetching Metadata
+
+To avoid receiving a permissions error when fetching metadata, enable the
+`Control SuiteScript and Workflow Triggers in Web Services Request` option in NetSuite for the role
+used in the connector configuration.
+
+## Inability to Search for Certain Types of Objects
+
+There is a limitation in NetSuiteâs SuiteTalk API, that prevents you from searching for certain
+types of objects, such as Sales Order objects. Because of this limitation, you canât use the
+NetSuite Connector `Search` operation to locate these objects.
+
+To perform a search for Sales Order objects and other unsupported objects, you can do the following:
+
+- Develop a SuiteScript, deploy it as a RESTlet, and call it from the connector.
+
+## Empty Payload in the Call RESTlet (GET) Operation
+
+Even though the **Call RESTlet (GET)** operation is a GET operation, you must specify a payload for
+the **Data** field or else the connector throws an error. You can specify an empty payload, such as
+`{}`, to avoid this error.
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+

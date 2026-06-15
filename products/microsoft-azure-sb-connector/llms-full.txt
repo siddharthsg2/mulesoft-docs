@@ -1,0 +1,1190 @@
+﻿# Azure Service Bus Connector - Full Documentation
+
+# Azure Service Bus Connector 3.6 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The examples in this section show application flows that:
+
+- [Sends messages to and receives messages](#send-receive) from Azure Service Bus
+- [Sends and listens](#send-listen-ack) for messages and receives an acknowledgment using the
+  `MANUAL` acknowledgment type
+- [Sends and receives batch messages](#batch-send-receive)
+- [Sends and receives messages using session IDs for session-aware queues](#send-receive-session-ids)
+- [Using Azure Active Directory connector provider](#using-aad-connector)
+
+These examples use variables for some field values. You can either:
+
+- Replace the variables with their values in the code
+- Provide the values for each variable in a properties file and then refer to that file from the
+  connector configuration
+
+  For more information about using a properties file, see
+  [Configuring Property Placeholders](../../mule-runtime/latest/mule-app-properties-to-configure)
+
+## Create a Mule Project
+
+After you create a new Mule project and configure your credentials, you can create an application
+flow for each example by using the provided XML code.
+
+To create a Mule project:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+3.  Create a file named `mule-app.properties` and save it in `<project-name>/src/main/resources`.
+4.  Configure your Azure connection credentials in the file `mule-app.properties`, and include the
+    name of the Azure queue you created, for example:
+
+    #============================================================== #Connection Parameters
+    #==============================================================
+
+    # Azure common authentication configuration
+
+    azure.namespace=myazure queue.name=mytestqueue
+
+    # Shared Access Signature authentication
+
+    azure.keyname=SAStokenname azure.key=SAStoken
+
+    # Azure Active Directory authentication
+
+    azure.tenantId=TenantId azure.clientId=ClientId azure.clientSecret=ClientSecret
+
+5.  Save the file.
+6.  Open the **Global Element Configuration** and click **Test Connection** to verify your
+    credentials.
+
+## Send and Receive Example
+
+This flow shows an example of how to use the **Send** and **Receive From Queue** operations to send
+and receive messages:
+
+![Example Azure Service Bus flow that uses the Send and Receive From Queue operations](_images/azure-service-bus-send-receive.png)
+
+To create this flow:
+
+1.  In the Studio canvas, click **Configuration XML**.
+2.  Delete all the contents after the line `<?xml version="1.0" encoding="UTF-8"?>`.
+3.  Copy and paste the following XML after the line `<?xml version="1.0" encoding="UTF-8"?>`:
+
+    ```xml
+    <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    	xmlns:azure-service-bus-messaging="http://www.mulesoft.org/schema/mule/azure-service-bus-messaging" xmlns="http://www.mulesoft.org/schema/mule/core"
+    	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+    http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+    http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/azure-service-bus-messaging http://www.mulesoft.org/schema/mule/azure-service-bus-messaging/current/mule-azure-service-bus-messaging.xsd">
+    	<configuration-properties file="mule-app.properties" doc:name="Configuration properties"/>
+    	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="290d1aa8-2e61-4707-8f04-65f0e5e4cf07" >
+    		<http:listener-connection host="0.0.0.0" port="8081" />
+    	</http:listener-config>
+    	<azure-service-bus-messaging:config name="Azure_Service_Bus_Messaging_Connector_Config" doc:name="Azure Service Bus Messaging Connector Config" doc:id="71d0e711-6d29-4eff-b640-00986a41dfbc" >
+    		<azure-service-bus-messaging:sas-connection namespace="${azure.namespace}" sharedAccessKeyName="${azure.keyname}" sharedAccessKey="${azure.key}" />
+    	</azure-service-bus-messaging:config>
+    	<flow name="send-flow" doc:id="2c8bce62-f192-4db2-9c70-792a5e78ac7f" >
+    		<http:listener doc:name="Send Message Endpoint" doc:id="aa79c404-2e41-4453-9fde-18b8ea74c805" config-ref="HTTP_Listener_config" path="/sendMessage" />
+    		<ee:transform doc:name="Set Payload and Attributes" doc:id="bddebf8d-6d63-4db0-990f-94ecec23ddbd">
+    			<ee:message>
+    				<ee:set-payload><![CDATA[%dw 2.0
+    output application/json
+    ---
+    {
+    	key1: "value1",
+    	key2: "value2 for Queue"
+    }]]></ee:set-payload>
+    			</ee:message>
+    			<ee:variables>
+    				<ee:set-variable variableName="messageAttributes"><![CDATA[%dw 2.0
+    output application/json
+    ---
+    {
+    	messageId: "messageId1234",
+    	correlationStrategy: "AUTO",
+    	correlationId: "correlationId",
+    	label: "my_label",
+    	partitionKey: "the_partition_key",
+    	timeToLive: 60,
+    	ttlTimeUnit: "SECONDS",
+    	scheduledEnqueueTimeUtc: "2018-12-09 03:01:00.000",
+    	properties: {
+    		property1: "value1",
+    		property2: "value2"
+    	}
+    }]]></ee:set-variable>
+    			</ee:variables>
+    		</ee:transform>
+    		<azure-service-bus-messaging:send doc:name="Queue Send" doc:id="50b3592c-f777-4667-b042-00fd266120e8" config-ref="Azure_Service_Bus_Messaging_Connector_Config" destinationName="${queue.name}" messageId="#[vars.messageAttributes.messageId]" correlationId="#[vars.messageAttributes.correlationId]" label="#[vars.messageAttributes.label]" sendCorrelationStrategy="#[vars.messageAttributes.correlationStrategy]" partitionKey="#[vars.messageAttributes.partitionKey]" timeToLive="#[vars.messageAttributes.timeToLive]" scheduledEnqueueTimeUtc='#[vars.messageAttributes.scheduledEnqueueTimeUtc as LocalDateTime {format: "yyyy-MM-dd HH:mm:ss.SSS"}]' timeToLiveTimeUnit="#[vars.messageAttributes.ttlTimeUnit]" properties="#[vars.messageAttributes.properties]">
+    		</azure-service-bus-messaging:send>
+    	</flow>
+    	<flow name="queue-receiver-flow" doc:id="9b39aaa5-e81f-4257-b65e-d4f48c8ef2d8" >
+    		<http:listener doc:name="Receive From Queue" doc:id="386337a0-99c9-45cf-a81f-95d5e06f0b74" config-ref="HTTP_Listener_config" path="/receive"/>
+    		<azure-service-bus-messaging:receive doc:name="Receive From Queue" doc:id="05c8c754-79f6-4873-8329-af7f48f01d3b" config-ref="Azure_Service_Bus_Messaging_Connector_Config" destinationName="${queue.name}"/>
+    		<ee:transform doc:name="Attributes to Json" doc:id="a509a361-4bd7-4c6e-81cc-39ad36e7b625">
+    			<ee:message>
+    			</ee:message>
+    			<ee:variables >
+    				<ee:set-variable variableName="jsonAttributes" ><![CDATA[%dw 2.0
+    output application/json
+    ---
+    attributes]]></ee:set-variable>
+    			</ee:variables>
+    		</ee:transform>
+    		<logger level="INFO" doc:name="Log Attributes" doc:id="94e7254c-a197-4fa2-b437-b64719acb23d" message="#[vars.jsonAttributes]" />
+    		<logger level="INFO" doc:name="Log the message body" doc:id="d802b081-f3fc-4ec2-a23c-96bc0db3863c" message="#[payload]" />
+    	</flow>
+    </mule>
+    ```
+
+4.  When you are prompted to regenerate `doc:id` values, click **Yes**.
+5.  Save the project.
+6.  Right-click in the Studio canvas and select **Run project <project-name>** to run the project.
+
+## Batch Send and Receive Example
+
+This application flow uses the **Send batch** and **Receive Batch** operations to send and receive
+batches of messages to and from an Azure Service Bus queue.
+
+The following screenshot shows the application flow for sending and receiving batch messages:
+
+![Application flow that shows sending and receiving batch messages](_images/azure-service-bus-send-receive-batch.png)
+
+To create this flow:
+
+1.  In the Studio canvas, click **Configuration XML**.
+2.  Delete all the contents after the line `<?xml version="1.0" encoding="UTF-8"?>`.
+3.  Copy and paste the following XML after the line `<?xml version="1.0" encoding="UTF-8"?>`:
+
+    ```xml
+    <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    	xmlns:azure-service-bus-messaging="http://www.mulesoft.org/schema/mule/azure-service-bus-messaging" xmlns="http://www.mulesoft.org/schema/mule/core"
+    	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+    http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+    http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/azure-service-bus-messaging http://www.mulesoft.org/schema/mule/azure-service-bus-messaging/current/mule-azure-service-bus-messaging.xsd">
+    	<configuration-properties file="mule-app.properties" doc:name="Configuration properties"/>
+    	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="290d1aa8-2e61-4707-8f04-65f0e5e4cf07" >
+    		<http:listener-connection host="0.0.0.0" port="8081" />
+    	</http:listener-config>
+    	<azure-service-bus-messaging:config name="Azure_Service_Bus_Messaging_Connector_Config" doc:name="Azure Service Bus Messaging Connector Config" doc:id="71d0e711-6d29-4eff-b640-00986a41dfbc" >
+    		<azure-service-bus-messaging:sas-connection namespace="${azure.namespace}" sharedAccessKeyName="${azure.keyname}" sharedAccessKey="${azure.key}" />
+    	</azure-service-bus-messaging:config>
+    	<flow name="send-batch-flow" doc:id="2c8bce62-f192-4db2-9c70-792a5e78ac7f" >
+    		<http:listener doc:name="Send Message Endpoint" doc:id="aa79c404-2e41-4453-9fde-18b8ea74c805" config-ref="HTTP_Listener_config" path="/sendBatch" />
+    		<ee:transform doc:name="Messages with Json Bodies and Properties" doc:id="1f28f155-28c8-4feb-834c-0e790cac7a53" >
+                    <ee:message >
+                    </ee:message>
+                    <ee:variables >
+    					<ee:set-variable variableName="messages" ><![CDATA[%dw 2.0
+    output application/java
+    ---
+    [{
+    	body: "{\"key1\":\"value1\",\"key2\":\"otherValue1\"}" as Binary,
+    	messageId: "messageId1",
+    	sendCorrelationStrategy: "AUTO",
+    	correlationId: "correlation1",
+    	contentType: "application/json",
+    	replyToSessionId: "replyToSessionId1",
+    	label: "label_msg1",
+    	partitionKey: "the_partition_key1",
+    	timeToLive: 240,
+    	timeToLiveTimeUnit: "SECONDS",
+    	zoneId: "America/Buenos_Aires",
+    	scheduledEnqueueTimeUtc: "2018-12-09-00-0800" as LocalDateTime {format: "yyyy-MM-dd-HHZZZ"},
+    	properties: {
+    		property1: "value1",
+    		property2: "value2"
+    	},
+    },
+    {
+    	body: "{\"key1\":\"value2\",\"key2\":\"otherValue2\"}" as Binary,
+    	messageId: "messageId2",
+    	sendCorrelationStrategy: "AUTO",
+    	correlationId: "correlation2",
+    	contentType: "application/json",
+    	replyToSessionId: "replyToSessionId2",
+    	label: "label_msg2",
+    	partitionKey: "the_partition_key2",
+    	timeToLive: 240,
+    	timeToLiveTimeUnit: "SECONDS",
+    	zoneId: "America/Buenos_Aires",
+    	scheduledEnqueueTimeUtc: "2018-12-09-00-0800" as LocalDateTime {format: "yyyy-MM-dd-HHZZZ"},
+    	properties: {
+    		property1: "value1",
+    		property2: "value2"
+    	},
+    },
+    {
+    	body: "{\"key1\":\"value3\",\"key2\":\"otherValue3\"}" as Binary,
+    	messageId: "messageId3",
+    	sendCorrelationStrategy: "AUTO",
+    	correlationId: "correlation3",
+    	contentType: "application/json",
+    	replyToSessionId: "replyToSessionId3",
+    	label: "label_msg3",
+    	partitionKey: "the_partition_key3",
+    	timeToLive: 240,
+    	timeToLiveTimeUnit: "SECONDS",
+    	zoneId: "America/Buenos_Aires",
+    	scheduledEnqueueTimeUtc: "2018-12-09-00-0800" as LocalDateTime {format: "yyyy-MM-dd-HHZZZ"},
+    	properties: {
+    		property1: "value1",
+    		property2: "value2"
+    	},
+    }]]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+    			<azure-service-bus-messaging:send-message-batch destinationName="${queue.name}" doc:name="Send batch of messages" doc:id="799d9ba3-68a9-4ef7-b518-6a715429b2a7" config-ref="Azure_Service_Bus_Messaging_Connector_Config">
+    				<azure-service-bus-messaging:messages ><![CDATA[#[vars.messages]]]></azure-service-bus-messaging:messages>
+    			</azure-service-bus-messaging:send-message-batch>
+    		<set-payload value='#[%dw 2.0
+    output application/json
+    ---
+    {
+    	result: "Messages sent!"
+    }]' doc:name="Set Payload" doc:id="c8b39b61-fa84-496d-b92c-e970a1a44003" />
+    	</flow>
+    	<flow name="queue-receiver-flow" doc:id="9b39aaa5-e81f-4257-b65e-d4f48c8ef2d8" >
+    		<http:listener doc:name="Receive Batch From Queue" doc:id="386337a0-99c9-45cf-a81f-95d5e06f0b74" config-ref="HTTP_Listener_config" path="/receiveBatch"/>
+    		<azure-service-bus-messaging:receive-batch doc:name="Receive Batch" doc:id="ee30123a-cc9f-4e08-a2e9-c41aede3923f" config-ref="Azure_Service_Bus_Messaging_Connector_Config" maxMessageCount="3" destinationName="${queue.name}"/>
+    		<foreach doc:name="For Each" doc:id="16a42925-3142-48c7-9973-f951029af5fa" >
+    			<logger level="INFO" doc:name="Logger" doc:id="a5bfc3c6-2335-4c4e-845e-a67cf990a510" message='#["Received message number " ++ vars.counter]'/>
+    			<ee:transform doc:name="Attributes to Json" doc:id="a509a361-4bd7-4c6e-81cc-39ad36e7b625">
+    			<ee:message>
+    			</ee:message>
+    			<ee:variables>
+    				<ee:set-variable variableName="jsonAttributes"><![CDATA[%dw 2.0
+    output application/json
+    ---
+    attributes]]></ee:set-variable>
+    			</ee:variables>
+    		</ee:transform>
+    			<logger level="INFO" doc:name="Log Attributes" doc:id="94e7254c-a197-4fa2-b437-b64719acb23d" message="#[vars.jsonAttributes]" />
+    			<logger level="INFO" doc:name="Log the message body" doc:id="d802b081-f3fc-4ec2-a23c-96bc0db3863c" message="#[%dw 2.0
+    output application/json
+    ---
+    payload]" />
+    		</foreach>
+    	</flow>
+    </mule>
+    ```
+
+4.  Save the project.
+5.  Right-click in the Studio canvas and select **Run project <project-name>** to run the project.
+
+## Send, Listen, and Acknowledge the Message Example
+
+This application flow uses the **Send** and **Message Listener** operations. The **Message
+Listener** is using the `MANUAL` acknowledgment type, which means that the application logic is
+responsible for acknowledging receipt of the message. In this example, that logic is provided by
+adding the **Complete** operation to the same flow as the **Message Listener**.
+
+The following screenshot shows this flow:
+
+![Application flow that shows how the Send, Message Listener, and Complete operations are used](_images/azure-service-bus-send-listen-manual-ack.png)
+
+To create this flow:
+
+1.  In the Studio canvas, click **Configuration XML**.
+2.  Delete all the contents after the line `<?xml version="1.0" encoding="UTF-8"?>`.
+3.  Copy and paste the following XML after the line `<?xml version="1.0" encoding="UTF-8"?>`:
+
+    ```xml
+    <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    	  xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    	  xmlns:azure-service-bus-messaging="http://www.mulesoft.org/schema/mule/azure-service-bus-messaging" xmlns="http://www.mulesoft.org/schema/mule/core"
+    	  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    	  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+    http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+    http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.mulesoft.org/schema/mule/azure-service-bus-messaging http://www.mulesoft.org/schema/mule/azure-service-bus-messaging/current/mule-azure-service-bus-messaging.xsd">
+    	<configuration-properties file="mule-app.properties" doc:name="Configuration properties"/>
+    	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="290d1aa8-2e61-4707-8f04-65f0e5e4cf07" >
+    		<http:listener-connection host="0.0.0.0" port="8081" />
+    	</http:listener-config>
+    	<azure-service-bus-messaging:config name="Azure_Service_Bus_Messaging_Connector_Config" doc:name="Azure Service Bus Messaging Connector Config" doc:id="71d0e711-6d29-4eff-b640-00986a41dfbc" >
+    		<azure-service-bus-messaging:sas-connection namespace="${azure.namespace}" sharedAccessKeyName="${azure.keyname}" sharedAccessKey="${azure.key}" />
+    	</azure-service-bus-messaging:config>
+    	<flow name="send-endpoint-flow" doc:id="2c8bce62-f192-4db2-9c70-792a5e78ac7f" >
+    		<http:listener doc:name="Send Queue Endpoint" doc:id="aa79c404-2e41-4453-9fde-18b8ea74c805" config-ref="HTTP_Listener_config" path="/sendMessage" />
+    		<ee:transform doc:name="Set Payload and Attributes" doc:id="bddebf8d-6d63-4db0-990f-94ecec23ddbd" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/json
+    ---
+    {
+    	key1: "value1",
+    	key2: "value2 for Queue"
+    }]]></ee:set-payload>
+    			</ee:message>
+    			<ee:variables >
+    				<ee:set-variable variableName="messageAttributes" ><![CDATA[%dw 2.0
+    output application/json
+    ---
+    {
+    	messageId: "messageId1234",
+    	correlationStrategy: "AUTO",
+    	correlationId: "correlationId",
+    	label: "my_label",
+    	partitionKey: "the_partition_key",
+    	timeToLive: 60,
+    	ttlTimeUnit: "SECONDS",
+    	scheduledEnqueueTimeUtc: "2018-12-09 03:01:00.000",
+    	properties: {
+    		property1: "value1",
+    		property2: "value2"
+    	}
+    }]]></ee:set-variable>
+    			</ee:variables>
+    		</ee:transform>
+    		<azure-service-bus-messaging:send doc:name="Queue Send" doc:id="50b3592c-f777-4667-b042-00fd266120e8" config-ref="Azure_Service_Bus_Messaging_Connector_Config" destinationName="${queue.name}" messageId='#[vars.messageAttributes.messageId]' correlationId="#[vars.messageAttributes.correlationId]" label="#[vars.messageAttributes.label]" sendCorrelationStrategy="#[vars.messageAttributes.correlationStrategy]" partitionKey="#[vars.messageAttributes.partitionKey]" timeToLive="#[vars.messageAttributes.timeToLive]" scheduledEnqueueTimeUtc='#[vars.messageAttributes.scheduledEnqueueTimeUtc  as LocalDateTime {format: "yyyy-MM-dd HH:mm:ss.SSS"}]' timeToLiveTimeUnit="#[vars.messageAttributes.ttlTimeUnit]" properties="#[vars.messageAttributes.properties]">
+    		</azure-service-bus-messaging:send>
+    	</flow>
+    	<flow name="listener-manual-ack-flow" doc:id="541d4149-41b1-43e4-8d61-c16cf3ee502f" >
+    		<azure-service-bus-messaging:message-listener doc:name="Message listener" doc:id="cb61833e-9e1f-48b3-9430-a83b47c11a4c" config-ref="Azure_Service_Bus_Messaging_Connector_Config" ackMode="MANUAL" destinationName="${queue.name}" numberOfConsumers="1"/>
+    		<logger level="INFO" doc:name="Log the message" doc:id="d802b081-f3fc-4ec2-a23c-96bc0db3863c" message="#[payload]"/>
+    		<ee:transform doc:name="Attributes to Json" doc:id="a509a361-4bd7-4c6e-81cc-39ad36e7b625" >
+    			<ee:message >
+    				<ee:set-payload ><![CDATA[%dw 2.0
+    output application/json
+    ---
+    attributes]]></ee:set-payload>
+    			</ee:message>
+    		</ee:transform>
+    		<logger level="INFO" doc:name="Log Attributes" doc:id="94e7254c-a197-4fa2-b437-b64719acb23d" message="#[payload]"/>
+    		<azure-service-bus-messaging:complete-message doc:name="Ack of Message" doc:id="6aa7238b-3bc9-4a61-a39b-e1bd260ee7c5" config-ref="Azure_Service_Bus_Messaging_Connector_Config" lockToken="#[attributes.lockToken]" />
+    		<logger level="INFO" doc:name="Log Lock Token" doc:id="a91eea3e-231a-4675-9457-b6c7366ab647" message='#["LockToken = " ++ payload.lockToken]'/>
+    	</flow>
+    </mule>
+    ```
+
+4.  When you are prompted to regenerate `doc:id` values, click **Yes**.
+5.  Save the project.
+6.  Right-click in the Studio canvas and select **Run project <project-name>** to run the project.
+
+## Send and Receive Messages Using Session IDs for Session-Aware Queues Example
+
+This application flow uses the **Send** operation and **Message Listener** source. The flow is
+configured to use session IDs for session-aware queues.
+
+![Four flows that have Scheduler, Set Payload, and Send operations](_images/azure-service-bus-session-id-1.png)
+
+![Flow that has first Message listener, Logger, Matches regex, another Logger, and error handling](_images/azure-service-bus-session-id-2.png)
+
+![Flow that has second Message listener, Logger, Matches regex, another Logger, and error handling](_images/azure-service-bus-session-id-3.png)
+
+![Flow that has third Message listener, Logger, Matches regex, another Logger, and error handling](_images/azure-service-bus-session-id-4.png)
+
+To create this flow:
+
+1.  In the Studio canvas, click **Configuration XML**.
+2.  Delete all the contents after the line `<?xml version="1.0" encoding="UTF-8"?>`.
+3.  Copy and paste the following XML after the line `<?xml version="1.0" encoding="UTF-8"?>`:
+
+    ```xml
+    <mule xmlns:json="http://www.mulesoft.org/schema/mule/json"
+    	  xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+    	  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    	  xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    	  xmlns:azure-service-bus-messaging="http://www.mulesoft.org/schema/mule/azure-service-bus-messaging"
+    	  xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    	  xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+    http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+            http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+            http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+            http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+            http://www.mulesoft.org/schema/mule/azure-service-bus-messaging http://www.mulesoft.org/schema/mule/azure-service-bus-messaging/current/mule-azure-service-bus-messaging.xsd
+    http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+
+    	<configuration-properties file="mule-app.properties" />
+
+    	<!-- HTTP Listener Config for triggering send -->
+    	<http:listener-config name="HTTP_Listener_config" >
+    		<http:listener-connection host="0.0.0.0" port="8081" />
+    	</http:listener-config>
+
+    	<!-- Azure Service Bus Messaging Connector Config -->
+    	<azure-service-bus-messaging:config name="Azure_Service_Bus_Messaging_Connector_Config">
+    		<azure-service-bus-messaging:sas-connection namespace="${azure.namespace}" sharedAccessKeyName="${azure.keyname}" sharedAccessKey="${azure.key}" />
+    	</azure-service-bus-messaging:config>
+
+    	<!-- Flow to send a message with sessionId -->
+    	<flow name="send-session-message-flow-1">
+    		<scheduler doc:name="Scheduler" doc:id="85660b9c-19a0-4cb2-9dc0-1f07590d9e65" >
+    			<scheduling-strategy >
+    				<fixed-frequency frequency="30" timeUnit="SECONDS"/>
+    			</scheduling-strategy>
+    		</scheduler>
+    		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; currentTime: now(),&#10; session: "${session.id1}",&#10;}]' doc:name="Set Payload" doc:id="390220c9-9480-47d0-838b-6d9ba921bddc" mimeType="application/json"/>
+    		<azure-service-bus-messaging:send
+    				config-ref="Azure_Service_Bus_Messaging_Connector_Config"
+    				destinationName="${queue.name}"
+    				sessionId="${session.id1}">
+    		</azure-service-bus-messaging:send>
+    	</flow>
+
+    	<!-- Flow to receive messages with sessionId -->
+    	<flow name="send-session-message-flow-2" doc:id="20d400a8-fbb4-4fbf-b7de-662e0c96bc08">
+    		<scheduler doc:name="Scheduler">
+    			<scheduling-strategy>
+    				<fixed-frequency frequency="30" timeUnit="SECONDS"/>
+    			</scheduling-strategy>
+    		</scheduler>
+    		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; currentTime: now(),&#10; session: "${session.id2}",&#10;}]' doc:name="Set Payload" doc:id="2490c774-3e34-4e11-8931-5feb1f8f6ac7" mimeType="application/json" />
+    		<azure-service-bus-messaging:send destinationName="${queue.name}" doc:name="Send" doc:id="a12f8163-3260-411f-ae43-2dfc3b01a3eb" config-ref="Azure_Service_Bus_Messaging_Connector_Config" sessionId="${session.id2}" />
+    	</flow>
+
+    	<flow name="send-session-message-flow-3" doc:id="38c54914-a253-4d4c-ad81-166b8cde6eeb">
+    		<scheduler doc:name="Scheduler">
+    			<scheduling-strategy>
+    				<fixed-frequency frequency="30" timeUnit="SECONDS"/>
+    			</scheduling-strategy>
+    		</scheduler>
+    		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; currentTime: now(),&#10; session: "${session.id3}",&#10;}]' doc:name="Set Payload" doc:id="439e969a-ec0c-447d-ae7a-636526e3871d" mimeType="application/json" />
+    		<azure-service-bus-messaging:send destinationName="${queue.name}" doc:name="Send" doc:id="0e6d84ff-8ec2-488f-8ac7-cb7a8ac1844b" config-ref="Azure_Service_Bus_Messaging_Connector_Config" sessionId="${session.id3}" />
+    	</flow>
+
+
+    	<flow name="send-session-message-flow-4" doc:id="0f0ca780-444d-448f-8abf-5c63d3ec42a7">
+    		<scheduler doc:name="Scheduler" doc:id="e3605391-476d-486a-b183-341fd84f4dbe">
+    			<scheduling-strategy>
+    				<fixed-frequency frequency="30" timeUnit="SECONDS" />
+    			</scheduling-strategy>
+    		</scheduler>
+    		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10; currentTime: now(),&#10; session: "${session.id4}",&#10;}]' doc:name="Set Payload" doc:id="9ec14ba0-3fe9-48e2-b493-f6414b601064" mimeType="application/json" />
+    		<azure-service-bus-messaging:send destinationName="${queue.name}" doc:name="Send" doc:id="5347dc2f-f93c-4095-8c10-6f56fd8342c8" config-ref="Azure_Service_Bus_Messaging_Connector_Config" sessionId="${session.id4}" />
+    	</flow>
+    	<flow name="fifo-listener-1">
+    		<azure-service-bus-messaging:message-listener
+    				config-ref="Azure_Service_Bus_Messaging_Connector_Config"
+    				ackMode="AUTO" doc:name="Message listener-1" sessionID="${session.id1}" numberOfConsumers="1" destinationName="${queue.name}">
+    			<reconnect-forever />
+    			<azure-service-bus-messaging:response timeToLive="1" timeToLiveTimeUnit="HOURS" messageId="1" correlationId="1">
+    			</azure-service-bus-messaging:response>
+    		</azure-service-bus-messaging:message-listener>
+    		<try doc:name="Try">
+    			<logger level="INFO" doc:name="Logger" doc:id="24c6b101-b7d3-4b7d-bbc5-f352617eee17" message='"listener1: #[payload]"' />
+    			<validation:matches-regex doc:name="Matches regex1" doc:id="5810c860-a570-42bd-91cd-282150fea2c7" value="#[payload.session]" regex="${session.id1}" message="Error on ${session.id1}" />
+    			<logger level="INFO" doc:name="Logger1" doc:id="0a0d03fa-1a8e-41be-a747-62fab5924d0c" message="#[payload]" />
+    		</try>
+    		<error-handler>
+    			<on-error-continue>
+    				<raise-error type="VALIDATION1:VALIDATION_ERROR1" doc:name="Raise Error">
+    				</raise-error>
+    			</on-error-continue>
+    		</error-handler>
+    	</flow>
+    	<flow name="fifo-listener-2" doc:id="4d3e547e-77c2-4760-b760-6930d8b93c9e">
+    		<azure-service-bus-messaging:message-listener ackMode="AUTO" destinationName="${queue.name}" doc:name="Message listener-2" doc:id="01832bbd-d2eb-4fb9-8ed1-a90587874a8b" config-ref="Azure_Service_Bus_Messaging_Connector_Config" numberOfConsumers="1" sessionID="${session.id2}">
+    			<reconnect-forever />
+    		</azure-service-bus-messaging:message-listener>
+    		<try doc:name="Try">
+    			<logger level="INFO" doc:name="Logger1" doc:id="cf0e243b-5188-4418-abc1-a60275915adc" message='"listener2: #[payload]"' />
+    			<validation:matches-regex doc:name="Matches regex" doc:id="05e5c2df-cf96-4bfe-a7b6-da22f09dd238" value="#[payload.session]" regex="${session.id2}" message="Error on ${session.id2}"/>
+    			<logger level="INFO" doc:name="Logger" doc:id="54b7b482-9c24-416e-8c46-c717af00acb0" message="#[payload]" />
+    		</try>
+    		<error-handler>
+    			<on-error-continue>
+    				<raise-error type="VALIDATION2:VALIDATION_ERROR2" doc:name="Raise Error">
+    				</raise-error>
+    			</on-error-continue>
+    		</error-handler>
+    	</flow>
+    	<flow name="fifo-listener-3" doc:id="3ecafefc-c19d-485a-8c6a-45d79c7b5cad">
+    		<azure-service-bus-messaging:message-listener ackMode="AUTO" destinationName="${queue.name}" doc:name="Message listener-3" doc:id="3b6fa3d6-f8cf-4191-bbb2-29208aae7d5b" config-ref="Azure_Service_Bus_Messaging_Connector_Config" numberOfConsumers="1" sessionID="${session.id3}">
+    			<reconnect-forever />
+    		</azure-service-bus-messaging:message-listener>
+    		<try doc:name="Try">
+    			<logger level="INFO" doc:name="Logger1" doc:id="6b9ee655-0395-44f7-8322-36b0e77643b9" message='"listener3: #[payload]"' />
+    			<validation:matches-regex doc:name="Matches regex" doc:id="de2db011-3a58-48e0-8dcf-222d5da01a22" value="#[payload.session]" regex="${session.id3}" message="Error on ${session.id3}"/>
+    			<logger level="INFO" doc:name="Logger" doc:id="fd1ad726-ff8f-4cff-9daa-726cb5e5d014" message="#[payload]" />
+    		</try>
+    		<error-handler>
+    			<on-error-continue>
+    				<raise-error type="VALIDATION3:VALIDATION_ERROR3" doc:name="Raise Error">
+    				</raise-error>
+    			</on-error-continue>
+    		</error-handler>
+    	</flow>
+    </mule>
+    ```
+
+4.  When you are prompted to regenerate `doc:id` values, click **Yes**.
+5.  Save the project.
+6.  Right-click in the Studio canvas and select **Run project <project-name>** to run the project.
+
+## Using Azure Active Directory Connector Provider
+
+Some organizations use Azure Active Directory to authenticate their instances. Any of the previous
+examples can be modified to support this scenario. Replace the Shared Access Signature
+authentication with the Azure Active Directory authentication:
+
+```xml
+<azure-service-bus-messaging:sas-connection namespace="${azure.namespace}" sharedAccessKeyName="${azure.keyname}" sharedAccessKey="${azure.key}" />
+```
+
+```xml
+<azure-service-bus-messaging:aad-connection namespace="${azure.namespace}" tenantId="${azure.tenantId}" clientId="${azure.clientId}" clientSecret="${azure.clientSecret}" />
+```
+
+Ensure that:
+
+- Your `mule-app.properties` file contains the **Tenant Id**, **Client Id**, and **Client Secret**
+  fields.
+- Your app registration contains the proper
+  [permissions and roles](https://learn.microsoft.com/en-us/azure/service-bus-messaging/authenticate-application).
+
+## See Also
+
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Connector 3.6 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Azure Service Bus (Azure Service Bus Connector) enables message integration
+with Azure Service Bus on the cloud.
+
+---
+
+## Configurations
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><ul><li><p><a href="#config_sas-connection">Shared Access Signature</a></p></li><li><p><a href="#config_aad-connection">Azure Active Directory</a></p></li></ul></div></div></td><td><div><div><p>The connection types to provide to this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Send Correlation Strategy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>Whether to specify a correlation ID when publishing messages. This applies both for custom correlation IDs specified at the operation level and for default correlation IDs taken from the current event.</p></div></div></td><td><div><div><p>AUTO</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Zone Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Zone ID property is used to identify the rules used to convert between an Instant and LocalDateTime. If the Zone ID equals <code>Z</code>, UTC is used. If the Zone ID is not specified, the system default Zone ID is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the instance expires at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Shared Access Signature
+
+The SAS connection type uses the SAS Key Name and the SAS Key to generate a token, which is used by
+the Azure Service Bus SDK to establish the connection to the Service Bus instance.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Service namespace</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The namespace contains the resources to which the connector can establish a connection.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared access key name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the Shared Access key</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared access key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Shared Access key</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security</strong></p></td><td><div><div><p>TLS</p></div></div></td><td><div><div><p>TLS enabled by default, using the default JVM certificates to secure communication.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Response Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount of time to wait for the operation to execute before throwing an error. This value is qualified by the Response Timeout TimeUnit.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Response Timeout value</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Minimum Retry Backoff</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The minimum backoff interval for the retry. This must be a positive integer and setting it to zero results in ineffective retry behavior.</p></div></div></td><td><div><div><p>1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Minimum Retry Backoff Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the Minimum Retry Backoff value</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Retry Backoff</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum backoff interval for the retry</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Retry Backoff Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit which qualifies the Maximum Retry Backoff value</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Retries</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of retries that the connector will attempt</p></div></div></td><td><div><div><p>10</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Increased Wait On Server Busy (Deprecated)</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount of additional time to wait whenever thereâs a ServerBusyException</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Increased Wait On Server Busy Time Unit (Deprecated)</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit which qualifies the Increased wait on server busy value</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Cache Producers</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When checked the producer for a given destination is cached</p></div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+##### Azure Active Directory
+
+The Azure Active Directory (Azure AD) connection type provides role-based access control (RBAC), in
+which users can use
+[Azure AD app registrations](https://learn.microsoft.com/en-us/azure/service-bus-messaging/authenticate-application)
+to generate a **Client Id** and a **Client Secret** for authentication.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Service namespace</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Namespace that contains resources to which the connector establishes a connection.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Azure endpoint</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Constructs the complete URL that the connector uses to establish a connection.</p></div></div></td><td><div><div><p>servicebus.windows.net</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Tenant Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Tenant in which the app registration and the Azure Service Bus instance are running.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Client Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>ID of the app registration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Client Secret</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secret key of the app registration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security</strong></p></td><td><div><div><p>TLS</p></div></div></td><td><div><div><p>TLS enabled by default, using the default JVM certificates to secure communication.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Response Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long to wait for an operation to execute before throwing an error.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Response Timeout Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Response Timeout</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Minimum Retry Backoff</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Minimum backoff interval for the retry. This must be a positive integer and setting it to zero results in ineffective retry behavior.</p></div></div></td><td><div><div><p>1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Minimum Retry Backoff Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Minimum Retry Backoff</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Retry Backoff</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum backoff interval for the retry.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Maximum Retry Backoff Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Maximum Retry Backoff</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Retries</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of retries that the connector attempts.</p></div></div></td><td><div><div><p>10</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Increased Wait On Server Busy (Deprecated)</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Amount of additional time to wait whenever thereâs a ServerBusyException</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Increased Wait On Server Busy Time Unit (Deprecated)</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit which qualifies the Increased wait on server busy value</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Cache Producers</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When checked the producer for a given destination is cached</p></div></div></td><td><div><div><p><code>true</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## List of Operations
+
+- [Abandon](#abandonMessage)
+- [Complete](#completeMessage)
+- [Receive](#receive)
+- [Receive Batch](#receiveBatch)
+- [Send](#send)
+- [Send batch of messages](#sendMessageBatch)
+
+## List of Sources
+
+- [Message Listener](#message-listener)
+
+## Operations
+
+### Abandon
+
+`<azure-service-bus-messaging:abandon-message>`
+
+Abandon message stored in the current receiver (This is equivalent to a NACK operation). This
+operation can be used only from inside a flow that also includes a **Message Listener Source**
+operation.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Lock Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Lock Token from the message to abandon. This represents a UUID for a message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- AZURE-SERVICE-BUS-MESSAGING:CONNECTIVITY
+- AZURE-SERVICE-BUS-MESSAGING:OPERATION_TIMEOUT
+- AZURE-SERVICE-BUS-MESSAGING:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MESSAGING:TOKEN_NOT_FOUND
+- AZURE-SERVICE-BUS-MESSAGING:ANY
+
+### Complete
+
+`<azure-service-bus-messaging:complete-message>`
+
+This operation completes a message received from within a flow with a Message Listener operation in
+the current source. This is the same as an acknowledge.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Lock Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Lock Token from the message to ACK. This represents a UUID for a message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- AZURE-SERVICE-BUS-MESSAGING:TOKEN_EXPIRED
+- AZURE-SERVICE-BUS-MESSAGING:OPERATION_TIMEOUT
+- AZURE-SERVICE-BUS-MESSAGING:ANY
+- AZURE-SERVICE-BUS-MESSAGING:CONNECTIVITY
+- AZURE-SERVICE-BUS-MESSAGING:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MESSAGING:TOKEN_NOT_FOUND
+
+### Receive
+
+`<azure-service-bus-messaging:receive>`
+
+This operation receives a message from a specific queue or subscription. In this version of the
+connector, only Immediate Receive Mode (`RECEIVEANDDELETE`) is supported.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>MIME type of the payload that this operation outputs</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encoding of the payload that this operation outputs</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Destination Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the destination from which messages are received</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Subscription Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the subscription from which messages are received</p></div></div></td><td><div><div><p>NONE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of a variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AttributesWithoutLockToken">Attributes Without Lock Token</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- AZURE-SERVICE-BUS-MESSAGING:OPERATION_TIMEOUT
+- AZURE-SERVICE-BUS-MESSAGING:INVALID_SIGNATURE
+- AZURE-SERVICE-BUS-MESSAGING:NOT_ENOUGH_PERMITS
+- AZURE-SERVICE-BUS-MESSAGING:CONNECTIVITY
+- AZURE-SERVICE-BUS-MESSAGING:DESTINATION_NOT_FOUND
+- AZURE-SERVICE-BUS-MESSAGING:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MESSAGING:ANY
+
+### Receive Batch
+
+`<azure-service-bus-messaging:receive-batch>`
+
+This operation attempts to receive up to maxMessageCount messages from a specific queue or
+subscription. In this version of the connector, only Immediate Receive Mode (`RECEIVEANDDELETE`) is
+supported.
+
+Due to the design of the Azure-provided SDK that Azure Service Bus Connector uses, the actual number
+of messages received may be fewer or more than the maxMessageCount specified. This behavior occurs
+because the Azure-provided SDK treats maxMessageCount as an approximation rather than a strict
+limit. Additionally, a null value may be returned if the operation exceeds the specified timeout or
+if there are no more messages to receive.
+
+> [!IMPORTANT] To ensure that all available messages are received, you might need to call this
+> operation multiple times.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Max Message Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of messages that can be received</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Destination Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the destination from which messages are received</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Subscription Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the subscription from which messages are received</p></div></div></td><td><div><div><p>NONE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of a variable in which to store the operationâs output</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>An expression that evaluates the operationâs output. The expression outcome is stored in the target variable.</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Array of Message of [Binary] payload and [<a href="#AttributesWithoutLockToken">Attributes Without Lock Token</a>] attributes</p></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- AZURE-SERVICE-BUS-MESSAGING:OPERATION_TIMEOUT
+- AZURE-SERVICE-BUS-MESSAGING:INVALID_SIGNATURE
+- AZURE-SERVICE-BUS-MESSAGING:NOT_ENOUGH_PERMITS
+- AZURE-SERVICE-BUS-MESSAGING:CONNECTIVITY
+- AZURE-SERVICE-BUS-MESSAGING:DESTINATION_NOT_FOUND
+- AZURE-SERVICE-BUS-MESSAGING:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MESSAGING:ANY
+
+### Send
+
+`<azure-service-bus-messaging:send>`
+
+This operation sends a message to a Queue or Topic.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Destination Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Destination name to which to send the message</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Body of this message</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Message identifier is an application-defined value that uniquely identifies the message and its payload</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Send Correlation Strategy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div><div><p>Lists the possible strategies to determine the correlation ID to send on an outbound operation that supports correlation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Allows an application to specify a context for the message for the purposes of correlation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Session identifier for a session-aware entity</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the destination to which to send the message reply</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ID of the Session associated with the message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables the application to indicate the purpose of the message to the receiver</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>For partitioned entities, setting this value enables assigning related messages to the same internal partition, so that the submission sequence order is correctly recorded.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Relative duration, in milliseconds, after which the message expires, starting from the instant the message is accepted and stored by the broker</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the Write Concern Timeout</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduled Enqueue Time Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>Defines the UTC instant at which the message is logically enqueued, sequenced, and therefore made available for retrieval</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Map of user application properties set on the message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- AZURE-SERVICE-BUS-MESSAGING:PAYLOAD_SIZE_EXCEEDED
+- AZURE-SERVICE-BUS-MESSAGING:OPERATION_TIMEOUT
+- AZURE-SERVICE-BUS-MESSAGING:INVALID_SIGNATURE
+- AZURE-SERVICE-BUS-MESSAGING:NOT_ENOUGH_PERMITS
+- AZURE-SERVICE-BUS-MESSAGING:CONNECTIVITY
+- AZURE-SERVICE-BUS-MESSAGING:DESTINATION_NOT_FOUND
+- AZURE-SERVICE-BUS-MESSAGING:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MESSAGING:INVALID_PARAMS
+- AZURE-SERVICE-BUS-MESSAGING:ANY
+
+### Send batch of messages
+
+`<azure-service-bus-messaging:send-message-batch>`
+
+This operation sends a list of messages to a queue or topic.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Destination Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Destination name to which to send the message</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Messages</strong></p></td><td><div><div><p>Array of Any</p></div></div></td><td><div><div><p>Messages to send</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>A retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+#### Throws
+
+- AZURE-SERVICE-BUS-MESSAGING:PAYLOAD_SIZE_EXCEEDED
+- AZURE-SERVICE-BUS-MESSAGING:OPERATION_TIMEOUT
+- AZURE-SERVICE-BUS-MESSAGING:INVALID_SIGNATURE
+- AZURE-SERVICE-BUS-MESSAGING:ANY
+- AZURE-SERVICE-BUS-MESSAGING:NOT_ENOUGH_PERMITS
+- AZURE-SERVICE-BUS-MESSAGING:CONNECTIVITY
+- AZURE-SERVICE-BUS-MESSAGING:DESTINATION_NOT_FOUND
+- AZURE-SERVICE-BUS-MESSAGING:RETRY_EXHAUSTED
+- AZURE-SERVICE-BUS-MESSAGING:INVALID_PARAMS
+
+## Sources
+
+### Message Listener
+
+`<azure-service-bus-messaging:message-listener>`
+
+This operation receives messages from a specific queue or subscription.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Message Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Message session ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Acknowledgment mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>MANUAL</p></li><li><p>IMMEDIATE</p></li></ul></div></div></td><td><div><div><p>Specifies the way to acknowledge received messages. AUTO and MANUAL uses the PeekLock mode. IMMEDIATE uses the ReceiveAndDelete mode.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Prefetch Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>When Prefetch is enabled, the receiver quietly acquires more messages, up to the PrefetchCount limit, beyond what the application initially requested. Setting this value to zero (<code>0</code>) disables prefetching.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Number Of Consumers</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of concurrent consumers to use to receive messages</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffered Mode</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Buffered is the default mode. Consumers send the message to the flow and immediately receive the next message. If Buffered Mode is disabled, the consumers do not receive the next message until the current message exits the flow.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Enable Auto Lock Renewal</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Specifies whether the source should automatically renew message locks for session-aware queues, which prevents lock expiration during long-running message processing. The message lock renewal duration defaults to 5 minutes (hardcoded per Azure SDK). Flows exceeding 5 minutes of processing time experience lock expiration.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>MIME type of the payload that this operation outputs</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encoding of the payload that this operation outputs</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether this source should be executed only on the primary node when running in a cluster</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Destination Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the destination from which messages are received</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Subscription Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the subscription from which messages are received</p></div></div></td><td><div><div><p>NONE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Retry strategy in case of connectivity errors</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Body</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>Body of the message</p></div></div></td><td><div><div><p>#[payload]</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The message identifier is an application-defined value that uniquely identifies the message and its payload.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Send Correlation Strategy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>ALWAYS</p></li><li><p>NEVER</p></li></ul></div></div></td><td><div></div></td><td><div><div><p>AUTO</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Allows an application to specify a context for the message for the purposes of correlation</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Session identifier for a session-aware entity</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Standard way to express a reply path to the receiver of the message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Session identifier for a session-aware entity</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables the application to indicate the purpose of the message to the receiver</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>For partitioned entities, setting this value enables assigning related messages to the same internal partition, so that the submission sequence order is correctly recorded.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This value is the relative duration after which the message expires, starting from the instant the message is accepted and stored by the broker</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the Write Concern Timeout</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduled Enqueue Time Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>Defines the UTC instant at which the message is logically enqueued, sequenced, and made available for retrieval</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Map of user application properties set on the message</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AzureMessageAttributes">Azure Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Configurations](#config)
+
+## Types
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A scalar time value for the maximum amount of time a dynamic configuration instance is allowed to be idle before itâs considered eligible for expiration</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the maxIdleTime attribute</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Azure Message Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies a context for the message for correlation purposes</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Dead Letter Source</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Read-only property that indicates the entity in which the message was unable to be delivered</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of times message delivery was attempted. When a message lock expires, or when the message is abandoned by the receiver, delivery count increases.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enqueued Time Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>The instant in UTC time when the message is accepted and stored in the entity</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expires At</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>The instant in UTC time when the message is marked for removal and no longer able to be retrieved from the entity because of its expiration, which is controlled by <strong>Time to Live</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>States the purpose of the message to the receiver</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Lock Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Read-only property that references the lock that is in peek-lock receive mode</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Locked Until Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>UTC instant until which the message is kept locked in the queue or subscription</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Uniquely identifies the message and its payload</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Used for partitioned entities to enable related messages to be assigned to the same internal partition so that submission sequence order of the messages is recorded correctly</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path for where the receiver of the message can reply</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specify the specific session ID for where the application can receive messages</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduled Enqueue Time Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>Schedule the UTC time for when the message will appear in the queue</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sequence Number</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Unique 64-bit integer that is assigned to a message when the message is accepted and stored by the broker, and which functions as the messageâs true ID</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the session association of the message for session-aware entities</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>Relative duration after which time the message expires, starting at the moment the message is accepted and stored by the broker, as defined in Enqueued Time UTC</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Reserved for future use in routing scenarios and currently ignored by the broker. Can be used by applications in rule-driven, auto-forward chaining interactions to specify the intended logical destination of the message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Via Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Selects the transfer queue partition when a message is sent through a transfer queue in the scope of a transaction</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum number of times a message can be redelivered and processed unsuccessfully before triggering a process-failed-message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Secure hashing algorithm to use. If not set, the default is SHA-256.</p></div></div></td><td><div><div><p>SHA-256</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message is redelivered. This property can be set only if useSecureHash is false.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Object store where the redelivery counter for each message is stored</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Attributes Without Lock Token
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Correlation Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies a context for the message for correlation purposes</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Dead Letter Source</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Read-only property that indicates the entity in which the message was unable to be delivered</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Delivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Number of times message delivery was attempted. When a message lock expires, or when the message is abandoned by the receiver, delivery count increases.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enqueued Time Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>The instant in UTC time when the message is accepted and stored in the entity</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expires At</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>The instant in UTC time when the message is marked for removal and no longer able to be retrieved from the entity because of its expiration, which is controlled by <strong>Time to Live</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Label</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>States the purpose of the message to the receiver</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Locked Until Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>UTC instant until which the message is kept locked in the queue or subscription</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Uniquely identifies the message and its payload</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Used for partitioned entities to enable related messages to be assigned to the same internal partition so that submission sequence order of the messages is recorded correctly</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Properties</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path for where the receiver of the message can reply</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reply To Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specify the specific session ID for where the application can receive messages</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Scheduled Enqueue Time Utc</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>Schedule the UTC time for when the message will appear in the queue</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Sequence Number</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Unique 64-bit integer that is assigned to a message when the message is accepted and stored by the broker, and which functions as the messageâs true ID</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Session Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Specifies the session association of the message for session-aware entities</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time To Live</strong></p></td><td><div><div><p>Any</p></div></div></td><td><div><div><p>Relative duration after which time the message expires, starting at the moment the message is accepted and stored by the broker, as defined in Enqueued Time UTC</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>To</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Reserved for future use in routing scenarios and currently ignored by the broker. Can be used by applications in rule-driven, auto-forward chaining interactions to specify the intended logical destination of the message</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Via Partition Key</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Selects the transfer queue partition when a message is sent through a transfer queue in the scope of a transaction</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Azure Service Bus Connector Release Notes](../../release-notes/connector/azure-service-bus-connector-release-notes-mule-4)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Azure Service Bus Connector 3.6
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+    - [Shared Access Signature (SAS)](#configure-global-element-sas-connection)
+    - [Azure Active Directory (AAD)](#configure-global-element-aad-connection)
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Azure Service Bus Connector Reference](azure-service-bus-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Azure Service Bus Connector to your Mule project to automatically populate the XML code with the
+connectorâs namespace and schema location and add the required dependencies to the projectâs
+`pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `azure service bus` in the search field.
+3.  Click **Azure Service Bus** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure an Input Source
+
+An input source initiates a flow when a specified condition is met. You can configure one of these
+input sources to use with Azure Service Bus Connector:
+
+- `Message Listener`  
+  Receives messages from the specified queue or subscription
+- `HTTP Listener`  
+  Initiates a flow each time it receives a request on the configured host and port
+- `Scheduler`  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure **Message listener**, follow these steps:
+
+1.  In the **Mule Palette** view, select the Azure Service Bus Connector, then select **Message
+    listener**.
+2.  Drag **Message listener** to the Studio canvas.
+3.  On the **Message listener** configuration screen, optionally change the value of the **Display
+    Name** field.
+4.  From **Acknowledgment mode**, select from these options:
+    - **Auto**  
+      Automatic acknowledgment of the received message only if the application flow executes
+      successfully
+    - **Immediate**  
+      Automatic acknowledgment of the message once it is consumed and prior to any processing of the
+      message
+    - **Manual**  
+      Delegates the responsibility for acknowledging the message to the application logic
+
+5.  In the **Destination** section, enter:
+    - **Destination name**  
+      Name of the destination queue from which messages are received
+    - **Subscription name**  
+      Name of the subscription from which messages are received
+
+6.  Click the plus sign (+) next to the **Connector configuration** field to
+    [configure a global element](#configure-global-element) that can be used by all instances of
+    **Message listener** in the app.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for Azure Service Bus Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **Azure Service Bus** and then select the desired
+    operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target Azure Service Bus Messaging
+system. One configuration you will have to configure is the connection provider. Azure Service Bus
+Connector accepts two types of connections:
+
+- [Shared Access Signature (SAS)](#configure-global-element-sas-connection)
+- [Azure Active Directory (AAD)](#configure-global-element-aad-connection)
+
+### Shared Access Signature (SAS) authentication
+
+To configure Shared Access Signature authentication for Azure Service Bus Connector, follow these
+steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+3.  On the **General** tab, select the `Shared Access Signature` in the connection dropdown, and
+    configure the following required fields for SAS authentication:
+    1.  Enter the Azure **Service namespace**.  
+        This is the unique name assigned to the namespace when it was created and is the host-name
+        portion of the URL, for example:
+
+        `https://{serviceNamespace}.servicebus.windows.net/{path}`
+
+    2.  Enter the Azure **Shared access key name**.  
+        This is the name of the SAS token configure in the Azure Service Bus namespace.
+    3.  Enter the Azure **Shared access key**.  
+        This is the name of your SAS token.
+
+    The following screenshot shows an example of configuring SAS authentication for Azure Service
+    Bus Connector:
+
+    ![Authentication configuration of fields on the General tab](_images/azure-service-bus-sas-connection.png)
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+> [!NOTE] Azure Service Bus Connector cannot perform a connectivity test at startup using the
+> `Test Connection` button in the global element of the connector configuration when you restrict
+> access to your resources and you have a security policy with permissions at the resource level
+> only. This is because the security policy targets the root level of the namespace, which might be
+> forbidden due to the customized policy applied to the shared access key.
+
+### Azure Active Directory (AAD) authentication
+
+To configure Azure Active Directory authentication for Azure Service Bus Connector, follow these
+steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+3.  On the **General** tab, select `Active Directory Connection` in the connection dropdown, and
+    configure the following required fields for AAD authentication:
+    1.  Enter the Azure **Service namespace**.  
+        This is the unique name assigned to the namespace when it was created and is the host-name
+        portion of the URL, for example:
+
+        `https://{serviceNamespace}.servicebus.windows.net/{path}`
+
+    2.  Enter the Azure **Tenant Id**.
+    3.  Enter the Azure **Client Id**.
+    4.  Enter the Azure **Client Secret**.
+
+    The following screenshot shows an example of configuring AAD authentication for Azure Service
+    Bus Connector:
+
+    ![Authentication configuration of fields on the General tab](_images/azure-service-bus-aad-connection.png)
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+> [!NOTE] Azure Service Bus Connector cannot perform a connectivity test at startup using the
+> `Test Connection` button in the global element of the connector configuration when you restrict
+> access to your resources and you have a security policy with permissions at the resource level
+> only. This is because the security policy targets the root level of the namespace, which might be
+> forbidden due to the customized policy applied to the app registration.
+
+## View the App Log
+
+You can view the app log as follows:
+
+- If youâre running the app from the Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console. Unless the log file path was customized in the appâs log file (`log4j2.xml`), you can
+  also view the app log in this default location: `MULE_HOME/logs/<app-name>.log` For more
+  information about the app log, see
+  [Configuring Logging](../../mule-runtime/latest/logging-in-mule).
+
+### Reduce Excessive Logging
+
+When using the **Message Listener** source, the Azure Service Bus library emits an INFO-level log
+message approximately every 30 seconds, indicating that no new messages were received. To avoid this
+excessive logging, add the following AsyncLogger element to the `log4j.xml` file:
+
+`<AsyncLogger name="com.microsoft.azure.servicebus.primitives.CoreMessageReceiver" level="WARN"/>`
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Azure Service Bus Connector Reference](azure-service-bus-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Connector 3.6 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/<connector>
+http://www.mulesoft.org/schema/mule/<connector>/current/mule-<connector>.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:azure-service-bus-messaging="http://www.mulesoft.org/schema/mule/azure-service-bus-messaging"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/azure-service-bus-messaging
+	http://www.mulesoft.org/schema/mule/azure-service-bus-messaging/current/mule-azure-service-bus-messaging.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>mule-azure-service-bus-connector</artifactId>
+    <version>x.x.x</version>
+    <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Verify that the `<version>` corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `azure service bus`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try
+[the examples](azure-service-bus-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Azure Service Bus Connector 3.6
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Azure Service Bus (Azure Service Bus Connector) makes it easy to build
+integrations that send messages to and receive messages from Azure Service Bus, which is an
+asynchronous messaging cloud platform. This connector supports communication with queues and topics
+and can perform actions such as:
+
+- Send to queue
+- Send to topic
+- Receive from queue
+- Receive from subscription
+
+To use the Azure management API for CRUD operations of queues, topics, subscriptions, and rules, use
+Anypoint Connector for Azure Service Bus Management (Azure Service Bus Management Connector).
+
+> [!NOTE] This connector supports integrations with Azure Service Bus (cloud). It does not work with
+> Microsoft Service Bus (on-premises). To connect with Microsoft Service Bus on-premises, use
+> Anypoint Connector for Microsoft Service Bus.
+>
+> This connector does not work with Event Hubs.
+
+For compatibility information and fixed issues, see the release notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The Azure Service Bus APIs
+- Anypoint connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio
+
+## Audience
+
+- New user
+
+  To create your Mule app, see:
+
+- [Studio Configuration](azure-service-bus-connector-studio)
+- [Examples](azure-service-bus-connector-examples), which provides one or more use cases for the
+  connector.
+- Advanced user
+- Read the following:
+- [XML and Maven Support](azure-service-bus-connector-xml-maven)
+- [Examples](azure-service-bus-connector-examples) topics
+
+## Authentication Types
+
+Azure Service Bus Connector supports the following connection types to connect to Azure:
+
+- Shared Access Signature (SAS)
+- Azure Active Directory (AAD)
+
+For information about configuring these authentication types, see
+[Using Anypoint Studio to Configure Azure Service Bus Connector](azure-service-bus-connector-studio).
+
+## Next Step
+
+After you complete the prerequisites and experiment with templates and examples, you are ready to
+create an app and configure the connector using
+[Anypoint Studio](azure-service-bus-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Azure Service Bus Connector Release Notes](../../release-notes/connector/azure-service-bus-connector-release-notes-mule-4)
+- [Azure Service Bus Management Connector](../../azure-service-bus-management-connector/latest/)
+- [Azure Service Bus Connector on Exchange](https://anypoint.mulesoft.com/exchange/com.mulesoft.connectors/mule-azure-service-bus-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+

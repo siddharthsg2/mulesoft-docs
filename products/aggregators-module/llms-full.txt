@@ -1,0 +1,1664 @@
+﻿# Aggregators Module - Full Documentation
+
+# Using Aggregators in a Cluster
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+> [!IMPORTANT] Aggregators donât work with multiple workers and a persistent object store because
+> clustering isnât available in CloudHub.
+
+Aggregators Module works in a cluster out-of-the-box environment. However, to prevent an unexpected
+behavior consider the following:
+
+When an asynchronous aggregation is defined and the first element arrives, it is scheduled in the
+primary node of the cluster. Because new values can arrive in any node of the cluster, we need a way
+to notify and make the primary node schedule that aggregation. To do that, another task in the
+primary node periodically determines whether it is necessary to schedule a new aggregation or not.
+This can lead to a problem if the interval between checks for new aggregation scheduling is much
+longer than the actual timeout of the aggregation, because the aggregation could be over before it
+is scheduled, or there might be errors in the time computation.
+
+To avoid this issue, configure the frequency at which the primary node checks for new aggregations
+to schedule. Define this value using either:
+
+- The global configuration property `mule.aggregatorsSchedulingPeriod` (in milliseconds)
+- The system property `-M-Dmule.aggregatorsSchedulingPeriod`
+
+For further information about how to configure global or system properties, see the
+[configuring properties](../../mule-runtime/latest/configuring-properties) documentation.
+
+## See Also
+
+- [Aggregators Module Reference](aggregators-module-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Aggregators Module Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To fully benefit from using Aggregators Module, see the following examples of configuring the module
+scopes, source, and fields:
+
+- [Configure Size-Based Aggregator Scope](aggregators-size-example)  
+  Configure the **Size based aggregator** scope to aggregate elements until a predefined size number
+  of elements completes the aggregation.
+- [Configure Time-Based Aggregator Scope](aggregators-time-example)  
+  Configure the **Time based aggregator** scope to aggregate elements within a predefined time
+  limit.
+- [Configure Group-Based Aggregator Scope](aggregators-group-example)  
+  Configure the **Group based aggregator** scope to aggregate elements into groups by group ID.
+- [Configure Size-Based Aggregator Timeout and Max Size Fields](aggregators-size-timeout)  
+  Configure the **Timeout** and **Max size** fields for the **Size based aggregator** scope to
+  understand the timeout behavior of the aggregator.
+- [Aggregators Module Multiple Examples Configuration](aggregators-multiple-examples)  
+  Configure the **Size based aggregator** and **Group based aggregator** scopes to aggregate
+  elements and then process them in batch.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Group-Based Aggregator Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Aggregators module **Group based aggregator** scope enables you to aggregate elements into
+groups by group ID. The following example shows how to configure this scope to aggregate up to `3`
+HTTP request calls per group based on the group ID sent in the request. The application uses
+DataWeave to set the payload of each call with a random ID number. For each group that completes the
+aggregation of `3` elements, the application logs all the aggregated random ID number elements of
+the group.
+
+![Group-Based Aggregator Flow Example in Anypoint Studio Canvas](_images/aggregator-group-example.png)
+
+Figure 1. Group-Based Aggregator Flow Example
+
+To test this example in your own environment, you must create the Mule application and test it with
+curl commands.
+
+## Create the Mule Application
+
+To create the Mule flow in Anypoint Studio:
+
+1.  In **Mule Palette**, select **HTTP Listener** and drag it onto the canvas.  
+    The source initiates the flow by listening for incoming HTTP message attributes.
+2.  In **Connector configuration**, select **HTTP_Listener_config**.
+3.  Set **Path** to `/test`.
+4.  Drag a **Transform message** component to the right of **Listener**.
+5.  In the DataSense preview window of the **Transform message** component, add the following
+    DataWeave expression, which sets to each HTTP request payload a `Source Name` as `"group-based"`
+    and a `Source ID` as `random() as String`. The expression also obtains the `GroupId` value of
+    the request based on `message.attributes['queryParams'].groupId`:
+
+    ```DataWeave
+    %dw 2.0
+    output application/json
+    ---
+    {
+        "Source Name": "group-based",
+        "GroupId": message.attributes['queryParams'].groupId,
+        "Source ID": (random() as String)
+    }
+    ```
+
+6.  Drag the **Group based aggregator** scope to the right of **Transform message**.
+7.  Set **Name** to `groupBasedAggregator`.
+8.  Set **Content** to `payload`, which is the expression that defines what to aggregate: in this
+    case, the transformed HTTP requests.
+9.  Set **Group id** to `payload.GroupId`, which is the expression to evaluate for every new message
+    received that gets the group ID where the element is aggregated.
+10. Set **Group size** to `3`, which is the maximum size of elements to aggregate to the group with
+    the group ID resolved.
+11. Drag a **Logger** component into the **Incremental aggregation** route.
+12. In the **Logger** configuration screen, set **Message** to `Doing incremental aggregation.`
+13. Drag a **Logger** component into the **Aggregation complete** route.
+14. Set **Message** to `Aggregation complete`.
+15. Drag another **Logger** component to the right of the first **Logger** component in
+    **Aggregation complete**.
+16. Set **Message** to the following expression, which returns all the aggregated elements:
+
+    ```xml
+    output application/json
+    ---
+    payload
+    ```
+
+17. Save the project.
+18. In **Package Explorer**, click **Run > Run As > Mule Application**.
+19. Test the app by sending the following curl command twice: +
+    `curl -X POST [http://localhost:8081/test?groupId=1](http://localhost:8081/test?groupId=1)` .  
+    This generates two HTTP requests to aggregate to the group ID `1`.
+20. Send the command
+    `curl -X POST [http://localhost:8081/test?groupId=2](http://localhost:8081/test?groupId=2)` to
+    aggregate one request to the group ID `2`.
+21. Send another command
+    `curl -X POST [http://localhost:8081/test?groupId=1](http://localhost:8081/test?groupId=1)` to
+    aggregate a request to group ID `1`.
+22. Navigate to the **Console** view to read the logger message:
+
+```none
+INFO  2021-06-14 16:34:33,921 [[MuleRuntime].uber.12: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/0/processors/0; event: 8beae010-cd47-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation
+INFO  2021-06-14 16:34:43,618 [[MuleRuntime].uber.12: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/0/processors/0; event: 91b93be0-cd47-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation
+INFO  2021-06-14 16:34:47,203 [[MuleRuntime].uber.12: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/0/processors/0; event: 93d8e790-cd47-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation
+INFO  2021-06-14 16:34:51,380 [[MuleRuntime].uber.12: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/1/processors/0; event: 96566ab0-cd47-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Aggregation complete
+INFO  2021-06-14 16:34:51,409 [[MuleRuntime].uber.12: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/1/processors/1; event: 96566ab0-cd47-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: [
+  {
+    "Source Name": "group-based",
+    "GroupId": "1",
+    "Source ID": "0.5127046416902801"
+  },
+  {
+    "Source Name": "group-based",
+    "GroupId": "1",
+    "Source ID": "0.20239307122656847"
+  },
+  {
+    "Source Name": "group-based",
+    "GroupId": "1",
+    "Source ID": "0.7505233647798346"
+  }
+]
+```
+
+This example logger message shows that for the first two HTTP requests with group ID `1` and the
+third request with group ID `2`, the **Logger** component in the **Incremental aggregator** route
+logs the message `Doing incremental aggregation.`  
+After you send the fourth HTTP request, which is the third request with group ID `1`, the
+aggregation group `1` is complete because of the group size of `3` calls per group. The first
+**Logger** component in the **Aggregation complete** route logs the message `Aggregation complete`,
+and the second **Logger** component returns the aggregated payload elements of the group, which are
+the random ID numbers.
+
+If you send another two commands
+`curl -X POST [http://localhost:8081/test?groupId=2](http://localhost:8081/test?groupId=2)` to
+aggregate calls to group `2`, the **Console** view returns the logger message:
+
+```none
+INFO  2021-06-14 16:53:56,262 [[MuleRuntime].uber.12: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/0/processors/0; event: 40c07200-cd4a-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation
+INFO  2021-06-14 16:53:58,686 [[MuleRuntime].uber.01: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/1/processors/0; event: 42329fa0-cd4a-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Aggregation complete
+INFO  2021-06-14 16:53:58,689 [[MuleRuntime].uber.01: [aggregator-group-demo].aggregator-group-demoFlow.CPU_INTENSIVE @2c3478b5] [processor: aggregator-group-demoFlow/processors/1/route/1/processors/1; event: 42329fa0-cd4a-11eb-8b82-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: [
+  {
+    "Source Name": "group-based",
+    "GroupId": "2",
+    "Source ID": "0.8390326267445475"
+  },
+  {
+    "Source Name": "group-based",
+    "GroupId": "2",
+    "Source ID": "0.8931962767228987"
+  },
+  {
+    "Source Name": "group-based",
+    "GroupId": "2",
+    "Source ID": "0.6514448303865373"
+  }
+]
+```
+
+## XML for Group-Based Aggregator Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="c4a97ca0-c01f-4ce9-9922-380eb0defda2" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow >
+		<http:listener config-ref="HTTP_Listener_config" path="/test" allowedMethods="POST"/>
+		<ee:transform  >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "Source Name": "group-based",
+    "GroupId": message.attributes['queryParams'].groupId,
+    "Source ID": (random() as String)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<aggregators:group-based-aggregator name="groupBasedAggregator" evictionTime="0" groupSize="3" groupId="#[payload.GroupId]">
+			<aggregators:incremental-aggregation >
+				<logger level="INFO" message="Doing incremental aggregation"/>
+			</aggregators:incremental-aggregation>
+			<aggregators:aggregation-complete >
+				<logger level="INFO" message="Aggregation complete"/>
+				<logger level="INFO" message="#[output application/json
+---
+payload]"/>
+			</aggregators:aggregation-complete>
+		</aggregators:group-based-aggregator>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Aggregators Module Examples](aggregators-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Aggregators Module Reference 1.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Release Notes:
+[Aggregators Module Release Notes](../../release-notes/connector/aggregators-module-release-notes)
+
+An _aggregator scope_ is a component that receives some data, processes the data to extract some
+value, and then adds that value to a list of aggregated elements. After that process is complete,
+and depending on the aggregator scope configuration, a set of components in the flow processes the
+list of elements.
+
+Aggregators are pass-through routers. The same data that an aggregator scope receives is processed
+by the components that follow the aggregator scope. The only modification is variable propagation if
+any variables are set during the execution of any of the aggregation routes.
+
+When an aggregator scope releases the stored values, a route component (**Incremental aggregation**
+or **Aggregation complete**) processes the list of aggregated elements within the aggregator scope
+itself or in another Mule flow, through an **Aggregator listener** source. The process depends on
+the configuration of the aggregator scope used.
+
+## Configurations
+
+There is no global configuration for the Aggregator Module because the module uses scopes. Each type
+of aggregator is a different scope that is configurable through its parameters. The following
+parameters are common in each scope:
+
+- Content
+
+  The expression that defines what to aggregate. The result of the evaluation is the value stored in
+  the aggregation. Because all data related to an aggregator scope is stored in an object store, the
+  content value must be serializable. Otherwise, there the module might not work properly.
+
+- Object Store
+
+  All information related to an aggregator is stored in an object store. The type of object store
+  relates to the expected behavior of the component.
+  - Persistent Object Store (Default)
+
+    Slower but more reliable than an in-memory object store. Enables data recovery after the
+    application restarts.
+
+  - In-Memory Object Store
+
+    Faster than a persistent memory store, but loses all the data if the application restarts.
+
+## Aggregators Scopes
+
+There are size-based, time-based, and group-based aggregators.
+
+### Size-Based Aggregator
+
+The **Size based aggregator** scope enables you to aggregate elements until a predefined number of
+elements completes the aggregation.
+
+```xml
+<aggregators:size-based-aggregator  name="sizeBasedAggregator"
+                                    maxSize="10"
+                                    timeout="60"
+                                    timeoutUnit="MINUTES"
+                                    objectStore="exampleObjectStore">
+    <aggregators:content>
+        #[payload]
+    </aggregators:content>
+    <aggregators:incremental-aggregation>
+        ...
+    </aggregators:incremental-aggregation>
+    <aggregators:aggregation-complete>
+        ...
+    </aggregators:aggregation-complete>
+</aggregators:size-based-aggregator>
+```
+
+If the elements reach the **Max size** specified, two things occur:
+
+- The elements in the storage are removed and the next element belongs to the new aggregation.
+- The **Aggregation complete** route executes with the aggregated elements.
+
+Additionally, if an **Aggregator listener** is registered to the aggregator scope, the listenerâs
+callback executes using the same set of elements.  
+If the **Incremental aggregation** route is not null, and the **Max size** is not reached, then the
+route component chain executes with all the aggregated elements, including the last element
+aggregated.
+
+You can also define a **Timeout** for the aggregator scope. In that case, a scheduled task with that
+timeout as a delay is registered for execution. The time is computed from the time at which the
+first element arrives, and no extra task is scheduled if there is another task waiting to be
+executed. In the case of a timeout, the referenced listener executes only if it supports being
+called by timeout.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name of the aggregator. An aggregator listener can later reference the scope by name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><p>Expression</p></td><td><p>The expression that defines what to aggregate. The result of the evaluation is the value stored in the aggregation.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Max Size</p></td><td><p>Number</p></td><td><p>The total number of elements to aggregate before considering the aggregation complete.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Timeout</p></td><td><p>Number</p></td><td><p>A maximum time to wait for the aggregation to complete. If the timeout is reached before the total number of elements is equal to Max Size, the aggregation is not considered complete. A value of <code>0</code> is not supported, to avoid constant group timeouts.</p></td><td><p>-1(UNLIMITED)</p></td><td></td></tr><tr><td><p>Timeout unit</p></td><td><p>Time Unit</p></td><td><p>The time unit in which to measure the timeout.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Object Store</p></td><td><p>Object Store</p></td><td><p>Either a name to reference a global object store or a definition of a private object store where the aggregated elements will be stored.</p></td><td><p>Default Object Store partition.</p></td><td></td></tr><tr><td><p>Aggregation Complete Route</p></td><td><p>Route</p></td><td><p>Components chain to execute once the aggregation is complete. The Aggregation Complete Route does not execute if the timeout is reached.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Incremental Aggregation Route</p></td><td><p>Route</p></td><td><p>Components chain to execute for every new element that is aggregated. The payload is the list of all the elements that have been aggregated in the aggregation from the first element to the one that is currently aggregated.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Raises
+
+- AGGREGATORS:AGGREGATOR_CONFIG
+
+The Max size or Timeout fields have invalid values, for example, `maxSize < 0`.
+
+- AGGREGATORS:OBJECT_STORE_ACCESS
+
+An error occurred during an attempt to access the object store used to store the aggregated values.
+
+### Time-Based Aggregator
+
+The **Time based aggregator** scope enables you to aggregate elements until a specified time limit
+is reached.
+
+```xml
+<aggregators:time-based-aggregator  name="timeBasedAggregator"
+                                    period="60"
+                                    periodUnit="MINUTES"
+                                    maxSize="10"
+                                    objectStore="exampleObjectStore">
+    <aggregators:content>
+        #[payload]
+    </aggregators:content>
+    <aggregators:incremental-aggregation>
+        ...
+    </aggregators:incremental-aggregation>
+</aggregators:time-based-aggregator>
+```
+
+The period taken into account is computed from the time the first element arrives. After the
+aggregation is released, the timer does not start until the next element arrives.
+
+The aggregator also enables an **Incremental aggregation** route to be executed every time a new
+element arrives, unless a **Max size** is set. If that is the case, the **Incremental aggregation**
+route executes every time except when the size of the aggregated elements is equal to the **Max
+size**. If an **Aggregator listener** is present at that moment, the listener callback is also
+executed.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name of the aggregator. An aggregator listener can later reference the scope by name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><p>Expression</p></td><td><p>The expression that defines what to aggregate. The result of the evaluation is the value stored in the aggregation.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Period</p></td><td><p>Number</p></td><td><p>A time period to wait before considering the aggregation complete.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Period unit</p></td><td><p>Time Unit</p></td><td><p>The time unit in which to measure the time period.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Max Size</p></td><td><p>Number</p></td><td><p>The total number of elements to aggregate before considering the aggregation complete.</p></td><td><p>-1(UNLIMITED)</p></td><td></td></tr><tr><td><p>Object Store</p></td><td><p>Object Store</p></td><td><p>Either a name to reference a global object store or a definition of a private object store where the aggregated elements will be stored.</p></td><td><p>Default Object Store partition.</p></td><td></td></tr><tr><td><p>Incremental Aggregation Route</p></td><td><p>Route</p></td><td><p>Components chain to execute for every new element that is aggregated. The payload is the list of all the elements that have been aggregated in the aggregation from the first element to the one that is currently aggregated.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Raises
+
+- AGGREGATORS:AGGREGATOR_CONFIG
+
+The Period or Max size fields have invalid values, for example, Period = 0.
+
+- AGGREGATORS:OBJECT_STORE_ACCESS
+
+An error occurred during an attempt to access the object store used to store the aggregated values.
+
+### Group-Based Aggregator
+
+The **Group based aggregator** scope enables you to aggregate elements into groups by group ID.
+
+```xml
+<aggregators:group-based-aggregator name="groupBasedAggregator"
+                                    groupId="#[correlationId]"
+                                    groupSize="#[itemSequenceInfo.sequenceSize]"
+                                    evictionTime="180"
+                                    evictionTimeUnit="SECONDS"
+                                    timeout="60"
+                                    timeoutUnit="MINUTES"
+                                    objectStore="exampleObjectStore">
+    <aggregators:content>
+        #[payload]
+    </aggregators:content>
+    <aggregators:incremental-aggregation>
+        ...
+    </aggregators:incremental-aggregation>
+    <aggregators:aggregation-complete>
+        ...
+    </aggregators:aggregation-complete>
+</aggregators:group-based-aggregator>
+```
+
+If the elements reach the **Max size** specified for the group, two things occur:
+
+- The elements in that group are removed from storage. The group is marked as complete and every new
+  element that arrives at that group raises an exception.
+- The **Aggregation complete** route executes with the aggregated elements of that particular group.
+
+Every time a new element reaches the aggregator, an ID is resolved. If a group with that ID already
+exists in the aggregator, the value is added to that group. Otherwise, a new group with that ID is
+created and the received element is the first element in that groupâs aggregation.
+
+Additionally, if an **Aggregator listener** is registered to the aggregator scope, the listenerâs
+callback executes with the same set of elements.  
+If the **Incremental aggregation** route is not null, and the **Max size** is not reached, then the
+route component chain executes with all the aggregated elements, including the last element
+aggregated.
+
+The **Group based aggregator** scope introduces some important concepts:
+
+- Group timeout  
+  Specifies when a group must be released because all the necessary elements for the group did not
+  arrive within the expected time. If a group has timed out but is not yet evicted, it rejects
+  attempts to add any new values
+- Group eviction  
+  Specifies when a group is removed from the aggregator, regardless of whether it was completed or
+  timed out. If a new element with that groupâs ID is received by the aggregator, the group is
+  created again.
+
+Lastly, when elements that reach group-based aggregators come from a sequence that is split (by a
+[ForEach](../../mule-runtime/latest/for-each-scope-concept) component for example), each element is
+assigned a different `sequenceNumber`. In that case, the elements are sorted in increasing order
+prior to the aggregation release.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name of the aggregator. An aggregator listener can later reference the scope by name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content</p></td><td><p>Expression</p></td><td><p>The expression that defines what to aggregate. The result of the evaluation is the value stored in the aggregation.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Group Id</p></td><td><p>Expression</p></td><td><p>The expression to evaluate for every new message received to obtain the ID for the group in which it should be aggregated..</p></td><td><p>#[correlationId]</p></td><td></td></tr><tr><td><p>Group Size</p></td><td><p>Number</p></td><td><p>The maximum size to assign to the group with the group ID resolved. All messages with the same group ID must have the same group size. If not, only the first resolved group size is considered correct. A warning is logged for every group that does not match.</p></td><td><p>#[itemSequenceInfo.sequenceSize]</p></td><td></td></tr><tr><td><p>Eviction Time</p></td><td><p>Number</p></td><td><p>The time to remember a group ID after it is completed or timed out (0 means: donât remember, -1: remember forever)</p></td><td><p>180</p></td><td></td></tr><tr><td><p>Eviction Time Unit</p></td><td><p>Time Unit</p></td><td><p>The time unit for the Eviction Time.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Timeout</p></td><td><p>Number</p></td><td><p>The maximum time to wait for the aggregation of a group to complete. If the timeout is reached before the total number of elements in the group equals the groupâs size, the aggregator triggers <code>notifyListenerOnTimeout</code>. This allows timed-out aggregations to be picked up by the Aggregator Listener if <code>IncludeTimedOutGroups</code> is set to <code>true</code>, without marking them as complete. Additionally, the <code>IncludeTimedOutGroups</code> parameter determines whether these timed-out groups are passed to the listener without marking the aggregation as complete. To avoid constant group timeouts, a value of <code>0</code> is not supported.</p></td><td><p>-1(UNLIMITED)</p></td><td></td></tr><tr><td><p>Timeout unit</p></td><td><p>Time Unit</p></td><td><p>The time unit in which to measure the timeout.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Object Store</p></td><td><p>Object Store</p></td><td><p>Either a name to reference a global object store or a definition of a private object store where the aggregated elements are stored.</p></td><td><p>Default Object Store partition</p></td><td></td></tr><tr><td><p>Aggregation Complete Route</p></td><td><p>Route</p></td><td><p>Components chain to execute once the aggregation is complete.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Incremental Aggregation Route</p></td><td><p>Route</p></td><td><p>Components chain to execute for every new element that is aggregated. The payload is the list of all the elements that have been aggregated in the aggregation from the first element to the one that is currently aggregated.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Raises
+
+- AGGREGATORS:GROUP_COMPLETED
+
+An error occurred during an attempt to add a new element to an already completed group that was not
+yet evicted.
+
+- AGGREGATORS:GROUP_TIMED_OUT
+
+An error occurred during an attempt to add a new element to a group that timed out but had not yet
+been evicted.
+
+- AGGREGATORS:NO_GROUP_ID
+
+The expression that resolves to the group ID returns null.
+
+- AGGREGATORS:NO_GROUP_SIZE
+
+The expression that resolves to the group size returns null.
+
+- AGGREGATORS:AGGREGATOR_CONFIG
+
+The Group size or Timeout fields have invalid values, for example, groupSize < 0.
+
+- AGGREGATORS:OBJECT_STORE_ACCESS
+
+An error occurred during an attempt to access the object store used to store the aggregated values.
+
+## Sources
+
+### Aggregator Listener
+
+An **Aggregator listener** is a source for listening to elements triggered by an aggregator scope.
+
+`<aggregators:aggregator-listener aggregatorName="exampleAggregator" includeTimedOutGroups="false">`
+
+> [!IMPORTANT] An Aggregator listener references only aggregator scopes that are inside a flow.
+> Aggregator scopes declared in a subflow are not visible to Aggregator listeners.
+
+After the aggregator scope referenced by the listener completes an aggregation, the listener is
+triggered with a list of all the elements.  
+Because the **Aggregator listener** is a source, it is located in a different flow than the
+aggregator. The listener cannot access the context from the aggregatorâs flow, and therefore cannot
+access the flowâs variables.
+
+Although you can use aggregation listeners for any kind of aggregator, it is important for
+time-driven asynchronous aggregations, which do not execute an aggregator route and can reach
+components only in flows with an aggregator listener as the source.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Aggregator Name</p></td><td><p>String</p></td><td><p>The name of the aggregator to listen to. After that aggregator releases its elements, the listener is executed. Each listener can reference only one aggregator, and each aggregator can be referenced by at most one listener.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Include Timed Out Groups</p></td><td><p>Boolean</p></td><td><p>Indicates whether the listener should be triggered when a group is released due to a timeout.</p></td><td><p>false</p></td><td></td></tr></tbody></table>
+
+## Aggregation Attributes
+
+Each time a message goes through an aggregation, some attributes with information about the
+aggregation are added to the message.
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><p>Aggregation ID</p></td><td><p>String</p></td><td><p>The ID from the group in which the element is aggregated. If the aggregation strategy does not aggregate by group, this field is an autogenerated value that is kept until the aggregation is released (as with group-based and time-based aggregators).</p></td></tr><tr><td><p>First Item Arrival Time</p></td><td><p>Date</p></td><td><p>The time when the first value is aggregated.</p></td></tr><tr><td><p>Last Item Arrival Time</p></td><td><p>Date</p></td><td><p>The time when the last value is aggregated.</p></td></tr><tr><td><p>Is Aggregation Complete</p></td><td><p>Boolean</p></td><td><p>True if the aggregation is complete, False otherwise.</p></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of times that a redelivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></td><td></td><td></td></tr><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use if the &lt;b&gt;Use Secure Hash&lt;b/&gt; field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>One or more expressions that determine when a message was redelivered. This property can be set only if the &lt;b&gt;Use Secure Hash&lt;/b&gt; field is <code>false</code>.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>Object Store</p></div></div></td><td><p>Configures the object store that stores the redelivery counter for each message.</p></td><td></td><td></td></tr></tbody></table>
+
+## System Properties
+
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Property</th><th>Description</th><th>Default Value</th><th>Example</th></tr></thead><tbody><tr><td><p><code>mule.aggregator.executor.failOnStartIfNoQuorum</code></p></td><td><p>Currently a Mule app deployment fails, if the quorum constraint is not met. This system property sends the quorum poll to the background to deploy the Mule app.</p></td><td><p><code>True</code></p></td><td><p><code>-M-Dmule.aggregator.executor.failOnStartIfNoQuorum=false</code></p></td></tr><tr><td><p><code>mule.aggregator.executor.delayForQuorum</code></p></td><td><p>Configures the time (in milliseconds) between quorum polls, and the property takes effect if the <code>mule.aggregator.executor.failOnStartIfNoQuorum</code> property has a value of <code>false</code>.</p></td><td><p><code>100</code></p></td><td><p><code>-M-Dmule.aggregator.executor.delayForQuorum=200</code></p></td></tr><tr><td><p><code>mule.aggregatorsSchedulingPeriod</code></p></td><td><p>Configures the scheduling period (in milliseconds) to determine if Size-Based or Time-Based aggregators reached the configured size. The module triggers a GET call every 1 second.</p></td><td></td><td><p><code>-M-Dmule.aggregatorsSchedulingPeriod=1</code></p></td></tr></tbody></table>
+
+## See Also
+
+- [Aggregators Module Examples](aggregators-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Aggregators Module Multiple Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+A common use case for an aggregator is to store multiple values, then process them as a batch later.
+You can accomplish this aggregation using the **Size based aggregator** scope.
+
+Suppose that the data that you want to aggregate is a personâs name that was previously stored in a
+variable with name `personName`, and you want to process batches of 100 elements. Once all the data
+is collected, you want to execute some logic defined in a flow with the name
+`whatToDoWithAllTheseNames`.
+
+So, you could use this:
+
+```xml
+<aggregators:size-based-aggregator name="personsNameAggregator" maxSize="100">
+    <aggregators:content>#[vars.personName]</aggregators:content>
+    <aggregators:aggregation-complete>
+        <flow-ref name="whatToDoWithAllTheseNames"/>
+    </aggregators:aggregation-complete>
+</aggregators:size-based-aggregator>
+```
+
+If you do not want to execute an action for every new element because that would cause too many
+executions, you can use `incremental-aggregation`. For example, you could execute an action every
+time your list of names increases by an increment of 10% as shown here:
+
+```xml
+<aggregators:size-based-aggregator name="personsNameAggregator" maxSize="100">
+    <aggregators:content>#[vars.personName]</aggregators:content>
+    <aggregators:incremental-aggregation>
+        <choice>
+            <when expression="#[(sizeOf(payload) mod 10) == 0]">
+                <flow-ref name="partialAction"/>
+            </when>
+        </choice>
+    </aggregators:incremental-aggregation>
+    <aggregators:aggregation-complete>
+        <flow-ref name="whatToDoWithAllTheseNames"/>
+    </aggregators:aggregation-complete>
+</aggregators:size-based-aggregator>
+```
+
+You can assume that the logic to be executed is in another flow named `partialAction`.
+
+If you do not want to wait forever to fill every batch, you can process all the events that you have
+even if the `maxSize` value is not reached, by setting a timeout for your aggregator. The following
+example sets the timeout to 10 seconds.
+
+```xml
+<aggregators:size-based-aggregator name="personsNameAggregator"
+                                   maxSize="100"
+                                   timeout="10"
+                                   timeoutUnit="SECONDS">
+    <aggregators:content>#[vars.personName]</aggregators:content>
+    <aggregators:incremental-aggregation>
+        <choice>
+            <when expression="#[(sizeOf(payload) mod 10) == 0]">
+                <flow-ref name="partialAction"/>
+            </when>
+        </choice>
+    </aggregators:incremental-aggregation>
+    <aggregators:aggregation-complete>
+        <flow-ref name="whatToDoWithAllTheseNames"/>
+    </aggregators:aggregation-complete>
+</aggregators:size-based-aggregator>
+```
+
+To make sure that the logic that processes all aggregated elements executes once a timeout occurs,
+you also need to include a listener, for example:
+
+```xml
+<aggregators:aggregator-listener aggregatorName="personsNameAggregator" includeTimedOutGroups="true"/>
+<flow-ref name="whatToDoWithAllTheseNames"/>
+```
+
+For this case, the data types that come from the `aggregation-complete` route and
+`aggregator-listener` are the same. So, for the execution of the flow `whatToDoWithAllTheseNames`,
+it does not matter where the data comes from. However, with this configuration, when the aggregation
+is complete, the flow `whatToDoWithAllTheseNames` triggers twice: once from the
+`aggregation-complete` route `flow-ref`, and again from the `flow-ref` in the flow with the
+`aggregator-listener`.
+
+To avoid multiple executions of the same logic, wrap the `flow-ref` value `aggregator-listener` in a
+`choice` component that uses the `isAggregationComplete` attribute to check for an incomplete
+aggregation:
+
+```xml
+<flow name="test-flow">
+    ...
+    <aggregators:size-based-aggregator name="personsNameAggregator"
+                                       maxSize="100"
+                                       timeout="10"
+                                       timeoutUnit="SECONDS">
+        <aggregators:content>#[vars.personName]</aggregators:content>
+        <aggregators:incremental-aggregation>
+            <choice>
+                <when expression="#[(sizeOf(payload) mod 10) == 0]">
+                    <flow-ref name="partialAction"/>
+                </when>
+            </choice>
+        </aggregators:incremental-aggregation>
+        <aggregators:aggregation-complete>
+            <flow-ref name="whatToDoWithAllTheseNames"/>
+        </aggregators:aggregation-complete>
+    </aggregators:size-based-aggregator>
+    ...
+</flow>
+
+<flow name="aggregator-listener-flow">
+    <aggregators:aggregator-listener aggregatorName="personsNameAggregator" includeTimedOutGroups="true"/>
+    <choice>
+        <when expression="#[not attributes.isAggregationComplete]">
+            <flow-ref name="whatToDoWithAllTheseNames"/>
+        </when>
+    <choice>
+</flow>
+```
+
+In this example, the `flow-ref` is called only when a timeout triggers that flow.
+
+Lastly, you realize that you need to process each person according to nationality. This information
+comes in a variable. However, in this case, assume that you want to process every person from the
+same country together in the same batch.
+
+You can split them accordingly with a group-based aggregator. For example, assume that the personâs
+nationality was previously stored in a variable with name `personNac`. In this case, the flow should
+contain this:
+
+```xml
+<aggregators:group-based-aggregator name="personsNameByNacAggregator"
+                                    groupId="#[vars.personNac]"
+                                    groupSize="100"
+                                    timeout="10"
+                                    timeoutUnit="SECONDS"
+                                    evictionTime="0">
+    <aggregators:content>#[vars.personName]</aggregators:content>
+    <aggregators:incremental-aggregation>
+        <choice>
+            <when expression="#[(sizeOf(payload) mod 10) == 0]">
+                <flow-ref name="partialAction"/>
+            </when>
+        </choice>
+    </aggregators:incremental-aggregation>
+    <aggregators:aggregation-complete>
+        <flow-ref name="whatToDoWithAllTheseNamesFromSomeCountry"/>
+    </aggregators:aggregation-complete>
+</aggregators:group-based-aggregator>
+```
+
+The flow also needs a listener for timeouts:
+
+```xml
+<aggregators:aggregator-listener aggregatorName="personsNameByNacAggregator" includeTimedOutGroups="true"/>
+<flow-ref name="whatToDoWithAllTheseNamesFromSomeCountry"/>
+```
+
+Notice that the example does not configure an eviction time in the aggregator. That is because the
+default value is `0`, which means the eviction occurs directly after the group is released, which is
+the desired behavior. Therefore, if a group finishes or is timed out, a subsequent value can be
+added to the group without being rejected.
+
+## See Also
+
+- [Aggregators Module Examples](aggregators-examples)
+- [Aggregators Module Reference](aggregators-module-reference)
+---
+
+# Size-Based Aggregator Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Aggregators module **Size based aggregator** scope enables you to aggregate elements until a
+predefined size number of elements completes the aggregation. The following example shows how to
+configure this scope to aggregate up to `3` HTTP request calls. The application uses DataWeave to
+set the payload of each call with a random ID number. When the aggregation reaches the `3` calls
+required for completion, the application logs all the aggregated random ID number elements.
+
+![Size-Based Aggregator Flow Example in Anypoint Studio Canvas](_images/aggregator-size-example.png)
+
+Figure 1. Size-Based Aggregator Flow Example
+
+To test this example in your own environment, you must create the Mule application and test it with
+curl commands.
+
+## Create the Mule Application
+
+To create the Mule flow in Anypoint Studio:
+
+1.  In **Mule Palette**, select **HTTP Listener** and drag it onto the canvas.  
+    The source initiates the flow by listening for incoming HTTP message attributes.
+2.  In **Connector configuration**, select **HTTP_Listener_config**.
+3.  Set **Path** to `/test`.
+4.  Drag a **Transform message** component to the right of **Listener**.
+5.  In the DataSense preview window of the **Transform message** component, add the following
+    DataWeave expression, which sets to each HTTP request payload a `Source Name` as `"size-based"`
+    and a `Source ID` as `random() as String`:
+
+    ```DataWeave
+    %dw 2.0
+    output application/json
+    ---
+    {
+        "Source Name": "size-based",
+        "Source ID": (random() as String)
+    }
+    ```
+
+6.  Drag the **Size based aggregator** scope to the right of **Transform message**.
+7.  Set **Name** to `sizeBasedAggregator`.
+8.  Set **Max size** to `3`.
+9.  Set **Content** to `payload`, which is the expression that defines what to aggregate: in this
+    case, the transformed HTTP requests.
+10. Drag a **Logger** component into the **Incremental aggregation** route.
+11. In the **Logger** configuration screen, set **Message** to `Doing incremental aggregation step.`
+12. Drag a **Logger** component into the **Aggregation complete** route.
+13. Set **Message** to `Aggregation complete`.
+14. Drag another **Logger** component to the right of the first **Logger** component in
+    **Aggregation complete**.
+15. Set **Message** to the following expression, which returns all the aggregated elements:
+
+    ```xml
+    output application/json
+    ---
+    payload
+    ```
+
+16. Save the project.
+17. In **Package Explorer**, click **Run > Run As > Mule Application**.
+18. Test the app by sending the following curl command three times:  
+    `curl -X POST [http://localhost:8086/test](http://localhost:8086/test)`  
+    This generates three HTTP requests for the **Size based aggregator** to process.
+19. Navigate to the **Console** view to read the logger message:
+
+```none
+INFO  2021-06-08 11:18:44,897 [[MuleRuntime].uber.02: [aggregator-size-demo].aggregator-size-demoFlow.CPU_INTENSIVE @20a8a5b4] [processor: aggregator-size-demoFlow/processors/1/route/0/processors/0; event: 6ee63ec0-c864-11eb-b5a7-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation step.
+INFO  2021-06-08 11:18:48,570 [[MuleRuntime].uber.02: [aggregator-size-demo].aggregator-size-demoFlow.CPU_INTENSIVE @20a8a5b4] [processor: aggregator-size-demoFlow/processors/1/route/0/processors/0; event: 71283f80-c864-11eb-b5a7-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation step.
+INFO  2021-06-08 11:18:50,189 [[MuleRuntime].uber.02: [aggregator-size-demo].aggregator-size-demoFlow.CPU_INTENSIVE @20a8a5b4] [processor: aggregator-size-demoFlow/processors/1/route/1/processors/0; event: 721efb90-c864-11eb-b5a7-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Aggregation complete
+INFO  2021-06-08 11:18:50,254 [[MuleRuntime].uber.02: [aggregator-size-demo].aggregator-size-demoFlow.CPU_INTENSIVE @20a8a5b4] [processor: aggregator-size-demoFlow/processors/1/route/1/processors/1; event: 721efb90-c864-11eb-b5a7-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: [
+  {
+    "Source Name": "size-based",
+    "Source ID": "0.49127866969631506"
+  },
+  {
+    "Source Name": "size-based",
+    "Source ID": "0.4250959269275998"
+  },
+  {
+    "Source Name": "size-based",
+    "Source ID": "0.4160926509813687"
+  }
+]
+```
+
+This example logger message shows that for the first two HTTP requests, the **Logger** component in
+the **Incremental aggregator** route logs the message `Doing incremental aggregation step.` After
+the aggregation reaches the third HTTP request call, the first **Logger** component in the
+**Aggregation complete** route logs the message `Aggregation complete`, and the second **Logger**
+component returns the aggregated payload elements, which are the random ID numbers:
+
+```none
+{
+  "Source Name": "size-based",
+  "Source ID": "0.49127866969631506"
+},
+{
+  "Source Name": "size-based",
+  "Source ID": "0.4250959269275998"
+},
+{
+  "Source Name": "size-based",
+  "Source ID": "0.4160926509813687"
+}
+```
+
+## XML for Size-Based Aggregator Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config">
+		<http:listener-connection host="0.0.0.0" port="8086" />
+	</http:listener-config>
+	<flow name="aggregator-size-demoFlow" >
+		<http:listener config-ref="HTTP_Listener_config" path="/test" allowedMethods="POST"/>
+		<ee:transform >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "Source Name": "size-based",
+    "Source ID": (random() as String)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<aggregators:size-based-aggregator name="sizeBasedAggregator" maxSize="3">
+			<aggregators:incremental-aggregation>
+				<logger level="INFO" message="Doing incremental aggregation step." />
+			</aggregators:incremental-aggregation>
+			<aggregators:aggregation-complete>
+				<logger level="INFO" message="Aggregation complete" />
+				<logger level="INFO" message="#[output application/json
+---
+payload]" />
+			</aggregators:aggregation-complete>
+		</aggregators:size-based-aggregator>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Aggregators Module Examples](aggregators-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Configure Size-Based Aggregator Timeout and Max Size Fields
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To understand the Aggregators module **Size based aggregator** scope timeout behavior, review the
+following diagram that explains how the **Timeout** and **Max size** fields work. Then learn how to
+configure these fields in Anypoint Studio and in the XML editor in a Mule application example.
+
+![aggregator size timeout diagram](_images/aggregator-size-timeout-diagram.png)
+
+Figure 1. Size-Based Aggregator Timeout and Max Size behavior diagram
+
+- The **Max size** field indicates the total number of elements to be aggregated before considering
+  the aggregation complete.
+- The **Timeout** field indicates the maximum time to wait for the aggregation to complete.
+- The first process indicates that the aggregation is complete because the total aggregated elements
+  reached the number required before the timeout occurred.
+- The second process indicates that the aggregation is not complete because the total aggregated
+  elements did not reach the number required before the timeout occurred, which causes an
+  aggregation reset.
+- The third process indicates that you can use an **Aggregator listener** source to capture the
+  elements that were aggregated before the timeout occurred. The source triggers when the timeout
+  occurs.
+
+If you choose to use an **Aggregator listener** source to capture incomplete aggregation elements,
+you must select the **Include timed out group** field to indicate that the source is triggered when
+the timeout occurs.
+
+## Configure the Mule Application
+
+The following example shows how to configure the **Size based Aggregator** scope to aggregate up to
+`3` HTTP request calls within `10` seconds. The application uses DataWeave to set the payload of
+each call with a random ID number. When the aggregation reaches the `3` calls required for
+completion and before the timeout occurs, the application logs all the aggregated elements.
+Otherwise, the application logs only the aggregated elements captured by an **Aggregator listener**
+source when the timeout occurred.
+
+![Size-Based Aggregator Flow Example in Anypoint Studio Canvas](_images/aggregator-size-timeout-example.png)
+
+Figure 2. Size-Based Aggregator Flow Example
+
+To test this example in your own environment, you must create the Mule application and test it with
+curl commands.
+
+To create the Mule flow in Anypoint Studio:
+
+1.  In **Mule Palette**, select **HTTP Listener** and drag it onto the canvas.  
+    The source initiates the flow by listening for incoming HTTP message attributes.
+2.  In **Connector configuration**, select **HTTP_Listener_config**.
+3.  Set **Path** to `/test`.
+4.  Drag a **Transform message** component to the right of **Listener**.
+5.  In the DataSense preview window of the **Transform message** component, add the following
+    DataWeave expression, which sets to each HTTP request payload a `Source Name` as `"size-based"`
+    and a `Source ID` as `random() as String`:
+
+    ```DataWeave
+    %dw 2.0
+    output application/json
+    ---
+    {
+        "Source Name": "size-based",
+        "Source ID": (random() as String)
+    }
+    ```
+
+6.  Drag the **Size based aggregator** scope to the right of **Transform message**.
+7.  Set **Name** to `sizeBasedAggregator`.
+8.  Set **Max size** to `3`.
+9.  Set **Timeout** to `10`.
+10. Set **Content** to `payload`, which is the expression that defines what to aggregate: in this
+    case, the transformed HTTP requests.
+11. Drag a **Logger** component into the **Incremental aggregation** route.
+12. In the **Logger** configuration screen, set **Message** to `Doing incremental aggregation step.`
+13. Drag a **Logger** component into the **Aggregation complete** route.
+14. Set **Message** to `Aggregation complete`.
+15. Drag another **Logger** component to the right of the first **Logger** component in
+    **Aggregation complete**.
+16. Set **Message** to the following expression, which returns all the aggregated elements:
+
+    ```xml
+    output application/json
+    ---
+    payload
+    ```
+
+17. Drag an **Aggregator listener** source below the first flow.
+18. Set **Aggregator name** to `sizeBasedAggregator`, which listens to the previous aggregator.
+19. Select **Include timed out groups**, which indicates whether the listener should be triggered
+    when the timeout occurs.
+20. Drag a **Logger** component to the right of the **Aggregation listener** source.
+21. Set **Message** to the following expression, which returns only the aggregated elements before
+    the timeout occurs:
+
+    ```xml
+    output application/json
+    ---
+    payload
+    ```
+
+22. Save the project.
+23. In **Package Explorer**, click **Run > Run As > Mule Application**.
+24. Test the app by sending the following curl command within 10 seconds:  
+    `curl -X POST [http://localhost:8086/test](http://localhost:8086/test)`
+25. Navigate to the **Console** view to read the logger message:
+
+```none
+INFO  2021-06-22 12:59:16,319 [[MuleRuntime].uber.12: [aggregator-size-demo].aggregator-size-demoFlow.CPU_INTENSIVE @7992f689] [processor: aggregator-size-demoFlow/processors/1/route/0/processors/0; event: cbc219c0-d372-11eb-b975-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental aggregation step.
+INFO  2021-06-22 12:59:26,328 [[MuleRuntime].uber.12: [aggregator-size-demo].aggregator-size-demoFlow1.CPU_LITE @684a1bef] [processor: aggregator-size-demoFlow1/processors/0; event: d6b48f00-d36f-11eb-b975-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: [
+  {
+    "Source Name": "size-based",
+    "Source ID": "0.6568747259174192"
+  }
+]
+```
+
+This example logger message shows that for the first HTTP request, the **Logger** component in the
+**Incremental aggregator** route logs the message `Doing incremental aggregation step.` After the
+aggregation reaches the `10` seconds, the timeout occurs. The **Aggregation listener** source
+captures the only HTTP request call and the subsequent **Logger** component returns the aggregated
+payload element, which is the random ID number.
+
+## XML for Size-Based Aggregator Timeout Max Size Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config">
+		<http:listener-connection host="0.0.0.0" port="8086" />
+	</http:listener-config>
+	<flow name="aggregator-size-demoFlow"  >
+		<http:listener doc:name="Listener"  config-ref="HTTP_Listener_config" path="/test" allowedMethods="POST"/>
+		<ee:transform doc:name="Transform Message" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "Source Name": "size-based",
+    "Source ID": (random() as String)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<aggregators:size-based-aggregator doc:name="Size based aggregator"  name="sizeBasedAggregator" maxSize="3" timeout="10">
+			<aggregators:incremental-aggregation>
+				<logger level="INFO"  message="Doing incremental aggregation step." />
+			</aggregators:incremental-aggregation>
+			<aggregators:aggregation-complete>
+				<logger level="INFO"  message="Aggregation complete" />
+				<logger level="INFO" message="#[output application/json
+---
+payload]" />
+			</aggregators:aggregation-complete>
+		</aggregators:size-based-aggregator>
+	</flow>
+	<flow name="aggregator-size-demoFlow1"  >
+		<aggregators:aggregator-listener  aggregatorName="sizeBasedAggregator" includeTimedOutGroups="true"/>
+		<logger level="INFO" message="#[output application/json&#10;---&#10;payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Aggregators Module Examples](aggregators-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure Aggregators Module 1.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a module in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the module to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the moduleâs flow](#configure-source).
+4.  [Add an aggregator scope to the flow](#add-connector-operation).
+5.  [Configure an object store for an aggregator](#configure-os-aggregator).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[Aggregators Module Reference](aggregators-module-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Module to Your Mule Project
+
+Add Aggregators Module to your Mule project to automatically populate the XML code with the moduleâs
+namespace and schema location and to add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `aggregators module` in the search field.
+3.  Click **Aggregators Module** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a module to a Mule project in Studio does not make that module available to other projects in
+your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with Aggregators Module:
+
+- **HTTP > Listener**
+
+  Initiates a flow each time it receives a request on the configured host and port.
+
+- **Aggregator listener**
+
+  Initiates a subflow by listening to elements triggered by a referenced aggregator scope.  
+  After the aggregator scope referenced by the listener completes an aggregation, the **Aggregator
+  listener** triggers the subflow with a list of all the aggregated elements.
+
+For example, to configure an Aggregator listener, follow these steps:
+
+1.  In the **Mule Palette** view, select **Aggregators > Aggregator listener**.
+2.  Drag **Aggregator listener** to the Studio canvas.
+3.  On the **Aggregator listener** configuration screen, optionally change the value of the
+    **Display Name** field.
+4.  Set **Aggregator name** to the name of the aggregator scope to listen to.
+
+    The listener executes after the aggregator scope releases its elements.
+
+5.  Select **Include timed out groups** to indicate whether the listener should be triggered when a
+    group is released due to a timeout.
+
+    This configuration option also works for non-group aggregators, such as the **Time based
+    aggregator** and **Size based aggregator** scopes.
+
+## Add an Aggregator Scope to the Flow
+
+When you add a module scope to your flow, you are specifying an action for that module to perform.
+
+To add a scope for Aggregators Module, follow these steps:
+
+1.  In the **Mule Palette** view, select **Aggregators** and then select the desired scope:
+    - **Group based aggregator**
+
+      Enables you to aggregate elements into groups by group ID.
+
+    - **Size based aggregator**
+
+      Enables you to aggregate elements until a predefined size number of elements completes the
+      aggregation.
+
+    - **Time based aggregator**
+
+      Enables you to aggregate elements within a predefined time limit.
+
+2.  Drag the scope onto the Studio canvas to the right of the source:
+
+![Aggregator Module scopes and source in the Mule Palette view of Anypoint Studio](_images/aggregators-scopes.png)
+
+Figure 1. Aggregator Module scopes in Studio
+
+## Configure an Object Store for an Aggregator
+
+For any aggregator scope, you can configure an object store either by referencing a global object
+store or creating a private one.
+
+### Configure a Global Object Store
+
+To configure a global object store in Studio, follow these steps:
+
+1.  Select the aggregator scope from the flow.
+2.  On the aggregator scope configuration screen, click **Advanced**.
+3.  Click the green plus sign (+) to create a global object store configuration.
+4.  In the **Global Object store configuration** screen, set **Name** to `aGlobalObjectStore`.
+5.  Complete the required configuration attributes and click **OK**.
+
+The following screenshot shows the **Advanced** tab of **Group based aggregator** scope with an
+object store configuration:
+
+![The Object Store(*) field has the aGlobalObjectStore configuration selected](_images/aggregators-os-global.png)
+
+In the **Configuration XML** view, the `objectStore` configuration looks like this:
+
+```xml
+<aggregators:group-based-aggregator name="globalOSAggregator"
+                                   maxSize="10"
+                                   objectStore="aGlobalObjectStore">
+```
+
+### Configure a Private Object Store
+
+To configure a private object store in Studio, manually update the XML code:
+
+1.  Select the aggregator scope from the flow.
+2.  Click **Configuration XML** in your Studio canvas.
+3.  Add the XML private object store `<os:private-object-store>` inside the
+    `<aggregators:object-store>` section, for example:
+
+```xml
+<aggregators:size-based-aggregator  name="privateOSAggregator" maxSize="10">
+    ...
+    <aggregators:object-store>
+        <os:private-object-store alias="privateObjectStore" persistent="false"/>
+    </aggregators:object-store>
+</aggregators:group-based-aggregator>
+```
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the app log output is visible in the Anypoint
+  Studio console window.
+- If youâre running the app using Mule from the command line, the app log output is visible in your
+  OS console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [Aggregators Module Reference](aggregators-module-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Synchronous Versus Asynchronous Aggregations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+An aggregation is complete based on a new element added to the list, as when a max size is
+specified, or because some timeout or time period is complete. This is important because the type of
+aggregation determines which chain of components to execute with the list of elements. There are two
+kinds of triggers for an aggregation completion: synchronous and asynchronous.
+
+> [!IMPORTANT] Each time counter associated with an aggregator starts counting from the moment the
+> first message of a group arrives. Once the aggregation is complete, the counter resets and waits
+> for the next element to arrive.  
+> For single-group aggregators (time-based and size-based aggregators scopes), there is only one
+> time counter, but for the group-based aggregator, there is one counter per group.
+
+## Synchronous Aggregations
+
+For aggregations completed because a new element arrives (Sync), at least one of the following
+things occur:
+
+- If the aggregator scope is configured with an **Aggregation complete** route, the components
+  inside that route execute with the payload being the list of aggregated elements.
+- If the aggregator scope has a referenced **Aggregator listener**, the flow to which that listener
+  belongs executes with the payload being the list of aggregated elements.
+
+## Asynchronous Aggregations
+
+For aggregations completed because a time period ended or a timeout was reached (Async), the only
+thing that can happen is that if the aggregator scope has a referenced **Aggregator listener** and
+the listener accepts timed-out aggregations, the flow to which that listener belongs executes the
+list of aggregated elements as the payload.
+
+## Placement of Processing Logic for Mule Apps Using Aggregators
+
+When you create a Mule app that uses aggregators, place the processing logic as follows:
+
+- If the aggregation depends on time, add the processing logic in a different flow with an
+  **Aggregation listener** as a source.
+- If the aggregation depends on a size being reached, add the processing logic in the **Aggregation
+  complete** route.
+- If the aggregation depends on both time and size:
+  - Add the main logic in a subflow with no source. The **Is aggregation complete** attribute shows
+    how the aggregation ended.
+  - Add a **Flow reference** component to the main logic flow in the **Aggregation complete** route.
+    If the subflow is executed by this flow reference, then the **Is aggregation complete**
+    attribute is `true`.
+  - Add another flow with an **Aggregation listener** that listens to the aggregator and accepts
+    timed-out groups. Follow the listener with a **Flow reference** component that calls the main
+    logic subflow. In this case, the **Is aggregation complete** attribute is `false`.
+
+## See Also
+
+- [Aggregators Module Reference](aggregators-module-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Time-Based Aggregator Example
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Aggregators module **Time based aggregator** scope enables you to aggregate elements within a
+predefined time limit. The following example shows how to configure this scope to aggregate HTTP
+request calls within `5` seconds. The application uses DataWeave to set the payload of each call
+with a random ID number. When the aggregation reaches `5` seconds, an **Aggregator listener** source
+gets the list of elements and the application logs all the aggregated random ID numbers.
+
+![Time-Based Aggregator Flow Example in Anypoint Studio Canvas](_images/aggregator-time-example.png)
+
+Figure 1. Time-Based Aggregator Flow Example
+
+To test this example in your own environment, you must create the Mule application and test it with
+curl commands.
+
+## Create the Mule Application
+
+To create the Mule flow in Anypoint Studio:
+
+1.  In **Mule Palette**, select **HTTP Listener** and drag it onto the canvas.  
+    The source initiates the flow by listening for incoming HTTP message attributes.
+2.  In **Connector configuration**, select **HTTP_Listener_config**.
+3.  Set **Path** to `/test`.
+4.  Drag a **Transform message** component to the right of **Listener**.
+5.  In the DataSense preview window of the **Transform message** component, add the following
+    DataWeave expression, which sets to each HTTP request payload a `Source Name` as `"time-based"`
+    and a `Source ID` as `random() as String`:
+
+    ```DataWeave
+    %dw 2.0
+    output application/json
+    ---
+    {
+        "Source Name": "time-based",
+        "Source ID": (random() as String)
+    }
+    ```
+
+6.  Drag the **Time based aggregator** scope to the right of **Transform message**.
+7.  Set **Name** to `timeBasedAggregator`.
+8.  Set **Period** to `5`.
+9.  Set **Period unit** to `SECONDS(Default)`.
+10. Set **Content** to `payload`, which is the expression that defines what to aggregate; in this
+    case, the transformed HTTP requests.
+11. Drag a **Logger** component into the **Incremental aggregation** route.
+12. In the **Logger** configuration screen, set **Message** to `Doing incremental step.`
+13. Drag an **Aggregator listener** source below the first flow.  
+    This source listens to the previous defined time-based aggregator. Once the aggregator releases
+    its elements, the listener is executed.
+14. Set **Aggregator name** to `timeBasedAggregator`.
+15. Drag a **Logger** component to the right of **Aggregator listener**
+16. Set **Message** to `Aggregation complete`.
+17. Drag another **Logger** component to the right of the previous added **Logger** component.
+18. Set **Message** to the following expression, which returns all the aggregated elements:
+
+    ```xml
+    output application/json
+    ---
+    payload
+    ```
+
+19. Save the project.
+20. In **Package Explorer**, click **Run > Run As > Mule Application**.
+21. Test the app by sending the following curl command twice within `5` seconds:  
+    `curl -X POST [http://localhost:8086/test](http://localhost:8086/test)`  
+    This generates two HTTP requests for the **Time based aggregator** to process.
+22. Navigate to the **Console** view to read the logger message:
+
+```none
+INFO  2021-06-09 12:02:04,203 [[MuleRuntime].uber.04: [aggregator-time-demo].aggregator-time-demoFlow.CPU_INTENSIVE @59b15997] [processor: aggregator-time-demoFlow/processors/1/route/0/processors/0; event: a6b00280-c933-11eb-a825-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental step.
+INFO  2021-06-09 12:02:06,071 [[MuleRuntime].uber.04: [aggregator-time-demo].aggregator-time-demoFlow.CPU_INTENSIVE @59b15997] [processor: aggregator-time-demoFlow/processors/1/route/0/processors/0; event: a7cd0b40-c933-11eb-a825-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Doing incremental step.
+INFO  2021-06-09 12:02:09,206 [[MuleRuntime].uber.04: [aggregator-time-demo].aggregator-time-demoOnCompleteFlow.CPU_LITE @2ab3c271] [processor: aggregator-time-demoOnCompleteFlow/processors/0; event: 827c9591-c933-11eb-a825-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: Aggregation complete
+INFO  2021-06-09 12:02:09,208 [[MuleRuntime].uber.04: [aggregator-time-demo].aggregator-time-demoOnCompleteFlow.CPU_LITE @2ab3c271] [processor: aggregator-time-demoOnCompleteFlow/processors/1; event: 827c9591-c933-11eb-a825-f01898ad2638] org.mule.runtime.core.internal.processor.LoggerMessageProcessor: [
+  {
+    "Source Name": "time-based",
+    "Source ID": "0.7095971146328517"
+  },
+  {
+    "Source Name": "time-based",
+    "Source ID": "0.6900116288202388"
+  }
+]
+```
+
+This example logger message shows that for each HTTP request, the **Logger** component in the
+**Incremental aggregator** route logs the message `Doing incremental step.` After the
+`timeBasedAggregator` value that is referenced by the **Aggregator listener** source completes the
+incremental aggregations within `5` seconds, the listener is triggered with a list of all the
+elements. The subsequent **Logger** component logs the message `Aggregation complete`, and the
+second **Logger** component returns the aggregated payload elements, which are the random ID
+numbers:
+
+```none
+{
+  "Source Name": "time-based",
+  "Source ID": "0.7095971146328517"
+},
+{
+  "Source Name": "time-based",
+  "Source ID": "0.6900116288202388"
+}
+```
+
+## XML for Time-Based Aggregator Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+	<http:listener-config name="HTTP_Listener_config" >
+		<http:listener-connection host="0.0.0.0" port="8086" />
+	</http:listener-config>
+	<flow name="aggregator-time-demoFlow" >
+		<http:listener config-ref="HTTP_Listener_config" path="/test" allowedMethods="POST"/>
+		<ee:transform >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "Source Name": "time-based",
+    "Source ID": (random() as String)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<aggregators:time-based-aggregator period="5" name="timeBasedAggregator">
+			<aggregators:incremental-aggregation >
+				<logger level="INFO" message="Doing incremental step."/>
+			</aggregators:incremental-aggregation>
+		</aggregators:time-based-aggregator>
+	</flow>
+	<flow name="aggregator-time-demoOnCompleteFlow" >
+		<aggregators:aggregator-listener  aggregatorName="timeBasedAggregator"/>
+		<logger level="INFO" message="Aggregation complete" />
+		<logger level="INFO" message="#[output application/json
+---
+payload]" />
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [Aggregators Module Examples](aggregators-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting Aggregators Module
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot the Aggregators module, become familiar with the information about app logs,
+enabling verbose logging, and interpreting commonly thrown messages.
+
+## Use the Latest Aggregators Module Version
+
+To ensure that you use the latest patches, update the Aggregator module to the latest version. In
+the Apache Maven `pom.xml` file generated by Anypoint Studio, replace `x.x.x` with the version that
+corresponds to the latest version:
+
+```xml
+<dependency>
+  <groupId>org.mule.modules</groupId>
+  <artifactId>mule-aggregators-module</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `aggregators`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Enable Verbose Logging
+
+To begin troubleshooting Aggregator module, enable verbose logging to see the exact error messages:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  If the following line is already in the `log4j2.xml` file, uncomment it to enable it; otherwise,
+    add it:
+
+    ```xml
+    <AsyncLogger name="org.mule.extension.aggregator" level="DEBUG"/>
+    ```
+
+6.  Save your changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+8.  Navigate to the **Console** view to read the messages in the logger.
+
+## Understand the Timeout Behavior in the Size-Based Aggregator
+
+For the **Size based aggregator** scope, the **Timeout** field indicates the maximum time to wait
+for the aggregation to complete. If the timeout is reached before the total number of elements is
+equal to the value set in the **Max size** field, the aggregation is not considered complete and the
+aggregation is reset. Note that you can use an **Aggregator listener** source to capture the
+elements that were aggregated before the timeout occurred. For further details on timeout behavior,
+see how to
+[configure the Size-Based Aggregator Timeout and Max Size Fields](aggregators-size-timeout)
+documentation.
+
+## Make Sure You Are Not in a Multiple Worker Setting
+
+Aggregators donât work with multiple workers and a persistent object store because clustering is not
+available in CloudHub. For details on how workers can be shared or doubled to scale your application
+and provide high availability, see the [CloudHub Fabric](../../cloudhub/cloudhub-fabric)
+documentation.
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them:
+
+For **Size based aggregator**:
+
+- AGGREGATORS:AGGREGATOR_CONFIG
+
+  The Max size or Timeout fields have invalid values, for example, Max size < 0.
+
+- AGGREGATORS:OBJECT_STORE_ACCESS
+
+  An error occurred during an attempt to access the object store used to store the aggregated
+  values.
+
+For **Time based aggregator**:
+
+- AGGREGATORS:AGGREGATOR_CONFIG
+
+  The Period or Max size fields have invalid values, for example, Period = 0.
+
+- AGGREGATORS:OBJECT_STORE_ACCESS
+
+  An error occurred during an attempt to access the object store used to store the aggregated
+  values.
+
+For **Group based aggregator**:
+
+- AGGREGATORS:GROUP_COMPLETED
+
+  An error occurred during an attempt to add a new element to an already completed group that was
+  not yet evicted.
+
+- AGGREGATORS:GROUP_TIMED_OUT
+
+  An error occurred during an attempt to add a new element to a group that timed out but had not yet
+  been evicted.
+
+- AGGREGATORS:NO_GROUP_ID
+
+  The expression that resolves to the group ID returns null.
+
+- AGGREGATORS:NO_GROUP_SIZE
+
+  The expression that resolves to the group size returns null.
+
+- AGGREGATORS:AGGREGATOR_CONFIG
+
+  The Group size or Timeout fields have invalid values, for example, groupSize < 0.
+
+- AGGREGATORS:OBJECT_STORE_ACCESS
+
+  An error occurred during an attempt to access the object store used to store the aggregated
+  values.
+
+## See Also
+
+- [Aggregators Module Reference](aggregators-module-reference)
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# Aggregators Module XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you add the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/<connector>
+http://www.mulesoft.org/schema/mule/<connector>/current/mule-<connector>.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/aggregators
+	http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>org.mule.modules</groupId>
+  <artifactId>mule-aggregators-module</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `aggregators`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the [Examples](aggregators-examples)
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Aggregators Module 1.1
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+For compatibility information and fixed issues, see the Aggregator Module Release Notes.
+
+Aggregators Module contains different types of aggregators that use a specified configuration to
+both store and release values. An _aggregator scope_ is a component that collects those values until
+a specified condition is met, when it then executes a processorâs chain of components, with the list
+of aggregated elements as the payload.
+
+The basic aggregator configuration consists of the definition of the value to aggregate (extracted
+from the message through an expression evaluation), a condition that defines when the aggregation is
+considered complete, and a processor chain that executes once that condition is met.
+
+Aggregators are pass-through routers. The same data that an aggregator scope receives is processed
+by the components that follow the aggregator scope.Â The only modification is variable propagation if
+any variables are set during the execution of any of the aggregation routes.
+
+## Before You Begin
+
+To use this module, you must be familiar with:
+
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+

@@ -1,0 +1,501 @@
+﻿# TRADACOMS EDI Connector - Full Documentation
+
+# TRADACOMS EDI Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+TRADACOMS EDI Connector v2.0
+
+The TRADACOMS EDI connector lets you convert TRADACOMS transmissions to and from
+DataWeave-compatible representations using lists and maps.
+
+Supported TRADACOMS files and versions are: ACKMNT:4, AVLDET:4, CORDER:6, CRAINF:3, CREDIT:9,
+CUSINF:8, DELIVR:9, DLCDET:5, DRAINF:3, EXCINF:3, GENRAL:3, INVOIC:9, LPRDET:2, ORDERS:9, PAYINF:3,
+PICKER:4, PPRDET:2, PRIINF:8, PROINF:8, SADDET:3, SNPSTS:3, SRMINF:9, UCNDET:3, UPLIFT:4, UTLBIL:3.
+
+## Before You Begin
+
+This document assumes that you are familiar with TRADACOMS, Mule, Anypoint Connectors, Anypoint
+Studio, Mule flows, and Mule Global Elements.
+
+See the Release Notes for compatibility information. A link to the release notes is listed in the
+See Also section of this document.
+
+To use the TRADACOMS EDI connector in a production environment, you must have purchased a MuleSoft
+license for Anypoint B2B.
+
+## Whatâs New in this Connector
+
+TRADACOMS EDI connector 2.x makes several changes to the configuration and handling implemented by
+TRADACOMS EDI connector 1.x.
+
+- TRADACOMS EDI connector 1.x only supports messages from a single version of the standard. Mule 4
+  TRADACOMS EDI connector 2.x supports messages from multiple versions of the standards. The version
+  information in the message header (UNH segment) data is used to identify the standard version, and
+  the message identifier determines the particular schema.
+- Identification parameters are no longer used for the read and write operations. You can configure
+  all parameter values in the actual message data passed to the write operation.
+- TRADACOMS EDI connector 2.x adds support for a "default" schema configuration. If no schemas are
+  referenced in the configuration, the standard version of the schema for each message is looked up
+  from the classpath and used for reading and writing. When this occurs, no metadata is available
+  for the message data structure, because the actual messages are unknown at design time.
+
+## To Install this Connector in Anypoint Studio 7
+
+1.  In Anypoint Studio, click the Exchange icon in the Studio task bar.
+2.  Click Login in Anypoint Exchange.
+3.  Search for the connector and click Install.
+4.  Follow the prompts to install the connector.
+
+When Studio has an update, a message displays in the lower right corner, which you can click to
+install the update.
+
+You must change the default Anypoint configuration to use the TRADACOMS EDI connector 2.0.0.
+
+## To Create Schemas
+
+If your implementation conventions differ from the standard, you can create schemas to describe your
+messages according to your implementation. Standard versions of the schemas for all defined TRADACOM
+files are included in the distribution.
+
+### About the EDI Schema Language
+
+The TRADACOMS EDI Module uses a YAML format called ESL (for EDI Schema Language) to represent EDI
+schemas. ESLs define the structure of EDI messages in terms of structures (messages, in TRADACOMS
+terminology), groups, segments, composites, and elements.
+
+The particular usage of ESL definitions for TRADACOMS has some differences from other EDI formats,
+particularly when working with the TRADACOMS concepts of "files" and "messages". Each file format
+defined by TRADACOMS gives the representation of data for some specific use. The file format is
+broken down into several message components, where one particular message component is allowed to
+repeat. Each message component is in turn broken down into segments and groups of segments, some of
+which may also be repeated.
+
+In ESL terms, each TRADACOMS file format is represented by a particular schema definition. The
+supplied ESL schemas use the generic name for the file, which is the same as that of the repeating
+detail message. So for example, the Prince Information File structure is given by the PRIINF.esl
+schema definition. Within the file schema, each component message type is defined as a structure.
+The order of component messages within a file is given by the `class` value, which must be a string
+consisting of a single digit. The value `'1'` identifies the header message, the value `'2'`
+identifies the repeating detail message, and all higher values are successive messages within the
+file.
+
+You can customize the TRADACOMS schema definitions to suit your data by defining an overlay schema.
+An overlay schema is a special form of ESL that allows you to modify a base schema, such as an
+TRADACOMS INVOIC schema, with your specific conventions. You donât need an overlay schema if youâre
+using the structure defined by the standard.
+
+You can also define your own schemas from scratch, or copy and edit a base TRADACOMS schema
+definition to suit your data.
+
+> [!NOTE] YAML uses a combination of lists and sets of key-value pairs. The order of values is not
+> important, as long as the required items are present. Quotes (either single or double quotes) are
+> used around values that may consist of digits but are meant to be interpreted as strings (since
+> otherwise the YAML parser treats the values as numbers). Indentation is used to show the nesting
+> of lists.
+>
+> For readability, the ESL structures shown here define all simple key-value pairs before any lists
+> that are part of the same definition.
+
+### To Define your Implementation Convention with an Overlay Schema
+
+To specify a schema according to your implementation convention, you can follow this process:
+
+1.  Create an overlay schema that imports the base schema you want to customize - for example,
+    TRADACOMS INVOIC.
+2.  Customize the overall structure for segment usage, positions, groups, and counts.
+3.  Customize segments, including usage and counts.
+
+Overlay schemas list only changes instead of providing all the details of a schema structure. They
+specify how to use implementation conventions with a particular trading partner to extend and
+customize the standard.
+
+By way of example, hereâs a sample overlay schema modifying the basic TRADACOMS INVOIC file
+definition. This example adds a REBILL message at version 6 to the file, following all existing
+messages in the file (class value `'5'`, since there are four message components normally present in
+an INVOIC file).
+
+```yaml
+form: TRADACOMS
+version: "INVOIC9"
+imports: ["/tradacoms/INVOIC.esl"]
+structures:
+  - id: "REBILL"
+    name: "REBILL:6"
+    class: "5"
+    data:
+      - { idRef: "MHD", usage: M }
+      - { idRef: "RBL", usage: M }
+      - { idRef: "MTR", usage: M }
+segments:
+  - id: "RBL"
+    name: "REBILLING DETAILS"
+    values:
+      - { id: "RBLA", name: "Rebill From Field", usage: M, type: char, minLength: 1, maxLength: 14 }
+      - { id: "RBLB", name: "Rebill To Field", usage: M, type: char, minLength: 1, maxLength: 14 }
+      - { idRef: "PAI", position: "0040", usage: U }
+```
+
+### Structure Overlay
+
+A structure overlay details modifications to the base schema definition of an TRADACOMS message.
+Most often these modifications take the form of marking segments or groups in the base definition as
+unused, but any usage or repetition count change is allowed.
+
+The following is an example of a structure overlay:
+
+```yaml
+structures:
+  - idRef: "INVFIL"
+    data:
+      - { idRef: "FDT", position: "07", usage: M }
+      - { idRef: "ACD", position: "08", usage: M }
+```
+
+The modifications in this example specify that the FDT (at position 7) and ACD (at position 8)
+segments are required in each INVFIL message (usage: M for mandatory). With this overlay, errors are
+reported if either the FDT or ACD segment is not present in a message.
+
+The key-value pairs at the structure level are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The ID for the message being modified.</p></div></div></td></tr><tr><td><div><div><p>class</p></div></div></td><td><div><div><p>The position of the message within a file (optional).</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>The message name and version (optional).</p></div></div></td></tr><tr><td><div><div><p>data</p></div></div></td><td><div><div><p>List of segment and group modifications within the structure (optional, each is only used when there are modifications to that section).</p></div></div></td></tr></tbody></table>
+
+Each item in the list of structure data components is either a segment reference or a group
+definition. Both are shown here using a compact YAML syntax where the values for each reference are
+given as comma-separated key-value pairs enclosed in curly braces. The values are:
+
+The values are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>The referenced segment ID. This is optional and verified if provided, but otherwise ignored. The position value is used to uniquely identify segments within the section.</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The segment position within the message section.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code, which may be M for Mandatory, C for Conditional, or U for Unused.</p></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value, which may be a number or the special value <code>'&gt;1'</code> meaning any number of repeats. The count value is optional and a base definition value is used if a value is not specified.</p></div></div></td></tr></tbody></table>
+
+The values in a group definition are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>groupIdRef</p></div></div></td><td><div><div><p>The referenced group ID. This key is optional and verified if provided, but otherwise ignored. The position value is used to uniquely identify a group within a section.</p></div></div></td></tr><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The segment position within the message section.</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code, which may be M for Mandatory, C for Conditional, or U for Unused.</p></div></div></td></tr><tr><td><div><div><p>count</p></div></div></td><td><div><div><p>Maximum repetition count value, which may be a number or the special value <code>&gt;1</code> meaning any number of repeats. The count value is optional and a base definition value is used if a value is not specified.</p></div></div></td></tr><tr><td><div><div><p>items</p></div></div></td><td><div><div><p>List of segments (and potentially nested group) making up the group.</p></div></div></td></tr></tbody></table>
+
+### Segment Overlays
+
+A segment overlay again details modifications to the base schema definition. Most often these
+modifications take the form of marking elements or composites in the base definition as unused, but
+any usage or repetition count change is allowed. Here are some sample segment overlays:
+
+```yaml
+structures:
+  - idRef: "INVFIL"
+    data:
+      - { idRef: "FDT", position: "07" }
+segments:
+  - idRef: "FDT"
+    values:
+      - { position: 1, usage: M }
+      - { position: 2, usage: M }
+```
+
+This example modifies the base definition for the FDT segment, making both values defined in the
+segment required fields (they are optional in the base definition).
+
+Segment modifications only effect structures included in the overlay with explicit references to the
+modified segments. Thatâs why the FDT segment reference needs to be included in the INVFIL message
+structure part of the schema, even though nothing (such as usage or repetition count) is being
+changed for how this segment is used within the message.
+
+The key-value pairs in a segment overlay are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>idRef</p></div></div></td><td><div><div><p>Segment identifier.</p></div></div></td></tr><tr><td><div><div><p>trim</p></div></div></td><td><div><div><p>Trim position in segment, meaning all values from this point on are marked as unused (optional).</p></div></div></td></tr><tr><td><div><div><p>values</p></div></div></td><td><div><div><p>List of individual value modifications.</p></div></div></td></tr></tbody></table>
+
+The values list references values in the segment by position. The values for these references are:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody><tr><td><div><div><p>position</p></div></div></td><td><div><div><p>The value position within the segment.</p></div></div></td></tr><tr><td><div><div><p>name</p></div></div></td><td><div><div><p>The name of the value in the segment (optional, base definition value used if not specified).</p></div></div></td></tr><tr><td><div><div><p>usage</p></div></div></td><td><div><div><p>Usage code, which may be M for Mandatory, C for Conditional, or U for Unused.</p></div></div></td></tr></tbody></table>
+
+### To Determine the TRADACOMS Schema Location
+
+To use the connector, you need to know the locations of the schemas in your project. If youâre using
+out-of-the-box TRADACOMS schemas and not customizing anything, the schema location follows the
+`/tradacoms/{file}.esl` pattern, so for the ORDERS file your schema location is
+"/tradacoms/ORDERS.esl".
+
+If youâre using one or more custom schemas, you should put these under a directory in `src/main/app`
+and refer to the location using `${app.home}`. For example, if youâve put your CREDIT schema (either
+overlay or full) under
+``src/main/app/mypartner/CREDIT.esl, your schema location is `${app.home}/mypartner/CREDIT.esl``.
+
+The Mule Runtime automatically checks `src/main/app` for any locations that contain the
+`${app.home}` value.
+
+## To Create a Mule Project in Anypoint Studio 7
+
+After you install the connector and customize your schemas (if needed), you can start using the
+connector. Create separate configurations for each implementation convention.
+
+1.  Click the Global Elements tab at the base of the canvas, and click Create.
+2.  In the Choose Global Type wizard, locate and select the TRADACOMS EDI: Configuration, and click
+    OK.
+3.  Click OK to save the global connector configurations.
+4.  Return to the Message Flow tab in Studio.
+
+Set each tab in the Global Element Properties as described in the sections that follow.
+
+### About the General Tab
+
+![General tab properties](_images/tradacoms-edi-general.jpg)
+
+The general tab lets you configure settings for reading and writing TRADACOMS messages, including
+identification information used in the STX segment:
+
+- Manually create or edit the list of schema definitions for the message structures to be used.
+- Partner Sender/Recipient Code (STX FROM or UNTO Code).
+- Partner Sender/Recipient Name (STX FROM or UNTO Name).
+- Mule Application Sender/Recipient Code (STX FROM or UNTO Code).
+- Mule Application Sender/Recipient Name (STX FROM or UNTO Name).
+
+All these identification values are optional. If any are configured, the values are verified when
+reading an input transmission and used as the defaults when writing an output transmission if no
+value is specified in the output data.
+
+### About the Parser Tab
+
+![Parser tab properties](_images/tradacoms-edi-parser.jpg)
+
+You can set the following options to control parser validation of receive messages if needed:
+
+- Enforce minimum and maximum lengths for receive values.
+- Allow unknown segments in a message.
+- Allow segments marked as 'Unused' in a message.
+- Enforce segment order in a message.
+
+### About the Writer Tab
+
+![Writer tab properties](_images/tradacoms-edi-writer.jpg)
+
+Settings for writing messages:
+
+- Default Senderâs Transmission Reference used when writing a transmission.
+- Default Senderâs Transmission Reference used when writing a transmission.
+- Default Application Reference used when writing a transmission.
+- Default Application Reference used when writing a transmission.
+
+## Example: TRADACOMS Studio
+
+The following flow can be loaded in the XML for a project.
+
+![Mapping Flow Diagram](_images/tradacoms-edi-mapping-flow.jpg)
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+xmlns:tradacoms="http://www.mulesoft.org/schema/mule/tradacoms"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http
+http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tradacoms
+http://www.mulesoft.org/schema/mule/tradacoms/current/mule-tradacoms.xsd
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<tradacoms:config name="TRADACOMS_EDI_Config" doc:name="TRADACOMS EDI Config">
+		<tradacoms:schemas>
+			<tradacoms:schema value="/tradacoms/ORDERS.esl"/>
+			<tradacoms:schema value="/tradacoms/PROINF.esl"/>
+		</tradacoms:schemas>
+	</tradacoms:config>
+	<flow name="tradacomsmappingFlow">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config" path="/map"/>
+		<tradacoms:read doc:name="Read" config-ref="TRADACOMS_EDI_Config"/>
+		<ee:transform doc:name="Transform Message">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	STX: payload.STX,
+	Id: payload.Id,
+	ORDERS: payload.ORDERS
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<tradacoms:write doc:name="Write"/>
+	</flow>
+</mule>
+```
+
+### About Configuration Options in XML
+
+All values listed in the Anypoint Studio configuration can be set directly in XML.
+
+General parameters control both send and receive document handling (all are optional):
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Visual Studio Option</th></tr></thead><tbody><tr><td><p>schemas=list of values</p></td><td><p>List of paths for schemas to be used by connector. The paths may be either for a file system or classpath.</p></td></tr><tr><td><p>partnerCode</p></td><td><p>Code used to identify partner. When this value is specified it is used both to validate the Transmission Sender Code in received transmissions and to set the Transmission Recipient Code in sent transmissions (if not already specified in map data). If not specified the Transmission Sender Code is not checked in received transmissions.</p></td></tr><tr><td><p>partnerName=Name used to identify partner. When this value is specified it is used both to validate the Transmission Sender Name in received transmissions and to set the Transmission Recipient Name in sent transmissions (if not already specified in map data). If not specified the Transmission Sender Name is not checked in received transmissions.</p></td><td><p>selfCode</p></td></tr><tr><td><p>Code used to identify Mule application. When this value is specified it is used both to validate the Transmission Recipient Code in received transmissions and to set the Transmission Sender Code in sent transmissions (if not already specified in map data). If not specified the Transmission Recipient Code is not checked in received transmissions.</p></td><td><p>selfName</p></td></tr></tbody></table>
+
+Parser parameters control the parser operation and the types of error conditions which cause receive
+messages to be rejected (all are optional, with default values as shown):
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Visual Studio Option</th></tr></thead><tbody><tr><td><p>enforceLengthLimits="true"</p></td><td><p>Enforce minimum and maximum lengths for receive values.</p></td></tr><tr><td><p>allowUnknownSegments="false"</p></td><td><p>Allow unknown segments in a message.</p></td></tr><tr><td><p>allowUnusedSegments="false"</p></td><td><p>Allow segments marked as 'Unused' in a message.</p></td></tr><tr><td><p>enforceSegmentOrder="true"</p></td><td><p>Enforce segment order in a message.</p></td></tr></tbody></table>
+
+Writer parameters control the writer operation (all are optional):
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>XML Value</th><th>Visual Studio Option</th></tr></thead><tbody><tr><td><p>sendSenderReference</p></td><td><p>Default Senderâs Transmission Reference used when writing a transmission.</p></td></tr><tr><td><p>sendRecipientReference</p></td><td><p>Default Senderâs Transmission Reference used when writing a transmission.</p></td></tr><tr><td><p>sendApplicationReference</p></td><td><p>Default Application Reference used when writing a transmission.</p></td></tr><tr><td><p>sendPriorityCode</p></td><td><p>Default Transmission Priority Code used when writing a transmission.</p></td></tr></tbody></table>
+
+## To Set Your Schema Locations
+
+You can configure schema locations in the Anypoint Studio XML view.
+
+In Anypoint Studio, switch to the XML view by clicking Configuration XML and modify your TRADACOMS
+EDI configuration to include a list of all the schemas you wish to include by adding an
+`<http://edischema[edi:schema]>` element for each document type:
+
+```xml
+<tradacoms-edi:config name="TRADACOMS_EDI__Configuration" identKeys="true" doc:name="TRADACOMS EDI: Configuration">
+  <tradacoms-edi:schemas>
+    <tradacoms:schema value="/tradacoms/ORDERS.esl"/>
+  </tradacoms-edi:schemas>
+</tradacoms-edi:config>
+```
+
+After you create a global element for your TRADACOMS EDI, configure any schemas and operations.
+
+## About the TRADACOMS Message Structure
+
+The connector enables reading or writing of TRADACOMS documents into or from the canonical EDI
+message structure. This structure is represented as a hierarchy of Java Maps and Lists, which can be
+manipulated using DataWeave or code. Each transaction has its own structure, as defined in the
+schemas, as outlined above.
+
+The message itself contains the following keys (some of which only apply to either the read
+operation or the write operation, as indicated):
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Key Name</th><th>Description</th></tr></thead><tbody><tr><td><p>{File}</p></td><td><p>Wrapper for message data, with keys matching the names of the component messages linking to data for those messages. For the repeating detail message of the file (always class '2') the value is a list of maps; for the singleton messages of the file the values are maps.</p></td></tr><tr><td><p>Errors (read only)</p></td><td><p>A list of errors which are associated with the input message. (See the TradacomsError structure description in the Reading and Validating TRADACOMS Messages section below.)</p></td></tr><tr><td><p>Id</p></td><td><p>File (the name of the TRADACOMS file read).</p></td></tr><tr><td><p>STX</p></td><td><p>Map of STX segment data from start of file.</p></td></tr></tbody></table>
+
+Individual messages have their own maps under the file name map, with keys matching the segments of
+the message. For instance, an INVOIC file would have the key `'INVOIC'` in the root map, and under
+that keys for `'INVFIL'`, `'INVOIC'` (the list of data for repeating INVOIC messages), `'VATTLR'`
+and `'INVTLR'`. Within the INVTLR map there would be keys `'01_MHD'`, `'02_TOT'`, and `'03_MTR'` for
+the segments of the INVTLR message.
+
+## To Read and Validate TRADACOMS EDI Messages
+
+1.  To read a TRADACOMS message, search the palette for TRADACOMS EDI, and drag the TRADACOMS Read
+    operation into a flow.
+2.  Go to the properties view, select the connector configuration you created above and select the
+    Read operation. This operation reads any byte stream into the structure described by your
+    TRADACOMS schemas.
+
+The TRADACOMS module validates the message when it reads it in. Message validation includes checking
+the syntax and content of envelope segments STX and END as well as the actual messages in the file.
+Normally errors are both logged and accumulated and reported in TradacomsError instances, and all
+accepted messages (whether error free or with non-fatal errors) are passed on for processing as part
+of the output message Map. If any fatal errors are found no file data is returned, only the error
+list.
+
+Error data entered in the receive data map uses the EdifactError class, a read-only JavaBean with
+the following properties:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Property</th><th>Description</th></tr></thead><tbody><tr><td><p>segment</p></td><td><p>The zero-based index within the input of the segment causing the error.</p></td></tr><tr><td><p>fatal</p></td><td><p>Flag for a fatal error, in which case no file data is returned.</p></td></tr><tr><td><p>errorText</p></td><td><p>Text description of the error.</p></td></tr></tbody></table>
+
+Error data is returned by the read operation as optional lists with the "Errors" key at both root
+level of the data structure and at the message level. At the message level, this list contains
+non-fatal errors encountered during the parsing of that message. At the root level, this list
+contains both interchange errors and fatal message errors.
+
+## To Write TRADACOMS EDI Messages
+
+To write an outgoing message, search the palette for TRADACOMS EDI and drag the TRADACOMS Write
+operation into a flow. Construct an outgoing TRADACOMS EDI message according to the structure as
+defined above for input to the write operation. If no fatal errors are found in the write operation
+the normal flow continues. Otherwise, an exception is thrown which describes the error.
+
+## See Also
+
+- [TRADACOMS EDI Connector Release Notes](../../release-notes/connector/tradacoms-edi-connector-release-notes-mule-4)
+- [TRADACOMS EDI Connector in Anypoint Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-tradacoms-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# TRADACOMS EDI Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+## Default Configuration
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p>ExpirationPolicy</p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. The runtime actually purges the instances as it sees fit.</p></td><td></td><td></td></tr><tr><td><p>Schema definitions</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of paths for schemas to be used by module. The paths may be either for file system or classpath.</p></td><td></td><td></td></tr><tr><td><p>Partner Code</p></td><td><div><div><p>String</p></div></div></td><td><p>Code used to identify partner. When this value is specified, it is used both to validate the Transmission Sender Code in received transmissions and to set the Transmission Recipient Code in sent transmissions (if not already specified in map data). If not specified, the Transmission Sender Code is not checked in received transmissions.</p></td><td></td><td></td></tr><tr><td><p>Partner Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name used to identify partner. When this value is specified, it is used both to validate the Transmission Sender Name in received transmissions and to set the Transmission Recipient Name in sent transmissions (if not already specified in map data). If not specified, the Transmission Sender Name is not checked in received transmissions.</p></td><td></td><td></td></tr><tr><td><p>Mule Code</p></td><td><div><div><p>String</p></div></div></td><td><p>Code used to identify Mule application. When this value is specified, it is used both to validate the Transmission Recipient Code in received transmissions and to set the Transmission Sender Code in sent transmissions (if not already specified in map data). If not specified, the Transmission Recipient Code is not checked in received transmissions.</p></td><td></td><td></td></tr><tr><td><p>Mule Name</p></td><td><div><div><p>String</p></div></div></td><td><p>Name used to identify self. When this value is specified, it is used both to validate the Transmission Recipient Name in received transmissions and to set the Transmission Sender Name in sent transmissions (if not already specified in map data). If not specified, the Transmission Recipient Name is not checked in received transmissions.</p></td><td></td><td></td></tr><tr><td><p>Enforce length limits</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enforce minimum and maximum lengths for receive values. If true, a transmission with values too long or too short is rejected; if false, the values are used anyway and the transmission is not rejected. In either case the error is logged and included in the error list.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Allow unknown segments</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Allow unknown segments in a message. If false, a transmission containing any unknown segments is rejected; if true, unknown segments are ignored and the transmission is not rejected. In either case the error is logged and included in the error list.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Allow unused segments</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Allow segments marked as 'Unused' in a message. If false, a message containing segments marked as unused in the schema is rejected; if true, the message is not rejected and the unused segments are ignored. In either case the error is reported in CONTRL functional acknowledgments.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Enforce segment order</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Enforce segment order in a message. If true, a message with segments out of order is rejected; if false and the segment can be reordered the message is not rejected. In either case the error is reported in CONTRL functional acknowledgments.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Transmission Reference</p></td><td><div><div><p>String</p></div></div></td><td><p>Default Senderâs Transmission Reference used when writing a transmission. If specified, this value is used as a default if the required Senderâs Transmission Reference value is not specified in map data for a send transmission (write operation).</p></td><td></td><td></td></tr><tr><td><p>Recipient Reference</p></td><td><div><div><p>String</p></div></div></td><td><p>Default Recipientâs Transmission Reference used when writing a transmission. If specified, this value is used as a default if an optional Recipientâs Transmission Reference value is not specified in map data for a send transmission (write operation).</p></td><td></td><td></td></tr><tr><td><p>Application Reference</p></td><td><div><div><p>String</p></div></div></td><td><p>Default Application Reference used when writing a transmission. If specified, this value is used as a default if an optional Application Reference value is not specified in map data for a send transmission (write operation).</p></td><td></td><td></td></tr><tr><td><p>Priority Code</p></td><td><div><div><p>String</p></div></div></td><td><p>Default Transmission Priority Code used when writing a transmission. If specified, this value is used as a default if an optional Transmission Priority Code value is not specified in map data for a send transmission (write operation).</p></td><td></td><td></td></tr></tbody></table>
+
+## Associated Operations
+
+- read
+- write
+
+## Read
+
+`<tradacoms:read>`
+
+Transform an input stream of EDI text into a maps and lists structure of EDI data.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Read Content</p></td><td><div><div><p>Binary</p></div></div></td><td></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Object</p></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- TRADACOMS:UNKNOWN
+- TRADACOMS:SCHEMA
+- TRADACOMS:PARSE
+- TRADACOMS:WRITE
+
+## Write
+
+`<tradacoms:write>`
+
+Transform maps/lists structure of EDI data to EDI text stream.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Write Content</p></td><td><div><div><p>Object</p></div></div></td><td></td><td><p><code>#[payload]</code></p></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p>repeatable-in-memory-stream</p></li><li><p>repeatable-file-store-stream</p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configure if repeatable streams should be used and their behavior.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>The name of a variable on which the operationâs output is placed.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operationâs output and the outcome of that expression is stored in the target variable.</p></td><td><p><code>#[payload]</code></p></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr></tbody></table>
+
+### For Configurations
+
+- config
+
+### Throws
+
+- TRADACOMS:UNKNOWN
+- TRADACOMS:SCHEMA
+- TRADACOMS:PARSE
+- TRADACOMS:WRITE
+
+## Types
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Amount of memory to allocate to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>How much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error will be raised when the buffer gets full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>This is the maximum amount of memory that will be used. If more than that is used then a STREAM_MAXIMUM_SIZE_EXCEEDED error will be raised. A value lower or equal to zero means no limit.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which all these attributes are expressed.</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Defines the maximum memory that the stream should use to keep data in memory. If more than that is consumed then it starts to buffer the content on disk.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>The unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+

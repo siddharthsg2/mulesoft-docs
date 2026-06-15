@@ -1,0 +1,2142 @@
+﻿# MQTT Connector - Full Documentation
+
+# MQTT Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for MQTT (MQTT Connector) is an MQTT (Message Queuing Telemetry Transport) v3.x
+protocol-compliant MuleSoft extension. MQTT is a lightweight publish/subscribe messaging protocol
+designed for connecting remote devices with a small code footprint and minimal network bandwidth.
+MQTT today is used in a wide variety of industries, such as automotive, manufacturing,
+telecommunications, and oil and gas.
+
+The connector supports capabilities specified in MQTT v3.x protocol, including but not limited to
+reliable message delivery, persistent sessions, support for unreliable and low bandwidth networks,
+message retention, and last will and testament (LWT) messages. The connector supports TLS to
+securely connect and communicate with a MQTT broker.
+
+For compatibility information and fixed issues, see the MQTT Connector Release Notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- MQTT v3.x protocol
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- Creating a Mule app using Anypoint Studio or Anypoint Code Builder
+
+Before creating an app, you must have Anypoint Platform and Anypoint Studio.
+
+## Common Use Cases for the Connector
+
+These are some common use cases for MQTT Connector based on MQTT version3.x protocol:
+
+- Connect to MQTT brokers by specifying a failover server list that the client iterates over until a
+  connection is successfully established.
+- Connect to MQTT brokers in a reliable messaging schema and publish messages.
+- Connect to an MQTT broker and set a last will and testament (LWT) message to notify all the
+  subscribers of the clientâs disconnection.
+- Connect to an MQTT broker with Transport Layer Security (TLS) and listen for messages.
+- Listen for messages in a single or multiple topics.
+- Listen for messages on multiple topics using single-level or multi-level wildcards.
+- Publish messages to a topic.
+- Publish messages with retention.
+- Publish messages to an MQTT topic and set different Quality of Service (QoS) levels of delivery
+  assurance for inbound or outbound messages.
+
+## MQTT Architecture
+
+MQTT uses the publish/subscribe model, in which a client publishes messages to a particular address,
+known as a `Topic`. Client receivers subscribe to the topic and receive the published message. In
+this model, neither the publisher nor the subscriber is aware of each other. The connection between
+the publisher and subscriber is managed by an MQTT broker.
+
+### MQTT Client
+
+A MQTT Client is any device that runs an MQTT library and connects to an MQTT server over a network.
+
+### MQTT Broker
+
+The MQTT Broker is a server that receives messages from the clients and then routes the messages to
+the appropriate destination clients.
+
+### MQTT Topic
+
+As the broker acts as a post office, MQTT doesnât use the address of the intended recipient but uses
+the subject line called `Topic`, and anyone who wants a copy of that message subscribes to that
+topic. Multiple clients can receive the message from a single broker (one to many).
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create your own app and configure the
+connector using [Anypoint Studio](mqtt3-connector-studio-configuration).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Set a Client ID with MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Client IDs are important for MQTT because they identify a connection to an MQTT broker. Moreover,
+they identify a specific device or client, and it can be useful in terms of traceability to set a
+client ID that clearly identifies a deviceâs connection to the broker.
+
+MQTT brokers usually implement a mechanism that closes an old connection if a new connection request
+with the same client ID as the existing (old) connection is received and then accepts the new
+connection. MQTT brokers employ this mechanism to prevent situations such as TCP connections
+reaching a half-open or invalid state due to a crash in one of the communication ends, which is
+undesirable. The broker assumes the new incoming connection to be valid, closes the older
+connection, and continues using the newly established connection.
+
+The client takeover mechanism can become a problem if you want to deploy an application in a
+cluster, and still provide an explicit client ID that identifies the client. Anypoint Connector for
+MQTT (MQTT Connector) provides client ID generators that help you set a static client ID, set a
+client ID with a dynamic component to adjust to different deployment scenarios, or define your
+custom client ID generator.
+
+## Configure the Client ID Custom Expression Generator
+
+This generator enables you to set a static string prefix and an expression as a suffix. Both
+parameters are optional but you must provide at least one of them in order to generate a client ID.
+If you do not provide any parameter, an `INVALID_CLIENT_ID` exception is thrown.
+
+In the following example, you configure the client ID string to include the current date at the end,
+generating a client ID similar to `principality-123-2020-09-03`:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Click **Create**.
+3.  In the filter box, type `mqtt` and select **MQTT3 Config**.
+4.  Click **OK**.
+5.  In **MQTT3 Config** > **Connection**, select **MQTT3 URL Connection**.
+6.  For **Client id generator**, select **Client id custom expression generator**.
+7.  Set the following fields:
+    - **Client ID**: `principality-123-`
+    - **Custom Client ID Suffix**:
+      `#[%dw 2.0 output text/plain --- now() as String {format: 'y-MM-dd'}]"`
+    - **Username**: `mosquitto`
+    - **Password**: `password`
+    - **URL**: `tcp://broker.hivemq.com:1883`
+
+8.  Click **OK**.
+
+![Client ID Custom Expression Generator configuration in Global Element Properties window](_images/mqtt3-custom-generator.png)
+
+In the **Configuration XML** editor, the `<mqtt3:client-id-custom-expression-generator>` and
+`customClientIdSuffix` configurations look like this:
+
+```xml
+    <mqtt3:config name="MQTT_ClientID_Static_Prefix_And_Expression_Suffix_Config">
+        <mqtt3:connection username="mosquitto" password="password" url="tcp://broker.hivemq.com:1883"/>
+            <mqtt3:client-id-generator>
+                <mqtt3:client-id-custom-expression-generator clientId="principality-123-" customClientIdSuffix="#[%dw 2.0 output text/plain --- now() as String {format: 'y-MM-dd'}]"/>
+            </mqtt3:client-id-generator>
+            <mqtt3:connection-options maxInFlight="60" cleanSession="true" />
+        </mqtt3:form-connection>
+    </mqtt3:config>
+```
+
+You can also specify an expression as a client ID. In the following example, dynamic configurations
+generate new connections for each new expression value:
+
+```xml
+    <mqtt3:config name="MQTT_ClientID_Only_Expression_Suffix_Config">
+        <mqtt3:form-connection username="aziraphale" password="principality" protocol="TCP" host="127.0.0.1" port="${mosquitto.port1}">
+            <mqtt3:client-id-generator>
+                <mqtt3:client-id-custom-expression-generator customClientIdSuffix="#['smart-bentley-' ++ randomInt(1000) as String]"/>
+            </mqtt3:client-id-generator>
+            <mqtt3:connection-options maxInFlight="60" cleanSession="true" />
+        </mqtt3:form-connection>
+    </mqtt3:config>
+```
+
+In the following example, you configure a simple string as the client ID, which generates a static
+client ID `principality-123`:
+
+```xml
+    <mqtt3:config name="MQTT_Static_ClientID_Config">
+        <mqtt3:form-connection username="aziraphale" password="principality" protocol="TCP" host="127.0.0.1" port="${mosquitto.port1}">
+            <mqtt3:client-id-generator>
+                <mqtt3:client-id-custom-expression-generator clientId="principality-123"/>
+            </mqtt3:client-id-generator>
+            <mqtt3:connection-options maxInFlight="60" cleanSession="true" />
+        </mqtt3:form-connection>
+    </mqtt3:config>
+```
+
+## Configure the Client ID Random Suffix Generator
+
+This generator enables you to set an optional static string prefix and adds a random UUID as a
+suffix. If you provide a static prefix, it is separated from the random UUID suffix with a `-`
+character.
+
+In the following example, you configure the generator to generate a client ID similar to
+`smart-bentley-123-0f321a85-fddf-429f-ba89-26d201db9777`, but each new connection has its own
+randomly generated UUID suffix:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Click **Create**.
+3.  In the filter box, type `mqtt` and select **MQTT3 Config**.
+4.  Click **OK**.
+5.  In **MQTT3 Config** > **Connection**, select **MQTT3 URL Connection**.
+6.  For **Client id generator**, select **Client id random suffix generator**.
+7.  Set the following fields:
+    - **Client ID**: `smart-bentley-123`
+    - **Username**: `mosquitto`
+    - **Password**: `password`
+    - **URL**: `tcp://127.0.0.1:${mosquitto.port1}`
+
+8.  Click **OK**.
+
+![Client ID Random Suffix Generator configuration in Global Element Properties window](_images/mqtt3-random-generator.png)
+
+In the **Configuration XML** editor, the `<<mqtt3:client-id-random-suffix-generator>` configuration
+looks like this:
+
+```xml
+    <mqtt3:config name="MQTT_Static_Prefix_And_Random_Suffix_Config">
+        <mqtt3:connection username="mosquitto" password="password"  url="tcp://127.0.0.1:${mosquitto.port1}">
+            <mqtt3:client-id-generator>
+                <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+            </mqtt3:client-id-generator>
+            <mqtt3:connection-options maxInFlight="60" cleanSession="true"  />
+        </mqtt3:connection>
+    </mqtt3:config>
+```
+
+You can also omit the client ID prefix, in which case the generator assigns a random UUID as your
+client ID. In the following example, you configure the generator to generate a client ID similar to
+`0f321a85-fddf-429f-ba89-26d201db9777`:
+
+```xml
+    <mqtt3:config name="MQTT_Static_Prefix_And_Random_Suffix_Config">
+        <mqtt3:connection username="mosquitto" password="mosquitto"  url="tcp://127.0.0.1:${mosquitto.port1}">
+            <mqtt3:client-id-generator>
+                <mqtt3:client-id-random-suffix-generator />
+            </mqtt3:client-id-generator>
+            <mqtt3:connection-options maxInFlight="60" cleanSession="true"  />
+        </mqtt3:connection>
+    </mqtt3:config>
+```
+
+## Configure a Custom Client ID Generator
+
+If you want to supply your own custom client ID generator, you must be familiar with the Mule SDK
+subtypes, and the import and export annotations.
+
+In the following example, you configure your own client ID generator:
+
+1.  Create your own Java connector project.
+2.  In the `pom.xml` file of your connector project, add MQTT Connector as a dependency, for
+    example:
+
+    ```xml
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>org.example</groupId>
+        <artifactId>mqtt3-extended-connector</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <packaging>mule-extension</packaging>
+        <name>MQTT Extended Connector</name>
+
+        <parent>
+            <groupId>org.mule.extensions</groupId>
+            <artifactId>mule-ee-core-modules-parent</artifactId>
+        </parent>
+
+        <dependencies>
+            <dependency>
+                <groupId>com.mulesoft.connectors</groupId>
+                <artifactId>mule4-mqtt3-connector</artifactId>
+                <version>1.0.0</version>
+                <classifier>mule-plugin</classifier>
+            </dependency>
+        </dependencies>
+    ```
+
+3.  Create your connectorâs definition class, for example:
+
+    ```java
+    @Xml(prefix = "mqtt3-extended")
+    @Extension(name = "MQTT3Extended", category = SELECT)
+    public class MQTT3ExtendedConnector {
+    }
+    ```
+
+4.  In your custom extension, define your implementation for the `ClientIDGenerator` interface,
+    exposed by MQTT Connector.
+
+    MQTT Connector exposes the `ClientIDGenerator` interface, which requires only that you implement
+    the method `generateClientID()`. At this point, you import this interface using the `@Import`
+    annotation, which is then exported by MQTT Connector.
+
+    ```java
+    @Xml(prefix = "mqtt3-extended")
+    @Extension(name = "MQTT3Extended", category = SELECT)
+    @Import(type = ClientIDGenerator.class)
+    public class MQTT3ExtendedConnector {
+
+    }
+    ```
+
+5.  Define an implementation for the `ClientIDGenerator` interface:
+
+    ```java
+    @Alias("custom-client-id")
+    public class MyClientIdGenerator implements ClientIDGenerator {
+
+      /**
+       * Client id to be used to identify the connection to the MQTT broker.
+       */
+      @Parameter
+      @DisplayName("Client ID")
+      @Optional(defaultValue = "")
+      @Expression(NOT_SUPPORTED)
+      @ClientId
+      protected String clientId;
+
+      private String suffix = "my-custom-suffix";
+
+      /**
+       * @return a client ID that results from concatenating the clientId and a randomly generated UUID string.
+       */
+      @Override
+      public String generateClientID() {
+        return clientId + (clientId.isEmpty() ? "" : "-") + suffix;
+      }
+    }
+    ```
+
+6.  Define the subtype in your connector definition and export your custom implementation:
+
+    To do so, make the previously defined implementation available to MQTT Connector by defining
+    your custom implementation as a `ClientIDGenerator` subtype in your connector class. Also,
+    export your `MyClientIdGenerator` class using the `@Export` annotation:
+
+    ```java
+    @Xml(prefix = "mqtt3-extended")
+    @Extension(name = "MQTT3Extended", category = SELECT)
+    @Import(type = ClientIDGenerator.class)
+    @Export(classes = {MyClientIdGenerator.class})
+    @SubTypeMapping(baseType = ClientIDGenerator.class, subTypes = {MyClientIdGenerator.class})
+    public class MQTT3ExtendedConnector {
+
+    }
+    ```
+
+    After you set up your custom connector project, you are ready to access the new implementation
+    from your application using MQTT Connector.
+
+7.  In Studio, import both your custom connector and MQTT Connector in your applicationâs `pom.xml`
+    file, for example:
+
+    ```xml
+    	<groupId>com.mycompany</groupId>
+    	<artifactId>mqtt-custom-id-generator</artifactId>
+    	<version>1.0.0-SNAPSHOT</version>
+    	<packaging>mule-application</packaging>
+
+    	<name>mqtt-custom-id-generator</name>
+
+    	<properties>
+    		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    		<app.runtime>4.3.0-20210719</app.runtime>
+    		<mule.maven.plugin.version>3.5.2</mule.maven.plugin.version>
+    	</properties>
+
+    	<build>
+    		<plugins>
+    			<plugin>
+    				<groupId>org.apache.maven.plugins</groupId>
+    				<artifactId>maven-clean-plugin</artifactId>
+    				<version>3.0.0</version>
+    			</plugin>
+    			<plugin>
+    				<groupId>org.mule.tools.maven</groupId>
+    				<artifactId>mule-maven-plugin</artifactId>
+    				<version>${mule.maven.plugin.version}</version>
+    				<extensions>true</extensions>
+    				<configuration>
+    					<sharedLibraries>
+    						<sharedLibrary>
+    							<groupId>org.eclipse.paho</groupId>
+    							<artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+    						</sharedLibrary>
+    					</sharedLibraries>
+    				</configuration>
+    			</plugin>
+    		</plugins>
+    	</build>
+
+    	<dependencies>
+    		<dependency>
+    			<groupId>org.mule.connectors</groupId>
+    			<artifactId>mule-http-connector</artifactId>
+    			<version>1.5.25</version>
+    			<classifier>mule-plugin</classifier>
+    		</dependency>
+    		<dependency>
+    			<groupId>org.mule.connectors</groupId>
+    			<artifactId>mule-sockets-connector</artifactId>
+    			<version>1.2.1</version>
+    			<classifier>mule-plugin</classifier>
+    		</dependency>
+    		<dependency>
+    			<groupId>org.eclipse.paho</groupId>
+    			<artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+    			<version>1.2.5</version>
+    		</dependency>
+    		<dependency>
+    		    <groupId>org.example</groupId>
+    		    <artifactId>mqtt3-extended-connector</artifactId>
+    		    <version>1.0.0-SNAPSHOT</version>
+    		    <classifier>mule-plugin</classifier>
+    		</dependency>
+    		<dependency>
+    		    <groupId>com.mulesoft.connectors</groupId>
+    		    <artifactId>mule4-mqtt3-connector</artifactId>
+    		    <version>1.0.0</version>
+    		    <classifier>mule-plugin</classifier>
+    		</dependency>
+    	</dependencies>
+    </project>
+    ```
+
+    When you subsequently create a new MQTT Connector configuration in your application, your custom
+    client ID implementation appears in the list of available client ID generators.
+
+8.  To use your custom ID generator in an MQTT Connector configuration, navigate to the **Global
+    Elements** tab.
+9.  Click **Create**.
+10. In the filter box, type `mqtt` and select **MQTT3 Config**.
+11. Click **OK**.
+12. In **MQTT3 Config** > **Connection**, select **MQTT3 URL Connection**.
+13. For **Client id generator**, select **Custom client id**.
+14. Set the following fields:
+    - **Client ID**: `123`
+    - **Username**: `mosquitto`
+    - **Password**: `password`
+    - **URL**: `tcp://broker.hivemq.com:1883"`
+
+15. Click **OK**.
+
+![Custom Client ID Generator configuration in Global Element Properties window](_images/mqtt3-custom-generator.png)
+
+In the **Configuration XML** editor, the `<mqtt3:client-id-generator>` and
+`<mqtt3-extended:custom-client-id>` configurations look like this:
+
+```xml
+<mqtt3:config name="MQTT3_Config">
+	<mqtt3:connection username="mosquitto" password="password" url="tcp://broker.hivemq.com:1883">
+		<mqtt3:client-id-generator >
+			<mqtt3-extended:custom-client-id clientId="123" />
+		</mqtt3:client-id-generator>
+	</mqtt3:connection>
+</mqtt3:config>
+```
+
+## See Also
+
+- [MQTT Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Deploy MQTT Connector Apps in a Cluster
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+MQTT broker establishes a connection with a client using its client ID. For example, if the broker
+establishes a connection with a client whose client ID is `smart-bentley-123`, and then the broker
+receives a new connection with the same client ID, the broker closes the previous connection
+(assuming it is stale) and accepts the new connection. This mechanism is known as a client takeover.
+MQTT brokers employ this mechanism to prevent situations such as TCP connections reaching a
+half-open or invalid state due to a crash in one of the communication ends, which is undesirable.
+
+Because of client takeover, Mule runtime engine (Mule) applications that use MQTT Connector deployed
+in a cluster must include a unique client ID for each active node in the cluster. To avoid client
+takeovers in this kind of scenario, you can supply these unique IDs either by using the
+application-provided client ID generators or by providing your own client ID generator.
+
+## See Also
+
+- [Set a Client ID with MQTT Connector](mqtt3-connector-client-id)
+- [MQTT Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# MQTT Connector Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To fully benefit from using Anypoint Connector for MQTT (MQTT Connector), see the following examples
+of configuring the connector:
+
+- [Configure Quality of Service](mqtt3-connector-quality-of-service)  
+  Configure the quality of service (QoS) to specify levels of delivery assurance for inbound or
+  outbound messages.
+- [Configure the Last Will and Testament Message](mqtt3-connector-lwt-message)  
+  Configure the Last Will and Testament message to notify all the topic subscribers of the clientâs
+  disconnection from the broker.
+- [Set a client ID with MQTT Connector](mqtt3-connector-client-id)  
+  Configure client ID generators that enable you to set a client ID.
+- [Listen for New Messages](mqtt3-connector-listener)  
+  Configure the **On New Message** source to listen for messages on a unique or multiple topics, and
+  listen for messages on multiple topics using single-level or multilevel wildcards.
+- [Publish a Message](mqtt3-connector-publish)  
+  Configure the **Publish** operation to publish a message to the desired topic with a specific
+  quality of service.
+- [Listen and Publish Messages](mqtt3-connector-publish-receive)  
+  Configure the **On New Message** source and the **Publish** operation to listen and publish
+  messages to a specific topic.
+- [Deploy MQTT Connector Apps in a Cluster](mqtt3-connector-cluster)  
+  Understand the client ID behavior of MQTT Connector when deploying Mule apps in a cluster.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# MQTT Connector FAQ
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+MQTT Connector frequently asked questions (FAQ) are:
+
+## Does MQTT Connector use an object store for the Enable File Persistence feature?
+
+The **Enable file persistence** feature is available only on the on-premises installation and uses a
+file for persistent messages. Note that an object store enables persistent storage for CloudHub
+applications. Refer to the [object store](../../object-store/) documentation for details.
+
+## Is MQTT Connector supported on CloudHub and Cluster environments?
+
+Yes, MQTT Connector is supported on CloudHub and on cluster environments.
+
+## Is MQTT Connector cluster-aware?
+
+MQTT Connector is cluster-aware. MQTT brokers usually implement a client takeover mechanism that
+closes an old connection if a new connection request with the same client ID as the existing (old)
+connection is received and then accepts the new connection. The client takeover mechanism can become
+a problem if you want to deploy an application in a cluster, and still provide an explicit client ID
+that identifies the client. MQTT Connector provides client ID generators that help you set a static
+client ID, set a client ID with a dynamic component to adjust to different deployment scenarios, or
+define your custom client ID generator.
+
+For further information, refer to the
+[set a Client ID with MQTT Connector](mqtt3-connector-client-id) documentation.
+
+## What are the authentication types supported?
+
+MQTT Connector authentication supports user and password, and certificate-based authentication (TLS
+or WSS). Refer to the
+[configure credentials for authentication](mqtt3-connector-studio-configuration#configure-authentication)
+documentation.
+
+## Does MQTT Connector trace connection and operation executions?
+
+Refer to the [Troubleshooting MQTT Connector](mqtt3-connector-troubleshooting) documentation to
+learn how to enable verbose logging in DEBUG mode for the connector, for Eclipse Paho driver and the
+Mosquitto broker.
+
+## What is the server-side configuration required for MQTT Connector to work?
+
+MQTT Connector works with any MQTT version 3.x compliant server also known as MQTT broker. To
+configure the server, refer to your MQTT brokerâs documentation, for example, the
+[Eclipse Mosquitto](https://mosquitto.org/documentation) broker documentation.
+
+## Does MQTT Connector use a 3rd party library to connect with the external system?
+
+MQTT Connector uses Eclipse Mosquitto libraries. The ArtifactID is `org.eclipse.paho.client.mqttv3`.
+
+## Is there any documentation or release notes for the Eclipse Mosquitto external library?
+
+To get release notes for Eclipse Mosquitto library, refer to the
+[Eclipse public repository](https://github.com/eclipse-paho/paho.mqtt.java/releases).
+
+## Are there any permission, roles, or additional configuration required on the broker side to connect with our credentials using MQTT Connector?
+
+No, there arenât any additional permissions or configuration requirements to connect to MQTT version
+3.x compliant MQTT brokers. On the MQTT broker side, you do need to configure the listeners
+properly.
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Listen for New Messages with MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In these examples, you configure the Anypoint Connector for MQTT (MQTT Connector) **On New Message**
+source, which enables you to listen for new incoming messages using one or more topic filters. Each
+topic filter has a specific quality of service (QoS) configured.
+
+In the following example, you configure the **On New Message** source:
+
+1.  In Studio > **Mule Palette**, select **MQTT3 > On New Message**.
+2.  Drag **On New Message** to the Studio canvas.
+3.  In the **On New Message** configuration screen, optionally change the value of the **Display
+    Name** field.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+5.  In **MQTT3 Config** > **Connection**, select one of the connection types to provide to this
+    configuration:
+    - **MQTT3 URL Connection**
+    - **MQTT3 Fail-Over Connection**
+    - **MQTT3 Form Connection**
+
+6.  Specify a unique and intuitive **Client ID** to identify an MQTT connection to a broker.
+7.  On the **General** tab, also specify connection information such as required libraries for the
+    broker and advanced connection options.
+8.  On the **LWT** tab, optionally specify a Last Will and Testament message.
+9.  On the **TLS/SSL** tab, optionally specify a TLS configuration.
+10. On the **Advanced** tab, optionally specify a reconnection strategy.
+11. Click **OK** to close the window.
+12. In the **On New Message** configuration screen, in **Topics**, select **Edit inline** to list
+    the topics that the listener subscribes to.
+13. Click the plus sign (**+**) to configure a topic.
+14. In the **Topic** configuration screen, set **Topic filter** to configure a single or multilevel
+    subscription to a topic.
+15. Set **QoS** to any of the following quality of service levels:
+    - **AT_MOST_ONCE**
+    - **AT_LEAST_ONCE**
+    - **EXACTLY_ONCE**
+
+16. Click **Finish**:
+
+![MQTT On New Message source configuration in Studio with Topic filters configured](_images/mqtt3-onnewmessage.png)
+
+In the **Configuration XML** editor, the `<mqtt3:listener>`, `<mqtt3:topic>`, and `topicFilter`
+configurations look like this:
+
+```xml
+    <flow name="listenerAuthorQuotes">
+        <mqtt3:listener config-ref="MQTT_Config">
+            <mqtt3:topics>
+                <mqtt3:topic topicFilter="quotes/terryPratchett" qos="EXACTLY_ONCE"/>
+                <mqtt3:topic topicFilter="quotes/neilGaiman" qos="AT_LEAST_ONCE" />
+                <mqtt3:topic topicFilter="quotes/ianMcEwan" qos="AT_MOST_ONCE" />
+            </mqtt3:topics>
+        </mqtt3:listener>
+    </flow>
+```
+
+## Configure Listener Topics Using Bean Reference
+
+To reuse topic subscriptions across multiple listeners, in **Topics**, select **Bean reference**
+instead of **Edit inline**. This option is useful when you want to centralize the list of
+subscriptions and avoid manually duplicating topic filter and QoS values in each listener.
+
+Use **Edit inline** when you configure only one listener or a small set of topics that are specific
+to a single flow.
+
+In the **Configuration XML** editor, the listener can reference a topic list bean:
+
+```xml
+<flow name="listenerWithBeanReference">
+    <mqtt3:listener config-ref="MQTT_Config" topics-ref="mqttListenerTopics"/>
+</flow>
+```
+
+For example, you can define a `List<Topic>` bean and reference it from the listener:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="topicBuenosAires" class="com.mulesoft.connectors.mqtt3.api.Topic">
+        <property name="topicFilter" value="weather/Argentina/BuenosAires"/>
+        <property name="qos" value="AT_LEAST_ONCE"/>
+    </bean>
+
+    <bean id="topicRosario" class="com.mulesoft.connectors.mqtt3.api.Topic">
+        <property name="topicFilter" value="weather/Argentina/Rosario"/>
+        <property name="qos" value="AT_LEAST_ONCE"/>
+    </bean>
+
+    <bean id="argentinaTopics" class="java.util.ArrayList">
+        <constructor-arg>
+            <list>
+                <ref bean="topicBuenosAires"/>
+                <ref bean="topicRosario"/>
+            </list>
+        </constructor-arg>
+    </bean>
+
+</beans>
+```
+
+## Configure Single-Level Wildcards in Topic Filters
+
+Configure single-level wildcards to listen to multiple topics. Single-level wildcards (`+`) enable
+the subscriber to receive messages published to all topics that match a specific structure.
+
+In the following example, you configure the `topicFilter` parameter with the structure
+`quotes/+/authors`:
+
+```xml
+    <flow name="quotes">
+        <mqtt3:listener config-ref="${config}">
+            <mqtt3:topics>
+                <mqtt3:topic topicFilter="quotes/+/authors"/>
+            </mqtt3:topics>
+        </mqtt3:listener>
+
+        <logger level="DEBUG" message="A quote has been published to #[attributes.topic]: #[payload]"/>
+    </flow>
+```
+
+Messages published to the following topics trigger the listener:
+
+- `quotes/british/authors`
+- `quotes/american/authors`
+
+However, messages published to the following topics do not trigger the listener:
+
+- `names/british/authors`
+- `quotes/american/writers`
+
+## Configure Multi-Level Wildcards in Topic Filters
+
+Configure multi-level wildcards to enable the listener to subscribe to all topics that share the
+same root (everything that comes before the hash `#` symbol).
+
+In the following example, you configure the `topicFilter` parameter with the structure
+`quotes/england/#`:
+
+```xml
+    <flow name="listenerArgentinaTemperature">
+        <mqtt3:listener config-ref="${config}">
+            <mqtt3:topics>
+                <mqtt3:topic topicFilter="quotes/england/#"/>
+            </mqtt3:topics>
+        </mqtt3:listener>
+
+        <logger level="DEBUG" message="A quote has been published to #[attributes.topic]: #[payload]"/>
+    </flow>
+```
+
+Messages published to the following topics trigger the listener:
+
+- `quotes/england/authors/terryPratchett`
+- `quotes/england/authors/neilGaiman`
+- `quotes/england/actors`
+
+However, messages published to the following topics do not trigger the listener:
+
+- `quotes/american/actors`
+- `phrases/england/authors/neilGaiman`
+
+## Listeners Sharing a Configuration
+
+Listeners that share a configuration element also share a connection and client ID. This is
+important to remember, especially when one of the listeners is stopped but the other isnât.
+
+In the following example, the listeners of the flows `listenerReaderA` and `listenerReaderB` share
+the same connection `MQTT_Config` configuration and client ID. From the brokerâs perspective, both
+listeners are indistinguishable:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection url="tcp://127.0.0.1:1883" >
+        <mqtt3:client-id-generator>
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+    </mqtt3:connection>
+</mqtt3:config>
+
+<flow name="listenerReaderA">
+   <mqtt3:listener config-ref="MQTT_Config">
+            <mqtt3:topics>
+                <mqtt3:topic topicFilter="shakespeare"/>
+                <mqtt3:topic topicFilter="terryPratchett"/>
+            </mqtt3:topics>
+   </mqtt3:listener>
+   <logger level="INFO"  message="Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]">
+</flow>
+<flow name="listenerReaderB">
+    <mqtt3:listener config-ref="MQTT_Config">
+            <mqtt3:topics>
+                <mqtt3:topic topicFilter="neilGaiman"/>
+                <mqtt3:topic topicFilter="terryPratchett"/>
+            </mqtt3:topics>
+   </mqtt3:listener>
+   <logger level="INFO"  message="Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]">
+</flow>
+```
+
+As you can see, the listeners also share a subscription to the topic `terryPratchett`. Whichever
+listener subscribes first to the topic can set the subscription quality of service (QoS). Only one
+subscription with one quality of service level can exist for that topic.
+
+If the `listenerReaderB` flow stops, the `listenerReaderA` flow still receives and processes the
+messages for the `terryPratchett` topic. Even if the configuration element specifies
+`cleanSession=false`, the messages processed while `listenerReaderB` was offline are not resent to
+`listenerReaderB`.
+
+## See Also
+
+- [MQTT Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Configure the Last Will and Testament Messages for MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In this example, you set a Last Will and Testament (LWT) message for Anypoint Connector for MQTT
+(MQTT Connector) to ensure that a message is sent to all of the subscribers of a specific LWT topic
+if the client disconnects temporarily or permanently from the broker. The LWT message is sent when
+the connection to the broker is established.
+
+Configure the LWT message in the configuration element and specify whether or not you want the
+broker to retain that message. If an MQTT message is set for retention, the broker stores the last
+message marked as retained that arrived at a specific topic. If no listeners are subscribed to a
+matching topic at the time the message is sent, the broker stores the message until a listener
+connects to that topic. Then, the broker delivers the listener to the last message retained for that
+topic.
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Click **Create**.
+3.  In the filter box, type `mqtt` and select **MQTT3 Config**.
+4.  Click **OK**.
+5.  In **MQTT3 Config** > **Connection**, select **MQTT3 Form Connection**.
+6.  For **Client id generator**, select **Client id random suffix generator**.
+7.  Set the following fields:
+    - **Client ID**: `smart-bentley-123`
+    - **Username**: `usertest`
+    - **Password**: `passtest`
+    - **URL**: `tcp://127.0.0.1:1883`
+
+8.  Click **LWT**.
+9.  Set the following fields:
+    - **Topic**: `LWT`
+    - **Body**: `Testing body message`
+    - **Is retained**: **True**.
+
+10. Click **OK**.
+
+![MQTT Config window with Last Will and Testament configuration window selected](_images/mqtt3-lwt-configuration.png)
+
+In the **Configuration XML** editor, the `<mqtt3:last-will-and-testament>` configuration looks like
+this:
+
+```xml
+<mqtt3:config name="MQTT_LWT_Config">
+    <mqtt3:connection username="usertest" password="passtest" url="tcp://127.0.0.1:1883">
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+        <mqtt3:last-will-and-testament topic="LWT" isRetained="true" >
+            <mqtt3:body ><![CDATA[Testing body message]]></mqtt3:body>
+        </mqtt3:last-will-and-testament>
+    </mqtt3:connection>
+</mqtt3:config>
+```
+
+## See Also
+
+- [MQTT Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Listen and Publish Messages with MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In these examples, you configure the Anypoint Connector for MQTT (MQTT Connector) **On New Message**
+source and the **Publish** operation to listen and publish messages to a specific topic.
+
+## Create a Mule App to Listen and Publish Messages
+
+In the following example, you configure the **On New Message** source and the **Publish** operation
+to listen and publish messages to a specific topics.
+
+![MQTT Listen and Publish example in Studio canvas](_images/mqtt3-example-1.png)
+
+### Create a Listener Flow
+
+In the first part of the example, create a flow with an **On New Message** source that triggers an
+event for incoming messages on topics matching the filter `topic/quotes/#`, and add a **Logger**
+component that logs the received message:
+
+1.  In Studio > **Mule Palette** view, select **MQTT3 > On New Message**.
+2.  Drag the **On New Message** source to the Studio canvas.
+3.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+4.  In **MQTT3 Config** > **Connection** select **MQTT3 URL Connection**.
+5.  For **Client id generator**, select **Client id custom expression generator**.
+6.  Set the following fields:
+    - **Client ID**: `crowley123`
+    - **Username**: `mosquitto`
+    - **Password**: `mosquitto`
+    - **URL**: `tcp://0.0.0.0:1883`
+
+7.  Click **LWT**.
+8.  Set the following fields:
+    - **Topic**: `topic/lwt`
+    - **Body**: `This is the LWT message`
+    - **Is retained**: **True**
+
+9.  Click **OK**.
+10. In the **On New Message** configuration screen, set **Topics** to **Edit inline**.
+11. Click the plus sign (**+**) to add a new topic.
+12. In **Topic filter**, set `topic/quotes/#`.
+13. Click **OK**.
+14. Drag a **Logger** component to the right of the **On New Message** source.
+15. Set **Message** to
+    `Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]`.
+
+### Create a Publisher Flow
+
+For the second part of the example, create a flow with a **Publish** operation that publishes
+messages to the topic `topic/quotes/shakespeare` and triggers an event in `listener-flow`:
+
+1.  In Studio, drag an HTTP **Listener** source below the first `listener-flow`.
+2.  Set **Path** to `publish/message`.
+3.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+4.  Set **Host** to `0.0.0.0` and **Port** to `8081`.
+5.  Click **OK**.
+6.  Drag an MQTT3 **Publisher** operation next to the HTTP **Listener** source.
+7.  For **Connector configuration**, select the `MQTT3_Config_1` configuration created in
+    `listener-flow`.
+8.  Set the following fields:
+    - **Topic**: `topic/quotes/shakespeare`
+    - **Message**: `"Uneasy lies the head that wears a crown"`
+
+9.  Drag a **Set Payload** component to the right of the **Publish** operation.
+10. Set **Value** to `SUCCESSFULLY PUBLISHED MESSAGE!`.
+11. Save and run your Mule application.
+12. To publish the message, send a request to the HTTP endpoint using the following curl command:
+    `curl -v --request GET localhost:8081/publish/message`.
+
+### XML for Listening and Publishing Messages with MQTT Connector
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:mqtt3="http://www.mulesoft.org/schema/mule/mqtt3"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mqtt3 http://www.mulesoft.org/schema/mule/mqtt3/current/mule-mqtt3.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+	<mqtt3:config name="MQTT3_Config1" >
+		<mqtt3:connection username="mosquitto" password="mosquitto" url="tcp://0.0.0.0:1883" >
+			<mqtt3:client-id-generator >
+	            <mqtt3:client-id-custom-expression-generator clientId="crowley123" />
+	        </mqtt3:client-id-generator>
+			<mqtt3:last-will-and-testament topic="topic/lwt" body="This is the LWT message" isRetained="true" />
+		</mqtt3:connection>
+	</mqtt3:config>
+	<http:listener-config name="HTTP_Listener_config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="listener-flow" >
+		<mqtt3:listener doc:name="On New Message" config-ref="MQTT3_Config1">
+			<mqtt3:topics >
+				<mqtt3:topic topicFilter="topic/quotes/#" />
+			</mqtt3:topics>
+		</mqtt3:listener>
+		<logger level="INFO" message="Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]" />
+	</flow>
+	<flow name="publisher-flow" >
+		<http:listener config-ref="HTTP_Listener_config" path="publish/message"/>
+		<mqtt3:publish config-ref="MQTT3_Config1" topic="topic/quotes/shakespeare">
+			<mqtt3:message ><![CDATA[#["Uneasy lies the head that wears a crown"]]]></mqtt3:message>
+		</mqtt3:publish>
+		<set-payload value="SUCCESSFULLY PUBLISHED MESSAGE!" />
+	</flow>
+</mule>
+```
+
+## Create a Mule App and Subscribe to a LWT Message Topic
+
+In the following example, you use the previous listener flow and create a second listener flow
+subscribed to the same LWT message topic as the first flow. If the Mule app crashes and the first
+listener flow gets disconnected, the MQTT broker sends the LWT message to the configured topic and
+retains the message. When the Mule app restarts, the second listener flow listens for the retained
+LWT message and logs it.
+
+![MQTT Listener flows example in Studio canvas](_images/mqtt3-example-2.png)
+
+### Create the First Listener Flow
+
+In the first part of the example, create a flow with an **On New Message** source that triggers an
+event for incoming messages on topics matching the filter `topic/quotes/#`, and add a **Logger**
+component that logs the received message:
+
+1.  In Studio, in the **Mule Palette** view, select **MQTT3 > On New Message**.
+2.  Drag the **On New Message** source to the Studio canvas.
+3.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+4.  In the **MQTT3 Config** window, for **Connection** select **MQTT3 URL Connection**.
+5.  For **Client id generator**, select **Client id custom expression generator**.
+6.  Set the following fields:
+    - **Client ID**: `crowley123`
+    - **Username**: `mosquitto`
+    - **Password**: `mosquitto`
+    - **URL**: `tcp://0.0.0.0:1883`
+
+7.  Click the **LWT** tab.
+8.  Set the following fields:
+    - **Topic**: `topic/lwt`
+    - **Body**: `This is the LWT message`
+    - **Is retained**: **True**
+
+9.  Click **OK**.
+10. In the **On New Message** configuration screen, set **Topics** to **Edit inline**.
+11. Click the plus sign (**+**) to add a new topic.
+12. In **Topic filter** set `topic/quotes/#`.
+13. Click **OK**.
+14. Drag a **Logger** component to the right of the **On New Message** source.
+15. Set **Message** to
+    `Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]`.
+
+### Create the Second Listener Flow
+
+For the second part of the example, create a second listener flow by adding another **On New
+Message** source that subscribes to the topic `topic/lwt`, and add a **Logger** component that logs
+the received message:
+
+1.  In Studio, drag another **On New Message** source below the first `listener-flow`.
+2.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+3.  In the **MQTT3 Config** window, for **Connection** select **MQTT3 URL Connection**.
+4.  For **Client id generator**, select **Client id random suffix generator**.
+5.  Set the following fields:
+    - **Client ID**: `azfell123`
+    - **Username**: `mosquitto`
+    - **Password**: `mosquitto`
+    - **URL**: `tcp://0.0.0.0:1884`
+
+6.  Click **OK**.
+7.  In the **On New Message** configuration screen, set **Topics** to **Edit inline**.
+8.  Click the plus sign (**+**) to add a new topic.
+9.  In **Topic filter** set `topic/lwt`.
+10. Click **OK**.
+11. Drag a **Logger** component to the right of the **On New Message** source.
+12. Set **Message** to
+    `Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]`.
+13. Save and run the Mule app.
+14. Simulate an app crash by locating the process ID of the Mule app and killing it in your terminal
+    by using a command like `kill -9 <process-id>`.  
+    Because the Mule app crashes, the first listener flow is disconnected.
+15. Restart the Mule app.  
+    The MQTT broker retains the LWT message, and the second listener flow logs the LWT message that
+    was configured in the first listener flow.
+
+### XML for Listening Messages Subscribed to an LWT Message Topic
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:mqtt3="http://www.mulesoft.org/schema/mule/mqtt3"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mqtt3 http://www.mulesoft.org/schema/mule/mqtt3/current/mule-mqtt3.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<mqtt3:config name="MQTT3_Config1" >
+		<mqtt3:connection username="mosquitto" password="mosquitto" url="tcp://0.0.0.0:1883" >
+			<mqtt3:client-id-generator>
+	            <mqtt3:client-id-custom-expression-generator clientId="crowley123"/>
+	        </mqtt3:client-id-generator>
+			<mqtt3:last-will-and-testament topic="topic/lwt" body="This is the LWT message" isRetained="true" />
+		</mqtt3:connection>
+	</mqtt3:config>
+	<http:listener-config >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<mqtt3:config name="MQTT3_Config2" >
+		<mqtt3:connection username="mosquitto" password="mosquitto" url="tcp://0.0.0.0:1884" />
+		<mqtt3:client-id-generator>
+					<mqtt3:client-id-random-suffix-generator clientId="azfell123" />
+			</mqtt3:client-id-generator>
+	</mqtt3:config>
+	<flow name="listener-flow" >
+		<mqtt3:listener config-ref="MQTT3_Config1">
+			<mqtt3:topics >
+				<mqtt3:topic topicFilter="topic/quotes/#" />
+			</mqtt3:topics>
+		</mqtt3:listener>
+		<logger level="INFO" message="Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]"/>
+	</flow>
+	<flow name="listener-flow2" >
+		<mqtt3:listener config-ref="MQTT3_Config2">
+			<mqtt3:topics >
+				<mqtt3:topic topicFilter="topic/lwt" />
+			</mqtt3:topics>
+		</mqtt3:listener>
+		<logger level="INFO" message="Received message '#[payload]' with at topic #[attributes.topic] with qos #[attributes.qos]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [MQTT Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Publish Messages to an MQTT Broker with MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+In the following example, you configure the Anypoint Connector for MQTT (MQTT Connector) **Publish**
+operation, which enables you to publish a message to the desired topic and with a specific quality
+of service (QoS).
+
+1.  In Studio > **Mule Palette**, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  Set **Path** to `/mqtt3/publish`.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+5.  Configure the HTTP Listener global element and click **OK**.
+6.  In Studio > **Mule Palette**, select **MQTT3 > On New Message**.
+7.  Drag **On New Message** to the Studio canvas.
+8.  In the **On New Message** configuration screen, optionally change the value of the **Display
+    Name** field.
+9.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+10. In **MQTT3 Config** > **Connection**, select **MQTT3 URL Connection**.
+11. For **Client id generator**, select **Client id random suffix generator**.
+12. Set the following fields:
+    - **Client ID**: `smart-bentley-123`
+    - **Username**: `usertest`
+    - **Password**: `passtest`
+    - **URL**: `tcp://127.0.0.1:1883`
+
+13. Click **OK**.
+14. In the **Publish** configuration screen, set the following fields:
+    - **Topic**: `quotes/terryPratchett`
+    - **Message** `#["Stories of imagination tend to upset those without one."]`
+    - **QoS**: **AT_LEAST_ONCE (Default)**
+    - **Is retained**: **True**
+
+![MQTT Publish operation configuration in Studio](_images/mqtt3-publish.png)
+
+In the **Configuration XML** editor, the `<mqtt3:publish>` and `topic` configurations look like
+this:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection username="usertest" password="passtest" url="tcp://127.0.0.1:1883">
+        <mqtt3:client-id-generator>
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+    </mqtt3:connection>
+</mqtt3:config>
+
+<flow name="publishQuote">
+    <http:listener config-ref="HTTP_Listener" path="/mqtt3/publish" />
+    <mqtt3:publish config-ref="MQTT_Config" topic="quotes/terryPratchett" qos="AT_LEAST_ONCE" isRetained="true">
+        <mqtt3:message>#["Stories of imagination sample quote."]</mqtt3:message>
+    </mqtt3:publish>
+</flow>
+```
+
+## Mark Messages as Retained
+
+By default, a broker discards a received message on a topic for which there are no current
+subscribers. If you want the broker to retain the message, configure **Is retained** to `True`. The
+broker stores the last retained message and the corresponding quality of service for the selected
+topic.  
+Each client that subscribes to a topic pattern that matches the topic of the retained message
+receives the retained message after they subscribe. The broker stores only one retained message per
+topic. This enables new subscribers to receive the most current existing value rather than waiting
+for the next update from a publisher.
+
+## See Also
+
+- [MQTT3 Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Configure the Quality of Service for MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The MQTT protocol enables you to specify levels of delivery assurance for inbound or outbound
+messages. These levels are referred to as _quality of service_ (QoS).
+
+The available QoS levels to configure for MQTT Connector are:
+
+- **AT_MOST_ONCE**
+
+  Messages are delivered at most one time ("fire and forget") and delivery is not guaranteed.
+
+- **AT_LEAST_ONCE**
+
+  Messages are delivered correctly at least one time. The message could be delivered more than once.
+
+- **EXACTLY_ONCE**
+
+  Messages are sent once and delivery is ensured.
+
+The quality of service is sometimes different between message publishing and message subscribing,
+even if the published message and the subscription have a common topic. For example, a message
+published with QoS 1 or 2 might not be successfully delivered to the **On New Message** source, if
+that listener source is subscribed with QoS **AT_MOST_ONCE** (QoS=0).
+
+## See Also
+
+- [MQTT3 Connector Examples](mqtt3-connector-examples)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# MQTT Connector 1.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for MQTT (MQTT Connector) is an MQTT (Message Queuing Telemetry Transport) v3.x
+protocol-compliant MuleSoft extension. MQTT is a lightweight publish/subscribe messaging protocol
+designed for connecting remote devices with a small code footprint and minimal network bandwidth.
+MQTT today is used in a wide variety of industries, such as automotive, manufacturing,
+telecommunications, and oil and gas.
+
+The connector consumes and produces MQTT messages and supports all MQTT v3.x functionalities
+including message retention, LWT(LWT) messages, and persistent sessions.
+
+## Configurations
+
+---
+
+### Config
+
+Default configuration.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#Config_Connection">MQTT 3 URL Connection</a></p></li><li><p><a href="#Config_FailOver">MQTT 3 Fail-Over Connection</a></p></li><li><p><a href="#ConfigForm">MQTT 3 Form Connection</a></p></li></ul></div></div></td><td><p>Connection types for this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures an expiration policy for the configuration.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### MQTT 3 URL Connection
+
+Cached connection provider that creates MQTT connections. Enables you to specify a connection URL
+for the broker.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Client ID Generator</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#ClientIdRandomSuffixGenerator">Client ID Random Suffix Generator</a></p></li><li><p><a href="#ClientIdCustomExpressionGenerator">Client ID Custom Expression Generator</a></p></li></ul></div></div></td><td><p>A Client ID generator that generates a Client ID to identify a connection to the MQTT broker.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate credentials to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password authenticate credentials to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>URL that represents the broker to connect to.</p></td><td></td><td></td></tr><tr><td><p>TLS Context</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic to publish the LWTmessage.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>String</p></div></div></td><td><p>Content of the LWTmessage.</p></td><td></td><td></td></tr><tr><td><p>QoS</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AT_MOST_ONCE</p></li><li><p>AT_LEAST_ONCE</p></li><li><p>EXACTLY_ONCE</p></li></ul></div></div></td><td><p>Quality of service (QoS) with which the LWTmessage is published. Defaults to AT_LEAST_ONCE.</p></td><td><p>AT_LEAST_ONCE</p></td><td></td></tr><tr><td><p>Is Retained</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the broker retains the LWTmessage.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The socket connection timeout value. This attribute works in tandem with <code>timeoutUnit</code>. If multiple fail-over URLs are provided, the timeout applies to each URL individually.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Unit of time for the <strong>Connection Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Keep Alive Interval</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of time that the connection between the client and broker is kept alive without any messages exchanged. If the keep-alive interval is 0, then the keep-alive mechanism is disabled.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Keep Alive Interval Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The unit of time that corresponds to the <code>keepAliveInterval</code> parameter. Defaults to SECONDS</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Max In Flight</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of messages that can be unacknowledged at a given time. If you set the parameter to <code>0</code>, there can be unlimited in-flight messages.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Clean Session</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the session is cleaned each time the client disconnects from the broker. Subscriptions are not saved and offline (QoS 1 and 2) messages for that client are lost.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Enable File Persistence</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, creates a file-based persistent data store, used to store outbound and inbound messages while they are in flight, enabling delivery to the QoS specified.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Data Store Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The directory where the file-based persistent data store is created if <code>enableFilePersistence</code> is set to <code>true</code>.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+##### MQTT 3 Fail-Over Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Client ID Generator</p></td><td><div><div><p>One of: * <a href="#ClientIdRandomSuffixGenerator">Client ID Random Suffix Generator</a> * <a href="#ClientIdCustomExpressionGenerator">Client ID Custom Expression Generator</a></p></div></div></td><td><p>A ClientIDGenerator that generates a Client ID to identify a connection to the MQTT broker.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate credentials to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to authenticate credentials to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>Fail Over Servers</p></td><td><div><div><p>Array of <a href="#FailOverUrl">Fail Over URL</a></p></div></div></td><td><p>The list of server URLs used to establish a connection to the broker.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>TLS Context</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic to publish the LWTmessage.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>String</p></div></div></td><td><p>Content of the LWTmessage.</p></td><td></td><td></td></tr><tr><td><p>QoS</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AT_MOST_ONCE</p></li><li><p>AT_LEAST_ONCE</p></li><li><p>EXACTLY_ONCE</p></li></ul></div></div></td><td><p>Quality of service (QoS) with which the LWTmessage is published. Defaults to AT_LEAST_ONCE</p></td><td><p>AT_LEAST_ONCE</p></td><td></td></tr><tr><td><p>Is Retained</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the broker retains the LWTmessage.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The socket connection timeout value. This attribute works in tandem with <code>timeoutUnit</code>. If multiple fail-over URLs are provided, the timeout applies to each URL individually.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Unit of time for the <strong>Connection Timeout</strong> field. Defaults to SECONDS</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Keep Alive Interval</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of time that the connection between the client and broker is kept alive without any messages being exchanged. If the keep-alive interval is <code>0</code>, then the keep-alive mechanism is disabled.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Keep Alive Interval Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The unit of time that corresponds to the <code>keepAliveInterval</code> parameter. Defaults to SECONDS</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Max In Flight</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of messages that can be unacknowledged at a given time. If you set the parameter to <code>0</code>, there can be unlimited in-flight messages.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Clean Session</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the session is cleaned each time the client disconnects from the broker. Subscriptions are not saved and offline (QoS 1 and 2) messages for that client are lost.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Enable File Persistence</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, creates a file-based persistent data store, used to store outbound and inbound messages while they are in flight, enabling delivery to the QoS specified.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Data Store Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The directory where the file-based persistent data store is created if <code>enableFilePersistence</code> is set to <code>true</code>.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+##### MQTT 3 Form Connection
+
+Cached connection provider that creates MQTT connections. Enables you to specify a protocol, host,
+and port to establish a connection with the broker.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Client ID Generator</p></td><td><div><div><p>One of: * <a href="#ClientIdRandomSuffixGenerator">Client ID Random Suffix Generator</a> * <a href="#ClientIdCustomExpressionGenerator">Client ID Custom Expression Generator</a></p></div></div></td><td><p>A Client ID generator that generates a Client ID to identify a connection to the MQTT broker.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate credentials to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to authenticate credentials to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>Protocol</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TCP</p></li><li><p>WS</p></li><li><p>WSS</p></li><li><p>SSL</p></li><li><p>LOCAL</p></li></ul></div></div></td><td><p>Transport level protocol to use when connecting to the broker.</p></td><td><p>TCP</p></td><td></td></tr><tr><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>Brokerâs host to connect to.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Port</p></td><td><div><div><p>String</p></div></div></td><td><p>Brokerâs port to connect to</p></td><td><p>1883</p></td><td></td></tr><tr><td><p>TLS Context</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic to publish the LWTmessage.</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>String</p></div></div></td><td><p>Content of the LWTmessage.</p></td><td></td><td></td></tr><tr><td><p>QoS</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AT_MOST_ONCE</p></li><li><p>AT_LEAST_ONCE</p></li><li><p>EXACTLY_ONCE</p></li></ul></div></div></td><td><p>Quality of service (QoS) with which the LWTmessage is published. Defaults to AT_LEAST_ONCE</p></td><td><p>AT_LEAST_ONCE</p></td><td></td></tr><tr><td><p>Is Retained</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the broker retains the LWTmessage.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>The socket connection timeout value. This attribute works in tandem with <code>timeoutUnit</code>. If multiple fail-over URLs are provided, the timeout applies to each URL individually.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Unit of time for the <strong>Connection Timeout</strong> field. Defaults to SECONDS</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Keep Alive Interval</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of time that the connection between the client and broker is kept alive without any messages being exchanged. If the keep-alive interval is <code>0</code>, then the keep-alive mechanism is disabled.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Keep Alive Interval Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The unit of time that corresponds to the <code>keepAliveInterval</code> parameter.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Max In Flight</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of messages that can be unacknowledged at a given time. If you set the parameter to <code>0</code>, there can be unlimited in-flight messages.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Clean Session</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the session is cleaned each time the client disconnects from the broker. Subscriptions are not saved and offline (QoS 1 and 2) messages for that client are lost.</p></td><td><p><code>true</code></p></td><td></td></tr><tr><td><p>Enable File Persistence</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, creates a file-based persistent data store, used to store outbound and inbound messages while they are in flight, enabling delivery to the QoS specified.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Data Store Path</p></td><td><div><div><p>String</p></div></div></td><td><p>The directory where the file-based persistent data store is created if <code>enableFilePersistence</code> is set to <code>true</code>.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment will fail if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Associated Operations
+
+- [Publish](#Publish)
+
+#### Associated Sources
+
+- [On New Message](#Listener)
+
+## Operations
+
+### Publish
+
+`<mqtt3:publish>`
+
+Operation that enables you to publish a single MQTT 3 message to a given exchange.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic in which to publish the message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message</p></td><td><div><div><p>Any</p></div></div></td><td><p>Content of the message to publish.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>QoS</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AT_MOST_ONCE</p></li><li><p>AT_LEAST_ONCE</p></li><li><p>EXACTLY_ONCE</p></li></ul></div></div></td><td><p>Quality of service (QoS) with which the message is published.</p></td><td><p>AT_LEAST_ONCE</p></td><td></td></tr><tr><td><p>Is Retained</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether the broker retains the message.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to execute the component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+### Throws
+
+- MQTT3:CONNECTIVITY
+
+  The client became disconnected from the broker while attempting to publish a message.
+
+- MQTT3:INVALID_TOPIC
+
+  The topic is invalid because, for example, the name is too short, too long, or contains invalid
+  characters.
+
+- MQTT3:PERSISTENCE
+
+  When publishing a message, an error occurred while reading or writing persistent data for reliable
+  messaging.
+
+- MQTT3:PUBLISH
+
+  An error occurred while attempting to publish a message.
+
+- MQTT3:RETRY_EXHAUSTED
+
+  All reconnection attempts failed.
+
+- MQTT3:WRITE_TIMEOUT
+
+  An error occurred when the client timed out waiting to write messages to the server.
+
+## Sources
+
+### On New Message
+
+`<mqtt3:listener>`
+
+Source that listens for new incoming messages for one or more topic filters. Each topic filter has a
+specific QoS configured.
+
+### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Topics</p></td><td><div><div><p>Array of <a href="#Topic">Topic</a></p></div></div></td><td><p>List of topics that the listener subscribes to. You can configure this field by using either <strong>Edit inline</strong> or <strong>Bean reference</strong>. For source configuration examples, see <a href="mqtt3-connector-listener">Listen for New Messages with MQTT Connector</a>.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>Name of the configuration to execute the component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Determines whether to execute the source only on the primary node when running Mule instances in a cluster.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>Type</strong></p></td><td><div><div><p>Any</p></div></div></td></tr><tr><td><p><strong>Attributes Type</strong></p></td><td><div><div><p><a href="#Mqtt3MessageAttributes">MQTT 3 Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Config](#Config)
+
+## Types
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of protocols enabled for this context.</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of cipher suites enabled for this context..</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the trust store.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of truststore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the trust store uses.</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, no certificate validations will be performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+Configures the keystore for the TLS protocol. The keystore you generate contains a private key and a
+public certificate.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system, if possible.</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of keystore.</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key.</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the keystore.</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Encryption algorithm that the keystore uses.</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+Configures standard revocation checks for TLS certificates.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Verify the last element of the certificate chain only.</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Try CRL instead of OCSP first.</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Do not use the secondary checking method, which is the method not specified in the Prefer Crls field.</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoid verification failure when the revocation server cannot be reached or is busy.</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder.</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to <code>true</code>, deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often in milliseconds to reconnect.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make.</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector operation source or operation
+attempts to reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often to attempt to reconnect, in milliseconds.</p></td><td></td><td></td></tr><tr><td><p>Blocking</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>false</code>, the reconnection strategy runs in a separate, non-blocking thread.</p></td><td></td><td></td></tr></tbody></table>
+
+### Fail Over URL
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Protocol</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TCP</p></li><li><p>WS</p></li><li><p>WSS</p></li><li><p>SSL</p></li><li><p>LOCAL</p></li></ul></div></div></td><td><p>Transport level protocol to use when connecting to the broker.</p></td><td><p>TCP</p></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Brokerâs host to connect to.</p></td><td><p>localhost</p></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>String</p></div></div></td><td><p>Brokerâs port to connect to.</p></td><td><p>1883</p></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+Configures the minimum amount of time that a dynamic configuration instance can remain idle before
+Mule considers it eligible for expiration.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration.</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Max Idle Time</strong> field.</p></td><td></td><td></td></tr></tbody></table>
+
+### MQTT 3 Message Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Topic</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic to which the broker directed the message.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message Id</p></td><td><div><div><p>Number</p></div></div></td><td><p>MQTT ID that identifies a message received from the broker.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>QoS</p></td><td><div><div><p>Number</p></div></div></td><td><p>Quality of service of the message delivered by the broker.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Is Duplicate</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the message can duplicate another received message.</p></td><td><p><code>false</code></p></td><td></td></tr><tr><td><p>Is Retained</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set to <code>true</code>, the message was either sent from a current publisher, or was retained by the server as the last message published on the topic.</p></td><td><p><code>false</code></p></td><td></td></tr></tbody></table>
+
+### Topic
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Topic Filter</p></td><td><div><div><p>String</p></div></div></td><td><p>Topic filter that represents a single or multilevel subscription to a topic.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>QoS</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AT_MOST_ONCE</p></li><li><p>AT_LEAST_ONCE</p></li><li><p>EXACTLY_ONCE</p></li></ul></div></div></td><td><p>Quality of service (QoS) with which messages destined to the topicâs <strong>Topic filter</strong> field should be sent by the broker.</p></td><td><p>AT_LEAST_ONCE</p></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+Configures the redelivery policy for executing requests that generate errors. You can add a
+redelivery policy to any source in a flow.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Redelivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of times that a delivered request can be processed unsuccessfully before returning a REDELIVERY_EXHAUSTED error.</p></td><td></td><td></td></tr><tr><td><p>Message Digest Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Secure hashing algorithm to use if the <strong>Use Secure Hash</strong> field is <code>true</code>. If the payload of the message is a Java object, Mule ignores this value and returns the value that the payloadâs <code>hashCode()</code> returned.</p></td><td></td><td></td></tr><tr><td><p>Message Identifier</p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><p>Defines which strategy to identify the messages.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>ObjectStore</p></div></div></td><td><p>Configures the object store that stores the redelivery counter for each message.</p></td><td></td><td></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+Configures how to identify a redelivered message and how to find out when the message was
+redelivered.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Use Secure Hash</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If <code>true</code>, Mule uses a secure hash algorithm to identify a redelivered message.</p></td><td></td><td></td></tr><tr><td><p>Id Expression</p></td><td><div><div><p>String</p></div></div></td><td><p>One or more expressions that determine when a message was redelivered. You can set this property only if the <strong>Use Secure Hash</strong> field is <code>false</code>.</p></td><td></td><td></td></tr></tbody></table>
+
+### Client ID Random Suffix Generator
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Client Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Client ID to identify the connection to the MQTT broker.</p></td><td></td><td></td></tr></tbody></table>
+
+### Client ID Custom Expression Generator
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Client Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Client ID to identify the connection to the MQTT broker.</p></td><td></td><td></td></tr><tr><td><p>Custom Client Id Suffix</p></td><td><div><div><p>String</p></div></div></td><td><p>Custom client ID suffix used to identify the connection to the MQTT broker.</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+[Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure MQTT Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure a source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure a connection protocol](#configure-protocol).
+7.  [Configure credentials for authentication](#configure-authentication).
+8.  [Configure a fail-over server list](#configure-failover).
+9.  [Enable file persistence](#enable-file-persistence).
+10. [Configure advanced connection options](#configure-advanced-options).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[MQTT Connector Reference](mqtt3-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add Anypoint Connector for MQTT (MQTT Connector) to your Mule project to automatically populate the
+XML code with the connectorâs namespace and schema location and to add the required dependencies to
+the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In the **Add Dependencies to Project** window, type `mqtt` in the search field.
+3.  Click **MQTT 3 Connector** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these input
+sources to use with MQTT Connector:
+
+- **MQTT3 > On New Message**  
+  Initiates a flow by listening for incoming messages
+- **HTTP > Listener**  
+  Initiates a flow each time it receives a request on the configured host and port
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an **On New Message** source, follow these steps:
+
+1.  In the **Mule Palette** view, select **MQTT3 > On New Message**.
+2.  Drag **On New Message** to the Studio canvas.
+3.  In the **On New Message** configuration screen, optionally change the value of the **Display
+    Name** field.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the source in the app.
+5.  In the **MQTT3 Config** window, for **Connection**, select one of the connection types to
+    provide to this configuration:
+    - **MQTT3 URL Connection**
+    - **MQTT3 Fail-Over Connection**
+    - **MQTT3 Form Connection**
+
+6.  Specify a unique and intuitive **Client ID** to identify an MQTT connection to a broker.
+7.  On the **General** tab, also specify connection information such as required libraries for the
+    broker.
+8.  On the **LWT** tab, optionally specify the Last Will and Testament message.
+9.  On the **TLS/SSL** tab, optionally specify a TLS configuration.
+10. On the **Advanced** tab, optionally specify advanced connection options and reconnection
+    strategy.
+11. Click **OK**.
+12. In the **On New Message** configuration screen, in **Topics**, select either:
+    - **Edit inline** to define topics directly in the listener.
+    - **Bean reference** to reuse a predefined set of topic subscriptions.
+
+13. Click the plus sign (**+**) to configure a topic.
+14. In the **Topic** configuration screen, set **Topic filter**, which represents a single or
+    multilevel subscription to a topic.
+15. Set **QoS** to any of the following quality of service levels:
+    - **AT_MOST_ONCE**
+    - **AT_LEAST_ONCE**
+    - **EXACTLY_ONCE**
+
+16. Click **Finish**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for MQTT Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **MQTT3** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas and to the right of the input source.
+
+![Select any of the MQTT Connector or from the Mule Palette view on the right side of Anypoint Studio](_images/mqtt3-operations.png)
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. MQTT Connector comes with default values for both publishing and
+consuming messages. To use the connector, the only requirement is that you must configure which
+connection to use and that you specify a value for the client ID, which will uniquely identify that
+connection.
+
+The client ID is mandatory because it identifies an MQTT connection to a broker. Define a meaningful
+name that uniquely identifies a client or device that connects to an MQTT broker and not a random
+string.
+
+To configure the global element for MQTT Connector, follow these steps:
+
+1.  Select the operation in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (**+**) next to the
+    **Connector configuration** field to access the global element configuration fields.
+3.  In the **MQTT3 Config** window, for **Connection**, select one of the connection types to
+    provide to this configuration:
+    - **MQTT3 URL Connection**
+    - **MQTT3 Fail-Over Connection**
+    - **MQTT3 Form Connection**
+
+4.  Specify a unique and intuitive **Client ID** to identify an MQTT connection to a broker, for
+    example `smart-bentley-123`.
+5.  Specify the **URL** to connect to a broker, for example `tcp://127.0.0.1:1883`.
+6.  On the **General** tab, also specify connection information such as required libraries for the
+    broker.
+7.  On the **LWT** tab, optionally specify the Last Will and Testament message.
+8.  On the **SSL/TLS** tab, optionally specify a TLS configuration.
+9.  On the **Advanced** tab, optionally specify advanced connection options and reconnection
+    strategy.
+10. Click **OK** to close the window.
+
+![MQTT 3 Connector Global Element Properties window](_images/mqtt3-global-configuration.png)
+
+In the **Configuration XML** editor, the `<mqtt3:connection>`, `clientId`, and `url` configurations
+look like this:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection clientId="smart-bentley-123" url="tcp://127.0.0.1:1883" />
+</mqtt3:config>
+```
+
+You can also specify each URL field separately for the connection by configuring the **MQTT3 Form
+Connection**, which enables you to specify a protocol, host, and port to establish a connection with
+the broker:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Click **Create**.
+3.  In the filter box, type `mqtt` and select **MQTT3 Config**.
+4.  Click **OK**.
+5.  In the **MQTT3 Config** window, for **Connection**, select **MQTT3 Form Connection**.
+6.  Set the following fields:
+    - **Client id generator**: `Client id random suffix generator`
+    - **Client ID**: `smart-bentley-123`
+    - **Username**: `username`
+    - **Protocol**: **TCP (Default)**
+    - **URL**: `127.0.0.1`
+    - **Port**: `1883`
+
+7.  Click **OK**.
+
+![MQTT 3 Form Connection configuration in Global Element Properties window](_images/mqtt3-form-connection.png)
+
+In the **Configuration XML** editor, the `<mqtt3:form-connection>`, `protocol`, `host`, `port`, and
+`clientId` configurations look like this:
+
+```xml
+<mqtt3:config name="MQTT3_Config">
+    <mqtt3:form-connection username="username" password="testpass" host="127.0.0.1" >
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+    </mqtt3:form-connection>
+</mqtt3:config>
+```
+
+## Configure a Connection Protocol
+
+MQTT supports protocols that you can use to connect to and exchange MQTT messages with the broker.
+You can configure any of the following protocols in the connection string of the connector
+configuration:
+
+- **LOCAL**
+- **SSL**
+- **TCP (Default)**
+- **WS**
+- **WSS**
+
+## Configure Credentials for Authentication
+
+Authentication credentials are optional, but you can provide a username and a password if required.
+
+In the following example, you configure the authentication by providing a basic username and
+password:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Click **Create**.
+3.  In the filter box, type `mqtt` and select **MQTT3 Config**.
+4.  Click **OK**.
+5.  In the **MQTT3 Config** window, for **Connection**, select **MQTT3 URL Connection**.
+6.  Set the following fields:
+    - **Client id generator**: `Client id random suffix generator`
+    - **Client ID**: `smart-bentley-123`
+    - **Username**: `username`
+    - **Password**: `passtest`
+    - **URL**: `tcp://127.0.0.1:1883"`
+
+7.  Click **OK**.
+
+In the **Configuration XML** editor, the `<mqtt3:connection>`, `username`, and `password`
+configurations look like this:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection username="username" password="passtest" url='tcp://127.0.0.1:1883"' >
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+    </mqtt3:connection>
+</mqtt3:config>
+```
+
+You can also provide a client certificate to authenticate the connection by setting a TLS context:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Select your **MQTT3 Config** and click **Edit**.
+3.  In **MQTT3 Config**, click **SSL/TLS**.
+4.  For **TLS Context**, select **Edit inline**.
+5.  In **Trust Store Configuration**, set the following fields:
+    - **Path**: `tls/truststore.jks`
+    - **Password**: `racing`
+    - **Type**: `jks`
+
+6.  Click **OK**.
+
+![MQTT TLS Context configuration in Global Element Properties window](_images/mqtt3-tls-configuration.png)
+
+In the **Configuration XML** editor, the `<tls:context>`,`path`, `password`, and `type`
+configurations look like this:
+
+```xml
+<mqtt3:config name="MQTT_TLS_Config">
+    <mqtt3:connection username="username" password="passtest" url='tcp://127.0.0.1:1883"' >
+        <tls:context >
+            <tls:trust-store path="tls/truststore.jks" password="racing" type="jks" />
+        </tls:context>
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+    </mqtt3:connection>
+</mqtt3:config>
+```
+
+## Configure a Failover Server List
+
+There are certain deployment schemas that consist of multiple brokers working together to provide
+clients with several connection endpoints. When there is more than one available server that the
+client can connect to, there are two possible scenarios: either each MQTT server operates
+separately, or they might work together and share a state (cluster mode), in which case you might
+want to specify how the MQTT client behaves in the event of a reconnection.
+
+When you provide a failover server list, the connector can iterate over the list until it
+successfully establishes a connection with one of the provided endpoints.
+
+In the following example, you configure the failover server list for an **MQTT3 Fail-Over
+Connection**:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Click **Create**.
+3.  In the filter box, type `mqtt` and select **MQTT3 Config**.
+4.  Click **OK**.
+5.  In the **MQTT3 Config** window, for **Connection**, select **MQTT3 Fail-Over Connection**.
+6.  Set **Client ID** to `smart-bentley-123`.
+7.  In **Fail over servers**, click the plus sign (**+**).
+8.  Set the following fields:
+    - **Protocol**: **TCP (Default)**
+    - **Host**: `127.9.0.2`
+    - **Port**: `1883`
+
+9.  Click **Finish**.
+10. Repeat Steps 7 through 9 twice to add the other new host and port values.
+
+![MQTT 3 Fail-Over Server List configuration in Global Element Properties window](_images/mqtt3-failover-serverlist.png)
+
+In the **Configuration XML** editor, the `<mqtt3:fail-over-connection>` and `<mqtt3:fail-over-url`
+configurations look like this:
+
+```xml
+<mqtt3:config name="MQTT_FailOver_Config">
+    <mqtt3:fail-over-connection clientIDGenerator="smart-bentley-123" >
+        <mqtt3:fail-over-servers >
+            <mqtt3:fail-over-url host="127.9.0.2" />
+            <mqtt3:fail-over-url host="127.0.0.3" port="1884" />
+            <mqtt3:fail-over-url host="127.0.0.1" />
+        </mqtt3:fail-over-servers>
+    </mqtt3:fail-over-connection>
+</mqtt3:config>
+```
+
+## Configure the Clean Session Value
+
+In the **MQTT3 Config** window, configure the **Clean session** field to `False` so the broker
+remembers the client the next time it connects. While the client is offline, all its subscriptions
+are saved, and Quality of Service (QoS) 1 and 2 messages that the client would want to receive are
+saved too, until the client reconnects.
+
+Some brokers support the clustering of MQTT brokers in which the nodes share a state. In this case,
+setting the clean session flag to `False` is useful if the node the connector happens to go offline.
+This enables the client to reconnect to a different node that is aware of the clientâs subscriptions
+so that any messages the connector might have missed while offline are delivered.
+
+If the clean session is set to `True (Default)`, then when the connector disconnects, for whatever
+reason, all its subscriptions are dropped and the connector has to resubscribe upon reconnection.
+All messages sent while offline are lost.
+
+In the following example, you configure the clean session:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Select your **MQTT3 Config** and click **Edit**.
+3.  In the **MQTT3 Config** window, on the **Advanced** tab for **Connection**, select **MQTT3 URL
+    Connection**.
+4.  Set the following fields:
+    - **Clean session**: `False`
+
+5.  Click **OK**.
+
+![MQTT Clean session configuration in Global Element Properties window](_images/mqtt3-cleansession.png)
+
+In the **Configuration XML** editor, the `cleanSession` configuration looks like this:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection username="username" password="passtest" url='tcp://127.0.0.1:1883' >
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+        <mqtt3:connection-options cleanSession="false" />
+    </mqtt3:connection>
+</mqtt3:config>
+```
+
+## Enable File Persistence
+
+In the **MQTT3 Config** window, set the **Enable file persistence** field to `True` to enable the
+MQTT client to persist its state to a file that is used to store any outbound or inbound in-flight
+messages that the client might have with QoS â¥ 1. In contrast, if you set the field to
+`False (Default)`, the client state is saved only in memory and in the event of a crash, the client
+cannot recover its state.
+
+The enable file persistence feature does not use an object store. The file feature relies on the
+driver to use a file for persistent messages and can only be used in on-premise installations.
+
+In the following example, you enable the file persistence:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Select your **MQTT3 Config** and click **Edit**.
+3.  In the **MQTT3 Config** window, for **Connection**, select **MQTT3 URL Connection**.
+4.  On the **Advanced** tab, set the following fields:
+    - **Clean session**: **False**
+    - **Enable file persistence**: **True**
+
+5.  Set **Datastore** to `mqtt/store` to specify where you want the persistent store to be
+    generated.
+6.  Click **OK**.
+
+![MQTT3 Enable File Persistence configuration in Global Element Properties window](_images/mqtt3-enablefilepersistence.png)
+
+Figure 1. MQTT3 Enable File Persistence configuration
+
+In the **Configuration XML** editor, the `enableFilePersistence` and `dataStorePath` configurations
+look like this:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection username="username" password="passtest" url='tcp://127.0.0.1:1883' >
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+        <mqtt3:connection-options cleanSession="false" />
+        <mqtt3:file-persistence-options enableFilePersistence="true" />
+    </mqtt3:connection>
+</mqtt3:config>
+```
+
+> [!WARNING] If you set a dynamic client ID, MQTT Connector cannot recover the persisted files in
+> the event of a crash. You must set a client ID that does not change in the event of an application
+> restart after a crash.
+
+## Configure Advanced Connection Options
+
+MQTT Connector enables you to define multiple default parameters while consuming or publishing
+messages. This way, you can define a global default behavior for all the operations associated with
+the configurations.
+
+In the following example, you configure the **Keep alive internal** and **Keep alive internal unit**
+fields to set the maximum period of time that the connection is kept alive without any messages
+being exchanged between the client and broker. You also configure the **Max in flight** field to
+indicate the maximum number of in-flight messages allowed:
+
+1.  In Studio, navigate to the **Global Elements** tab.
+2.  Select your **MQTT3 Config** and click **Edit**.
+3.  In the **MQTT3 Config** window, for **Connection**, select **MQTT3 URL Connection**.
+4.  Select the **Advanced** tab, set the following fields:
+    - **Keep alive internal**: `60`
+    - **Keep alive internal unit**: **SECONDS (Default)**
+    - **Max in flight**: `60`
+
+5.  Click **OK**.
+
+![MQTT3 Connector Advanced Connection configuration in Global Element Properties window](_images/mqtt3-advanced-connection.png)
+
+In the **Configuration XML** editor, the `keepAliveInterval`, `keepAliveIntervalUnit`, and
+`maxInFlight` configurations look like this:
+
+```xml
+<mqtt3:config name="MQTT_Config">
+    <mqtt3:connection username="username" password="passtest" url='tcp://127.0.0.1:1883' >
+        <mqtt3:client-id-generator >
+            <mqtt3:client-id-random-suffix-generator clientId="smart-bentley-123" />
+        </mqtt3:client-id-generator>
+        <mqtt3:connection-options keepAliveInterval="60" maxInFlight="60"/>
+    </mqtt3:connection>
+</mqtt3:config>
+```
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+- [MQTT Connector Reference](mqtt3-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Troubleshooting MQTT Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To troubleshoot Anypoint Connector for MQTT (MQTT Connector), become familiar with the information
+about enabling verbose logging and interpreting commonly thrown messages.
+
+## Enable Verbose Logging
+
+To enable verbose logging on the connector, you need to activate logging for the connector and for
+the Eclipse Paho driver.
+
+### Enable Verbose Logging for MQTT Connector
+
+To enable verbose logging in the configuration file:
+
+1.  Access Anypoint Studio and navigate to the **Package Explorer** view.
+2.  Open your applicationâs project name.
+3.  Open the `src/main/resources` path folder.
+4.  Open the `log4j2.xml` file inside the folder.
+5.  Add an `<AsyncLogger>` tag inside the `<Loggers>` tag:
+
+    ```xml
+    			<Loggers>
+    				...
+    				<AsyncLogger name="com.mulesoft.connectors.mqtt3" level="TRACE"/>
+    				...
+    			</Loggers>
+    ```
+
+6.  Save your application changes.
+7.  Click the project name in **Package Explorer** and then click **Run** > **Run As** > **Mule
+    Application**.
+
+### Enable Verbose Logging for Eclipse Paho Driver
+
+Eclipse Paho, the underlying driver for MQTT Connector uses Java Util Logging. If you want to see
+the driverâs log messages in the applicationâs log file, follow the next steps to provide your
+application with the latest `log4j-jul-2.xx.x.jar` version:
+
+1.  Identify the `log4j` core module version by checking the version suffix in the file name of
+    `log4j-core-2.xx.x.jar` in `{MULE_HOME}/lib/boot`.
+
+    For an embedded Mule runtime engine (Mule), find the folder that is similar to
+    `{AnypointStudio Folder}/Contents/Eclipse/plugins/org.mule.tooling.server.4.3.0.ee_7.3.5.202005112043/mule/lib/boot`
+
+2.  Download the same version of `log4j-jul-2.xx.x.jar` from the public Maven repository, for
+    example, for Mule 4.3.0, itâs `log4j-jul-2.13.1.jar`.
+3.  Put the `log4j-jul-2.xx.x.jar` into `{MULE_HOME}/lib/boot`.
+4.  In the Mule app, add the corresponding `java.util.logging` category as per the logging level
+    mapping documented on the
+    [Apache Logging Services](https://logging.apache.org/log4j/2.3.x/log4j-jul/index.html) site, for
+    example:
+
+    ```xml
+    `<AsyncLogger name="org.eclipse.paho.client.mqttv3.logging.JSR47Logger" level="ALL"/>`
+    ```
+
+    For the `level` attribute, you must provide a Java Util Logging Level. Check the
+    [Apache Logging Services](https://logging.apache.org/log4j/2.3.x/log4j-jul/index.html)
+    conversion table of Java Util Logging levels and its equivalent Log4j levels for further
+    details.
+
+## Enable Verbose Logging for Mosquitto Broker
+
+Each broker has different mechanisms to configure logging. To set up a Mosquitto broker and
+configure logging levels, follow these steps:
+
+1.  Set up a Mosquitto broker by using the official Docker image. To do so, run the following
+    command:
+
+`docker run -it -p 1883:1883 \ -v /your/local/path/mosquitto.log:/mosquitto/mosquitto.log \ -v /your/local/path/mosquitto.conf:/mosquitto/config/mosquitto.conf eclipse-mosquitto`
+
+By using this command, you supply the log file `mosquitto.log` and the configuration file
+`mosquitto.conf`.
+
+- The `mosquitto.log` is a file for the broker to write log messages to.
+- The `mosquitto.conf` is the broker configuration file.
+
+2.  Set the desired log level in the `mosquitto.conf` configuration file, for example:
+
+    ```text
+    # Unencrypted MQTT over TCP
+    # for listener at port 1883
+    listener 1883
+    allow_anonymous true
+    # =================================================================
+    # Logging
+    # =================================================================
+    # Route log messages to log file
+    log_dest file /mosquitto/mosquitto.log
+    # Types of messages to log. Use multiple log_type lines for logging
+    # multiple types of messages.
+    log_type debug
+    log_type error
+    log_type warning
+    log_type notice
+    log_type information
+    ```
+
+In the first two lines of the previous file you set up a listener in port 1883, with no
+authentication credentials required.
+
+In the logging section you specify that the logs should be written to the `mosquitto.log` file that
+you mounted, and that you want the broker to log messages of all levels.
+
+You can add different listeners with different configurations, depending on what you need to test,
+for example:
+
+```text
+per_listener_settings true
+
+# Unencrypted MQTT over TCP
+listener 1883
+allow_anonymous true
+
+# Unencrypted MQTT over TCP
+listener 1884
+password_file /mosquitto/config/mosquitto.passwd
+
+listener 8080
+protocol websockets
+allow_anonymous true
+```
+
+In the previous file you configured 3 separate listeners:
+
+- On port 1883 you specified an endpoint that allows anonymous connections over MQTT.
+- On port 1884 you specified a password file where the broker expects to find the usernames and
+  passwords for authentication.
+- On port 8080 you specified that you will admit websockets connections.
+
+To set each individual listener with separate configurations you must first set the
+`per_listener_settings true`.
+
+## Understand Common Throws
+
+Here is a list of common throw messages and how to interpret them:
+
+- MQTT3:CONNECTIVITY
+
+  The client became disconnected from the broker while attempting to publish a message.
+
+- MQTT3:INVALID_TOPIC
+
+  The topic is invalid because, for example, the name is too short, too long, or contains invalid
+  characters.
+
+- MQTT3:PERSISTENCE
+
+  When publishing a message, an error occurred while reading or writing persistent data for reliable
+  messaging.
+
+- MQTT3:PUBLISH
+
+  An error occurred while attempting to publish a message.
+
+- MQTT3:RETRY_EXHAUSTED
+
+  All reconnection attempts failed.
+
+- MQTT3:WRITE_TIMEOUT
+
+  An error occurred when the client timed out waiting to write messages to the server.
+
+## See Also
+
+- [Salesforce Help](https://help.salesforce.com)
+- [Known Issues](https://help.salesforce.com/s/issues)
+---
+
+# MQTT Connector XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio:
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can access the connector from your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+If you add the connector in Studio, Studio automatically populates the XML code with the connectorâs
+namespace and schema location and it also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/mqtt3
+http://www.mulesoft.org/schema/mule/mqtt3/current/mule-mqtt3.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:mqtt3="http://www.mulesoft.org/schema/mule/mqtt3"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/mqtt3
+	http://www.mulesoft.org/schema/mule/mqtt3/current/mule-mqtt3.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-mqtt3-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `mqtt3 connector`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[examples](mqtt3-connector-examples).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+

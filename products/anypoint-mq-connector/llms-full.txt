@@ -1,0 +1,1637 @@
+﻿# Anypoint MQ Connector - Full Documentation
+
+# Anypoint MQ ACK and NACK Operations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Acknowledging a message (ACK) informs the Anypoint MQ broker that the message has been processed and
+must be removed from the queue to prevent redelivery. Not acknowledging a message (NACK) tells the
+broker to not process the message and to return the message to the queue for redelivery to any
+available consumer.
+
+## Acknowledgment Modes
+
+The Anypoint MQ connector provides three acknowledgment modes:
+
+- Immediate
+
+  Use Immediate when you want to acknowledge messages as your app consumes them, before processing
+  them.
+
+- Automatic
+
+  Use Automatic to acknowledge a received message automatically only if the flow execution finishes
+  successfully.
+
+- Manual
+
+  Use Manual if you want the app logic to control message acknowledgment.
+
+### Immediate Acknowledgment
+
+Use the `IMMEDIATE` acknowledgment mode to acknowledge messages as your app consumes them and before
+processing them.
+
+When Anypoint MQ acknowledges a message, it removes the message from the queue and doesnât redeliver
+it if an error occurs during processing.
+
+If the app restarts between being acknowledged and dispatched, the message might not be available
+again because it was deleted from the queue. To prevent message deletion until after processing, use
+the `AUTO` or `MANUAL` acknowledgment mode instead.
+
+If an error occurs during message processing using `IMMEDIATE` mode, Anypoint MQ throws an
+`ANYPOINT-MQ:ACKING` error. To manage errors without losing messages, use a dead letter queue.
+
+### Automatic Acknowledgment
+
+Use the `AUTO` acknowledgment mode to acknowledge a received message automatically only if the flow
+execution finishes successfully.
+
+If an error occurs during flow execution, the message is not acknowledged (NACK) and the message is
+returned to the queue for redelivery.
+
+### Manual Acknowledgment
+
+Use the `MANUAL` acknowledgment mode to delegate all responsibility for message acknowledgment to
+the app logic.
+
+With this configuration, every message received has an `ackToken` value that identifies this message
+uniquely for a given connection.
+
+Save this `ackToken` value to use later as input to the ACK or NACK operations.
+
+## Acknowledgment Timeout
+
+When using either `AUTO` or `MANUAL` acknowledgment modes, you can use the `acknowledgementTimeout`
+parameter to control how long the message remains in-flight waiting to be acknowledged, before
+automatically returning to the queue. The `acknowledgementTimeout` timer begins when the message is
+consumed.
+
+If `acknowledgementTimeout` is not set, Anypoint MQ Connector uses two minutes. If you need a
+different TTL, you must define it explicitly in the `acknowledgementTimeout` parameter of the
+subscriber.
+
+When using `acknowledgementTimeout`, consider expected app-time processing, including time for
+unexpected delays, such as external systems delay and app back-pressure due to high load. For
+example, if you expect the consumed message to be processed in 10 seconds, set
+`acknowledgementTimeout` to a minimum of 15 seconds.
+
+> [!IMPORTANT] When using the `prefetch` mode in the Subscriber source, Anypoint MQ attempts to
+> honor the expiration time specified by `acknowledgementTimeout`. However, Anypoint MQ extends the
+> expiration timeout if the time that the message remains in the buffer reaches 80% of the timeout
+> value.
+>
+> For this reason, donât use `prefetch` mode if the `acknowledgementTimeout` must be honored.
+
+### Acknowledgment Timeout â AUTO Acknowledgement Mode
+
+After a subscriber consumes a message, a timer starts, indicating how long the message has been
+in-flight for the broker waiting for acknowledgment. If the flow processing does not end with a
+success or failure before the `acknowledgementTimeout` limit is reached, the message automatically
+returns to the queue for redelivery.
+
+### Acknowledgment Timeout â MANUAL Acknowledgement Mode
+
+When consuming a message using `MANUAL` acknowledgment mode by either the Subscriber or Consume
+operations, the app must execute either an ACK or NACK operation using the message `ackToken` before
+the `acknowledgementTimeout` limit is reached. If neither operation executes with the given token
+before the timeout, the message automatically returns to the queue for redelivery. Any attempt to
+acknowledge the message after the timeout limit fails due to an expired token.
+
+## ACK Operation â MANUAL Acknowledgement Mode
+
+Acknowledging a message (ACK) informs the broker that the message has been processed and must be
+removed from the queue to prevent redelivery.
+
+When performing the ACK operation using Manual mode, you must use the acknowledgment token
+(`ackToken`) to identify the message. It is available in the `ackToken` field of the message
+attributes:
+
+```xml
+<flow name="consumerWithManualAck">
+    <scheduler>
+        <scheduling-strategy >
+          <fixed-frequency />
+        </scheduling-strategy>
+    </scheduler>
+
+    <!-- Consume a message -->
+    <anypoint-mq:consume destination="${destination}"
+         acknowledgementMode="MANUAL"
+            config-ref="Anypoint_MQ_Config"/>
+
+    <!-- Save the ackToken for future acknowledgment -->
+    <set-variable variableName="currentAckToken"
+       value="#[attributes.ackToken]"/>
+
+    <!-- Do the required processing of the message -->
+    <flow-ref name="process-message"/>
+
+    <!-- Use the ackToken to ACK the message -->
+    <anypoint-mq:ack ackToken="#[vars.currentAckToken]"
+         config-ref="Anypoint_MQ_Config" />
+</flow>
+```
+
+If a non-void operation is invoked during message processing, the payload and attributes of the Mule
+message are modified. To perform an ACK operation after processing, you must save `ackToken` in a
+variable.
+
+To save attributes to use later, use the `target` and `targetValue` parameters to store the whole
+message in a variable:
+
+```xml
+<flow name="consumerWithManualAck">
+      <scheduler>
+        <scheduling-strategy >
+          <fixed-frequency />
+        </scheduling-strategy>
+      </scheduler>
+
+    <!-- Consume a message -->
+    <anypoint-mq:consume destination="${destination}"
+        acknowledgementMode="MANUAL"
+        config-ref="Anypoint_MQ_Config"
+        target="mqMessage"
+        targetValue="#[message]"/>
+
+
+    <!--Do any message processing-->
+    <jms:publish-consume destination="#[vars.mqMessage.attributes.targetDestination]"
+        config-ref="JMS_Config">
+        <jms:message>
+            <jms:body>#[vars.mqMessage.payload]</jms:body>
+        </jms:message>
+    </jms:publish-consume>
+
+    <!-- Use the ackToken to ACK the message -->
+    <anypoint-mq:ack ackToken="#[vars.mqMessage.attributes.ackToken]"
+        config-ref="Anypoint_MQ_Config" />
+</flow>
+```
+
+## NACK Operation
+
+Not acknowledging (NACK) a message informs the broker that the message was not processed
+successfully and commands the broker to return the message to the queue for redelivery to any
+available consumer.
+
+The acknowledgment token `ackToken` is a unique identifier for the message that you must use when
+executing the NACK operation. It is available in the `ackToken` field of the message attributes:
+
+```xml
+<flow name="consumerWithManualAck">
+    <scheduler>
+      <scheduling-strategy >
+        <fixed-frequency />
+      </scheduling-strategy>
+    </scheduler>
+
+    <!-- Consume a message -->
+    <anypoint-mq:consume destination="${destination}"
+           acknowledgementMode="MANUAL"
+           config-ref="Anypoint_MQ_Config"
+           target="mqMessage"
+          targetValue="#[message]"/>
+
+    <!--Do message processing -->
+    <logger message="#[payload]"/>
+
+    <!-- Use the ackToken to NACK the message -->
+    <anypoint-mq:nack ackToken="#[vars.mqMessage.attributes.ackToken]"
+    config-ref="Anypoint_MQ_Config" />
+</flow>
+```
+
+## See Also
+
+- [Anypoint MQ Consume Operation](anypoint-mq-consume)
+- [Anypoint MQ Subscriber Source](anypoint-mq-listener)
+---
+
+# Anypoint MQ Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Support Version: Select
+
+Anypoint MQ Connector Version 4.x
+
+Anypoint MQ is a multi-tenant, cloud messaging service that enables customers to perform advanced
+asynchronous messaging among their applications.
+
+## Configurations
+
+---
+
+### Config
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>Specifies the name for this configuration. Connectors refer to the configuration by using this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><p><a href="#config_connection">Connection</a></p></div></div></td><td><p>Specifies the connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before the runtime considers it eligible for purging. The platform purges expired instances as needed to free resources.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Connection
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>URL</p></td><td><div><div><p>String</p></div></div></td><td><p>The region URL for the queue from the <strong>Anypoint Platform &gt; MQ</strong> console</p></td><td><p>https://mq-us-east-1.anypoint.mulesoft.com/api/v1</p></td><td></td></tr><tr><td><p>Client App ID</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Value from either:</p></div><div><ul><li><p><strong>ID</strong> from <strong>Anypoint Platform</strong> &gt; <strong>Access Management</strong> &gt; <strong>Connected Apps</strong></p></li><li><p><strong>Client App ID</strong> from <strong>Anypoint Platform &gt; MQ &gt; Client Apps</strong></p></li></ul></div></div></td><td></td><td><p>x</p></td></tr><tr><td><p>Client Secret</p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Value from either:</p></div><div><ul><li><p><strong>Secret</strong> from <strong>Anypoint Platform</strong> &gt; <strong>Access Management</strong> &gt; <strong>Connected Apps</strong></p></li><li><p><strong>Client Secret</strong> from <strong>Anypoint Platform &gt; MQ &gt; Client Apps</strong></p></li></ul></div></div></td><td></td><td><p>x</p></td></tr><tr><td><p>TLS Context</p></td><td><div><div><p><a href="#Tls">Tls</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Host</p></td><td><div><div><p>String</p></div></div></td><td><p>Destination host for proxy requests</p></td><td></td><td></td></tr><tr><td><p>Port</p></td><td><div><div><p>Number</p></div></div></td><td><p>Destination port for proxy requests</p></td><td></td><td></td></tr><tr><td><p>Username</p></td><td><div><div><p>String</p></div></div></td><td><p>Username to authenticate against the proxy</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password to authenticate against the proxy</p></td><td></td><td></td></tr><tr><td><p>Send Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer (in bytes) used when sending data, set on the socket itself</p></td><td></td><td></td></tr><tr><td><p>Receive Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Size of the buffer (in bytes) used when receiving data</p></td><td></td><td></td></tr><tr><td><p>Client Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_TIMEOUT value on sockets. Indicates the amount of time (in milliseconds) that the socket waits in a blocking operation before failing. A value of 0 (the default) indicates an indefinite wait.</p></td><td></td><td></td></tr><tr><td><p>Send TCP With No Delay</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If set, transmitted data is not grouped but sent immediately. Defaults to true.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Linger</p></td><td><div><div><p>Number</p></div></div></td><td><p>SO_LINGER value, which determines how long (in milliseconds) the socket takes to close so that any remaining data is transmitted correctly</p></td><td></td><td></td></tr><tr><td><p>Keep Alive</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>SO_KEEPALIVE behavior on open sockets, which automatically checks open socket connections that are unused for long periods, and closes them if the connection becomes unavailable. This is a property on the socket itself and is used by a server socket to control whether connections to the server are kept alive before they are recycled.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Connection Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of milliseconds to wait until an outbound connection to a remote server is successfully created, before failing with a timeout. Defaults to 30 seconds.</p></td><td><p>30000</p></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the deployment connectivity test to each connector fails.</p></td><td></td><td></td></tr></tbody></table>
+
+## Operations
+
+- [Ack](#ack)
+- [Consume](#consume)
+- [Nack](#nack)
+- [Publish](#publish)
+
+### Associated Sources
+
+- [Subscriber](#subscriber)
+
+### Ack
+
+`<anypoint-mq:ack>`
+
+Executes an acknowledgment indicating that the message is consumed correctly and deletes the message
+from In Flight status.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Token</p></td><td><div><div><p>String</p></div></div></td><td><p>Acknowledgment token used to perform manual ACK and NACK operations, in MANUAL mode only</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- ANYPOINT-MQ:ACKING
+- ANYPOINT-MQ:CONNECTIVITY
+- ANYPOINT-MQ:DESTINATION_NOT_FOUND
+- ANYPOINT-MQ:RETRY_EXHAUSTED
+
+### Consume
+
+`<anypoint-mq:consume>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue</p></td><td><div><div><p>String</p></div></div></td><td><p>Queue or Exchange name from which to fetch a message</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Acknowledgment Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><p>Acknowledgment mode to use for the messages retrieved</p></td><td><p>IMMEDIATE</p></td><td></td></tr><tr><td><p>Acknowledgment Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Duration that a message is held by a consumer waiting for an acknowledgment or not acknowledgment. After that duration elapses, the message is again available to any consumer.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Acknowledgment Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the acknowledgmentTimeout configuration</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Polling Time</p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Time to wait for a message to be ready for consumption (0-20000).</p></div><div><ul><li><p>If this value is greater than 0 and no message arrives, the connector throws a <code>ANYPOINT-MQ:TIMEOUT</code> exception.</p></li><li><p>If this value is 0 and no message arrives, the connector returns <code>NULL</code> and doesnât throw the <code>ANYPOINT-MQ:TIMEOUT</code> exception.</p></li></ul></div></div></td><td><p>10000</p></td><td></td></tr><tr><td><p>Polling Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the pollingTime configuration</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>MIME type of the operation output</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding of the operation output</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Use repeatable streams</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable to store the operationâs output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression to evaluate against the operationâs output and store the expression outcome in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AnypointMQMessageAttributes">Anypoint MQ Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- ANYPOINT-MQ:ACKING
+- ANYPOINT-MQ:CONSUMING
+- ANYPOINT-MQ:CONNECTIVITY
+- ANYPOINT-MQ:TIMEOUT
+- ANYPOINT-MQ:DESTINATION_NOT_FOUND
+- ANYPOINT-MQ:RETRY_EXHAUSTED
+
+### Nack
+
+`<anypoint-mq:nack>`
+
+Executes a not acknowledgment and changes the status of the message from In Flight to In Queue for
+subscriber consumption
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Ack Token</p></td><td><div><div><p>String</p></div></div></td><td><p>Acknowledgment token used to perform manual ACK and NACK operations, in MANUAL mode only</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- ANYPOINT-MQ:NACKING
+- ANYPOINT-MQ:CONNECTIVITY
+- ANYPOINT-MQ:DESTINATION_NOT_FOUND
+- ANYPOINT-MQ:RETRY_EXHAUSTED
+
+### Publish
+
+`<anypoint-mq:publish>`
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>Queue or Exchange name from which to fetch a message</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>MIME type of the operation output</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the operation output</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Use repeatable streams</p></td><td></td><td></td></tr><tr><td><p>Body</p></td><td><div><div><p>Binary</p></div></div></td><td><p>Body of the outgoing message, sent as a string as part of a JSON message. Any content that is published must be capable of being serialized to and deserialized from string format. Sending Objects that donât have a proper string serialization causes the message to be unreadable on the receiving end.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>User Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Custom user properties set to the message</p></td><td></td><td></td></tr><tr><td><p>Message Id</p></td><td><div><div><p>String</p></div></div></td><td><p>Valid custom user ID for the outgoing message. If not specified, the broker creates one.</p></td><td></td><td></td></tr><tr><td><p>Message Group Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the message group to which the published message belongs. Specify only for FIFO queues.</p><p>Message group IDs can contain up to 128 alphanumeric characters (a-z, A-Z, 0-9) and punctuation (! " # $ % &amp; ' ( ) * + , - . / : ; &lt; = &gt; ? @ [ ] \ ^ _ ` { } | ~).</p></td><td></td><td></td></tr><tr><td><p>Delivery Delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>Time to postpone delivery of the message before consumption: between 0 and 15 minutes.</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Delivery Delay Unit</p></td><td><div><div><p>Enumeration</p></div></div></td><td><div><div><p>Time unit to use in the <code>Delivery Delay</code> parameter:</p></div><div><ul><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li></ul></div></div></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Send Content-Type</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Set to true if the body type should be sent as an Anypoint MQ Message property</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of a variable to store the operation output</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>Expression to evaluate against the operation output. The expression outcome is stored in the target variable</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AnypointMQMessagePublishAttributes">Anypoint MQ Message Publish Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+#### Throws
+
+- ANYPOINT-MQ:PUBLISHING
+- ANYPOINT-MQ:CONNECTIVITY
+- ANYPOINT-MQ:ILLEGAL_BODY
+- ANYPOINT-MQ:DESTINATION_NOT_FOUND
+- ANYPOINT-MQ:RETRY_EXHAUSTED
+
+## Sources
+
+### Subscriber
+
+`<anypoint-mq:subscriber>`
+
+Anypoint MQ Subscriber Message Source retrieves messages from the given destination name.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>Name of the configuration to use</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Queue</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the queue from which messages are retrieved</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Subscriber Type</p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#polling">Polling</a></p></li><li><p><a href="#prefetch">Prefetch</a></p></li></ul></div></div></td><td><p>Strategy to use when subscribing to messages from the service</p></td><td></td><td></td></tr><tr><td><p>Acknowledgment Mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IMMEDIATE</p></li><li><p>AUTO</p></li><li><p>MANUAL</p></li></ul></div></div></td><td><p>Acknowledgment mode to use for the messages retrieved</p></td><td><p>AUTO</p></td><td></td></tr><tr><td><p>Acknowledgment Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Duration that a message is held by a broker waiting for an acknowledgment or not acknowledgment before being made available to any subscriber. Specifies the default <code>acknowledgmentTimeout</code> value for all Subscriber sources, unless it is overridden. The maximum value of this parameter is 12 hours.</p></td><td><p>If <code>acknowledgementTimeout</code> is not set (the default), the connector uses the TTL value of at least two minutes.</p></td><td></td></tr><tr><td><p>Acknowledgment Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit to use in the acknowledgmentTimeout configuration</p></td><td><p>MILLISECONDS</p></td><td></td></tr><tr><td><p>Circuit Breaker</p></td><td><div><div><p><a href="#circuitBreaker">Circuit Breaker</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>MIME type of the operation output</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding of the operation output</p></td><td></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should only be executed on the primary node when running in a cluster</p></td><td></td><td></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Use repeatable streams</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Message redelivery policy</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Retry strategy in case of connectivity errors</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AnypointMQMessageAttributes">Anypoint MQ Message Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#config)
+
+## Types
+
+### Tls
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Enabled Protocols</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of protocols enabled for this context</p></td><td></td><td></td></tr><tr><td><p>Enabled Cipher Suites</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of cipher suites enabled for this context</p></td><td></td><td></td></tr><tr><td><p>Trust Store</p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Key Store</p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td></td><td></td><td></td></tr><tr><td><p>Revocation Check</p></td><td><div><div><ul><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li><li><p><a href="#custom-ocsp-responder">Custom OCSP Responder</a></p></li><li><p><a href="#crl-file">CRL File</a></p></li></ul></div></div></td><td></td><td></td><td></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Location of the trust store, resolved relative to the current classpath and file system, if possible</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the trust store</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store used</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Algorithm used by the trust store</p></td><td></td><td></td></tr><tr><td><p>Insecure</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, no certificate validations are performed, rendering connections vulnerable to attacks. Use at your own risk.</p></td><td></td><td></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Location of the key store, resolved relative to the current classpath and file system, if possible</p></td><td></td><td></td></tr><tr><td><p>Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Type of store used</p></td><td></td><td></td></tr><tr><td><p>Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>When the key store contains many private keys, indicates the alias of the key that is used. If not defined, the first key in the file is used by default.</p></td><td></td><td></td></tr><tr><td><p>Key Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the private key</p></td><td></td><td></td></tr><tr><td><p>Password</p></td><td><div><div><p>String</p></div></div></td><td><p>Password used to protect the key store</p></td><td></td><td></td></tr><tr><td><p>Algorithm</p></td><td><div><div><p>String</p></div></div></td><td><p>Algorithm used by the key store</p></td><td></td><td></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Only End Entities</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Verifies only the last element in the certificate chain</p></td><td></td><td></td></tr><tr><td><p>Prefer Crls</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Uses CRL-signing certificates before using OCSP-signing certificate</p></td><td></td><td></td></tr><tr><td><p>No Fallback</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Doesnât use the secondary checking method (the one not selected for Prefer Crls)</p></td><td></td><td></td></tr><tr><td><p>Soft Fail</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Avoids verification failure when the revocation server cannot be reached or is busy</p></td><td></td><td></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Url</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of the OCSP responder</p></td><td></td><td></td></tr><tr><td><p>Cert Alias</p></td><td><div><div><p>String</p></div></div></td><td><p>Alias of the signing certificate for the OCSP response, if present. The signing certificate must be in the trust store.</p></td><td></td><td></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Path to the CRL file</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fails Deployment</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the deployment connectivity test to each connector fails.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>Reconnection strategy to use</p></td><td></td><td></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often to reconnect, in milliseconds</p></td><td></td><td></td></tr><tr><td><p>Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>How many reconnection attempts to make</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>How often to reconnect, in milliseconds</p></td><td></td><td></td></tr><tr><td><p>blocking</p></td><td><p>Boolean</p></td><td><p>If false, the reconnection strategy runs in a separate, non-blocking thread</p></td><td><p>true</p></td><td></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Idle Time</p></td><td><div><div><p>Number</p></div></div></td><td><p>A scalar time value for the maximum amount of time a dynamic configuration instance should be allowed to be idle before itâs considered eligible for expiration</p></td><td></td><td></td></tr><tr><td><p>Time Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>A time unit that qualifies the maxIdleTime attribute</p></td><td></td><td></td></tr></tbody></table>
+
+### Anypoint MQ Message Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Destination</p></td><td><div><div><p>String</p></div></div></td><td><p>Message destination</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Headers</p></td><td><div><div><p>Object</p></div></div></td><td><p>Message headers</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Properties</p></td><td><div><div><p>Object</p></div></div></td><td><p>Message properties</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Message Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the message</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Delivery Count</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of times the message was delivered</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Content Type</p></td><td><div><div><p>String</p></div></div></td><td><p>Content type of the message body</p></td><td></td><td></td></tr><tr><td><p>Ack Token</p></td><td><div><div><p>String</p></div></div></td><td><p>Acknowledgment token used to perform manual ACK and NACK operations, in MANUAL mode only</p></td><td></td><td></td></tr></tbody></table>
+
+### Circuit Breaker
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>On Error Types</p></td><td><div><div><p>String</p></div></div></td><td><p>Error types that equal failure of the circuit when they occur during flow execution. By default, all errors result in failure.</p></td><td></td><td></td></tr><tr><td><p>Errors Threshold</p></td><td><div><div><p>Number</p></div></div></td><td><p>Of the errors considered by the circuit, how many must occur for the circuit to be opened.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Trip Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>How long the circuit remains open after <code>errorsThreshold</code> is reached</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Trip Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>The time unit bound to the tripTimeout value</p></td><td><p>MILLISECONDS</p></td><td></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Initial Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of memory allocated to consume the stream and provide random access to it. If the stream contains more data than can fit into this buffer, then the buffer expands according to the bufferSizeIncrement attribute, with an upper limit of maxInMemorySize.</p></td><td></td><td></td></tr><tr><td><p>Buffer Size Increment</p></td><td><div><div><p>Number</p></div></div></td><td><p>How much buffer size can expand. If set to 0 (zero) or less, STREAM_MAXIMUM_SIZE_EXCEEDED is raised when the buffer is full.</p></td><td></td><td></td></tr><tr><td><p>Max Buffer Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of memory to use before STREAM_MAXIMUM_SIZE_EXCEEDED is raised. If set to 0 (zero) or less, memory is unlimited.</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit in which all these attributes are expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max In Memory Size</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum amount of memory that the stream can hold locally before content is buffered to disk</p></td><td></td><td></td></tr><tr><td><p>Buffer Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><p>Unit in which maxInMemorySize is expressed</p></td><td></td><td></td></tr></tbody></table>
+
+### Redelivery Policy
+
+For information on the redelivery policy, see
+[Configure a Redelivery Policy](../../mule-runtime/latest/redelivery-policy).
+
+### Anypoint MQ Message Publish Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Message Id</p></td><td><div><div><p>String</p></div></div></td><td><p>ID of the message that was published</p></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Prefetch
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Max Local Messages</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of messages to prefetch from the service and keep locally before dispatching to the flow.</p><p>NOTE: Due to a known issue, using <code>prefetch</code> mode with <code>maxConcurrency="1"</code> set on the <code>flow</code> element might result in message-processing latency.</p><p>When using <code>prefetch</code> mode, set <code>maxLocalMessages</code> to a value greater than <code>1</code> to avoid message-processing latency issues. When <code>maxLocalMessages</code> is set to <code>1</code>, latency can occur when the connector prefetches the message but the app doesnât consume it, and the message returns to the queue for reprocessing.</p></td><td><p>30</p></td><td></td></tr></tbody></table>
+
+### Polling
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Fetch size</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum number of messages (1-10) to fetch on each polling execution</p><p>An error occurs if you configure a value greater than 10.</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Scheduling Strategy</p></td><td><div><div><p>scheduling-strategy</p></div></div></td><td><div><div><p>Scheduling strategy for triggering the message fetch from the service</p></div><div><ul><li><p><a href="#fixed-frequency">Fixed Frequency</a></p></li><li><p><a href="#cron">Cron</a></p></li></ul></div></div></td><td></td><td><p>x</p></td></tr></tbody></table>
+
+### Fixed Frequency
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Frequency</p></td><td><div><div><p>Number</p></div></div></td><td><p>Polling frequency</p></td><td><div><div><p>1000ms</p></div><div><p>(1 second)</p></div></div></td><td></td></tr><tr><td><p>Start delay</p></td><td><div><div><p>Number</p></div></div></td><td><p>The amount of time for the scheduler to wait before starting</p></td><td><p>10</p></td><td></td></tr><tr><td><p>Time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DAYS</p></li><li><p>HOURS</p></li><li><p>MINUTES</p></li><li><p>SECONDS</p></li><li><p>MILLISECONDS</p></li></ul></div></div></td><td><p>Time unit to use in the <code>startDelay</code> configuration</p></td><td><p>MILLISECONDS</p></td><td></td></tr></tbody></table>
+
+### Cron
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Expression</p></td><td><div><div><p>Cron expression</p></div></div></td><td></td><td></td><td><p>x</p></td></tr><tr><td><p>Time Zone</p></td><td><div><div><p>String</p></div></div></td><td><p>The ID of the time zone in which the expression is based</p></td><td></td><td></td></tr></tbody></table>
+
+## See Also
+
+- [Fixed Frequency](../../mule-runtime/latest/scheduler-concept#fixed-frequency)
+- [Cron Expressions](../../mule-runtime/latest/scheduler-concept#cron-expressions)
+---
+
+# Upgrading and Migrating Anypoint MQ Connector
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+To use the latest features, upgrade Anypoint Connector for Anypoint MQ (Anypoint MQ Connector) from
+version 3.x to version 4.x.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>3.x</p></div></div></td><td><div><div><p>4.x</p></div></div></td></tr></tbody></table>
+
+## Changes in This Release
+
+Some changes included in version 4.x break backward compatibility with version 3.x.
+
+Anypoint MQ Connector 4.x includes support for these features:
+
+- Cross-Region Failover
+
+  Anypoint MQ Connector for Mule 4 version 4.0.7 and later provides failover capability for standard
+  queues.
+
+  When enabled, if a Mule app canât reach an Anypoint MQ server in a region, the connector switches
+  to the fallback queue in the fallback region to publish and consume messages.
+
+  For information, see:
+  - [Configuring Cross-Region Failover for Standard Queues](../../mq/mq-failover)
+  - [Configuring Cross-Region Failover in Your App](anypoint-mq-failover)
+
+- Connected Apps
+
+  Anypoint MQ Connector for Mule 4 version 4.0.1 and later includes a new format for the **URL**
+  field in the **Global Element Properties** page.
+  - In Anypoint MQ Connector 3.x, the URL format was:
+
+    `https://mq-us-east-1.anypoint.mulesoft.com/api/v1`
+
+  - In Anypoint MQ Connector 4.x, the URL format includes `{orgID}` and `{envID}`. For example:
+
+    `https://mq-us-east-1.anypoint.mulesoft.com/api/v1/organizations/{orgID}/environments/{envID}`
+
+  > [!IMPORTANT] If you configure the connector with the wrong version of the URL, Anypoint MQ
+  > returns the following error:
+  >
+  > `Invalid api url provided`
+
+To use the failover feature, see
+[Configuring Cross-Region Failover in Your App](anypoint-mq-failover).
+
+## Upgrade Prerequisites
+
+Before you perform the upgrade, create a backup of your files, data, and configurations in case you
+need to revert to the previous version.
+
+## Upgrade Steps
+
+To upgrade to Anypoint MQ Connector 4.x:
+
+1.  In Anypoint MQ, in the **Destinations** page, click **Copy** and select **Connector version 4.x
+    and later** from the menu:
+
+    ![Copy button and menu with connector version options](../../mq/_images/mq-tutorial-url.png)
+
+2.  In Anypoint Studio, open the Mule project.
+3.  In the Mule Palette view, click **Search in Exchange**.
+4.  In **Add Dependencies to Project**, type `Anypoint MQ` in the search field.
+5.  In **Available modules**, select **Anypoint MQ Connector - Mule 4** and then click **Add**.
+6.  Click **Finish**.
+
+    Anypoint Studio upgrades the connector automatically.
+
+7.  Verify that the `mq-connector` dependency version is `4.0.5` or later in the `pom.xml` file:
+
+    ```xml
+    <dependency>
+    	<groupId>com.mulesoft.connectors</groupId>
+    	<artifactId>anypoint-mq-connector</artifactId>
+    	<version>4.0.5</version>
+    	<classifier>mule-plugin</classifier>
+    </dependency>
+    ```
+
+8.  In Anypoint Studio, in the **Anypoint MQ Config** window, paste the URL in the **URL** field:
+
+    ![Anypoint MQ Config page displaying the URL, client app ID, and client secret](../../mq/_images/mq-tutorial-studio7-mq-config.png)
+
+9.  Depending on your authentication method, complete the **Client App ID** and **Client Secret**
+    fields:
+    - **Connected App**:
+
+      Paste the values of **ID** and **Secret** from **Anypoint Platform** > **Access Management** >
+      **Connected Apps**.
+
+      For information about configuring Connected Apps in Anypoint MQ, see
+      [Configuring Connected Apps](../../mq/mq-connected-apps).
+
+    - **Client App**:
+
+      Paste the values of **Client App ID** and **Client Secret** from **Anypoint Platform** >
+      **MQ** > **Client Apps**.
+
+      For information about configuring Client Apps in Anypoint MQ, see
+      [Configuring Client Apps](../../mq/mq-client-apps).
+
+## Post Upgrade Steps
+
+After you install the latest version of the connector, follow these steps to complete the upgrade:
+
+1.  In Anypoint Studio, verify that there are no errors in the **Problems** or **Console** views.
+2.  Check the project pom.xml and verify that there are no problems.
+3.  Test the connection and verify that the operations work.
+
+## Troubleshooting
+
+If you experience problems with caching the parameters and caching the metadata, restart Anypoint
+Studio.
+
+### Reverting the Upgrade
+
+To revert to the previous version of Anypoint MQ Connector, in Anypoint Studio, change the
+`mq-connector` dependency version in the projectâs `pom.xml` file to the previous version.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Anypoint MQ Consume Operation
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Consume operation in the Anypoint MQ connector enables the app to consume a single message from
+a queue at any time in the flow using the acknowledgment strategy that supports your use case.
+
+> [!NOTE] Anypoint MQ supports consuming from queues, not message exchanges.
+>
+> If an app attempts to consume from a message exchange, the Anypoint MQ REST API throws the
+> following error: `The destination should be a queue.`
+
+## Incoming Message Structure
+
+Every incoming message consists of two parts:
+
+- `payload` - Represents the message body
+- `attributes` - Contains metadata for the received message, such as its ID or other properties
+
+![Mule message, including payload and message attributes](_images/amq-4x-consume-attributes.png)
+
+## Message Consumption
+
+The simplest way to consume a message from a queue is to drag the **Consume** operation from the
+Mule palette to the canvas and configure the `Queue` parameter with the name of the queue from which
+to retrieve the message:
+
+![Connector configuration, including destination, acknowledgment mode and timeout, and polling timeout](_images/amq-4x-consume-operation.png)
+
+```xml
+<anypoint-mq:consume config-ref="Anypoint_MQ_config" destination="myQueue"/>
+```
+
+The Consume operation in this example consumes the first available message in `myQueue` and converts
+it to a `MuleMessage` instance with this structure:
+
+- The message body as payload.
+- The message metadata in the message attributes. Attributes might include `messageId` or
+  `redeliveryCount`.
+
+Use a DataWeave expression in the `Queue` parameter to dynamically change the target queue from
+which to consume the message.
+
+## Consumed Message Acknowledgment
+
+- **Automatic**
+
+  By default, `acknowledgementMode` is `IMMEDIATE`, meaning that the message is acknowledged as soon
+  as it is consumed from the queue and before itâs delivered to the Mule flow. If the message
+  acknowledgment fails, the Consume operation terminates with an `ANYPOINT-MQ:ACKING` error.
+
+  For more information, see [Immediate Acknowledgment](anypoint-mq-ack#immediate-acknowledgment).
+
+- **Manual**
+
+  To manually control the acknowledgment of the message, change `acknowledgementMode` to `MANUAL`.
+  When using the `MANUAL` acknowledgment mode, the app logic decides when to perform the
+  acknowledgment of the message, using the [ACK](anypoint-mq-ack) or [NACK](anypoint-mq-ack)
+  operations.
+
+  To perform the manual acknowledgment, you need the value of `ackToken` provided as part of the
+  resulting message attributes.
+
+  For more information, see [Manual Acknowledgment](anypoint-mq-ack#manual-acknowledgment).
+
+For information about acknowledgment timeouts, see
+[Acknowledgment Timeout](anypoint-mq-ack#acknowledgment-timeout).
+
+## Empty Queue Management
+
+When a queue has messages, the Consume operation returns immediately with one of the messages.
+
+When a queue is empty, the operation behavior depends on the value of the `pollingTime` parameter:
+
+- No value
+
+  By default, the Consume operation waits for 10000 milliseconds (10 seconds) for a new message to
+  arrive when consuming from an empty queue.
+
+  If Anypoint MQ receives no messages in that time, Consume fails with an `ANYPOINT-MQ:TIMEOUT`
+  error.
+
+- `0`
+
+  If the value of `pollingTime` is `0`, the Consume operation waits for the default of 10000
+  milliseconds (10 seconds).
+
+  If Anypoint MQ receives no messages in that time, Consume produces a `null` message as the result
+  and doesnât produce an error.
+
+- `1` to `20000`
+
+  If the value of `pollingTime` is between one and 20000 milliseconds (the maximum value), Consume
+  waits for the time specified by `pollingTime` for a new message to arrive.
+
+  If Anypoint MQ receives no messages within the given time window, Consume fails with an
+  `ANYPOINT-MQ:TIMEOUT` error.
+
+- If the value of `pollingTime` is outside the range of 0-20000 milliseconds (20 seconds), Consume
+  fails with an `ANYPOINT-MQ:CONSUMING` error.
+
+## Output Message Metadata
+
+Each message received consists of two parts: `Payload` and `Attributes`. `Attributes` contains the
+metadata for the message.
+
+This metadata maps all the information available in an Anypoint MQ message, including:
+
+- Message ID
+- Headers Map
+- Properties Map
+
+![Mule message, including payload and message attributes](_images/amq-4x-consume-attributes.png)
+
+For information about the `attributes` structure, see the Consume operation in the
+[Anypoint MQ Connector Reference - 4.x](anypoint-mq-connector-reference#consume).
+
+## See Also
+
+- [Anypoint MQ ACK and NACK Operations](anypoint-mq-ack)
+---
+
+# Configuring Cross-Region Failover in Your App
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint MQ Connector for Mule 4 version 4.0.7 and later provides failover capability for standard
+queues.
+
+This feature is not enabled by default. Before using this feature, review
+[Configuring Cross-Region Failover for Standard Queues](../../mq/mq-failover).
+
+> [!IMPORTANT] When you enable failover for a queue and the primary region goes down, your data
+> might reside in a region outside the country until the primary region is available
+
+To use the failover feature, do the following:
+
+- In your app:
+  1.  Upgrade Anypoint MQ Connector to version 4.0.7 or later.
+  2.  [Enable failover in your app.](#enable-failover-feature)
+  3.  (Optional) [Change the check frequencies](#configure-check-frequency).
+
+- In Anypoint MQ:
+  1.  Create or modify a queue and
+      [enable failover on the queue](../../mq/mq-failover#enable-failover).
+
+## Enable Failover in Your App
+
+To enable the failover feature in your app, set the `cross.region.failover.feature.enabled` system
+property to `true`. This property is set to `false` by default.
+
+> [!NOTE] When the failover property is enabled, the connector handles processing messages for both
+> the primary and failover queues. To prevent interruptions, the app canât publish or consume
+> directly from the fallback queue. See
+> [Process Messages Directly from the Fallback Queue](#consume-directly-fallback) for information.
+
+To set this application property in Runtime Manager:
+
+1.  Sign in to Anypoint Platform and click **Runtime Manager** in the navigation menu.
+2.  Deploy a new app or change the settings for a deployed app.
+3.  On the **Properties** tab, specify the value for the property, for example:
+
+    ![Properties table with cross.region.failover.feature.enabled set to true](_images/mq-set-properties-failover-enabled.png)
+
+Alternatively, set the property in **Run Configurations** in Anypoint Studio. For more information,
+see [System Properties in Mule Apps](../../mule-runtime/latest/mule-app-properties-system).
+
+## Process Messages Directly from the Fallback Queue
+
+If failover is enabled for an app, Anypoint MQ Connector manages the fallback queue (with the `_fb`
+suffix) and prevents publish, consume, or subscribe operations on the fallback queue directly. If
+the app connects to the fallback queue directly, Anypoint MQ Connector returns an error:
+
+```none
+java.lang.IllegalArgumentException: Using fallback queue directly is not supported
+```
+
+If you disable failover on a queue (from the Anypoint MQ UI) and restart the application, the
+connector no longer publishes or consumes from the fallback queue.
+
+To process any messages that remain in the fallback queue after disabling failover:
+
+1.  Configure the app to process directly from the fallback queue.
+
+    For the Consume or Subscriber operations, set the **Queue** field to the name of the fallback
+    queue, for example:
+
+    ![Subscriber configuration with the queue name, myDemoQueue_fb](_images/mq-publish-fallback-queue-subscribe.png)
+
+2.  Allow the app to consume messages directly from the fallback queue:
+    1.  Sign in to Anypoint Platform and click **Runtime Manager** in the navigation menu.
+    2.  Change the settings for a deployed app.
+    3.  On the **Properties** tab, set the `cross.region.failover.feature.enabled` system property
+        to `false`, for example:
+
+        ![Properties table with cross.region.failover.feature.enabled set to false](_images/mq-set-properties-failover-disabled.png)
+
+        Alternatively, set the property in **Run Configurations** in Anypoint Studio. For more
+        information, see
+        [System Properties in Mule Apps](../../mule-runtime/latest/mule-app-properties-system).
+
+## Configure the Frequency of Fallback Queue Checks
+
+By default, when the primary region is down, Anypoint MQ Connector checks the:
+
+- Fallback queue once every five minutes for new messages (300,000 milliseconds)
+- Primary queue to see if the primary region is back up once per minute (60,000 milliseconds)
+
+To change this behavior, set the following properties:
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Property</th><th>Description</th><th>Minimum Value</th><th>Maximum Value</th><th>Default Value</th></tr></thead><tbody><tr><td colspan="5"><p><code>primary.region.status.check.interval.ms</code></p></td></tr><tr><td></td><td><p>How often the connector checks the availability of the primary region when processing from the fallback region</p></td><td><p>1 minute (60,000 milliseconds)</p></td><td><p>15 minutes (900,000 milliseconds)</p></td><td><p>1 minute (60,000 milliseconds)</p></td></tr><tr><td colspan="5"><p><code>fallback.messages.check.interval.ms</code></p></td></tr><tr><td></td><td><p>How often the connector checks the fallback queue for received messages</p></td><td><p>1 minute (60,000 milliseconds)</p></td><td><p>12 hours (43.2 million milliseconds)</p></td><td><p>5 minutes (300,000 milliseconds)</p></td></tr></tbody></table>
+
+To set these application properties in Runtime Manager:
+
+1.  Sign in to Anypoint Platform and click **Runtime Manager** in the navigation menu.
+2.  Deploy a new app or change the settings for a deployed app.
+3.  On the **Properties** tab, specify values for the following properties (in milliseconds):
+
+    ![Properties table with intervals for primary and fallback status check intervals](_images/mq-set-properties-failover.png)
+
+Alternatively, set these properties in **Run Configurations** in Anypoint Studio. For more
+information, see
+[System Properties in Mule Apps](../../mule-runtime/latest/mule-app-properties-system)
+
+### Check Interval Considerations
+
+To determine how to set the application property values to fine-tune the check intervals:
+
+- When publishing to the fallback region during primary region downtime, the Publish operation of
+  Anypoint MQ Connector checks if the primary region is back up once per minute by default.
+
+  If a flow triggers the Publish operation less frequently than once per minute, the connector
+  checks to see if the primary region is back up every time the operation is triggered.
+
+  To fine-tune this behavior, set the value of `primary.region.status.check.interval.ms` to be
+  greater than the frequency at which your flow triggers the Publish operation.
+
+- When a flow triggers the Consumer or Subscriber operation of Anypoint MQ Connector, the connector
+  checks the fallback queue (every five minutes by default) for new messages before checking the
+  primary queue.
+
+  If a flow triggers the Consumer or Subscriber operation less frequently than every five minutes,
+  the connector first checks the fallback queue for new messages before consuming from the primary
+  queue.
+
+  To reduce the frequency of checking the fallback queue, set the value of
+  `fallback.messages.check.interval.ms` to be greater than the frequency at which your flow triggers
+  the Consumer or Subscriber operation.
+
+  > [!NOTE] Setting this property to a high value might result in out-of-order messages because
+  > messages in the fallback queue are not processed as frequently.
+
+## See Also
+
+- [Configuring Cross-Region Failover for Standard Queues](../../mq/mq-failover)
+- [Changing App Behavior with Properties on CloudHub 2.0](../../cloudhub-2/ch2-manage-props)
+- [Manage Properties for Applications on CloudHub](../../cloudhub/cloudhub-manage-props)
+- [Anypoint MQ Connector in Anypoint Exchange](https://anypoint.mulesoft.com/exchange/com.mulesoft.connectors/anypoint-mq-connector/)
+- [Anypoint MQ Connector Release Notes for Mule 4](../../release-notes/connector/anypoint-mq-connector-release-notes-mule-4)
+---
+
+# Anypoint MQ Subscriber Source
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Subscriber source in the Anypoint MQ connector enables the app to listen for new messages and
+consume them as they arrive at the destination. You can configure different listening strategies
+that enable you to tune the consumption for performance, predictability, and schedules.
+
+## Maximum Message Throughput
+
+By default, the Subscriber source works in continuous listening mode, providing maximum throughput
+by consuming messages as soon as they arrive in the queue. This is called the `prefetch`
+subscriber-type configuration. When using the `prefetch` mode, the Subscriber source attempts to
+keep a local buffer of messages full, making them available to be dispatched to the Mule flow as
+soon as the app can accept them.
+
+![Subscriber configuration window showing Subscriber Type set to Prefetch](_images/amq-4x-subscriber-prefetch.png)
+
+> [!NOTE] Due to a known issue, using `prefetch` mode with `maxConcurrency="1"` set on the `flow`
+> element might result in message-processing latency.
+
+For the `prefetch` subscriber-type configuration, you configure the `maxLocalMessages` parameter to
+specify the target size for a full buffer, which controls how quickly messages are taken from the
+queue.
+
+```xml
+<anypoint-mq:subscriber config-ref="Anypoint_MQ_Config" destination="myQueue">
+</anypoint-mq:subscriber>
+```
+
+- Use a larger buffer size for maximum performance, keeping in mind that the messages kept locally
+  wonât be available for any other consumer.
+
+  When a consumer takes a message from the queue and stores it in the local buffer, the message
+  appears as in-flight for any other consumer and prevents them from consuming it. The message
+  remains in this in-flight state for as long as necessary for the app to begin the processing.
+
+- Use a smaller buffer size to process messages as they are published to the queue.
+
+  The smaller buffer restricts app-level throughput and avoids blocking competing consumers.
+
+  When using `prefetch` mode, set `maxLocalMessages` to a value greater than `1` to avoid
+  message-processing latency issues. When `maxLocalMessages` is set to `1`, latency can occur when
+  the connector prefetches the message but the app doesnât consume it, and the message returns to
+  the queue for reprocessing.
+
+### FIFO Queues and Prefetch Mode
+
+When using the `prefetch` mode, the `acknowledgementTimeout` timer begins when the message is taken
+from the queue. Anypoint MQ attempts to honor the expiration time specified by
+`acknowledgementTimeout`. However, Anypoint MQ extends the expiration timeout if the time that the
+message remains in the buffer reaches 80% of the timeout value.
+
+Donât use `prefetch` mode in the following situations:
+
+- Applications with long processing times that use the `maxConcurrency` attribute to limit
+  concurrent processing.
+
+  These options can cause messages to remain in the buffer longer, which can result in the messages
+  expiring and being sent back to the queue.
+
+- When using FIFO queues
+
+  Because Anypoint MQ canât guarantee ordering when using `prefetch` mode, donât use it with FIFO
+  queues.
+
+  Using `prefetch` mode for applications with long processing times can consume significant
+  resources because Anypoint MQ monitors the ACK TTL for all messages in the local buffer and
+  extends the TTL to avoid sending messages back to the queue.
+
+## Predictable Message Consumption
+
+If your app requires predictable and controlled message consumption rather than maximum throughput,
+you can configure the Subscriber as a polling source. The Subscriber source checks for new messages
+in the queue at a fixed scheduling rate. Every time the poll is triggered, the Subscriber source
+retrieves between 1 and 10 messages to dispatch to the flow individually in order.
+
+Messages arenât consumed immediately. Instead, they remain in the queue until the next poll of the
+Subscriber source is triggered. The queue contains up to 10 messages to be retrieved. For example,
+if your queue has 15 messages, one poll consumes the first 10 messages and the remaining 5 messages
+wait for the next poll.
+
+To configure the Subscriber as a polling source, specify the `polling` subscriber-type.
+
+The default `polling` subscriber-type declaration looks like this:
+
+![Subscriber configuration window showing Subscriber Type set to Polling](_images/amq-4x-subscriber-polling.png)
+
+```xml
+<anypoint-mq:subscriber doc:name="Subscriber" config-ref="Anypoint_MQ_Config" destination="myQueue">
+  <anypoint-mq:subscriber-type >
+    <anypoint-mq:polling >
+      <scheduling-strategy >
+        <fixed-frequency />
+      </scheduling-strategy>
+    </anypoint-mq:polling>
+  </anypoint-mq:subscriber-type>
+</anypoint-mq:subscriber>
+```
+
+The default `polling` subscriber-type declaration attempts to retrieve 10 messages from the declared
+destination every 1 second, dispatching the retrieved messages to the flow individually as a
+`MuleMessage` instance.
+
+The resulting `MuleMessage` has:
+
+- The message body as its payload
+- The message metadata in the message attributes
+
+![Mule message output, including payload and message attributes](_images/amq-4x-subscriber-output.png)
+
+You can customize the Subscriber source polling strategy using the standard Mule runtime engine
+scheduling strategies:
+
+- [Fixed Frequency](../../mule-runtime/latest/scheduler-concept#fixed-frequency)
+- [Cron Expressions](../../mule-runtime/latest/scheduler-concept#cron-expressions)
+
+### Customized Fixed Polling
+
+You can customize the frequency at which the Subscriber source polls for new messages by declaring a
+`polling` subscriber-type strategy with a customized `fixed-frequency` scheduling strategy.
+
+The default `fixed-frequency` scheduling strategy declaration looks like this:
+
+![Subscriber configuration window showing Scheduling Strategy set to Fixed Frequency](_images/amq-4x-subscriber-polling-fixed.png)
+
+```xml
+<anypoint-mq:subscriber config-ref="Anypoint_MQ_Config" destination="myQueue">
+  <anypoint-mq:subscriber-type >
+    <anypoint-mq:polling>
+      <scheduling-strategy >
+        <fixed-frequency/>
+      </scheduling-strategy>
+    </anypoint-mq:polling>
+  </anypoint-mq:subscriber-type>
+</anypoint-mq:subscriber>
+```
+
+### Cron-Based Polling
+
+The Anypoint MQ Subscriber can also use a `cron` scheduling strategy, which enables you to schedule
+jobs such as "Run every minute starting at 2pm and ending at 2:59pm, every day". To use this
+scheduling strategy, declare a `polling` subscriber-type strategy with a customized `cron`
+scheduling strategy:
+
+![Subscriber configuration window showing Scheduling Strategy set to Cron](_images/amq-4x-subscriber-polling-cron.png)
+
+```xml
+<anypoint-mq:subscriber config-ref="Anypoint_MQ_Config" destination="myQueue">
+  <anypoint-mq:subscriber-type >
+    <anypoint-mq:polling >
+      <scheduling-strategy >
+        <cron expression="0 * 14 * * ?" timeZone="America/Los_Angeles" />
+      </scheduling-strategy>
+    </anypoint-mq:polling>
+  </anypoint-mq:subscriber-type>
+</anypoint-mq:subscriber>
+```
+
+## Message Acknowledgment
+
+You can acknowledge received messages automatically only if the flow execution finishes successfully
+or as your app consumes them, before processing them.
+
+- **Automatic**
+
+  By default, the Subscriber source uses the `AUTO` acknowledgment mode. With this mode, the
+  messages that the Subscriber source retrieves are acknowledged automatically after message flow
+  processing succeeds. This means that the Subscriber source receives a message, dispatches it to
+  the flow, and waits to see how the message processing finishes. It executes an ACK only when the
+  processing finishes without exceptions.
+
+  If the execution of the processing flow finishes with a propagated exception, the message is
+  automatically not acknowledged and is returned to the queue for redelivery.
+
+  For more information, see [Automatic Acknowledgment](anypoint-mq-ack#automatic-acknowledgment).
+
+- **Immediate**
+
+  When you use the `IMMEDIATE` acknowledgment mode, the consumed message is acknowledged (deleted
+  from the queue) and then dispatched to the Mule flow for processing. If the message acknowledgment
+  fails, the message is discarded. The message isnât dispatched to the flow and remains in-flight
+  until the acknowledgment timeout.
+
+  If the app restarts between being acknowledged and dispatched, the message might not be available
+  again because it was deleted from the queue. To prevent message deletion until after processing,
+  use the `AUTO` or `MANUAL` acknowledgment mode instead.
+
+  Using the Subscriber source in Prefetch mode with the `IMMEDIATE` acknowledgment mode sometimes
+  results in thread accumulation and an unresponsive application.
+
+  For more information, see [Immediate Acknowledgment](anypoint-mq-ack#immediate-acknowledgment).
+
+- **Manual**
+
+  When you use the `MANUAL` acknowledgment mode, the app logic decides when to perform the
+  acknowledgment of the message, using the [ACK](anypoint-mq-ack) or [NACK](anypoint-mq-ack)
+  sources.
+
+  To perform the manual acknowledgment, you need the value of `ackToken` provided as part of the
+  resulting message attributes.
+
+  For more information, see [Manual Acknowledgment](anypoint-mq-ack#manual-acknowledgment).
+
+For information about acknowledgment timeouts, see
+[Acknowledgment Timeout](anypoint-mq-ack#acknowledgment-timeout).
+
+## Circuit Breaker Capability
+
+The Subscriber source provides circuit breaking capability, which enables you to control how the
+connector handles errors that occur while processing a consumed message.
+
+For example, when connecting to an external service, you can use the circuit breaker to handle any
+downtime of that service. The circuit breaker allows the system to stop making requests and allows
+the external service to recover under a reduced load.
+
+Using Anypoint MQ in a Mule 4 app means having a Mule flow with an MQ subscriber that consumes
+messages from a queue and processes them using an external service. When this service isnât
+available:
+
+1.  The request fails.
+2.  An error results.
+3.  Message processing finishes as either a failure or as a custom error for handling the message,
+    such as sending it to a dead letter queue (DLQ).
+
+When the external service is not available, every attempt to process a message results in a failure,
+forcing the app to loop, consuming messages that cannot succeed. You can avoid this behavior by
+notifying the subscriber of the error in a way that prevents it from consuming more messages for a
+certain period.
+
+### Circuit Breaker Processes
+
+The circuit breaker capability that the Subscriber source provides is bound to the error handling
+mechanism provided by Mule. It uses the error notification mechanism to count errors related to an
+external service, which is known as a circuit failure. You can bind any error to a circuit failure.
+For example, you can bind `HTTP:TIMEOUT`, `FTP:SERVICE_NOT_AVAILABLE`, or even a custom error from
+your app, such as `ORG:EXTERNAL_ERROR`.
+
+If a Mule flow finishes its execution with an error, the Subscriber source checks if the error is
+one of the `onErrorTypes` that indicates an external service error, and counts consecutive
+occurrences until `errorsThreshold` is reached.
+
+When `errorsThreshold` is reached, the circuit trips and remains open for the duration specified by
+`tripTimeout`. While the circuit is open, all polled or consumed messages are not acknowledged
+(NACK) and Anypoint MQ halts any future operations (poll, ACK, NACK, and Publish) until
+`tripTimeout` elapses.
+
+After `tripTimeout` elapses, the circuit breaker transitions to a new
+[state](#circuit-breaker-states). If the new state is **Closed**, clients can consume messages on
+the next poll.
+
+The behavior varies depending on whether you deploy the app to CloudHub with a single worker or
+multiple workers:
+
+Single worker
+
+The worker processes messages individually from the queue and opens the circuit breaker when the
+number of errors reaches the value of `errorsThreshold`.
+
+Multiple workers
+
+Each worker has an associated circuit breaker and tracks the values of `errorsThreshold` and
+`tripTimeout` individually. Each worker processes messages individually from the queue and opens the
+circuit breaker when the number of errors reaches the value of `errorsThreshold` set on the worker.
+
+By default, the circuit breaking feature is disabled.
+
+### Circuit Breaker States
+
+The circuit breaker has three states: Closed, Open, and Half Open. The behavior of the app changes
+based on the current state. See the
+[Microsoft Circuit Breaker pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)
+for more information.
+
+![Flow showing the states of the circuit breaker: closed, half-open, and open](_images/amq-4x-subscriber-states-view.png)
+
+- **Closed**
+
+  The starting state where the Subscriber source retrieves messages normally from MQ based on its
+  configuration, effectively working as if the circuit breaker is not present.
+
+- **Closed-Open Transition**
+
+  When the number of failures occurs in succession during message processing, without successes, and
+  reaches the `errorsThreshold` value, the circuit breaker trips and the circuit breaker transitions
+  to an Open state.
+
+  Messages that were already dispatched to the flow then finish processing, regardless of whether
+  the result is success or failure.
+
+  Messages kept locally that are in-flight for the broker but havenât been dispatched yet are not
+  acknowledged and returned to the queue for redelivery to another consumer.
+
+- **Open**
+
+  The Subscriber source doesnât attempt to retrieve messages, and skips the iterations silently
+  until `tripTimeout` is reached.
+
+- **Half Open**
+
+  After `tripTimeout` elapses, the Subscriber source goes to a Half Open state. In the next poll for
+  messages, the Subscriber source retrieves a single message from the service and uses that message
+  to check if the system has recovered before going back to the normal Closed state.
+
+  When the Subscriber source successfully fetches a single message, dispatches it to the flow, and
+  processing finishes successfully, the Subscriber source returns to normal and immediately attempts
+  to fetch more messages.
+
+  If Mule flow processing fails with one of the expected `onErrorTypes`, the circuit goes back to an
+  Open state and resets the `tripTimeout` timer.
+
+### Configure the Circuit Breaker
+
+You can configure a Circuit Breaker as either a Global Circuit Breaker or a Private Circuit Breaker.
+
+Either way, the configuration parameters are the same:
+
+- `onErrorTypes`
+
+  The error types that count as a failure during the flow execution. An error occurrence counts only
+  when the flow finishes with an error propagation. By default, all errors count as a circuit
+  failure.
+
+- `errorsThreshold`
+
+  The number of `onErrorTypes` errors that must occur for the circuit breaker to open.
+
+- `tripTimeout`
+
+  How long the circuit remains open once `errorsThreshold` is reached.
+
+- `circuitName`
+
+  The name of a circuit breaker to bind to this configuration. By default, each queue has its own
+  circuit breaker.
+
+#### Global Circuit Breaker
+
+Use a Global Circuit Breaker when you want to share the circuit state across multiple subscribers,
+as if subscribers are part of the same "circuit".
+
+1.  In Anypoint Studio, click the **Global Elements** tab in the canvas.
+2.  Select **Create > Component Configuration > Circuit Breaker**.
+
+    ![Circuit breaker configuration window including error types, error threshold, trip timeout, and trip timeout unit](_images/amq-4x-cb-global-canvas.png)
+
+    In the configuration wizard, populate the following fields as needed. Once the configuration is
+    complete, you can reference this `Circuit_breaker` declaration from any Anypoint MQ Subscriber.
+
+To reference a circuit breaker:
+
+1.  Select the Subscriber source in the canvas.
+2.  Click the **Advanced** tab.
+3.  Select **Circuit Breaker > Global Reference** and select a global circuit breaker configuration
+    from the list.
+
+    ![Subscriber configuration window showing Global reference set to Circuit_breaker](_images/amq-4x-cb-global-ref.png)
+
+#### Private Circuit Breaker
+
+You declare a Private Circuit Breaker internally on a single subscriber. This circuit declaration is
+used only in the flow where the Subscriber source is declared, isolated from all the other circuits.
+
+To use this configuration:
+
+1.  Select the Subscriber source in the canvas.
+2.  Click the **Advanced** tab.
+3.  Select **Circuit breaker > Edit Inline**, and then complete the fields.
+
+    ![Subscriber configuration window showing Circuit breaker set to Edit Inline](_images/amq-4x-cb-inline.png)
+
+### Circuit Breaker Examples
+
+#### Circuit Configuration for a Single Subscriber
+
+In this example, a single subscriber consumes messages from a queue and posts the messages to
+another service using its REST API. You can stop processing messages after 5 requests to the
+external service result in a timeout. Once processing stops, the Subscriber source waits for 30
+seconds for the service to recover before retrying with a new message.
+
+For this example, you need one config with these circuit breaker parameters:
+
+```xml
+<anypoint-mq:config name="Anypoint_MQ_Config">
+    <anypoint-mq:connection url="${providerUrl}"
+    clientId="${clientId}"
+    clientSecret="${clientSecret}"/>
+</anypoint-mq:config>
+
+<flow name="subscribe">
+   <anypoint-mq:subscriber config-ref="Anypoint_MQ_Config"
+      destination="${subscribedQueue}">
+        <anypoint-mq:circuit-breaker
+          onErrorTypes="HTTP:TIMEOUT"   <!-- (1) -->
+          errorsThreshold="5"           <!-- (2) -->
+          tripTimeout="30"              <!-- (3) -->
+          tripTimeoutUnit="SECONDS"/>
+   </anypoint-mq:subscriber>
+    <http:request config-ref="RequesterConfig"
+       path="/external" method="POST"/> <!-- (4) -->
+</flow>
+```
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>(1)</strong></p></td><td><p>Configures the error types to trip the circuit. When an error occurs for an <code>errorsThreshold</code> amount of times, polling stops.</p></td></tr><tr><td><p><strong>(2)</strong></p></td><td><p>Sets the threshold for how many consequent messages must occur to consider the circuit to be in a failure state.</p></td></tr><tr><td><p><strong>(3)</strong></p></td><td><p>Specifies how long to wait before resuming new message polling after the circuit breaker trips because <code>errorsThreshold</code> is reached.</p></td></tr><tr><td><p><strong>(4)</strong></p></td><td><p>Defines the operation to throw the error expected by the <code>onErrorTypes</code> parameters.</p></td></tr></tbody></table>
+
+The circuit breaker ignores all errors that arenât listed in the `onErrorTypes` parameter. In this
+example, the circuit breaker ignores errors such as `HTTP:BAD_REQUEST`.
+
+#### Share a Circuit from Different Queues
+
+In many cases, a single common service processes messages from different queues. This example
+configures the `circuitName` parameter to bind both subscribers to a single circuit:
+
+```xml
+<anypoint-mq:config name="Anypoint_MQ_Config">
+    <anypoint-mq:connection url="${providerUrl}"
+       clientId="${clientId}"
+       clientSecret="${clientSecret}"/>
+</anypoint-mq:config>
+
+<anypoint-mq:circuit-breaker
+    name="InvoiceProcess"                    <!-- (1) -->
+    onErrorTypes="FTP:RETRY_EXHAUSTED, HTTP:SERVICE_UNAVAILABLE" <!-- (2) -->
+    errorsThreshold="10"
+    tripTimeout="5"
+    tripTimeoutUnit="MINUTES"/>
+
+<flow name="subscribe">
+    <anypoint-mq:subscriber destination="${reservationsQueue}"
+       config-ref="Anypoint_MQ_Config"
+        circuitBreaker="GlobalCircuit"/>     <!-- (3) -->
+    <flow-ref name="invoiceProcess">
+</flow>
+
+<flow name="otherSubscribe">
+    <anypoint-mq:subscriber
+      destination="${paymentsQueue}"
+        config-ref="Anypoint_MQ_Config"
+        circuitBreaker="GlobalCircuit"/>    <!-- (3) -->
+    <flow-ref name="invoiceProcess">
+</flow>
+
+<sub-flow name="invoiceProcess">
+  <ftp:write path="${auditFolder}"          <!-- (4) -->
+	   config-ref="ftp-config"/>
+  <http:request config-ref="requestConfig"  <!-- (5) -->
+	   path="/external"/>
+</sub-flow>
+```
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p><strong>(1)</strong></p></td><td><p>Sets the <code>name</code> parameter to share a common circuit breaker on multiple queues.</p></td></tr><tr><td><p><strong>(2)</strong></p></td><td><p>Identifies two errors that can affect the processing of messages from the Subscriber source and passes each as a CSV list.</p></td></tr><tr><td><p><strong>(3)</strong></p></td><td><p>For both subscribers, references the global circuit breaker configuration.</p></td></tr><tr><td><p><strong>(4)</strong></p></td><td><p>Might throw several errors, but only <code>FTP:RETRY_EXHAUSTED</code> is relevant to the circuit breaker.</p></td></tr><tr><td><p><strong>(5)</strong></p></td><td><p>The HTTP connector might throw an <code>HTTP:SERVICE_UNAVAILABLE</code> error, preventing the message from being processed.</p></td></tr></tbody></table>
+
+In this scenario, both subscribers stop polling for messages as soon as the error count reaches the
+`errorsThreshold="10"` value, counting both `FTP:RETRY_EXHAUSTED` and `HTTP:SERVICE_UNAVAILABLE`
+errors. When the `tripTimeout` value elapses, one of the subscribers polls for a message and uses it
+to test the circuit, enabling the polling for both subscribers if the processing of that message
+succeeds.
+
+## FIFO Queues
+
+FIFO queues are most suitable for single-consumer scenarios. When one consumer is accessing a
+message, all other consumers are blocked until the first batch is processed. No messages are
+delivered until all in-flight messages are acknowledged or not acknowledged.
+
+With message groups, multiple consumers can access messages in a FIFO queue at the same time. In
+this case, one consumer accesses messages in a group and another consumer accesses messages in
+another group. Message order is preserved within each message group.
+
+FIFO queues do not support retrieving messages by message group ID.
+
+> [!IMPORTANT] To preserve message processing order, set the value of `maxConcurrency` to `1` for
+> flows that consume messages from a FIFO queue.
+
+> [!NOTE] When you configure a polling subscriber with `fetchSize=1` and `maxConcurrency=1` on a
+> FIFO queue with message groups, the subscriber fetches one message per poll and dispatches it to
+> the flow. Before the first message is acknowledged, the next poll can fetch a second message,
+> which waits to be processed until the flow finishes processing the first one. Both messages are
+> considered in-flight at the broker level until theyâre acknowledged. This configuration preserves
+> message order but can result in two in-flight messages per message group at a time, which is
+> expected behavior.
+
+### FIFO Queues and Clustering
+
+FIFO queues behave the same in a clustered environment as in a non-clustered environment.
+
+FIFO queues consume messages in the specified order. After the message is consumed, any further
+message processing can be distributed to other nodes. In this case, if the consumer acknowledges a
+message before it is fully processed, message order might be lost during message processing.
+
+- In an
+  [on-premises, high availability clustering environment](../../mule-runtime/latest/mule-high-availability-ha-clusters),
+  the Subscriber source in the Anypoint MQ connector runs on all nodes by default.
+
+  You can change the behavior to run as a primary node by selecting **Primary node only** in the
+  **Advanced** tab.
+
+- In [CloudHub](../../cloudhub/) with multiple workers, all workers are run as a primary node.
+
+  In this case, all workers running the application consume from the same FIFO queue.
+
+## See Also
+
+- [Anypoint MQ Consume Operation](anypoint-mq-consume)
+- [Anypoint MQ ACK and NACK Operations](anypoint-mq-ack)
+- [Anypoint MQ Connector Reference](anypoint-mq-connector-reference)
+---
+
+# Anypoint MQ Publish Operation
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Publish operation enables you to create a new Anypoint MQ message and send it to the specified
+destination: queue, FIFO queue, or message exchange. With it, you can configure both the content of
+the message and all the headers and properties you need.
+
+## Outgoing Message Structure
+
+Messages contain these parameters:
+
+- `body`
+
+  Contains the body of the published Anypoint MQ message.
+
+- `properties`
+
+  Represents a simple key-value map of strings that are the message properties of the message.
+
+## Send a Message
+
+When used in its default form, the connector publishes the content found in the incoming message
+`payload` as `body` of the Anypoint MQ message, serialized as a string, to the declared
+`destination`:
+
+![Publish configuration window showing Destination set to invoiceQueue](_images/amq-4x-publish-operation.png)
+
+```xml
+<anypoint-mq:publish destination="invoiceQueue" config-ref="Anypoint_MQ_config"/>
+```
+
+This operation produces the following output:
+
+- A copy of the body sent as payload
+
+  For example, if you are sending a "Hello world" message, the resulting payload is the "Hello
+  world" string.
+
+- The message `messageId` value in the message attributes
+
+![Mule message output, including payload and message attributes](_images/amq-4x-publish-attributes.png)
+
+## Configure User Properties
+
+You can define properties for outgoing messages, for example, to provide compatibility with other
+messaging systems or to communicate the content type of a message. Anypoint MQ supports strings and
+numbers in property values.
+
+> [!IMPORTANT] If you create routing rules on numeric property values and you use Anypoint MQ
+> Connector to publish messages, you must upgrade to Anypoint MQ Connector version 3.2.0 or later.
+> Previous versions of the connector send all property values as strings, which results in messages
+> not matching routing rules on numeric properties.
+
+To configure these properties directly in the message, use the `properties` parameter of the Publish
+operation and define a key-value map using DataWeave.
+
+For example:
+
+![Connector configuration showing AUTH_TYPE and AUTH_TOKEN attributes](_images/amq-4x-publish-properties.png)
+
+```xml
+<anypoint-mq:publish config-ref="Anypoint_MQ_Config"
+    destination="invoiceQueue">
+  <anypoint-mq:properties><![CDATA[#[output application/java ---
+      {
+          AUTH_TYPE: 'jwt',
+          AUTH_TOKEN: attributes.queryParams.token
+        }]]]>
+      <anypoint-mq:properties>
+</anypoint-mq:publish>
+```
+
+User properties that you define in the Publish operation appear in Anypoint MQ in the **Message
+Browser** details pane for the message:
+
+![Message Browser showing the messageâs user properties](_images/amq-4x-publish-user-props.png)
+
+### Transform the Message Body
+
+If the payload is not in the correct format, you can transform it to the correct format.
+
+To transform a payload, declare an inline DataWeave transformation in the `body` parameter of the
+Publish operation:
+
+![Connector configuration showing a DataWeave transformation](_images/amq-4x-publish-transformed.png)
+
+```xml
+<anypoint-mq:publish config-ref="Anypoint_MQ_Config"
+   destination="invoiceQueue">
+      <anypoint-mq:body ><![CDATA[#[output application/json ---
+      {
+        customer: payload.id,
+        items: payload.invoice.items
+      }]]]>
+      </anypoint-mq:body>
+</anypoint-mq:publish>
+```
+
+In this case, the result of the operation is the _transformed_ value as JSON.
+
+## Advanced Configurations
+
+You might want to set a unique custom message ID instead of letting Anypoint MQ generate it. You can
+also add the content type of the message body as a property.
+
+### Set a Custom Message ID
+
+Instead of letting Anypoint MQ generate a unique `messageId` value for the new published message,
+set a custom `messageId` value in the **Message Id** field in the **Advanced** tab:
+
+![Publish configuration window Advanced tab showing Message ID set to 12345](_images/amq-4x-publish-advanced.png)
+
+The ID of an Anypoint MQ message must be unique. Make sure to choose a unique custom ID to avoid
+unwanted side effects of duplicated IDs. FIFO queues provide message deduplication. If multiple
+messages are sent to a FIFO queue containing the same message ID, the first message to arrive is
+kept as the valid message. See
+[FIFO Exactly-Once Delivery](../../mq/mq-queues#fifo-exactly-once-delivery) for more information.
+
+### Delay Message Delivery
+
+Anypoint MQ supports the ability to publish a message and postpone making it visible to consumers
+using the `deliveryDelay` parameter:
+
+1.  Select the Publish operation.
+2.  Click the **Advanced** tab.
+3.  Set the **Delivery Delay** parameter to the amount of time to delay:
+
+    ![Publish configuration window Advanced tab showing Delivery Delay set to 2000](_images/amq-4x-publish-advanced-delay.png)
+
+    By default, the `deliveryDelay` parameter is set to `0`, which specifies to deliver messages
+    immediately (no delay). The maximum `deliveryDelay` value is 15 minutes.
+
+    See [Delayed Message Delivery](../../mq/mq-glossary#delay-messages) for more information.
+
+4.  Select the unit from the **Delivery Delay Unit** menu.
+
+### Set a Message Group ID
+
+When using FIFO queues, you can assign a message group ID to an outgoing message using the
+`messageGroupID` parameter:
+
+1.  Select the Publish operation.
+2.  Click the **Advanced** tab.
+3.  Enter an ID in the **Message Group ID** field:
+
+    ![Publish configuration window Advanced tab showing Message Group ID set to #[vars.userId]](_images/amq-4x-publish-advanced-groupid.png)
+
+    By default, all messages sent to a FIFO queue have the same autogenerated group ID.
+
+    See [FIFO Queues and Message Groups](../../mq/mq-queues#fifo-queues-msg-groups) for more
+    information.
+
+To get the maximum value from message groups, define more granular groups with fewer messages in
+each group. For example, when processing messages from multiple users, to keep each userâs events in
+relative order, use the value of the userâs `userId` as the message group ID.
+
+### Propagate Content Type
+
+To specify whether the content type of the message body is propagated as a property of the Anypoint
+MQ message or not, use the `sendContentType` parameter.
+
+Setting this parameter to `true` automatically adds a `contentType` property to the outgoing
+message. This can be useful to declare that a message body is in `application/json` or
+`application/xml` format.
+
+## See Also
+
+- [Anypoint MQ Subscriber Source](anypoint-mq-listener)
+- [Anypoint MQ Glossary](../../mq/mq-glossary)
+- [Configuring and Using Queues](../../mq/mq-queues)
+---
+
+# Anypoint MQ Connector Overview
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for Anypoint MQ (Anypoint MQ Connector) provides publish-subscribe messaging to
+Mule apps using the Anypoint MQ cloud service.
+
+Anypoint MQ supports a wide range of messaging use cases, such as enterprise messaging patterns,
+asynchronous communications between microservices, and IoT. Anypoint MQ also has a REST API for
+publishing or consuming messages using frameworks such as node.js, Java, Go, and DevOps bash
+scripts.
+
+## Requirements
+
+To use this connector, you must be familiar with Anypoint Studio, Anypoint Connectors, and
+application flows. Anypoint MQ Connector is free, but connecting to the service in Anypoint Platform
+requires a license.
+
+### Compatibility
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Software</th><th>Version</th></tr></thead><tbody><tr><td><p>Mule runtime engine</p></td><td><p>4.1.1 and later</p></td></tr><tr><td><p>Anypoint Studio</p></td><td><p>7 and later</p></td></tr></tbody></table>
+
+This documentation applies to Anypoint MQ Connector 4.x only. To migrate from version 3.x to the
+version 4.x, see
+[Upgrading and Migrating Anypoint MQ Connector](anypoint-mq-connector-upgrade-migrate).
+
+## Install Anypoint MQ Connector
+
+You can use this connector with apps written in Anypoint Studio, standalone apps, or apps written in
+XML.
+
+In Anypoint Studio:
+
+1.  Create or open a Mule project.
+2.  Click the **Exchange** icon in the Studio task bar.
+3.  Enter your Anypoint Platform username and password and click **Sign in**.
+4.  Select **All assets** and search for `MQ`.
+5.  Select **Anypoint MQ Connector - Mule 4**, and click **Add to project**.
+6.  Follow the prompts to install the connector.
+
+For standalone apps or apps written in XML:
+
+1.  Open your Mule project in Anypoint Studio.
+2.  Add the connector as a dependency in the `pom.xml` file:
+
+    ```xml
+    <dependency>
+      <groupId>com.mulesoft.connectors</groupId>
+      <artifactId>anypoint-mq-connector</artifactId>
+      <version>x.x.x</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+    ```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information, access the connector in
+[Anypoint Exchange](https://www.mulesoft.com/exchange/) and click **Dependency Snippets**.
+
+## Configure an Operation in a Mule Project
+
+In Anypoint Studio:
+
+1.  Install the connector, if itâs not already installed.
+
+    See [Install Anypoint MQ Connector](#install-mq-connector).
+
+2.  Create or open a Mule project.
+3.  Search for `mq` in the **Mule Palette**.
+4.  Click **Anypoint MQ** to see the available operations for the connector.
+
+    ![The Mule Palette with Anypoint MQ Connector selected,  displaying the available operations](_images/amq-4x-connector-palette.png)
+
+5.  Configure the operation accordingly.
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Operation</th><th>Description</th></tr></thead><tbody><tr><td><p><a href="anypoint-mq-ack">ACK</a></p></td><td><p>Indicates that the message was consumed correctly and deletes the message from <code>In Flight</code> status.</p></td></tr><tr><td><p><a href="anypoint-mq-consume">Consume</a></p></td><td><p>Consumes messages from a queue.</p></td></tr><tr><td><p><a href="anypoint-mq-ack">NACK</a></p></td><td><p>Changes the status of the message from <code>In Flight</code> to <code>In Queue</code> to be consumed again by an available consumer.</p></td></tr><tr><td><p><a href="anypoint-mq-publish">Publish</a></p></td><td><p>Publishes messages to a destination.</p></td></tr><tr><td><p><a href="anypoint-mq-listener">Subscriber</a></p></td><td><p>Listens for messages from a queue.</p></td></tr></tbody></table>
+
+### Configure the Connection to the Default Subscriber
+
+For each operation, you must configure a connection to a subscriber.
+
+1.  In Anypoint Studio, drag the name of the operation from the **Mule Palette** to the canvas, and
+    then select it.
+2.  Click the green plus sign for **Connector configuration**.
+3.  In Anypoint Platform, click **MQ > Destinations**.
+4.  Click **Copy** and select **Connector version 4.x and later** from the menu:
+
+    ![Copy button and menu with connector version options](../../mq/_images/mq-tutorial-url.png)
+
+5.  In Anypoint Studio, in the **Anypoint MQ Config** window, paste the URL in the **URL** field.
+6.  In Anypoint MQ, click **MQ > Client Apps**.
+
+    If needed, create a client app.
+
+7.  Click the client app name to display the details pane.
+8.  Copy the client app ID and client secret values from the details pane to the **Anypoint MQ
+    Config** window in Studio:
+
+    ![Global Element properties, including URL, client app ID, and client secret](../../mq/_images/mq-tutorial-studio7-mq-config.png)
+
+9.  Click **Test Connection** to verify the Anypoint MQ Default subscriber.
+10. Click **OK**.
+
+For more information, see
+[Create and Connect a Mule 4 App to Anypoint MQ in Anypoint Studio 7](../../mq/mq-tutorial#configure-mule-4-studio)
+in the [Anypoint MQ Tutorial](../../mq/mq-tutorial).
+
+## See Also
+
+- [Tutorial: Create a Queue and Send Messages to It](../../mq/mq-tutorial)
+- [FAQ: Anypoint MQ](../../mq/mq-faq)
+- [Anypoint MQ REST APIs](../../mq/mq-apis)
+- [Anypoint MQ Connector in Anypoint Exchange](https://anypoint.mulesoft.com/exchange/com.mulesoft.connectors/anypoint-mq-connector/)
+- [Anypoint MQ Connector Release Notes for Mule 4](../../release-notes/connector/anypoint-mq-connector-release-notes-mule-4)
+

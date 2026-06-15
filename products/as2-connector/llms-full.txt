@@ -1,0 +1,1776 @@
+﻿# AS2 Connector - Full Documentation
+
+# Sending MDNs to Multiple Partners
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example shows how to send Message Disposition Notifications (MDNs) to multiple
+partners. This example contains two flows:
+
+- The first flow configures an AS2 listener endpoint to receive inbound AS2 messages.
+- The second flow receives message payloads and AS2 sender and receiver information via HTTP. It
+  then uses the **Send with Sync MDN** operation to send outbound AS2 messages to a target AS2
+  endpoint.
+
+This example is similar to the
+[Receiving AS2 Messages and Sending Back MDNs](as2-connector-example-receive-send) example, except
+that for this example:
+
+- The partner information must already exist in the configured keystore.
+- You must configure the partner information as follows in the **Partners** tab of the global
+  element:
+  - Set the **Listener Mode** field to **Shared mode** and specify details for the additional
+    partner.
+  - Leave the **Partner config** section of this tab blank or the connector will returns errors. The
+    following screenshot highlights this section.
+
+    ![Do not configure fields in the highlighted section of the AS2 Connector Listener config screen](_images/as2-connector-example-multi-caveat.png)
+
+## Configuring an AS2 Listener Endpoint to Receive Inbound AS2 Messages
+
+This flow listens for inbound AS2 messages from AS2 Connector send operations and other sources,
+such as mendelson AS2 software and HTTP requests:
+
+![Flow for exposing the AS2 listener endpoint](_images/as2-connector-example-mdn1.png)
+
+You can specify partner information in **shared mode** either by entering it directly or by using an
+inline expression.
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app. In this XML code, the partner information is entered directly:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd">
+	<http:listener-config name="HTTP_Server_Config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<as2-mule4:listener-config name="AS2_Server_Listener" doc:name="AS2 Connector Listener config" httpListenerConfig="HTTP_Server_Config" securityLevel="SIGNED_ENCRYPTED">
+		<as2-mule4:self-config as2Name="partnera" x509Alias="partnera" email="support@partnera.com"/>
+		<as2-mule4:listener-mode >
+			<as2-mule4:shared-mode>
+				<as2-mule4:partner-configs >
+					<as2-mule4:partner-detail-extended as2Name="partnerb" x509Alias="partnerb" email="support@partnerb.com" />
+					<as2-mule4:partner-detail-extended as2Name="partnerc" x509Alias="partnerc" email="support@partnerc.com" />
+				</as2-mule4:partner-configs>
+			</as2-mule4:shared-mode>
+		</as2-mule4:listener-mode>
+		<as2-mule4:key-store-config keystorePassword="test" keystorePath="as2/partnera.p12" privateKeyPassword="test" />
+	</as2-mule4:listener-config>
+	<flow name="AS2Listener" >
+		<as2-mule4:as2-listener doc:name="As 2 listener" config-ref="AS2_Server_Listener" path="/as2-receive"/>
+		<logger level="INFO" doc:name="Message Received!" message="Message Received: #[payload]"/>
+	</flow>
+</mule>
+```
+
+To specify partner information with an inline expression, use this XML code:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd">
+	<http:listener-config name="HTTP_Server_Config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<as2-mule4:listener-config name="AS2_Server_Listener" doc:name="AS2 Connector Listener config" httpListenerConfig="HTTP_Server_Config" securityLevel="SIGNED_ENCRYPTED">
+    	<as2-mule4:self-config as2Name="partnera" x509Alias="partnera" email="support@partnera.com"/>
+    	<as2-mule4:listener-mode >
+        	<as2-mule4:shared-mode partnerConfigs='#[[&#10;	{as2Name:"partnerb", x509Alias:"partnerb", email:"support@partnerb.com"},&#10;	{as2Name:"partnerc", x509Alias:"partnerc", email:"support@partnerc.com"}&#10;]]' />
+    	</as2-mule4:listener-mode>
+    	<as2-mule4:key-store-config keystorePassword="test" keystorePath="as2/partnera.p12" privateKeyPassword="test" />
+	</as2-mule4:listener-config>
+	<flow name="AS2Listener" >
+		<as2-mule4:as2-listener doc:name="As 2 listener" config-ref="AS2_Server_Listener" path="/as2-receive"/>
+		<logger level="INFO" doc:name="Message Received!" message="Message Received: #[payload]"/>
+	</flow>
+</mule>
+```
+
+## Sending Outbound AS2 Messages to the Configured AS2 Endpoint
+
+This flow listens for messages, logs a message and its payload, and then uses the **Send with Sync
+MDN** operation to forward the message to the exposed AS2 endpoint:
+
+![Flow for forwarding AS2 messages to the exposed endpoint](_images/as2-connector-mdn2-example.png)
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" basePath="b2b" >
+		<http:listener-connection protocol="HTTPS" host="0.0.0.0" port="${https.port}" >
+			<tls:context >
+				<tls:key-store type="jks" path="rootca.jks" alias="rootca" keyPassword="test" password="test" />
+			</tls:context>
+		</http:listener-connection>
+	</http:listener-config>
+	<configuration-properties doc:name="Configuration properties" file="app.properties" />
+	<as2-mule4:send-config name="AS2_Connector_Send_config" doc:name="AS2 Connector Send config" >
+		<as2-mule4:connection partnerURL="#[vars.as2URL]" >
+			<tls:context >
+				<tls:trust-store insecure="true" />
+			</tls:context>
+		</as2-mule4:connection>
+		<as2-mule4:self-config as2Name="#[vars.as2Sender]" x509Alias="#[vars.as2Sender]" email="support@forward-van.com" />
+		<as2-mule4:partner-config as2Name="#[vars.as2Receiver]" x509Alias="#[vars.as2Receiver]" email="support@mythical.com"/>
+		<as2-mule4:requester-config subject="EDI" messageIntegrityCheckAlgorithm="SHA256" mdnMessageIntegrityCheckAlgorithm="SHA256" encryptionAlgorithm="DES_EDE3" requestReceipt="SIGNED_REQUIRED"/>
+		<as2-mule4:keystore-config keystorePassword="test" keystorePath="as2/forward-van.p12" privateKeyPassword="test" />
+	</as2-mule4:send-config>
+	<flow name="forward-van-as2-simulatorFlow1" >
+		<http:listener doc:name="/forward-van/as2-send" config-ref="HTTP_Listener_config" path="/forward-van/as2-send"/>
+		<logger level="INFO" doc:name="Logger" message="Forward VAN is sending IDOC to Mythical via AS2"/>
+		<set-variable value="#[attributes.headers.'as2-URL']" doc:name="as2URL" variableName="as2URL"/>
+		<set-variable value="#[attributes.headers.'as2-from']" doc:name="as2Sender" variableName="as2Sender"/>
+		<set-variable value="#[attributes.headers.'as2-to']" doc:name="as2Receiver" variableName="as2Receiver"/>
+		<as2-mule4:send-with-sync-mdn doc:name="Send with Sync MDN" config-ref="AS2_Connector_Send_config" outputMimeType="application/EDI-X12">
+			<as2-mule4:custom-headers ><![CDATA[#[output application/java
+---
+{
+	"PLANT-CODE" : "ABC-12345"
+}]]]></as2-mule4:custom-headers>
+		</as2-mule4:send-with-sync-mdn>
+		<logger level="INFO" doc:name="Logger" message="#[output application/json --- attributes]"/>
+		<set-payload value="#[output application/json --- attributes.as2MdnAttributes]" doc:name="Set Payload" />
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [AS2 Connector Examples](as2-connector-examples)
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Receiving AS2 Messages and Sending Back MDNs
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+These examples show how to use Anypoint Connector for AS2 (AS2 Connector) to receive AS2 messages
+from a trading partner and send MDNs (Message Disposition Notifications) to that partner in
+response:
+
+- [Receiving AS2 Messages](#receiving-messages)
+
+  Receive AS2 messages from your partner and, for every received message, log a message that
+  contains the message payload to the Studio console.
+
+- [Sending Synchronous AS2 MDNs](#synchronous-mdns)
+
+  Send a synchronous AS2 MDN in response to each received AS2 message.
+
+- [Sending Asynchronous AS2 MDNs](#asynchronous-mdns)
+
+  Send an asynchronous AS2 MDN in response to each received AS2 message.
+
+## Receiving AS2 Messages
+
+Creating this example involves creating a new Mule project and configuring the **As 2 Listener**
+source and **Logger** component.
+
+The following screenshot shows the Anypoint Studio app flow for this example:
+
+![Receive AS2 Messages App Flow](_images/as2-connector-example-listener-flow.png)
+
+### Create a Flow to Receive the Message
+
+Configure the **AS 2 Listener** source to initiate a Mule flow when a call is made to the
+`/as2-receive` path on local host port `8081`:
+
+1.  In Anypoint Studio, create a new Mule project.
+2.  In the **Mule Palette** view, select the **As 2 listener** source and drag it to the canvas.
+3.  On the **As 2 listener** properties screen, optionally change the value of the **Display Name**
+    field.
+4.  Set the **Path** field to `/as2-receive`.
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the **As 2 listener** source in the app.
+6.  On the **General** tab, click the plus sign (**+**) next to the **HTTP Listener** field.
+7.  Accept the defaults and click **OK**.
+8.  On the **General** tab, configure the keystore that contains the certificates and keys:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Keystore Password</p></td><td><p><code>test</code></p></td></tr><tr><td><p>Keystore Path</p></td><td><p><code>as2/partnera.p12</code></p></td></tr><tr><td><p>Private Key Password</p></td><td><p><code>test</code></p></td></tr></tbody></table>
+
+9.  On the **Partners** tab, specify the self and partner credentials.
+
+    For the self credentials, configure these fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>AS2 Partner Name</p></td><td><p><code>partnera</code></p></td></tr><tr><td><p>x509 Alias</p></td><td><p><code>partnera</code></p></td></tr><tr><td><p>email</p></td><td><p><code>support@partnera.com</code></p></td></tr></tbody></table>
+
+    For the partner credentials, configure these fields:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>AS2 Partner Name</p></td><td><p><code>partnerb</code></p></td></tr><tr><td><p>x509 Alias</p></td><td><p><code>partnerb</code></p></td></tr><tr><td><p>email</p></td><td><p><code>support@partnerb.com</code></p></td></tr></tbody></table>
+
+### Add the Logger Component
+
+Add the **Logger** component to the flow and configure it to log a message that includes the payload
+of the received message:
+
+1.  From the **Mule Palette** view, select **Core** and drag the **Logger** component next to **As 2
+    listener**.
+2.  In the Logger properties screen, set the **Message** field to `Message Received: #[payload]`.
+
+### Save and Test the Mule App
+
+1.  Save the project.
+2.  Run the app by clicking the project name in **Package Explorer** and then clicking **Run** >
+    **Run As** > **Mule Application**.
+
+    If the application starts correctly, the console displays this message:
+
+    `Mule is up and kicking`
+
+3.  Test the app by opening `http://localhost:8081/as2-receive` from a browser or an app like
+    Postman and adding the required credentials.
+
+    For each new request, the Studio console displays the received message. For example:
+
+```console
+INFO  2022-09-09 17:15:46,409 [[MuleRuntime].uber.06: [as2-basic-example].AS2Listener.CPU_LITE @1369de96] [processor:
+AS2Listener/processors/0; event: 30609f70-307c-11ed-8f5a-38f9d3713331] org.mule.runtime.core.internal.processor.
+LoggerMessageProcessor: Message Received: Test Message
+```
+
+### XML for the Receiving AS2 Messages Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd">
+	<http:listener-config name="HTTP_Server_Config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<as2-mule4:listener-config name="AS2_Server_Listener" doc:name="AS2 Connector Listener config" httpListenerConfig="HTTP_Server_Config" securityLevel="SIGNED_ENCRYPTED">
+		<as2-mule4:self-config as2Name="partnera" x509Alias="partnera" email="support@partnera.com"/>
+		<as2-mule4:partner-config as2Name="partnerb" x509Alias="partnerb" email="support@partnerb.com" />
+		<as2-mule4:key-store-config keystorePassword="test" keystorePath="as2/partnera.p12" privateKeyPassword="test" />
+	</as2-mule4:listener-config>
+	<flow name="AS2Listener" >
+		<as2-mule4:as2-listener doc:name="As 2 listener" config-ref="AS2_Server_Listener" path="/as2-receive"/>
+		<logger level="INFO" doc:name="Message Received!" message="Message Received: #[payload]"/>
+	</flow>
+</mule>
+```
+
+## Sending Synchronous AS2 MDNs
+
+When your trading partner uses an AS2 listener, like in the
+[Receiving AS2 Messages](#receiving-messages-example) example, the listenerâs MDN mode controls when
+a synchronous MDN is returned. The AS2 listener supports these configurations for managing
+synchronous MDN delivery timing:
+
+- **Immediate**
+
+  The listener returns the MDN as soon as the incoming message is parsed and validated. The
+  receiverâs business flow continues as a separate process after the MDN is sent. This is the
+  default MDN Mode.
+
+- **Auto**
+
+  The listener returns the MDN only after its internal business flow completes. This ensures that if
+  the flow fails, a negative MDN is returned to the sender to signal a processing error.
+
+  For this configuration, set the MDN mode to `AUTO` on the AS2 listener.
+
+      <as2-mule4:as2-listener doc:name="As 2 listener" config-ref="AS2\_Server\_Listener" path="/as2-receive" mdnMode="AUTO"/>
+
+## Sending Asynchronous AS2 MDNs
+
+The AS2 listener validates the presence of the `Disposition-Notification-To` and
+`Receipt-Delivery-Option` headers when receiving an asynchronous MDN request. The listener
+immediately returns an `HTTP 200 OK` to acknowledge the inbound message. The listener uses the URL
+in the `Receipt-Delivery-Option` header to return the MDN via a new HTTP connection.
+
+The AS2 listener supports these configurations for managing asynchronous MDN delivery timing:
+
+- **Immediate**
+
+  The listener posts the MDN to the `Receipt-Delivery-Option` URL as soon as the inbound message is
+  parsed and validated. This is the default MDN Mode.
+
+- **Auto**
+
+  The listener posts the MDN to the `Receipt-Delivery-Option` URL only after its business flow
+  completes, allowing a negative MDN to be sent if the flow fails.
+
+  For this configuration, set the MDN mode to `AUTO` on the AS2 listener.
+
+      <as2-mule4:as2-listener doc:name="As 2 listener" config-ref="AS2\_Server\_Listener" path="/as2-receive" mdnMode="AUTO"/>
+
+## See Also
+
+- [AS2 Connector Examples](as2-connector-examples)
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Receiving AS2 MDNs
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The following example shows how to use Anypoint Connector for AS2 (AS2 Connector) to receive AS2 MDN
+(Message Disposition Notification) messages from a trading partner and, for every received MDN, log
+a message that contains the message payload to the Studio console.
+
+This example is similar to the
+[Receiving AS2 Messages](as2-connector-example-receive-send#receiving-messages) example, except that
+in this example:
+
+- You use the **AS2 mdn listener** source instead of the **As 2 listener** source and set the path
+  to `/receiveMDN`.
+- On the **Logger** properties window, you set the **Message** field to `MDN Received: #[payload]`.
+
+The following screenshot shows the Anypoint Studio app flow for this example:
+
+![Receive MDN Messages Example App Flow](_images/as2-connector-example-mdn-listener-flow.png)
+
+To test this example:
+
+1.  Run this app.
+2.  Run the app configured in the
+    [Sending Asynchronous AS2 MDNs](as2-connector-example-receive-send#asynchronous-mdns) example.
+
+    In the Studio console in this app, you should see a message for each received AS2 MDN that was
+    sent asynchronously. For example:
+
+    ```console
+    INFO  2022-09-09 17:15:46,409 [[MuleRuntime].uber.06: [as2-basic-example].ReceiveAsyncMDN.CPU_LITE @1369de96] [processor:
+    ReceiveAsyncMDN/processors/0; event: 30609f70-307c-11ed-8f5a-38f9d3713331] org.mule.runtime.core.internal.processor.
+    LoggerMessageProcessor: MDN Received!
+    ```
+
+> [!NOTE] If the **Receipt delivery url** field is not configured for the **Send with Async MDN**
+> source and you are using an HTTP request, the header `Receipt-Delivery-Option` must be included
+> with the **As 2 mdn listener** endpoint (`http://localhost:8082/receiveMDN`).
+
+## XML for the Receiving AS2 MDNs Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="localhost" port="8082" />
+	</http:listener-config>
+	<as2-mule4:mdn-listener-config name="AS2_Connector_Mdn_listener_config" doc:name="AS2 Connector Mdn listener config" httpListenerConfig="HTTP_Listener_config" >
+		<as2-mule4:self-config as2Name="partnera" x509Alias="partnera" email="support@partnera.com" />
+		<as2-mule4:partner-config as2Name="partnerb" x509Alias="partnerb" email="support@partnerb.com" />
+		<as2-mule4:key-store-config keystorePassword="test" keystorePath="as2/partnera.p12" privateKeyPassword="test" />
+	</as2-mule4:mdn-listener-config>
+	<flow name="AS2MDNListener" >
+		<as2-mule4:as2-mdn-listener doc:name="As 2 mdn listener"path="/receiveMDN" config-ref="AS2_Connector_Mdn_listener_config"/>
+		<logger level="INFO" doc:name="Message Received!" message="MDN Received: #[payload]"/>
+	</flow>
+</mule>
+```
+
+## See Also
+
+- [AS2 Connector Examples](as2-connector-examples)
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Sending AS2 Messages and Receiving MDNs
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+These examples show how to use Anypoint Connector for AS2 (AS2 Connector) to send AS2 messages to a
+trading partner and receive Message Disposition Notifications (MDNs) in response:
+
+- [Send with Synchronous MDN](#send-with-synchronous-mdn)
+
+  Send an AS2 message and receive a synchronous MDN in response.
+
+- [Send with Asynchronous MDN](#send-with-asynchronous-mdn)
+
+  Send an AS2 message and receive an asynchronous MDN in response.
+
+## Send with Synchronous MDN
+
+To create this example, start a new Mule project and configure the `http:listener` source and the
+Logger component.
+
+The image shows the Anypoint Studio flow for this example:
+
+![Anypoint Studio flow for sending AS2 messages and receiving synchronous MDNs](_images/as2-connector-example-sync-flow.png)
+
+### Create a Flow to Send an AS2 Message
+
+Follow these steps to configure the `http:listener` source to initiate a Mule flow when a call is
+made to the `/sendSyncFlow` path on localhost port 8082:
+
+1.  Drag the HTTP listener from the Mule Palette onto the canvas.
+2.  Optionally, change the display name on the properties window for the listener and click **OK**.
+3.  Set the **Path** field to `/sendSyncFlow`.
+4.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP listener.
+5.  On the **General** tab, accept the defaults and click **OK**.
+
+### Add the Send with Synchronous MDN Operation
+
+Follow these steps to add the **Send with Sync MDN** operation and configure it to send MDNs to the
+receiving endpoint of `partnera`:
+
+1.  Drag the **Send with Sync MDN** operation next to the listener component on the canvas.
+2.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element for the **Send with Sync MDN** operation.
+3.  Configure the connection by setting the **Partner URL** field to
+    `http://localhost:8081/as2-receive` on the **General** tab.
+4.  Specify the self and partner credentials.
+
+    Configure these fields in the **Self Config** section:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>AS2 Partner Name</p></td><td><p>partnerb</p></td></tr><tr><td><p>x509 Alias</p></td><td><p>partnerb</p></td></tr><tr><td><p>email</p></td><td><p><a href="mailto:support@partnerb.com">support@partnerb.com</a></p></td></tr></tbody></table>
+
+    Configure these fields in the **Partner Config** section:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>AS2 Partner Name</p></td><td><p>partnera</p></td></tr><tr><td><p>x509 Alias</p></td><td><p>partnera</p></td></tr><tr><td><p>email</p></td><td><p><a href="mailto:support@partnera.com">support@partnera.com</a></p></td></tr></tbody></table>
+
+5.  If you want to use algorithms, configure them in the **Requester Config** section.
+6.  In the **Keystore** section, apply these values to the keystore that contains the certificates
+    and keys:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><p>Keystore Password</p></td><td><p>test</p></td></tr><tr><td><p>Keystore Path</p></td><td><p>as2/partnerb.p12</p></td></tr><tr><td><p>Private Key Password</p></td><td><p>test</p></td></tr></tbody></table>
+
+### Add the Logger Component
+
+Add the logger component and configure it to log a message when the app sends an AS2 message and
+receives a synchronous MDN.
+
+1.  From the Mule Palette, select **Core** and drag the logger component next to the **Send with
+    Sync MDN** operation.
+2.  Set the message for the logger to `Message Sent and MDN Received!`.
+
+### Save and Test the Mule App
+
+Follow these steps to deploy your application locally and verify that it correctly sends AS2
+requests and receives synchronous MDNs.
+
+1.  Save the project.
+2.  Run the app by clicking the project name in **Package Explorer** and then clicking **Run** >
+    **Run As** > **Mule Application**.
+
+    If the application starts correctly, the console shows a success message.
+
+3.  Test the app by opening `http://localhost:8082/sendSyncFlow` from a browser or an app like
+    Postman.
+
+You can now send AS2 requests to the endpoint configured in the
+[Receiving AS2 Messages and Sending Back MDNs](as2-connector-example-receive-send#receiving-messages-example)
+example. With the example running, you can observe the message sent by the **Send with Sync MDN**
+operation.
+
+### XML for the Sending Synchronous AS2 MDNs Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd">
+	<http:listener-config name="HTTP_Client_Config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+	<as2-mule4:send-config name="AS2_Client_Send_Sync" doc:name="AS2 Connector Send config" >
+		<as2-mule4:connection partnerURL="http://localhost:8081/as2-receive" />
+		<as2-mule4:self-config as2Name="partnerb" x509Alias="partnerb" email="support@partnerb.com" />
+		<as2-mule4:partner-config as2Name="partnera" x509Alias="partnera" email="support@partnera.com" />
+		<as2-mule4:requester-config messageIntegrityCheckAlgorithm="SHA512" mdnMessageIntegrityCheckAlgorithm="SHA512" encryptionAlgorithm="DES_EDE3" requestReceipt="SIGNED_REQUIRED" />
+		<as2-mule4:keystore-config keystorePassword="test" keystorePath="as2/partnerb.p12" privateKeyPassword="test" />
+	</as2-mule4:send-config>
+	<flow name="SendSyncFlow" >
+		<http:listener doc:name="/sendSyncFlow" config-ref="HTTP_Client_Config" path="/sendSyncFlow" />
+		<as2-mule4:send-with-sync-mdn doc:name="Send with Sync MDN" config-ref="AS2_Client_Send_Sync"/>
+		<logger level="INFO" doc:name="Message Sent and MDN Received!" message="Message Sent and MDN Received!" />
+	</flow>
+</mule>
+```
+
+## Send with Async MDN
+
+This example follows the same structure as the [Send with Sync MDN](#send-with-synchronous-mdn)
+example but incorporates these changes:
+
+- The **Send with Async MDN** operation is used instead of the **Send with Sync MDN** operation.
+- A value is specified for the **Receipt delivery url** field. The field can be configured in the
+  global element for the **Send with Async MDN** operation or in the properties window.
+
+The image shows the Anypoint Studio flow for this example:
+
+![Anypoint Studio flow for sending AS2 messages and receiving asynchronous MDNs](_images/as2-connector-example-async-flow.png)
+
+### XML for the Sending AS2 Asynchronous MDNs Example
+
+Paste this code into your Studio XML editor to quickly load the flow for this example into your Mule
+app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:as2-mule4="http://www.mulesoft.org/schema/mule/as2-mule4" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/as2-mule4 http://www.mulesoft.org/schema/mule/as2-mule4/current/mule-as2-mule4.xsd">
+	<http:listener-config name="HTTP_Client_Config" doc:name="HTTP Listener config" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+	<as2-mule4:send-config name="AS2_Client_Send_Sync" doc:name="AS2 Connector Send config" >
+		<as2-mule4:connection partnerURL="http://localhost:8081/as2-receive" />
+		<as2-mule4:self-config as2Name="partnerb" x509Alias="partnerb" email="support@partnerb.com" />
+		<as2-mule4:partner-config as2Name="partnera" x509Alias="partnera" email="support@partnera.com" />
+		<as2-mule4:requester-config messageIntegrityCheckAlgorithm="SHA512" mdnMessageIntegrityCheckAlgorithm="SHA512" encryptionAlgorithm="DES_EDE3" requestReceipt="SIGNED_REQUIRED" />
+		<as2-mule4:keystore-config keystorePassword="test" keystorePath="as2/partnerb.p12" privateKeyPassword="test" />
+	</as2-mule4:send-config>
+	<flow name="SendSyncFlow" >
+		<http:listener doc:name="/sendAsyncFlow" config-ref="HTTP_Client_Config" path="/sendAsyncFlow" />
+		<as2-mule4:send-with-async-mdn doc:name="Send with Async MDN" config-ref="AS2_Client_Send_Sync" receiptDeliveryUrl="http://localhost:8082/receiveMDN"/>
+		<logger level="INFO" doc:name="Message Sent!" message="Message Sent!" />
+	</flow>
+</mule>
+```
+
+### Save and Test the Mule App
+
+Follow these steps to deploy your application locally and verify that it correctly sends AS2
+requests and receives asynchronous MDNs.
+
+1.  Save the project.
+2.  Run the app by clicking the project name in **Package Explorer** and then clicking **Run** >
+    **Run As** > **Mule Application**.
+
+    If the application starts correctly, the console shows a success message.
+
+3.  Test the app by opening `http://localhost:8082/sendAsyncFlow` from a browser or an app like
+    Postman.
+
+You can now send AS2 requests to the endpoint configured in the
+[Receiving AS2 Messages and Sending Back MDNs](as2-connector-example-receive-send#receiving-messages-example)
+example. With the example running, you can observe the message sent by the **Send with Async MDN**
+operation.
+
+The MDN is omitted from the logs because itâs routed to the `receiptDeliveryUrl` shown in the
+[Receiving AS2 MDNs](as2-connector-example-receiving-mdn-messages) example.
+
+## See Also
+
+- [AS2 Connector Examples](as2-connector-examples)
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# AS2 Connector 7.0 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Mule applications using Anypoint Connector for AS2 (AS2 Connector) must include a global
+configuration to add external libraries specific to the active security mode. Only one external libs
+configuration is permitted per application, so you must configure this element manually in the
+examples.
+
+These examples show how to configure send and receive messages in AS2 Connector:
+
+- [Receiving AS2 Messages and Sending Back MDNs](as2-connector-example-receive-send)  
+  Configure the **As 2 listener** source to start receiving AS2 requests and the **Send with Sync
+  MDN** and **Send with Async MDN** operations to start sending AS2 requests.
+- [Receiving AS2 MDN Messages](as2-connector-example-receiving-mdn-messages)  
+  Configure the **As 2 mdn listener** source to start receiving Messsage Disposition Notification
+  (MDN) Messages.
+- [Sending AS2 Messages and Receiving MDNs](as2-connector-example-send)  
+  Configure the connector to send AS2 messages to a partner and handle both synchronous and
+  asynchronous MDNs.
+- [Sending MDNs to Multiple Partners](as2-connector-example-multiple-partners)  
+  How to send MDNs to multiple partners.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# AS2 Connector 7.0 Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for AS2 (AS2 Connector) enables trading partners to transmit and receive AS2
+messages that contain EDI-X12, EDIFACT, XML, or binary payloads.
+
+## Configurations
+
+---
+
+### Listener Config
+
+#### General Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#ListenerConfig_async-mdn-connection-provider">Async Mdn Connection</a></p></div></div></td><td><div><div><p>The connection types for this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>HTTP Listener</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Reference to global HTTP Listener definition for our service endpoint used by partner for both action and signal messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Security Requirement Level</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>SIGNED</p></li><li><p>ENCRYPTED</p></li><li><p>SIGNED_ENCRYPTED</p></li></ul></div></div></td><td><div><div><p>The security level required for any AS2 Listener using this configuration for all incoming messages. An error MDN response results if the security requirement is not met.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Keystore Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password of the provided keystore.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keystore Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Absolute or relative path to the keystore containing certificates and private keys for self (this application) and the partner.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Private Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Private key password, if the private key to use for signing the MDN is password protected.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Validate certificate expiration date</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If enabled, the connector canât receive or send messages if the certificate is expired.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Warning before (days)</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of days before the certificate expiration date when the connector sends a warning message that the certificate is about to expire. For example, if the value of this field is <code>3</code>, then the connector sends a warning message three days before the certificate expiration date.<br><br>This field applies only when the value of this field is greater than <code>0</code> and the <strong>Validate certificate expiration date</strong> field is enabled.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Partners Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Inbound Request Authentication</strong></p></td><td><div><div><p><a href="#AS2BasicAuthentication">AS2 Basic Authentication</a></p></div></div></td><td><div><div><p>Authentication method to use for verifying the incoming HTTP request when using dedicated mode.</p></div><div><p>Do not select this field if you are using shared mode or you will receive an error.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Self config - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier used for AS2-From and AS2-To headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Self config - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore. Required if using signing or encryption.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Self config - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as the HTTP <code>From</code> header when sending AS2 messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Use different Alias for MDN Signature</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>(Applies to the <strong>AS2 Listener</strong> source) Use the alias specified in <strong>Alias For MDN Signature</strong> to use a different keystore entry for the MDN signature.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias For MDN Signature</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Applies to the <strong>AS2 Listener</strong> source) Alias to use for the MDN signature if using a different alias for the MDN signature than for decryption. This field takes effect when <strong>Use different Alias for MDN Signature</strong> is <code>true</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Private Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Private key password, if the private key to use for signing the MDN is password protected.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Self config - Listener Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Dedicated mode</p></li><li><p>Shared mode</p></li></ul></div></div></td><td><div><div><ul><li><p>Dedicated mode</p><div><p>Enables you to configure a single AS2 listener endpoint to receive messages from one partner only.</p></div><div><p>If you select <strong>Dedicated mode</strong>, check <strong>Partner config</strong> (mandatory) and configure the partner using the Dedicated mode fields in this table.</p></div></li><li><p>Shared Mode</p><div><p>Enables you to configure a single AS2 listener endpoint to receive messages from multiple partners.</p></div><div><p>If you select <strong>Shared mode</strong>, uncheck <strong>Partner config</strong> (mandatory) and configure each partner using the Shared mode fields in this table.</p></div></li></ul></div></div></td><td><div><div><p>Dedicated mode</p></div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Dedicated mode - Partner Config - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier used for AS2-From and AS2-To headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Dedicated mode - Partner Config - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore. Required if using signing or encryption.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Dedicated mode - Partner Config - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as the HTTP <code>From</code> header when sending AS2 messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared mode - Partners</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Expression</p></li><li><p>Inline</p></li></ul></div></div></td><td><div><div><p>Indicates whether to add partner information by using an expression or by entering values inline.</p></div></div></td><td><div><div><p>Expression</p></div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared mode - Partners - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier used for AS2-From and AS2-To headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared mode - Partners - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore. Required if using signing or encryption.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Shared mode - Partners - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as the HTTP <code>From</code> header when sending an AS2 message.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Shared mode - Inbound Request Authentication</strong></p></td><td><div><div><p><a href="#AS2BasicAuthentication">AS2 Basic Authentication</a></p></div></div></td><td><div><div><p>Authentication method to use for verifying the incoming HTTP request.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Advanced Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Check for duplicate messages</strong></p></td><td><div></div></td><td><div><div><p>Checks for duplicate messages:</p></div><div><ul><li><p>If selected, the connector checks to see if a new received message is duplicated, as determined by comparing the following values in the new message to those in existing messages:</p><div><ul><li><p>Sender (from the AS2-From field)</p></li><li><p>Receiver (from the AS2-To field)</p></li><li><p>Message ID (from the Message-Id field)</p></li></ul></div><div><p>If all three values match an existing message, the connector rejects the duplicate message. If selected, you must:</p></div><div><ul><li><p>Reference a global object store in the <strong>Object Store</strong> field. This object store will store the existing messages.</p></li><li><p>Add the object store dependency to your project by adding the <strong>ObjectStore</strong> component to the Studio canvas or adding it to the <code>pom.xml</code>, as follows:</p><div><div><pre>&lt;dependency&gt;
+  &lt;groupId&gt;org.mule.connectors&lt;/groupId&gt;
+  &lt;artifactId&gt;mule-objectstore-connector&lt;/artifactId&gt;
+  &lt;version&gt;_latest-version_&lt;/version&gt;
+  &lt;classifier&gt;mule-plugin&lt;/classifier&gt;
+&lt;/dependency&gt;</pre></div></div><div><p>For the latest object store version, see the <a href="../../release-notes/connector/object-store-connector-release-notes-mule-4">Object Store Connector Release Notes</a>.<br><br>If the MDN mode is <code>AUTO</code>, use the Idempotent Message Validator instead of the <strong>Check for duplicate messages</strong> field to check for duplicate messages. If the MDN mode is <code>IMMEDIATE</code>, the validator does not work. Therefore, in this circumstance, you must use the <strong>Check for duplicate messages</strong> field to check for duplicate messages. For more information, see <a href="../../mule-runtime/latest/idempotent-message-validator">Idempotent Message Validator</a>.<br><br></p></div></li><li><p>If deselected, the connector accepts duplicate messages.</p></li></ul></div></li></ul></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>Object store where the connector stores new messages. This field is mandatory if the <strong>Check for duplicate messages</strong> field is selected.<br><br>For information about setting field values for this object store, see the <a href="../../object-store-connector/latest/object-store-connector-reference">Object Store Connector Reference</a>.<br><br>You might experience limitations that are specific to the object store implementation you are using (Anypoint Object Store V2 (OSv2), CloudHub Object Store V1 (OSv1), or Mule Object Store), so configure the object store to suit your needs. For more information, see <a href="https://help.salesforce.com/s/articleView?id=001123185&amp;type=1">The Different Types of Object Stores Explained.</a></p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Expiration policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Async MDN Connection Provider
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Persistent Connections</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, each connection is closed after the first request completes.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long the connector waits before timing out when establishing a connection to the remote service. This value is qualified by the <strong>Connection Timeout Units</strong> field.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Units</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the value of the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connections</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of outbound connections to keep open at the same time. By default, the number of connections is unlimited.</p></div></div></td><td><div><div><p>-1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Idle Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A timeout for how long a connection can remain idle before it is closed. The value of this attribute is only used when persistent connections are enabled. This value is qualified by the <strong>Connection Idle Timeout Units</strong> field.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Idle Timeout Units</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the value of the <strong>Connection Idle Timeout</strong> field.</p></div></div></td><td><div><div><p>MINUTES</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Retry Interval</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The interval between each retry, in seconds.</p></div></div></td><td><div><div><p>60</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Retry Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of retries. A value of <code>0</code> means no retries.)</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Proxy Config</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#proxy">Proxy</a></p></li><li><p><a href="#ntlm-proxy">NTLM Proxy</a></p></li></ul></div></div></td><td><div><div><p>Reusable configuration element for outbound connections through a proxy. A proxy element must define a host name and a port attributes, and optionally can define a username and password.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div><div><p>Reference to a TLS config element. This enables HTTPS for this configuration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, the deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Associated Sources
+
+- [As2 Listener](#as2-listener)
+
+---
+
+### MDN Listener Config
+
+#### General Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>HTTP Listener</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Reference to global HTTP Listener definition for our service endpoint used by a partner for both action and signal messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keystore Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password of the provided keystore.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keystore Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Absolute or relative path to the keystore containing certificates and private keys for self(this application) and the partner.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Private Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Private key password, if the private key to use for signing the MDN is password protected.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Validate certificate expiration date</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If enabled, the connector canât receive or send messages if the certificate is expired.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Warning before (days)</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of days before the certificate expiration date when the connector sends a warning message that the certificate is about to expire. For example, if the value of this field is <code>3</code>, then the connector sends a warning message three days before the certificate expiration date.<br><br>This field applies only when the value of this field is greater than <code>0</code> and the <strong>Validate certificate expiration date</strong> field is enabled.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Advanced Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Expiration policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Partners Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Self config - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier used for AS2-From and AS2-To headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Self config - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore. Required if using signing or encryption.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Self config - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as the HTTP <code>From</code> header when sending 12 messages.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>MDN Listener Mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Mdn dedicated mode</p></li><li><p>Mdn shared mode</p></li></ul></div></div></td><td><div><div><ul><li><p>Mdn dedicated mode</p><div><p>Enables you to configure a single AS2 listener endpoint to receive MDNs from one partner only.</p></div><div><p>If you select <strong>Mdn dedicated mode</strong>, check <strong>Partner config</strong> (mandatory) and configure the partner using the Mdn dedicated mode fields in this table.</p></div></li><li><p>Mdn shared mode</p><div><p>Enables you to configure a single AS2 listener endpoint to receive MDNs from multiple partners.</p></div><div><p>If you select <strong>Mdn shared mode</strong>, uncheck <strong>Partner config</strong> (mandatory) and configure each partner using the Mdn shared mode fields in this table.</p></div></li></ul></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn dedicated mode - Partner Config - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier used for AS2-From and AS2-To headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn dedicated mode - Partner Config - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore. Required if using signing or encryption.</p></div></div></td><td><div><div><p>Dedicated mode</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Mdn shared mode - Partners</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Expression</p></li><li><p>Inline</p></li></ul></div></div></td><td><div><div><p>Indicates whether to add partner information by using an expression or by entering values inline.</p></div></div></td><td><div><div><p>Expression</p></div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn dedicated mode - Partner Config - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as the HTTP <code>From</code> header when sending MDNs.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn shared mode - Partners - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier used for AS2-From and AS2-To headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn shared mode - Partners - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore. Required if using signing or encryption.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Mdn shared mode - Partners - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as the HTTP <code>From</code> header when sending MDNs.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+#### Associated Sources
+
+- [As2 Mdn Listener](#as2-mdn-listener)
+
+---
+
+### Send Config
+
+This class represents an extension configuration, values set in this class are commonly used across
+multiple operations since they represent something core from the extension.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name for this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p><a href="#send-config_connection">Outbound Connection Config</a></p></div></div></td><td><div><div><p>The connection types for this configuration.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Expiration Policy</strong></p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><div><div><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This does not mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>General - Transfer Mode Configuration</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Chunked transfer mode</p></li><li><p>Identity transfer mode</p></li><li><p>Threshold transfer mode</p></li></ul></div></div></td><td><div><div><p>The transfer mode applied when sending information:</p></div><div><ul><li><p>Chunked transfer mode</p><div><p>Sends the headers without the Content-Length property and modifies the message body to transfer it as a series of chunks.</p></div></li><li><p>Identity transfer mode</p><div><p>Sends the headers with the Content-Length property and sends the whole message body.</p></div></li><li><p>Threshold transfer mode</p><div><p>Sends the headers and message body according to the specified threshold.</p></div><div><ul><li><p>If the message body is less than or equal to the threshold, the connector uses the Identity transfer mode option.</p></li><li><p>If the message body is greater than the threshold, the connector uses the Chunked transfer mode option.</p></li></ul></div></li></ul></div></div></td><td><div><div><p>Chunked transfer mode</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Threshold</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Threshold used when the General - Transfer Mode Configuration field is set to <code>Threshold transfer mode</code>.</p></div></div></td><td><div><div><p>64</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Threshold Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>Byte</p></li><li><p>GB</p></li><li><p>KB</p></li></ul></div></div></td><td><div><div><p>Unit associated with the Threshold field.</p></div></div></td><td><div><div><p>KB</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>General - Propagate Content Transfer Encoding</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Indicates whether to propagate the content transfer encoding on the AS2 message sent to the partner:</p></div><div><ul><li><p>True: The main content transfer encoding is propagated to every MIME part of the resulting message.</p></li><li><p>False: Signed and encrypted MIME parts are encoded with Base64.</p></li></ul></div></div></td><td><div><div><p>False</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>General - Custom Message ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables the specification of a custom AS2 Message ID</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partner Config - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier (used for AS2-From and AS2-To headers)</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Partner Config - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias, or both in the keystore (required if using signing or encryption)</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partner Config - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as HTTP <code>From</code> header when sending</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>MDN Partner Config - Use different Alias for MDN Signature</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>(Applies to the <strong>Send with Sync Mdn</strong> operation) Use the alias specified in <strong>Alias For MDN Signature</strong> as the alias for MDN signature validation.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>MDN Partner Config - Alias For MDN Signature</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>(Applies to the <strong>Send with Sync Mdn</strong> operation) Alias to use for MDN signature validation if using a different alias for MDN signature validation than for encryption. This field takes effect when <strong>Use different Alias for MDN Signature</strong> is <code>true</code>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Self config - AS2 Partner Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 system identifier (used for AS2-From and AS2-To headers)</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Self config - x509 Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Certificate, private key alias or both in keystore (required if using signing or encryption)</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Self config - email</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Email address used as HTTP <code>From</code> header when sending</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Subject</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Free form text for MIME Subject header</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>MIC Signature Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>MD5</p></li><li><p>SHA1</p></li><li><p>SHA224</p></li><li><p>SHA256</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li><li><p>UNSIGNED</p></li></ul></div></div></td><td><div><div><p>Algorithm to use when setting the message integrity check value.</p></div></div></td><td><div><div><p>UNSIGNED</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>MDN MIC Signature Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>MD5</p></li><li><p>SHA1</p></li><li><p>SHA224</p></li><li><p>SHA256</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li><li><p>UNSIGNED</p></li></ul></div></div></td><td><div><div><p>Request partner to respond with a signed MDN using this algorithm for calculating MIC</p></div></div></td><td><div><div><p>UNSIGNED</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Encryption Algorithm</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>DES</p></li><li><p>DES_EDE3</p></li><li><p>RC2</p></li><li><p>AES128_CBC</p></li><li><p>AES192_CBC</p></li><li><p>AES256_CBC</p></li><li><p>AES128_CCM</p></li><li><p>AES192_CCM</p></li><li><p>AES256_CCM</p></li><li><p>AES128_GCM</p></li><li><p>AES192_GCM</p></li><li><p>AES256_GCM</p></li><li><p>AES256_WRAP</p></li><li><p>CAST5</p></li><li><p>UNENCRYPTED</p></li></ul></div></div></td><td><div><div><p>The Algorithm to use when encrypting the message to be sent</p></div></div></td><td><div><div><p>UNENCRYPTED</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Transfer Encoding</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BASE64</p></li><li><p>QUOTED_PRINTABLE</p></li><li><p>SEVEN_BIT</p></li><li><p>EIGHT_BIT</p></li><li><p>BINARY</p></li></ul></div></div></td><td><div><div><p>The encoding to use on the content of AS2 message being sent.</p></div></div></td><td><div><div><p>BINARY</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Request A Receipt</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>UNSIGNED</p></li><li><p>SIGNED_OPTIONAL</p></li><li><p>SIGNED_REQUIRED</p></li></ul></div></div></td><td><div><div><p>How the connector behaves based on the received receipts.</p></div></div></td><td><div><div><p>UNSIGNED</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Compression Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>ZLIB</p></li></ul></div></div></td><td><div><div><p>The Compression type to use</p></div></div></td><td><div><div><p>NONE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Receipt Delivery URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The asynchronous MDN delivery address to which the MDN is returned. This should be the fully formed URL to the <strong>As 2 mdn listener</strong> source, for example, <code>https://example.com/mdn</code>.<br><br>If a flow uses the <strong>Send With Async MDN</strong> operation, then either this field or the <strong>Receipt Delivery URL</strong> field associated with that operation is required. If both fields have values, the value for the operation overrides the value for the global configuration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Keystore Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password of the provided keystore.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Keystore Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The Absolute or relative path to the keystore containing certificates and private keys for self(this application) and the partner.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Private Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Private key password, if the private key to use for signing the MDN is password protected.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Validate certificate expiration date</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If enabled, the connector canât receive or send messages if the certificate is expired.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Warning before (days)</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The number of days before the certificate expiration date when the connector sends a warning message that the certificate is about to expire. For example, if the value of this field is <code>3</code>, then the connector sends a warning message three days before the certificate expiration date.<br><br>This field applies only when the value of this field is greater than <code>0</code> and the <strong>Validate certificate expiration date</strong> field is enabled.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Connection Types
+
+##### Outbound Connection Config
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Persistent Connections</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, each connection is closed after the first request completes.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How long the connector waits before timing out when establishing a connection to the remote service. This value is qualified by the <strong>Connection Timeout Units</strong> field.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout Units</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the value of the <strong>Connection Timeout</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Connections</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of outbound connections to keep open at the same time. By default the number of connections is unlimited.</p></div></div></td><td><div><div><p>-1</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Idle Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>A timeout for how long a connection can remain idle before it is closed. The value of this attribute is only used when persistent connections are enabled. This value is qualified by the value of the <strong>Connection Idle Timeout Units</strong> field.</p></div></div></td><td><div><div><p>30</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Idle Timeout Units</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the value of the <strong>Connection Idle Timeout</strong> field.</p></div></div></td><td><div><div><p>MINUTES</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Proxy Config</strong></p></td><td><div><div><p>One of:</p></div><div><ul><li><p><a href="#proxy">Proxy</a></p></li><li><p><a href="#ntlm-proxy">NTLM Proxy</a></p></li></ul></div></div></td><td><div><div><p>Reusable configuration element for outbound connections through a proxy. A proxy element must define a host name and a port attributes, and optionally can define a username and a password.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Partner URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Service endpoint URL to the partner.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Outbound Request Authentication</strong></p></td><td><div><div><p>HttpRequestAuthentication</p></div></div></td><td><div><div><p>Authentication method to use for the HTTP request.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>TLS Configuration</strong></p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><div><div><p>Reference to a TLS config element. This enables HTTPS for this configuration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection</strong></p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, the deployment fails if the test doesnât pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## Sources
+
+- [As2 Listener](#as2-listener)
+- [As2 Mdn Listener](#as2-mdn-listener)
+- [Non repudiation listener](#non-repudiation-listener)
+
+### As2 Listener
+
+`<as2-mule4:as2-listener>`
+
+Represents a listener for AS2 sender requests.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>This path is appended to any path set in the listener configuration.</p></div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>An override for the timeout for establishing connections to the remote service as milliseconds. The default of 0 means this value is not used to override the configuration.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Non repudiation flow ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configured flow that contains the <strong>Non repudiation listener</strong> source.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Mdn mode</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>AUTO</p></li><li><p>IMMEDIATE</p></li></ul></div></div></td><td><div><div><p>MDN deliver mode:</p></div><div><ul><li><p>AUTO: Sends an MDN at the end of the flow.</p></li><li><p>IMMEDIATE: Sends an MDN when the source receives a message.</p></li></ul></div></div></td><td><div><div><p>IMMEDIATE</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to execute this source on only the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AS2ListenerAttributes">AS2 Listener Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Listener Config](#ListenerConfig)
+
+### As2 Mdn Listener
+
+`<as2-mule4:as2-mdn-listener>`
+
+Listens for AS2 requests and automatically sends an MDN back to the receipt URL provided in the
+transmission when a request is received.
+
+> [!NOTE] If the receipt URL is inaccessible, the inbound AS2 message is not processed.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>This path is appended to any path set in the listener configuration.</p></div></div></td><td><div><div><p>/</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Non repudiation flow ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configured flow that contains the <strong>Non repudiation listener</strong> source.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to execute this source on only the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AS2MdnAttributes">AS2 Mdn Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [MDN Listener Config](#MDNListenerConfig)
+
+### Non repudiation listener
+
+`<as2-mule4:non-repudiation-listener>`
+
+Receives a signed copy of a receipt or a message for persistent non-repudiation storage.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Display Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of this configuration. Connectors reference the configuration with this name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload passed to this flow.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload passed to this flow.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Redelivery Policy</strong></p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><div><div><p>Defines a policy for processing the redelivery of the same message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>Non repeatable stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Primary Node Only</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to execute this source on only the primary node when running in a cluster.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AS2ListenerAttributes">AS2 Listener Attributes</a></p></div></div></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AS2MdnAttributes">AS2 Mdn Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+None.
+
+## Operations
+
+- [Send With Async Mdn](#sendWithAsyncMdn)
+- [Send With Sync Mdn](#sendWithSyncMdn)
+
+### Send With Async Mdn
+
+`<as2-mule4:send-with-async-mdn>`
+
+Performs the send async request using the configuration, client, and AS2 requester parameters, and
+completes the callback accordingly.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>General - Custom Message ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables the specification of a custom AS2 Message ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>AS2 MIME Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The content type of the Document being sent via AS2 (for example, <code>application/EDI-X12</code>). There are no restrictions on the content-type that are supported.</p></div></div></td><td><div><div><p><code>#[payload.^mimeType]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Stream</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The content InputStream to be sent.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Description</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Content MIME part content description</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>File Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Filename of the content stream. If not set, the content is transferred without a filename.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Receipt</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>UNSIGNED</p></li><li><p>SIGNED_OPTIONAL</p></li><li><p>SIGNED_REQUIRED</p></li></ul></div></div></td><td><div><div><p>How the connector behaves based on the received receipts:</p></div><div><ul><li><p>NONE: No receipt is expected.</p></li><li><p>SIGNED_OPTIONAL: Receipt can be signed or unsigned.</p></li><li><p>SIGNED_REQUIRED: Expects a signed receipt. The application fails if the receipt is unsigned.</p></li><li><p>UNSIGNED: Expects an unsigned receipt.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Require Processed</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Requires a processed response in the MDN to continue the flow. An error occurs if the response is unprocessed.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Override for the timeout for establishing connections to the remote service as milliseconds. The default of 0 means this value is not used to override the configuration.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Non repudiation flow ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the configured flow that contains the <strong>Non repudiation listener</strong> source.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom headers</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables you to add custom keys to include in outbound AS2 messages. For each key to include, enter values for these name-value pairs:</p></div><div><ul><li><p>Name</p><div><p>Name of the key to send to outbound AS2 messages, formatted as <code>Name:key-name</code></p></div></li><li><p>Value</p><div><p>Content of the key to send to outbound AS2 messages, formatted as <code>Value:key-value</code></p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Receipt Delivery URL</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The asynchronous MDN delivery address to which the MDN is returned. This should be the fully formed URL to the <strong>As 2 mdn listener</strong> source, for example, <code>https://example.com/mdn</code>.<br><br>If a flow uses the <strong>Send With Async MDN</strong> operation, then either this field or the <strong>Receipt Delivery URL</strong> field associated with that operation is required. If both fields have values, the value for the operation overrides the value for the global configuration.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AS2SendAttributes">AS2 Send Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Send Config](#send-config)
+
+#### Throws
+
+- AS2-MULE4:CONFIGURATION
+- AS2-MULE4:UNAUTHORIZED
+- AS2-MULE4:CONNECTIVITY
+- AS2-MULE4:RETRY_EXHAUSTED
+
+### Send With Sync Mdn
+
+`<as2-mule4:send-with-sync-mdn>`
+
+Performs the send sync request using the configuration, client, and AS2 requester parameters, and
+completes the callback accordingly.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Configuration</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configuration to use.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>General - Custom Message ID</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables the specification of a custom AS2 Message ID.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The MIME type of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Output Encoding</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The encoding of the payload that this operation outputs.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Streaming Strategy</strong></p></td><td><div><div><ul><li><p><a href="#repeatable-in-memory-stream">Repeatable In Memory Stream</a></p></li><li><p><a href="#repeatable-file-store-stream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><div><div><p>Configures how Mule processes streams. The default is to use repeatable streams.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>AS2 MIME Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The content type of the Document being sent via AS2 (for example, application/EDI-X12). There are no restrictions on the content-type that are supported.</p></div></div></td><td><div><div><p><code>#[payload.^mimeType]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Stream</strong></p></td><td><div><div><p>Binary</p></div></div></td><td><div><div><p>The content InputStream to be sent.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Description</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Content MIME part content description</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>File Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Filename of the content stream. If not set, the content is transferred without a filename.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Request Receipt</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>UNSIGNED</p></li><li><p>SIGNED_OPTIONAL</p></li><li><p>SIGNED_REQUIRED</p></li></ul></div></div></td><td><div><div><p>How the connector behaves based on the received receipts:</p></div><div><ul><li><p>NONE: No receipt is expected.</p></li><li><p>SIGNED_OPTIONAL: Receipt can be signed or unsigned.</p></li><li><p>SIGNED_REQUIRED: Expects a signed receipt. The application fails if the receipt is unsigned.</p></li><li><p>UNSIGNED: Expects an unsigned receipt.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Require Processed</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Requires a processed response in the MDN to continue the flow. An error occurs if the response is unprocessed.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Require Processed</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Require Processed response in the MDN to continue the flow (otherwise there is an error)</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Connection Timeout</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>An override for the timeout for establishing connections to the remote service as milliseconds. The default of 0 means this value is not used to override the configuration.</p></div></div></td><td><div><div><p>0</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Non repudiation flow ref</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The name of the configured flow that contains the <strong>Non repudiation listener</strong> source.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Variable</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Name of the variable that stores the operationâs output.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target Value</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Expression that evaluates the operationâs output. The outcome of the expression is stored in the <strong>Target Variable</strong> field.</p></div></div></td><td><div><div><p><code>#[payload]</code></p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>Configures a reconnection strategy to use when a connector operation fails to connect to an external server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Custom headers</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Enables you to add custom keys to include in outbound AS2 messages. For each key to include, enter values for these name-value pairs:</p></div><div><ul><li><p>Name</p><div><p>Name of the key to send to outbound AS2 messages, formatted as <code>Name:key-name</code></p></div></li><li><p>Value</p><div><p>Content of the key to send to outbound AS2 messages, formatted as <code>Value:key-value</code></p></div></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#AS2SendAttributes">AS2 Send Attributes</a></p></div></div></td></tr></tbody></table>
+
+### For Configurations
+
+- [Send Config](#send-config)
+
+#### Throws
+
+- AS2-MULE4:CONFIGURATION
+- AS2-MULE4:MIME_PARSE
+- AS2-MULE4:UNAUTHORIZED
+- AS2-MULE4:CONNECTIVITY
+- AS2-MULE4:SIGNATURE_VERIFY
+- AS2-MULE4:RETRY_EXHAUSTED
+
+## Types
+
+### AS2 Basic Authentication
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to authenticate.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password of user to authenticate.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### AS2 Listener Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>As2 Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 unique message ID from receiver to sender.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>filename</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Received filename.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mime Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>MIME type, for example, <code>application/xml</code>.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>From Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 Receiver name.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>AS2 HTTP headers that elaborate the message format.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn Delivery Status</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NONE</p></li><li><p>SUCCESS</p></li><li><p>FAILURE</p></li></ul></div></div></td><td><div><div><p>AS2 message validation status</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>To Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 Sender name</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### AS2 Mdn Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>As2 Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 unique message ID from receiver to sender.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Disposition Content</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>AS2 processed MDN report as headers.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>From Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 Receiver name</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>AS2 HTTP headers that elaborate the message format.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn Alg</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>MD5</p></li><li><p>SHA1</p></li><li><p>SHA224</p></li><li><p>SHA256</p></li><li><p>SHA384</p></li><li><p>SHA512</p></li><li><p>UNSIGNED</p></li></ul></div></div></td><td><div><div><p>AS2 message integrity check algorithm used</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn Mic</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 message integrity check hashcode</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Mdn Processed</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>AS2 message validation status</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr><tr><td><p><strong>Original AS2 Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 Message ID received</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Report Text</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>MDN report text</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>To Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 Sender name</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### AS2 Send Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>As2 Mdn Attributes</strong></p></td><td><div><div><p><a href="#AS2MdnAttributes">AS2 Mdn Attributes</a></p></div></div></td><td><div><div><p>AS2 returned MDN attribute group</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>As2 Message Id</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 unique message ID from receiver to sender</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>From Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 receiver name</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Headers</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>AS2 HTTP headers that elaborate the message format</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Msg MIC</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 message integrity check hashcode</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Msg MIC Alg</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 message integrity check algorithm used</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>To Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>AS2 sender name</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Crl File
+
+Specifies the location of the certification revocation list (CRL) file.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom Ocsp Responder
+
+Configures a custom OCSP responder for certification revocation checks.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response. If specified, the alias must be in the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Configures the maximum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>A time unit that qualifies the value of the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Failure Status Code Validator
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Values</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of status codes that cause errors to be thrown.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### KeyStore
+
+Configures the keystore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the keystore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the key to use when the keystore contains multiple private keys. By default, Mule uses the first key in the file.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm that the keystore uses.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### NTLM Proxy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Ntlm Domain</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Domain of the NTLM proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname or IP address of the NTLM proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the NTLM proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Non Proxy Hosts</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>NTLM hosts that the connector can access without using a proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Proxy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hostname or IP address of the proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Port of the proxy server.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password to authenticate against the proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Non Proxy Hosts</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Hosts that the connector can access without using a proxy server.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+Configures a standard reconnection strategy, which specifies how often to reconnect and how many
+reconnection attempts the connector source or operation can make.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to attempt to reconnect, in milliseconds.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Attempts</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+Configures a forever reconnection strategy by which the connector source or operation attempts to
+reconnect at a specified frequency for as long as the Mule app runs.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency (ms)</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often to reconnect, in milliseconds</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div><div><p>true</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+Configures a reconnection strategy for an operation.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>What to do if, when an app is deployed, a connectivity test does not pass after exhausting the associated reconnection strategy:</p></div><div><ul><li><p>true: Allow the deployment to fail.</p></li><li><p>false: Ignore the results of the connectivity test.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#reconnect">Reconnect</a></p></li><li><p><a href="#reconnect-forever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering a process-failed message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use. If not set, the default is SHA-256.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property can be set only if useSecureHash is false.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>Object Store</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum amount of memory that the stream can use for data. If the amount of memory exceeds this value, Mule buffers the content to disk. To optimize performance:</p></div><div><ul><li><p>Configure a larger buffer size to avoid the number of times Mule needs to write the buffer on disk.</p><div><p>This increases performance, but it also limits the number of concurrent requests your application can process, because it requires additional memory.</p></div></li><li><p>Configure a smaller buffer size to decrease memory load at the expense of response time.</p></li></ul></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>The unit in which the value of <strong>In Memory Size</strong> is expressed</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+Configures the in-memory streaming strategy by which the request fails if the data exceeds the value
+of the **MAX Buffer Size** field. Always run performance tests to find the optimal buffer size for
+your specific use case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Initial amount of memory to allocate to the data stream. If the streamed data exceeds this value, the buffer expands by <strong>Buffer Size Increment</strong>, with an upper limit of the <strong>In Memory Size</strong> value.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>This is by how much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means that the buffer should not expand, meaning that a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Maximum size of the buffer. If the buffer size exceeds this value, Mule raises a <code>STREAM_MAXIMUM_SIZE_EXCEEDED</code> error. A value of less than or equal to <code>0</code> means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Only verify the last element of the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Try CRL instead of OCSP first.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Failback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Do not use the secondary checking method, which is the method not specified in the <strong>Prefer Crls</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Avoid verification failure when the revocation server cannot be reached or is busy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Success Status Code Validator
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Values</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of status codes that indicate success.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### TLS
+
+Configures TLS to provide secure communications for the Mule app.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Truststore</a></p></div></div></td><td><div><div><p>Configures the TLS truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">KeyStore</a></p></div></div></td><td><div><div><p>Configures the TLS keystore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#crl-file">Crl File</a></p></li><li><p><a href="#custom-ocsp-responder">Custom Ocsp Responder</a></p></li><li><p><a href="#standard-revocation-check">Standard Revocation Check</a></p></li></ul></div></div></td><td><div><div><p>Configures a revocation checking mechanism.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Truststore
+
+Configures the truststore for TLS.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Path to the truststore. Mule resolves the path relative to the current classpath and file system.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password used to protect the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Type of truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Encryption algorithm used by the truststore.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If <code>true</code>, Mule stops performing certificate validations. Setting this field to <code>true</code> can make connections vulnerable to attacks.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [AS2 Connector in Anypoint Exchange](https://www.mulesoft.com/exchange/com.mulesoft.connectors/mule-as2-connector/)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Using Anypoint Studio to Configure AS2 Connector 7.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+3.  [Configure an input source for the connectorâs flow](#configure-input-source).
+4.  [Add a connector operation to the flow](#add-connector-operation).
+5.  [Configure a global element for the connector](#configure-global-element).
+6.  [Configure a Global Element for External Libraries](#configure-external-libraries).
+
+When you run the connector, you can view the app log to check for problems, as described in
+[View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[AS2 Connector Reference](as2-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure the connector:
+
+1.  In Studio, select **File > New > Mule Project**.
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add AS2 Connector to your Mule project to automatically populate the XML code with the connectorâs
+namespace and schema location and add the required dependencies to the projectâs `pom.xml` file:
+
+1.  In the **Mule Palette** view, click **(X) Search in Exchange**.
+2.  In **Add Modules to Project**, type `as2` in the search field.
+3.  Click **AS2** in **Available modules**.
+4.  Click **Add**.
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio does not make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these input
+sources to use with AS2 Connector:
+
+- **As 2 listener**  
+  Listens for AS2 `send` requests
+- **As 2 mdn listener**  
+  MDN listener that listens for AS2 listener requests
+- **Non repudiation listener**  
+  Listens for signed messages and MDNs that are configured for non-repudiation storage
+- **HTTP Listener**  
+  Initiates a flow each time it receives a request on the configured host and port
+- **Scheduler**  
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an **HTTP Listener**, follow these steps:
+
+1.  In the **Mule Palette** view, select **HTTP > Listener**.
+2.  Drag **Listener** to the Studio canvas.
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+4.  Specify a value for the **Path** field.
+5.  Click the plus sign (+) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the HTTP listener in the app.
+6.  On the **General** tab, specify the connection information for the connector.
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you immediately define a specific operation for
+that connector to perform.
+
+To add an operation for AS2 Connector, follow these steps:
+
+1.  In the **Mule Palette** view, select **AS2 Connector** and then select the desired operation.
+2.  Drag the operation onto the Studio canvas to the right of the input source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, itâs best to configure a global element that all instances of that
+connector in the app can use. Configuring a global element requires you to provide the
+authentication credentials the connector uses to access the target AS2 system.
+
+To configure the global element for AS2 Connector, follow these steps:
+
+1.  Select the name of the connector in the Studio canvas.
+2.  In the configuration screen for the operation, click the plus sign (+) next to the **Connector
+    configuration** field to access the global element configuration fields.
+3.  On the **Authentication** tab, configure the authentication method for the outbound request.
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your authorization credentials in the global configuration
+    properties. For information about the benefits of using property placeholders and how to
+    configure them, see
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+6.  Click **OK**.
+
+## Configure a Global Element for External Libraries
+
+Mule applications using AS2 Connector must contain only one global element configuration to provide
+the external libraries required for the selected security mode.
+
+To configure the global element for AS2 Connector and add external libraries, follow these steps:
+
+1.  In **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon next
+    to Global Elements.
+3.  Click **Create**, and then search for the `AS2` or `External Libs` option and select **AS2
+    Connector External Libs - Non FIPS 140-3**.
+4.  Name the configuration.
+5.  Click **Configure** > **Add recommended libraries**.
+6.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule
+    application `pom.xml` file.
+7.  Verify that your project has the required dependencies for your security mode.
+
+    Add the dependencies via Maven if they arenât added automatically.
+
+For configuration instructions for other security modes, see
+[Configure External Libraries](as2-connector-upgrade-migrate#configure-external-libraries).
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If youâre running the app from Anypoint Platform, the output is visible in the Anypoint Studio
+  console window.
+- If youâre running the app using Mule from the command line, the app log is visible in your OS
+  console.
+
+Unless the log file path is customized in the appâs log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`.
+
+## Next Step
+
+After you configure a global element and connection information, configure the other fields for the
+connector.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [AS2 Reference](as2-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# Upgrading and Migrating AS2 Connector to Version 7.x
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Upgrade Anypoint Connector for AS2 (AS2 Connector) from version 6.x to 7.x to take advantage of
+FIPS-compliant cryptographic support and other improvements.
+
+## Supported Upgrade Paths
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>From Version</th><th>To Version</th></tr></thead><tbody><tr><td><div><div><p>6.x</p></div></div></td><td><div><div><p>7.x</p></div></div></td></tr></tbody></table>
+
+## Before You Begin
+
+Before you upgrade to AS2 Connector 7.x, make sure you have:
+
+- Mule runtime 4.4.0 or later. See the Mule runtime release notes for FIPS support by version.
+- AS2 Connector version 7.0.0 or later.
+- AS2 Support Libraries version 3.0.0 or later.
+- For non-FIPS mode, Bouncy Castle Java Cryptography Extension (JCE) provider designed for JDK 1.8
+  or higher. This configuration requires the `bcprov-jdk18on` and `bcpkix-jdk18on` libraries.
+  Version 1.82 is recommended.
+- For FIPS modes, Bouncy Castle FIPS (BCFIPS) libraries as required by your Mule runtime and
+  security model.
+- For FIPS 140-3, Java 17 or later with FIPS-capable JVM if required by your deployment.
+
+## Supported Security Modes
+
+AS2 Connector 7.x supports these security modes, which are controlled by the `mule.security.model`
+system property:
+
+- **non-FIPS (default)**
+
+  This is the default security mode for Mule applications that donât require FIPS compliance. AS2
+  Connector uses the standard cryptographic libraries `bcprov-jdk18on` and `bcpkix-jdk18on`, which
+  arenât FIPS compliant. Donât set the system property as the default mode.
+
+- **FIPS 140-2 Compliant Mode**
+
+  Enable this security mode to configure AS2 Connector to use FIPS 140-2 approved cryptographic
+  providers.
+
+- **FIPS 140-3 Compliant Mode**
+
+  Enable this security mode to configure AS2 Connector to use FIPS 140-3 approved cryptographic
+  providers.
+
+If the `mule.security.model` property begins with `fips140-`, then AS2 Connector activates FIPS mode
+and applies the corresponding security controls, as shown in the example.
+
+```bash
+-Dmule.security.model=fips140-3
+```
+
+## Configure External Libraries
+
+Mule applications using AS2 Connector require a Global Element configuration that includes the
+necessary AS2 support and cryptographic libraries for each security mode. The table shows the global
+configuration and required libraries for each security mode. Use only one security mode per
+application.
+
+For FIPS modes, the Mule runtime and BCFIPS requirements apply.
+
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Security Mode</th><th>Global Configuration</th><th>Default Name</th><th>Required Library Maven Coordinates</th></tr></thead><tbody><tr><td><p>non-FIPS</p></td><td><p><code>AS2 Connector External Libs - Non FIPS</code></p></td><td><p><code>AS2_Connector_External_Libs___Non_FIPS</code></p></td><td><p>com.mulesoft.connectors:as2-bc-non-fips-impl:3.0.0, org.bouncycastle:bcpkix-jdk18on:1.82, org.bouncycastle:bcprov-jdk18on:1.82</p></td></tr><tr><td><p>FIPS 140-2</p></td><td><p><code>AS2 Connector External Libs - FIPS 140-2</code></p></td><td><p><code>AS2_Connector_External_Libs___FIPS_140_2</code></p></td><td><p>com.mulesoft.connectors:as2-bc1-fips-impl:3.0.0</p></td></tr><tr><td><p>FIPS 140-3</p></td><td><p><code>AS2 Connector External Libs - FIPS 140-3</code></p></td><td><p><code>AS2_Connector_External_Libs___FIPS_140_3</code></p></td><td><p>com.mulesoft.connectors:as2-bc2-fips-impl:3.0.0</p></td></tr></tbody></table>
+
+![Connector configurations that are used for creating Global Elements](_images/as2-connector-upgrade-global-element-config.png)
+
+## Upgrade Steps
+
+Follow these steps to upgrade from AS2 Connector 6.x to 7.x. Use the configuration that applies to
+your selected security mode.
+
+### Step 1: Update the Connector Dependency
+
+1.  Update your projectâs `pom.xml` file to use AS2 Connector 7.x:
+
+```xml
+<dependency>
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>mule-as2-connector</artifactId>
+    <version>7.0.0</version>
+    <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+2.  Rebuild the project and resolve API or configuration changes reported by the build.
+
+### Step 2: Add a Connector Configuration Global Element
+
+Include only one external library global configuration. Follow the global element configuration
+steps for your selected security mode.
+
+#### Configure a Global Element for the non-FIPS Security Mode
+
+1.  Add the external library global configuration and donât set the runtime property. Also, make
+    sure the BouncyCastle jdk18on library version 1.82 is available to add as an external library.
+2.  Configure the global element as a Mule app in Anypoint Studio:
+    1.  In the **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+    2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon
+        next to Global Elements.
+
+3.  Click **Create**, and then search for the `AS2` or `External Libs` option and select **AS2
+    Connector External Libs - Non FIPS**.
+    1.  Name the configuration.
+    2.  Click **Configure** > **Add recommended libraries**.
+    3.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule
+        application `pom.xml` file.
+
+4.  Verify that your project has the required dependencies for your selected security mode. Add the
+    dependencies via Maven if they arenât added automatically.
+
+![The Connector Configuration Global Element and the configurations for non-FIPS security mode](_images/as2-connector-upgrade-non-fips-config.png)
+
+To configure the global element manually in XML (Maven or standalone):
+
+1.  Open your main Mule configuration file, such as `src/main/mule/` or `src/main/resources/`.
+2.  Add the `as2-mule4:external-libs-non-fips-config` global element to the Mule configuration file.
+3.  Add the `AS2 Connector External Libs - Non FIPS` global configuration to your Mule configuration
+    file, as shown in the example:
+
+```xml
+<as2-mule4:external-libs-non-fips-config name="AS2_External_Libs_Non_FIPS" />
+```
+
+4.  Add the required Maven dependencies to the `pom.xml` file. Refer to the
+    [AS2 Connector Release Notes](../../release-notes/connector/as2-connector-release-notes-mule-4)
+    for the compatible versions of the dependencies.
+
+```xml
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcpkix-jdk18on</artifactId>
+    <version>${bouncy.castle.jdk18on.version}</version>
+</dependency>
+<dependency>
+    <groupId>org.bouncycastle</groupId>
+    <artifactId>bcprov-jdk18on</artifactId>
+    <version>${bouncy.castle.jdk18on.version}</version>
+</dependency>
+<dependency>
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>as2-bc-non-fips-impl</artifactId>
+    <version>${as2.support.library.version}</version>
+</dependency>
+```
+
+5.  Update the `mule-maven-plugin` by including the shared libraries in the **build** >
+    **plugins** > **plugin** section of the `pom.xml` file.
+
+```xml
+<configuration>
+  <sharedLibraries>
+    <sharedLibrary>
+      <groupId>com.mulesoft.connectors</groupId>
+      <artifactId>as2-bc-non-fips-impl</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+    </sharedLibrary>
+    <sharedLibrary>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+    </sharedLibrary>
+  </sharedLibraries>
+</configuration>
+```
+
+#### Configure a Global Element for the FIPS 140-2 Security Mode
+
+1.  Add the external library global configuration and set the runtime property. Also, make sure
+    BouncyCastle FIPS (BCFIPS) is available as required by your Mule runtime. Configure BCFIPS in
+    Java Security.
+
+    For FIPS 140-2, follow the
+    [FIPS 140-2 Compliance Support](../../mule-runtime/latest/fips-140-2-compliance-support)
+    documentation.
+
+2.  Configure the global element as a Mule app in Anypoint Studio:
+    1.  In the **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+    2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon
+        next to Global Elements.
+
+3.  Click **Create**, and then search for the `AS2` or `External Libs` option and select **AS2
+    Connector External Libs - FIPS 140-2**.
+    1.  Name the configuration.
+    2.  Click **Configure** > **Add recommended libraries**.
+    3.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule
+        application `pom.xml` file.
+
+4.  Verify that your project has the required dependencies for your selected security mode. Add the
+    dependencies via Maven if they arenât added automatically.
+
+![The Connector Configuration Global Element and the configurations for FIPS 140-2 security mode](_images/as2-connector-upgrade-fips140-2-config.png)
+
+To configure the global element manually in XML (Maven or standalone):
+
+1.  Open your main Mule configuration file, such as `src/main/mule/` or `src/main/resources/`.
+2.  Add the `as2-mule4:external-libs-fips140-2-config` global element to the Mule configuration
+    file.
+3.  Add the `AS2 Connector External Libs - FIPS 140-2` global configuration to your Mule
+    configuration file, as shown in the example.
+
+```xml
+<as2-mule4:external-libs-fips140-2-config name="AS2_External_Libs_FIPS_140_2" />
+```
+
+4.  Add the required Maven dependencies to the `pom.xml` file. Refer to the
+    [AS2 Connector Release Notes](../../release-notes/connector/as2-connector-release-notes-mule-4)
+    for the compatible versions of the dependencies.
+
+```xml
+<dependency>
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>as2-bc1-fips-impl</artifactId>
+    <version>${as2.support.library.version}</version>
+</dependency>
+```
+
+5.  Update the `mule-maven-plugin` by including the shared libraries in the **build** >
+    **plugins** > **plugin** section of the `pom.xml` file.
+
+```xml
+<configuration>
+  <sharedLibraries>
+    <sharedLibrary>
+      <groupId>com.mulesoft.connectors</groupId>
+      <artifactId>as2-bc1-fips-impl</artifactId>
+    </sharedLibrary>
+  </sharedLibraries>
+</configuration>
+```
+
+6.  In JVM or Mule runtime, set the security model to FIPS 140-2.
+
+```bash
+-Dmule.security.model=fips140-2
+```
+
+7.  Restrict BCFIPS to use only FIPS-approved algorithms.
+
+```bash
+-Dorg.bouncycastle.fips.approved_only=true
+```
+
+This example shows the Mule runtime startup configuration for FIPS 140-2:
+
+```bash
+java -Dmule.security.model=fips140-2 \
+  -Dorg.bouncycastle.fips.approved_only=true \
+  -jar mule-standalone.jar
+```
+
+#### Configure a Global Element for the FIPS 140-3 Security Mode
+
+1.  Add the external library global configuration and set the runtime property. Also:
+    - Make sure BouncyCastle FIPS (BCFIPS) is available as required by your Mule runtime.
+    - Configure BCFIPS in Java Security or by following the Mule runtime FIPS documentation for your
+      version.
+    - Make sure you have Java 17 or later as required for FIPS 140-3 support in your deployment.
+
+2.  Configure the global element as a Mule app in Anypoint Studio:
+    1.  In the **Package Explorer** or Anypoint Studio canvas, open your Mule flow or configuration.
+    2.  Click **Global Elements**. Or click **Create global element**, and then click the plus icon
+        next to Global Elements.
+
+3.  Click **Create**, and then search for the `AS2` or `External Libs` option and select **AS2
+    Connector External Libs - FIPS 140-3**.
+    1.  Name the configuration.
+    2.  Click **Configure** > **Add recommended libraries**.
+    3.  Click **OK** to include the libraries as dependencies and shared libraries in the Mule
+        application `pom.xml` file.
+
+4.  Verify that your project has the required dependencies for your selected security mode. Add the
+    dependencies via Maven if they arenât added automatically.
+
+![The Connector Configuration Global Element and the configurations for FIPS 140-3 security mode](_images/as2-connector-upgrade-fips140-3-config.png)
+
+To configure the global element manually in XML (Maven or standalone):
+
+1.  Open your main Mule configuration file, such as `src/main/mule/` or `src/main/resources/`.
+2.  Add the `as2-mule4:external-libs-fips140-3-config` global element to the Mule configuration
+    file.
+3.  Add the `AS2 Connector External Libs - FIPS 140-3` global configuration to your Mule
+    configuration file, as shown in the example:
+
+```xml
+<as2-mule4:external-libs-fips140-3-config name="AS2_External_Libs_FIPS_140_3" />
+```
+
+4.  Add the required Maven dependencies to the `pom.xml` file. Refer to the
+    [AS2 Connector Release Notes](../../release-notes/connector/as2-connector-release-notes-mule-4)
+    for the compatible versions of the dependencies.
+
+```xml
+<dependency>
+    <groupId>com.mulesoft.connectors</groupId>
+    <artifactId>as2-bc2-fips-impl</artifactId>
+    <version>${as2.support.library.version}</version>
+</dependency>
+```
+
+5.  Update the `mule-maven-plugin` by including the shared libraries in the **build** >
+    **plugins** > **plugin** section of the `pom.xml` file.
+
+```xml
+<configuration>
+  <sharedLibraries>
+    <sharedLibrary>
+      <groupId>com.mulesoft.connectors</groupId>
+      <artifactId>as2-bc2-fips-impl</artifactId>
+    </sharedLibrary>
+  </sharedLibraries>
+</configuration>
+```
+
+6.  In JVM or Mule runtime, set the security model to FIPS 140-3.
+
+```bash
+-Dmule.security.model=fips140-3
+```
+
+7.  Restrict BCFIPS to use only FIPS-approved algorithms.
+
+```bash
+-Dorg.bouncycastle.fips.approved_only=true
+```
+
+This example shows the Mule runtime startup configuration for FIPS 140-3:
+
+```bash
+java -Dmule.security.model=fips140-3 \
+  -Dorg.bouncycastle.fips.approved_only=true \
+  -jar mule-standalone.jar
+```
+
+> [!NOTE] The `org.bouncycastle.fips.approved_only` property is JVM-wide and must be set in your
+> system or runtime configuration when running in FIPS mode.
+>
+> If you use BCFIPS in FIPS mode, key and algorithm restrictions apply. Only approved algorithms
+> supported by the BCFIPS provider are allowed.
+
+### Step 3: Verify Keystore and Algorithm Compatibility
+
+1.  Verify that keystores and certificates are compatible with your selected security mode. Some
+    FIPS modes require FIPS-approved algorithms.
+2.  Review the Mule and BCFIPS documentation for approved algorithms if you use BCFIPS in FIPS mode,
+    since key and algorithm restrictions apply.
+
+### Step 4: Verify Connector Usage in Flows
+
+1.  Verify that partner certificates and algorithms are compatible with your selected security mode.
+2.  If you use AS2 Connector operations in your flows, verify that the connector configuration also
+    exists in your Mule app.
+
+## AS2 Connector Startup Validation
+
+When an AS2 listener, AS2 MDN listener, or Send operation starts, AS2 Connector validates that the
+external library configuration and runtime settings are correct. Validation fails if the Mule
+application includes listener, MDN listener, or Send operations that donât meet these requirements:
+
+- The application must include one external library. An error occurs if more than one external
+  library is included or if none are included.
+- The `mule.security.model` system property must match the selected external library configuration:
+  - For non-FIPS, `mule.security.model` must be disabled. If itâs enabled, remove the property.
+  - For FIPS 140-2, `mule.security.model` must be set to `fips140-2`. If the property is configured
+    incorrectly, a message is logged to correct the setting to `-Dmule.security.model=fips140-2`.
+  - For FIPS 140-3, `mule.security.model` must be set to `fips140-3`. If the property is configured
+    incorrectly, a message is logged to correct the setting to `-Dmule.security.model=fips140-3`.
+
+- The implementation library for the selected security mode must be on the same `classpath`. If the
+  library is missing, startup fails. To resolve the issue, review the error log to find the
+  conflicting library and remove it from the `classpath`.
+
+  Use the implementation library that applies to your security mode:
+  - non-FIPS: `as2-bc-non-fips-impl`
+  - FIPS 140-2: `as2-bc1-fips-impl`
+  - FIPS 140-3: `as2-bc2-fips-impl`
+
+- AS2 Connector instantiates the cryptographic implementation for the selected security mode at
+  startup. If this fails, for example due to missing or incompatible libraries, an error is logged
+  that includes the security profile and the cause.
+
+## Post-Upgrade Steps
+
+1.  Verify that the application starts without errors and that AS2 Connector initializes correctly
+    for your selected security mode.
+2.  Test the AS2 listener, MDN listener, and Send operations against your AS2 partners.
+3.  Confirm that certificates and algorithms are accepted in FIPS mode if applicable.
+4.  Notify partners of URL or port changes if you modified the HTTP Listener configuration.
+
+## System Properties Reference
+
+The table details the system-level properties that are required to configure AS2 Connectorâs
+security modes and BCFIPS compliance within the Mule runtime or JVM.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Property</th><th>Description</th><th>Values</th><th>Default</th><th>Scope</th></tr></thead><tbody><tr><td><p><code>mule.security.model</code></p></td><td><p>Security mode used by the connector</p></td><td><p><code>fips140-2</code> or <code>fips140-3</code></p></td><td><p><code>non-FIPS</code> (when not set)</p></td><td><p>Mule runtime or JVM</p></td></tr><tr><td><p><code>org.bouncycastle.fips.approved_only</code></p></td><td><p>Restricts BCFIPS to FIPS-approved algorithms only. Required for FIPS compliance when using BCFIPS.</p></td><td><p><code>true</code>, <code>false</code></p></td><td><p><code>false</code></p></td><td><p>JVM-wide</p></td></tr></tbody></table>
+
+The `org.bouncycastle.fips.approved_only` property affects the entire JVM. When the application runs
+in FIPS mode, the system administrator must configure the property. For more information, see the
+**FIPS 140-2 Compliance Support** section on the [Security](../../mule-runtime/latest/securing) page
+in the Mule runtime documentation.
+
+## Migrate Existing Deployments
+
+AS2 Connector 7.x introduces a Global Connector Configuration and supports configurable security
+modes including non-FIPS, FIPS 140-2, and FIPS 140-3 via the `mule.security.model` system property.
+Follow the [Upgrade Steps](#upgrade-steps) to make the necessary changes to your Mule app. AS2
+Connectorâs cryptographic behavior is determined by the global configuration, which provides the
+required libraries and defines the runtime security model.
+
+Existing 6.x flows remain functional without requiring code changes.
+
+### Migrate Deployments from FIPS 140-2 or 140-3 Environments
+
+1.  Verify that BCFIPS and FIPS-related settings are configured correctly for your Mule runtime
+    version. For more information, see the **FIPS 140-2 Compliance Support** section on the
+    [Security](../../mule-runtime/latest/securing) page in the Mule runtime documentation.
+2.  Set `mule.security.model` to `fips140-2` or `fips140-3` as appropriate for your compliance
+    requirements.
+3.  Set `org.bouncycastle.fips.approved_only` to `true` if required by your runtime for compliance.
+4.  Test your configuration in a non-production environment by running your flows with the AS2
+    listener, MDN listener, and Send operations.
+5.  Deploy the application to production and monitor the error log to verify a successful startup
+    and AS2 message exchange.
+
+## Troubleshooting
+
+These common error messages and issues indicate configuration or `classpath` problems that prevent
+AS2 Connector from operating in the selected security mode. Follow the recommendations to resolve
+the issues.
+
+- **AS2 Connector requires at least one External Libs configuration**
+
+  Add `AS2 Connector External Libs - Non FIPS`, `AS2 Connector External Libs - FIPS 140-2`, or
+  `AS2 Connector External Libs - FIPS 140-3` to your application. See
+  [AS2 Connector Startup Validation](#startup-validation).
+
+- **Only one External Libs configuration is allowed per application**
+
+  Remove the additional external library configurations so that you only have one.
+
+- **Detected 'as2-bc-non-fips-impl' but system property 'mule.security.model' is â¦â**
+
+  For non-FIPS mode, disable `mule.security.model` or remove it from the JVM arguments or runtime
+  configuration.
+
+- **Detected 'as2-bc1-fips-impl' but system property â¦â Set -Dmule.security.model=fips140-2**
+
+  Add `-Dmule.security.model=fips140-2` if youâre using `AS2 Connector External Libs - FIPS 140-2`.
+
+- **Detected 'as2-bc2-fips-impl' but system property â¦â Set -Dmule.security.model=fips140-3**
+
+  Add `-Dmule.security.model=fips140-3` if youâre using `AS2 Connector External Libs - FIPS 140-3`.
+
+- **External Libs - â¦â configuration selected, but 'â¦â' is not on the classpath**
+
+  Add the correct implementation dependency for your selected security mode or make sure the
+  external library configuration imports the dependency. If you receive a warning, make sure only
+  the library for your active security mode remains on the `classpath` by removing any additional
+  AS2 cryptographic implementations.
+
+- **Startup or Crypto Errors in FIPS Mode**
+
+  Make sure `mule.security.model` matches your runtime FIPS setup and that BCFIPS is installed and
+  registered. Set `org.bouncycastle.fips.approved_only` to `true` if required.
+
+- **Tests or Flows that Relied on non-FIPS Behavior**
+
+  If your application is running with `mule.security.model=fips140-2` or `fips140-3`, some
+  algorithms or key usages are restricted. Align keystores and partner expectations with
+  FIPS-approved algorithms.
+
+- **Caching or Metadata Issues**
+
+  If Anypoint Studio or Anypoint Design Center shows a stale configuration, try restarting the IDE
+  or clearing your cache.
+
+## Revert the Upgrade
+
+To revert to AS2 Connector 6.x:
+
+1.  Change the `mule-as2-connector` dependency in your projectâs `pom.xml` file to the desired 6.x
+    version.
+2.  Remove the external library global configuration.
+3.  Remove the libraries that were added as dependencies and shared libraries from the `pom.xml`
+    file.
+4.  Remove or adjust 7.x system properties, such as `mule.security.model`, if they arenât being used
+    by other components.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [AS2 Connector Reference](as2-connector-reference)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# AS2 Connector 7.0 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Studio.
+
+If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Studio XML
+editor or from a text editor, you can get access to the connector in your app by adding reference
+statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+When you install the connector in Studio, Studio automatically populates the XML code with the
+connectorâs namespace and schema location. It also adds a dependency to the `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `<mule>` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/as2-mule4
+http://www.mulesoft.org/schema/mule/as2/current/mule-as2-mule4.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<[source,xml,linenums]
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+xmlns:as2="http://www.mulesoft.org/schema/mule/as2-mule4"
+xmlns="http://www.mulesoft.org/schema/mule/core"
+xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	    xsi:schemaLocation="http://www.springframework.org/schema/beans
+	    http://www.springframework.org/schema/beans/spring-beans-current.xsd
+        http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/as2-mule4
+	http://www.mulesoft.org/schema/mule/as2/current/mule-as2-mule4.xsd">
+      <!-- put your global configuration elements and flows here -->
+</mule>
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule-as2-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+3.  In Exchange, search for `as2`.
+4.  Select the connector.
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## Next Step
+
+After completing your namespace and `pom.xml` file, you can try the
+[examples](as2-connector-examples).
+
+## See Also
+
+- \*
+  [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Salesforce Help](https://help.salesforce.com)
+---
+
+# AS2 Connector 7.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Mule runtime engine (Mule) supports the AS2 protocol through Anypoint Connector for AS2 (AS2
+Connector).
+
+AS2 Connector enables trading partners to transmit and receive AS2 messages with EDI-X12, EDIFACT,
+XML, or binary payloads, for example:
+
+- Send messages, signed or unsigned, over HTTP or HTTPS, using the AS2 protocol
+- Receive messages over HTTP or HTTPS, using the AS2 protocol
+- Receive asynchronous MDN for sent messages
+
+For compatibility information and fixed issues, see the AS2 Connector Release Notes.
+
+For a major or minor release, see [Upgrading and Migrating](as2-connector-upgrade-migrate).
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- The AS2 target resource
+- Anypoint Connectors
+- Mule runtime engine (Mule)
+- Elements and global elements in a Mule flow
+- How to create a Mule app using Anypoint Studio (Studio)
+
+Before creating an app, you must have access to:
+
+- Credentials to access the AS2 target resource
+- Anypoint Platform
+- Anypoint Studio version 7.6 or later
+
+## Common Use Cases for the Connector
+
+Common use cases for AS2 Connector include the following:
+
+- Send with sync MDN
+
+Sends a message through HTTP or HTTPS using the AS2 protocol requesting the partner for a
+synchronous MDN (receipt)
+
+- Send with async MDN
+
+Sends a message through HTTP or HTTPS using the AS2 protocol requesting the partner for an
+asynchronous MDN (receipt)
+
+- Listener
+
+Source that receives messages via HTTP or HTTPS using the AS2 protocol
+
+- MDN Listener
+
+Source that receives asynchronous MDN receipts via HTTP or HTTPS using the AS2 protocol
+
+- Non repudiation Listener
+
+Source that receives a signed copy of a receipt or a message for persistent non-repudiation storage
+
+## Non-Repudiation Storage of AS2 Messages and MDNs
+
+If needed, you can configure non-repudiation storage for your AS2 operations to support regulatory
+or compliance requirements.
+
+Only signed messages and MDNs are eligible for non-repudiation.
+
+The following AS2 Connector sources and operations support the non-repudiation feature:
+
+- AS2 Send Sync operation
+- AS2 Send Async operation
+- AS2 Listener source
+- AS2 MDN Listener source
+
+### Before You Begin for Non-Repudiation Storage
+
+To enable non-repudiation of a message in AS2 Connector, you must implement and configure a separate
+Mule flow that acts as a non-repudiation flow:
+
+- The non-repudiation flow must have access to the signed MIME message that is passed to it, along
+  with appropriate non-repudiation specific attributes.
+- This non-repudiation-specific Mule flow is responsible for receiving, storing, and acting upon the
+  messages and attributes it receives.
+- The name of this non-repudiation flow must be configured on an appropriate listener or operation
+  that has non-repudiation storage enabled.
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create an app and configure the connector
+using [Anypoint Studio](as2-connector-studio).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+- [Use Exchange to Discover Connectors, Templates, and Examples](../../connectors/introduction/intro-use-exchange)
+- [Salesforce Help](https://help.salesforce.com)
+
