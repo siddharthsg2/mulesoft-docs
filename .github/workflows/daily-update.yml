@@ -6,34 +6,43 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  update-docs:
+  fetch-docs:
     runs-on: ubuntu-latest
+    outputs:
+      success: ${{ steps.fetch.outputs.success }}
+      fail: ${{ steps.fetch.outputs.fail }}
+      count: ${{ steps.fetch.outputs.count }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Fetch and reorganize MuleSoft docs
+        id: fetch
         shell: bash
         run: |
           set -e
 
-          # Download main llms.txt
           curl -sL -o llms_raw.txt "https://docs.mulesoft.com/llms.txt"
-          echo "Downloaded main llms.txt"
 
-          # Extract product slugs from the main index
           PRODUCTS=$(grep -oP 'https://docs\.mulesoft\.com/\K[^/]+(?=/llms\.txt)' llms_raw.txt | sort -u)
 
-          # Generate new llms.txt with relative URLs
-          echo "# MuleSoft Documentation" > llms.txt
-          echo "" >> llms.txt
-          echo "> Mirrored from https://docs.mulesoft.com/llms.txt - Updated $(date -u '+%Y-%m-%d %H:%M UTC')" >> llms.txt
-          echo "> LLM-friendly index of all MuleSoft product documentation." >> llms.txt
-          echo "" >> llms.txt
-          echo "## Guides" >> llms.txt
-          echo "" >> llms.txt
+          {
+            echo "# MuleSoft Documentation"
+            echo ""
+            echo "> Mirrored from https://docs.mulesoft.com/llms.txt - Updated $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "> LLM-friendly index of all MuleSoft product documentation."
+            echo ""
+            echo "## Guides"
+            echo ""
+          } > llms.txt
 
           COUNT=0
           SUCCESS=0
@@ -43,7 +52,6 @@ jobs:
             COUNT=$((COUNT + 1))
             DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt | head -1)
 
-            # Download product llms-full.txt
             mkdir -p "products/$SLUG"
             HTTP_CODE=$(curl -sL -o "products/$SLUG/llms-full.txt" -w "%{http_code}" "https://docs.mulesoft.com/$SLUG/llms-full.txt" --max-time 30)
 
@@ -59,21 +67,28 @@ jobs:
             fi
           done
 
-          echo ""
-          echo "=== Summary ==="
-          echo "Success: $SUCCESS | Failed: $FAIL | Total: $COUNT"
-          echo "" >> llms.txt
+          echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+          echo "fail=$FAIL" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
 
-      - name: Commit and push changes
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Daily docs update - $TIMESTAMP"
-            git push
-          fi
+          echo "" >> llms.txt
+          echo "Success: $SUCCESS | Failed: $FAIL | Total: $COUNT" >> llms.txt
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: fetch-docs
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
