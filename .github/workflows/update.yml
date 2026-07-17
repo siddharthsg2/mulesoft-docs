@@ -31,6 +31,9 @@ jobs:
         run: |
           set +e
 
+          MAX_PARALLEL=5
+          TMP=$(mktemp -d)
+
           curl_with_retry() {
             local url="$1" output="$2" max_time="${3:-60}"
             local attempt=0 delay=2 http_code="000"
@@ -75,51 +78,81 @@ jobs:
             echo "|---|---------|--------|------|------|"
           } > "$GITHUB_STEP_SUMMARY"
 
-          COUNT=0
-          SUCCESS=0
-          FAIL=0
-          CACHED=0
+          echo "Phase 1: Checking remote indexes..."
+          RUNNING=0
+          for SLUG in $PRODUCTS; do
+            mkdir -p "products/$SLUG"
+            curl -sL "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 15 -o "$TMP/$SLUG.remote" || true
+            ((RUNNING++))
+            if [ $((RUNNING % 20)) -eq 0 ]; then
+              echo "  Checked $RUNNING indexes..."
+              wait
+            fi
+          done
+          wait
 
+          echo "Phase 2: Identifying products to update..."
+          NEEDS_UPDATE=""
+          COUNT=0
+          CACHED=0
           for SLUG in $PRODUCTS; do
             COUNT=$((COUNT + 1))
-            DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt | head -1)
-
-            mkdir -p "products/$SLUG"
-
-            REMOTE_INDEX=$(curl -sL "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 15 || true)
-
-            REMOTE_HASH=$(echo "$REMOTE_INDEX" | md5sum | cut -d' ' -f1)
+            REMOTE_HASH=$(md5sum "$TMP/$SLUG.remote" 2>/dev/null | cut -d' ' -f1)
             LOCAL_HASH=$(md5sum "products/$SLUG/llms.txt" 2>/dev/null | cut -d' ' -f1)
-
             if [ -f "products/$SLUG/llms-full.txt" ] && [ "$REMOTE_HASH" = "$LOCAL_HASH" ]; then
               CACHED=$((CACHED + 1))
-              SIZE=$(wc -c < "products/$SLUG/llms-full.txt" | tr -d ' ')
-              echo "[$COUNT] CACHED $SLUG (${SIZE}B)"
-              echo "| $COUNT | \`$SLUG\` | Skipped (unchanged) | - | ${SIZE}B |" >> "$GITHUB_STEP_SUMMARY"
-              echo "- [$SLUG](https://siddharthsg2.github.io/mulesoft-docs/products/$SLUG/llms.txt): $DESC" >> llms.txt
-              sleep 0.5
-              continue
+            else
+              NEEDS_UPDATE="$NEEDS_UPDATE $SLUG"
             fi
+          done
+          echo "  $CACHED cached, $(echo $NEEDS_UPDATE | wc -w) to download"
 
-            HTTP_CODE=$(curl_with_retry "https://docs.mulesoft.com/$SLUG/llms-full.txt" "products/$SLUG/llms-full.txt" 60 || echo "000")
+          echo "Phase 3: Downloading docs in parallel (max $MAX_PARALLEL)..."
+          RUNNING=0
+          SUCCESS=0
+          FAIL=0
+          for SLUG in $NEEDS_UPDATE; do
+            (
+              HTTP_CODE=$(curl_with_retry "https://docs.mulesoft.com/$SLUG/llms-full.txt" "products/$SLUG/llms-full.txt" 60 || echo "000")
+              if [ "$HTTP_CODE" = "200" ] && [ -s "products/$SLUG/llms-full.txt" ] && ! grep -qi "page not found" "products/$SLUG/llms-full.txt" 2>/dev/null; then
+                cp "$TMP/$SLUG.remote" "products/$SLUG/llms.txt"
+                echo "OK:$HTTP_CODE" > "$TMP/$SLUG.result"
+              else
+                rm -f "products/$SLUG/llms-full.txt"
+                echo "FAIL:$HTTP_CODE" > "$TMP/$SLUG.result"
+              fi
+            ) &
+            ((RUNNING++))
+            if [ $RUNNING -ge $MAX_PARALLEL ]; then
+              wait -n
+              ((RUNNING--))
+            fi
+          done
+          wait
 
-            if [ "$HTTP_CODE" = "200" ] && [ -s "products/$SLUG/llms-full.txt" ] && ! grep -qi "page not found" "products/$SLUG/llms-full.txt" 2>/dev/null; then
+          echo "Phase 4: Aggregating results..."
+          IDX=0
+          for SLUG in $PRODUCTS; do
+            IDX=$((IDX + 1))
+            DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt | head -1)
+            RESULT=$(cat "$TMP/$SLUG.result" 2>/dev/null || echo "")
+            STATUS="${RESULT%%:*}"
+            HTTP_CODE="${RESULT##*:}"
+
+            if [ "$STATUS" = "OK" ]; then
               SUCCESS=$((SUCCESS + 1))
               SIZE=$(wc -c < "products/$SLUG/llms-full.txt" | tr -d ' ')
-              echo "[$COUNT] OK $SLUG (${SIZE}B)"
-              echo "| $COUNT | \`$SLUG\` | OK | $HTTP_CODE | ${SIZE}B |" >> "$GITHUB_STEP_SUMMARY"
-              echo "$REMOTE_INDEX" > "products/$SLUG/llms.txt"
+              echo "| $IDX | \`$SLUG\` | OK | $HTTP_CODE | ${SIZE}B |" >> "$GITHUB_STEP_SUMMARY"
+            elif [ -f "products/$SLUG/llms-full.txt" ]; then
+              SIZE=$(wc -c < "products/$SLUG/llms-full.txt" | tr -d ' ')
+              echo "| $IDX | \`$SLUG\` | OK (cached) | - | ${SIZE}B |" >> "$GITHUB_STEP_SUMMARY"
             else
-              rm -f "products/$SLUG/llms-full.txt"
-              rmdir "products/$SLUG" 2>/dev/null || true
               FAIL=$((FAIL + 1))
-              echo "[$COUNT] FAIL $SLUG (HTTP $HTTP_CODE)"
-              echo "| $COUNT | \`$SLUG\` | Failed | $HTTP_CODE | - |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| $IDX | \`$SLUG\` | Failed | $HTTP_CODE | - |" >> "$GITHUB_STEP_SUMMARY"
+              rmdir "products/$SLUG" 2>/dev/null || true
             fi
 
             echo "- [$SLUG](https://siddharthsg2.github.io/mulesoft-docs/products/$SLUG/llms.txt): $DESC" >> llms.txt
-
-            sleep 1
           done
 
           {
@@ -134,6 +167,8 @@ jobs:
 
           echo "" >> llms.txt
           echo "Success: $SUCCESS | Failed: $FAIL | Cached: $CACHED | Total: $COUNT" >> llms.txt
+
+          rm -rf "$TMP"
 
       - name: Check for changes
         id: check-changes
