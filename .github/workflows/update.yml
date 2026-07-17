@@ -53,14 +53,14 @@ jobs:
             echo "000"; return 1
           }
 
-          curl -sL -o llms_raw.txt "https://docs.mulesoft.com/llms.txt" || true
+          curl -sL -o llms_raw.txt "https://docs.mulesoft.com/llms.txt" 2>/dev/null || true
 
           if [ ! -s llms_raw.txt ]; then
             echo "ERROR: Failed to download root llms.txt"
             exit 1
           fi
 
-          PRODUCTS=$(grep -oP 'https://docs\.mulesoft\.com/\K[^/]+(?=/llms\.txt)' llms_raw.txt | sort -u)
+          PRODUCTS=$(grep -oP 'https://docs\.mulesoft\.com/\K[^/]+(?=/llms\.txt)' llms_raw.txt 2>/dev/null | sort -u || echo "")
 
           {
             echo "# MuleSoft Documentation"
@@ -82,8 +82,8 @@ jobs:
           echo "Phase 1: Checking remote indexes..."
           RUNNING=0
           for SLUG in $PRODUCTS; do
-            mkdir -p "products/$SLUG"
-            curl -sL "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 15 -o "$TMP/$SLUG.remote" || true
+            mkdir -p "products/$SLUG" 2>/dev/null || true
+            curl -sL "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 15 -o "$TMP/$SLUG.remote" 2>/dev/null || true
             ((RUNNING++))
             if [ $((RUNNING % 20)) -eq 0 ]; then
               echo "  Checked $RUNNING indexes..."
@@ -98,15 +98,15 @@ jobs:
           CACHED=0
           for SLUG in $PRODUCTS; do
             COUNT=$((COUNT + 1))
-            REMOTE_HASH=$(md5sum "$TMP/$SLUG.remote" 2>/dev/null | cut -d' ' -f1)
-            LOCAL_HASH=$(md5sum "products/$SLUG/llms.txt" 2>/dev/null | cut -d' ' -f1)
-            if [ -f "products/$SLUG/llms-full.txt" ] && [ "$REMOTE_HASH" = "$LOCAL_HASH" ]; then
+            REMOTE_HASH=$(md5sum "$TMP/$SLUG.remote" 2>/dev/null | cut -d' ' -f1 || echo "")
+            LOCAL_HASH=$(md5sum "products/$SLUG/llms.txt" 2>/dev/null | cut -d' ' -f1 || echo "")
+            if [ -f "products/$SLUG/llms-full.txt" ] && [ -n "$REMOTE_HASH" ] && [ "$REMOTE_HASH" = "$LOCAL_HASH" ]; then
               CACHED=$((CACHED + 1))
             else
               NEEDS_UPDATE="$NEEDS_UPDATE $SLUG"
             fi
           done
-          echo "  $CACHED cached, $(echo $NEEDS_UPDATE | wc -w) to download"
+          echo "  $CACHED cached, $(echo $NEEDS_UPDATE | wc -w 2>/dev/null || echo 0) to download"
 
           echo "Phase 3: Downloading docs in parallel (max $MAX_PARALLEL)..."
           RUNNING=0
@@ -126,27 +126,27 @@ jobs:
             ) &
             ((RUNNING++))
             if [ $RUNNING -ge $MAX_PARALLEL ]; then
-              wait -n
+              wait -n || true
               ((RUNNING--))
             fi
           done
-          wait
+          wait || true
 
           echo "Phase 4: Aggregating results..."
           IDX=0
           for SLUG in $PRODUCTS; do
             IDX=$((IDX + 1))
-            DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt | head -1)
+            DESC=$(grep -oP "(?<=$SLUG/llms\.txt\): )[^)]*" llms_raw.txt 2>/dev/null | head -1 || echo "")
             RESULT=$(cat "$TMP/$SLUG.result" 2>/dev/null || echo "")
             STATUS="${RESULT%%:*}"
             HTTP_CODE="${RESULT##*:}"
 
             if [ "$STATUS" = "OK" ]; then
               SUCCESS=$((SUCCESS + 1))
-              SIZE=$(wc -c < "products/$SLUG/llms-full.txt" | tr -d ' ')
+              SIZE=$(wc -c < "products/$SLUG/llms-full.txt" 2>/dev/null | tr -d ' ' || echo "0")
               echo "| $IDX | \`$SLUG\` | OK | $HTTP_CODE | ${SIZE}B |" >> "$GITHUB_STEP_SUMMARY"
             elif [ -f "products/$SLUG/llms-full.txt" ]; then
-              SIZE=$(wc -c < "products/$SLUG/llms-full.txt" | tr -d ' ')
+              SIZE=$(wc -c < "products/$SLUG/llms-full.txt" 2>/dev/null | tr -d ' ' || echo "0")
               echo "| $IDX | \`$SLUG\` | OK (cached) | - | ${SIZE}B |" >> "$GITHUB_STEP_SUMMARY"
             else
               FAIL=$((FAIL + 1))
@@ -173,38 +173,67 @@ jobs:
           rm -rf "$TMP"
 
       - name: Scrub false-positive secrets
+        shell: bash
         run: |
+          set +e
           SCRUBBED=0
           for f in products/*/llms-full.txt; do
             [ -f "$f" ] || continue
             BEFORE=$(wc -l < "$f")
 
             # Blank OAuth values inside XML attributes
-            sed -i -E 's/(consumerKey=")[^"]*"/\1REDACTED"/g' "$f"
-            sed -i -E 's/(consumerSecret=")[^"]*"/\1REDACTED"/g' "$f"
-            sed -i -E 's/(client_id=")[^"]*"/\1REDACTED"/g' "$f"
-            sed -i -E 's/(client_secret=")[^"]*"/\1REDACTED"/g' "$f"
-            sed -i -E 's/(clientKey=")[^"]*"/\1REDACTED"/g' "$f"
-            sed -i -E 's/(clientKeySecret=")[^"]*"/\1REDACTED"/g' "$f"
+            sed -i -E 's/(consumerKey=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(consumerSecret=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(client_id=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(client_secret=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(clientKey=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(clientKeySecret=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(apiKey=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(api_key=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(secretKey=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(secret_key=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(accessToken=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(access_token=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(refreshToken=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
+            sed -i -E 's/(refresh_token=")[^"]*"/\1REDACTED"/g' "$f" 2>/dev/null || true
 
             # Google OAuth patterns
-            sed -i '/apps\.googleusercontent\.com/d' "$f"
-            sed -i '/GOCSPX-/d' "$f"
-            sed -i '/AIza[A-Za-z0-9_-]\{35\}/d' "$f"
+            sed -i '/apps\.googleusercontent\.com/d' "$f" 2>/dev/null || true
+            sed -i '/GOCSPX-/d' "$f" 2>/dev/null || true
+            sed -i '/AIza[A-Za-z0-9_-]\{35\}/d' "$f" 2>/dev/null || true
 
             # Azure AD / Microsoft patterns
-            sed -i '/P8M8Q~/d' "$f"
-            sed -i '/[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}\/oauth2\/v2\.0/d' "$f"
+            sed -i '/P8M8Q~/d' "$f" 2>/dev/null || true
+            sed -i '/[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}\/oauth2\/v2\.0/d' "$f" 2>/dev/null || true
+            sed -i '/[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}\/oauth\/v2\.0/d' "$f" 2>/dev/null || true
 
             # AWS patterns
-            sed -i '/AKIA[A-Z0-9]\{16\}/d' "$f"
+            sed -i '/AKIA[A-Z0-9]\{16\}/d' "$f" 2>/dev/null || true
+            sed -i '/AKIA[A-Z0-9]\{12\}/d' "$f" 2>/dev/null || true
+            sed -i '/ASIA[A-Z0-9]\{16\}/d' "$f" 2>/dev/null || true
 
-            # Generic standalone secret lines
-            sed -i -E '/^\s*(client_id|client_secret|clientid|clientsecret|api_key|apikey|secret_key|secretkey|access_token|accesstoken|refresh_token|refreshtoken)\s*[:=]/Id' "$f"
-            sed -i -E '/^\s*sk-[A-Za-z0-9]{20,}\s*$/d' "$f"
-            sed -i -E '/^\s*ghp_[A-Za-z0-9]{36}\s*$/d' "$f"
-            sed -i -E '/^\s*gho_[A-Za-z0-9]{36}\s*$/d' "$f"
-            sed -i -E '/^\s*[A-Za-z0-9]{40}\s*$/d' "$f"
+            # Generic standalone secret lines (only at line start with key=value format)
+            sed -i -E '/^\s*(client_id|client_secret|clientid|clientsecret|api_key|apikey|secret_key|secretkey|access_token|accesstoken|refresh_token|refreshtoken)\s*[:=]/Id' "$f" 2>/dev/null || true
+            sed -i -E '/^\s*sk-[A-Za-z0-9]{20,}\s*$/d' "$f" 2>/dev/null || true
+            sed -i -E '/^\s*ghp_[A-Za-z0-9]{36}\s*$/d' "$f" 2>/dev/null || true
+            sed -i -E '/^\s*gho_[A-Za-z0-9]{36}\s*$/d' "$f" 2>/dev/null || true
+
+            # More GitHub PAT patterns
+            sed -i -E '/^\s*github_pat_[A-Za-z0-9_]{22,}\s*$/d' "$f" 2>/dev/null || true
+            sed -i -E '/^\s*ghr_[A-Za-z0-9_]{36,}\s*$/d' "$f" 2>/dev/null || true
+
+            # Slack tokens
+            sed -i -E '/^\s*xox[baprs]-[A-Za-z0-9-]+\s*$/d' "$f" 2>/dev/null || true
+
+            # Stripe keys
+            sed -i -E '/^\s*sk_live_[A-Za-z0-9]{24,}\s*$/d' "$f" 2>/dev/null || true
+            sed -i -E '/^\s*pk_live_[A-Za-z0-9]{24,}\s*$/d' "$f" 2>/dev/null || true
+
+            # Twilio
+            sed -i -E '/^\s*SK[0-9a-f]{32}\s*$/d' "$f" 2>/dev/null || true
+
+            # Private keys
+            sed -i '/BEGIN.*PRIVATE KEY/d' "$f" 2>/dev/null || true
 
             AFTER=$(wc -l < "$f")
             REMOVED=$((BEFORE - AFTER))
