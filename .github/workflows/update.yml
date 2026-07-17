@@ -26,9 +26,12 @@ jobs:
         id: fetch
         shell: bash
         run: |
-          set -e
+          curl -sL -o llms_raw.txt "https://docs.mulesoft.com/llms.txt" || true
 
-          curl -sL -o llms_raw.txt "https://docs.mulesoft.com/llms.txt"
+          if [ ! -s llms_raw.txt ]; then
+            echo "ERROR: Failed to download root llms.txt"
+            exit 1
+          fi
 
           PRODUCTS=$(grep -oP 'https://docs\.mulesoft\.com/\K[^/]+(?=/llms\.txt)' llms_raw.txt | sort -u)
 
@@ -52,7 +55,7 @@ jobs:
 
             mkdir -p "products/$SLUG"
 
-            HTTP_CODE=$(curl -sL -o "products/$SLUG/llms-full.txt" -w "%{http_code}" "https://docs.mulesoft.com/$SLUG/llms-full.txt" --max-time 30)
+            HTTP_CODE=$(curl -sL -o "products/$SLUG/llms-full.txt" -w "%{http_code}" "https://docs.mulesoft.com/$SLUG/llms-full.txt" --max-time 60 || echo "000")
 
             if [ "$HTTP_CODE" = "200" ] && [ -s "products/$SLUG/llms-full.txt" ] && ! grep -qi "page not found" "products/$SLUG/llms-full.txt" 2>/dev/null; then
               SUCCESS=$((SUCCESS + 1))
@@ -64,10 +67,11 @@ jobs:
               echo "[$COUNT] FAIL $SLUG (HTTP $HTTP_CODE)"
             fi
 
-            # Also download product llms.txt
-            curl -sL -o "products/$SLUG/llms.txt" "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 15
+            curl -sL -o "products/$SLUG/llms.txt" "https://docs.mulesoft.com/$SLUG/llms.txt" --max-time 30 || true
 
             echo "- [$SLUG](https://siddharthsg2.github.io/mulesoft-docs/products/$SLUG/llms.txt): $DESC" >> llms.txt
+
+            sleep 1
           done
 
           echo "success=$SUCCESS" >> $GITHUB_OUTPUT
