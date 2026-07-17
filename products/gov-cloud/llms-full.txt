@@ -1,4 +1,8 @@
-﻿# Government Cloud - Full Documentation
+# Government Cloud - Full Documentation
+
+---
+product: Government Cloud
+---
 
 # Set up Your Government Cloud Account
 
@@ -32,6 +36,9 @@ SSO for your organization.
 
 > [!IMPORTANT] Government Cloud does not support the configuration of local users, for which
 > usernames and encrypted passwords are stored outside of Government Cloud.
+
+---
+product: Government Cloud
 ---
 
 # Anypoint VPN Configuration
@@ -63,6 +70,305 @@ Anypoint VPN supports the following IPsec settings in the Government Cloud envir
 ## See Also
 
 - [Anypoint VPN](../cloudhub/vpn-about)
+
+---
+product: Government Cloud
+keywords: fips, certifications, security, fips-140-3, government cloud
+---
+
+# FIPS 140-3 Compliance Support in Government Cloud
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Configure Mule runtime engine (Mule) to run in a Federal Information Processing Standard (FIPS)
+140-3 certified environment in MuleSoft Government Cloud.
+
+Mule doesn’t run in FIPS security mode by default. To enable it, you must:
+
+- Install a certified cryptography module in your Java environment.
+- Adjust Mule runtime settings to run in FIPS security mode.
+
+Follow the migration path that matches your scenario:
+
+- [Migrating Mule from FIPS 140-2 to FIPS 140-3](#migrate-fips1402-to-fips1403)
+- [Migrating Mule from Non-FIPS to FIPS 140-3](#migrate-non-fips-to-fips1403)
+
+## Compatibility
+
+FIPS 140-3 support in MuleSoft Government Cloud requires:
+
+- Mule runtime engine 4.9 (Government Cloud supported version)
+- Java 17 or later
+- FIPS license from the license `.zip` file provided by MuleSoft (the non-FIPS license isn’t valid
+  for FIPS mode)
+
+## Assumptions
+
+This document assumes you are familiar with
+[FIPS 140-3](https://csrc.nist.gov/publications/detail/fips/140/3/final), the US government security
+standard that requires compliant parties to use only cryptographic algorithms and techniques
+certified by NIST.
+
+These instructions use Bouncy Castle 2.0.0, the recommended FIPS 140-3 certified security provider
+for Mule runtime. If you use a different
+[certified security provider](https://csrc.nist.gov/projects/cryptographic-module-validation-program/validated-modules),
+refer to that provider’s documentation for configuration instructions.
+
+## Migrating from FIPS 140-2 to FIPS 140-3
+
+If you are currently running Mule in FIPS 140-2 mode and want to move to FIPS 140-3, apply these
+cipher and configuration changes.
+
+### Cipher and Protocol Changes
+
+- TLS and cipher suites:  
+  FIPS 140-3 requires support for TLS 1.3 and TLS 1.2. Earlier TLS versions aren’t supported. Use
+  only the FIPS 140-3 compliant cipher suites listed in the
+  [FIPS 140-3 Compliant Cipher Suites](#fips-140-3-compliant-cipher-suites) section. Remove or
+  replace any custom TLS or cipher configuration that references FIPS 140-2-only or non–FIPS 140-3
+  cipher suites.
+- Configuration file:  
+  FIPS 140-3 uses the `$MULE_HOME/conf/tls-fips140-3.conf` file for TLS cipher configuration. Ensure
+  your runtime uses this file and that you have removed or replaced references to any FIPS 140-2 TLS
+  configuration file.
+
+### Security Provider and Java Configuration
+
+- Bouncy Castle version:  
+  Replace the FIPS 140-2 Bouncy Castle provider (typically 1.x FIPS) with Bouncy Castle 2.0.0 FIPS.
+  Install the JARs listed in [Installing Bouncy Castle Security Provider](#set_up_environment) and
+  update `java.security` to use `BouncyCastleFipsProvider` and `BouncyCastleJsseProvider` as shown
+  there.
+- `KeyManagerFactory` and `TrustManagerFactory`:  
+  In `$JAVA_HOME/conf/security/java.security`, set:
+
+  ssl.KeyManagerFactory.algorithm=PKIX ssl.TrustManagerFactory.algorithm=PKIX
+
+### Runtime Configuration (wrapper.conf)
+
+- Security model:  
+  Change the Mule security model from FIPS 140-2 to FIPS 140-3:
+
+  \# Enable FIPS 140-3 security mode (replace fips140-2)
+  wrapper.java.additional.<n>=-Dmule.security.model=fips140-3
+
+- Approved-only mode:  
+  Add or ensure:
+
+  wrapper.java.additional.<n>=-Dorg.bouncycastle.fips.approved_only=true
+
+- Java 17+ module access:  
+  Add:
+
+  wrapper.java.additional.<n>=--add-opens=java.base/sun.security.provider=org.bouncycastle.fips.core
+
+### Keystore Format
+
+- BCFKS:  
+  FIPS 140-3 requires keystores and truststores in `BCFKS` format. If you are still using `PKCS12`
+  or `JKS` from your FIPS 140-2 setup, convert them to `BCFKS` using the steps in
+  [FIPS 140-3 Compliant Keystore Formats](#fips-140-3-compliant-keystore-formats). Update all TLS
+  contexts in your Mule apps to reference the new keystores and set `type="bcfks"`.
+
+### Connectors and Post-Migration
+
+- Use only connectors tagged as `fips-140-3-verified` in Anypoint Exchange. Replace or remove
+  connectors that are only verified for FIPS 140-2.
+- Restart Mule after all changes and confirm in startup logs that FIPS 140-3 security mode is
+  enabled.
+
+## Migrating from Non-FIPS to FIPS 140-3
+
+If you are running Mule in standard (non-FIPS) mode and need to move directly to FIPS 140-3,
+complete these steps.
+
+### Prerequisites
+
+- Mule runtime engine 4.9
+- Java 17 or later
+- A FIPS license from the license `.zip` file provided by MuleSoft.
+
+### Steps
+
+1.  Install the FIPS 140-3 certified cryptography provider:  
+    Follow [Installing Bouncy Castle Security Provider](#set_up_environment) to install Bouncy
+    Castle 2.0.0 FIPS and configure `java.security` (providers and `ssl.KeyManagerFactory.algorithm`
+    / `ssl.TrustManagerFactory.algorithm`).
+2.  Configure Mule for FIPS 140-3 mode:  
+    In `$MULE_HOME/conf/wrapper.conf`, add the properties described in
+    [Running Mule in FIPS Security Mode](#running-mule-in-fips-security-mode)
+    (`mule.security.model=fips140-3`, `org.bouncycastle.fips.approved_only=true`, and the
+    `--add-opens` option). For Mule 4.9, set the keystore type explicitly:
+
+    wrapper.java.additional.<n>=-Dmule.keystore.type=BCFKS
+
+3.  Convert keystores and truststores to BCFKS:  
+    Standard Mule setups often use `PKCS12` or `JKS`. Convert all keystores and truststores used by
+    your applications to `BCFKS` using the procedure in
+    [FIPS 140-3 Compliant Keystore Formats](#fips-140-3-compliant-keystore-formats).
+4.  Update TLS configuration in Mule apps:  
+    In your Mule configuration files, update every `tls:context` to use the new BCFKS keystores and
+    truststores with `type="bcfks"` as shown in
+    [FIPS 140-3 Compliant Keystore Formats](#fips-140-3-compliant-keystore-formats).
+5.  Remove non-compliant cipher and protocol usage:  
+    Don’t configure custom cipher suites or TLS versions that aren’t FIPS 140-3 compliant. Rely on
+    the default FIPS 140-3 cipher suites (see
+    [FIPS 140-3 Compliant Cipher Suites](#fips-140-3-compliant-cipher-suites)) and ensure no
+    connectors or custom code force non-approved algorithms.
+6.  Verify connector compliance:  
+    Only use connectors tagged as `fips-140-3-verified` in Anypoint Exchange. Replace or remove any
+    connector that isn’t FIPS 140-3 verified (see
+    [Connectors Compatibility](#connectors-compatibility)).
+7.  Restart Mule and validate:  
+    Save all changes, restart Mule, and confirm in startup logs that FIPS 140-3 security mode is
+    enabled. Test connectivity and integrations that use TLS and cryptography.
+
+## Installing Bouncy Castle Security Provider
+
+Mule runtime uses Bouncy Castle 2.0.0 as its FIPS 140-3 certified cryptography provider.
+
+### Installation Steps
+
+These instructions show how to install and configure the Bouncy Castle security provider with Java
+17 or later.
+
+1.  Verify that you are using Java 17 or later and `JAVA_HOME` is set.
+2.  Download the Bouncy Castle 2.0.0 provider files from
+    [the Bouncy Castle website](https://www.bouncycastle.org/fips-java/).
+3.  Copy the required JAR files to the `$MULE_HOME/lib/boot` folder:
+
+    bc-fips-2.0.0.jar bctls-fips-2.0.19.jar bcpkix-fips-2.0.7.jar bcutil-fips-2.0.3.jar
+    bcpg-fips-2.0.9.jar bcjmail-fips-2.0.5.jar
+
+4.  Configure the security providers in the `$JAVA_HOME/conf/security/java.security` file:
+
+    security.provider.1=org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
+    security.provider.2=org.bouncycastle.jsse.provider.BouncyCastleJsseProvider fips:BCFIPS
+    security.provider.3=SUN
+
+5.  Configure the key manager and trust manager algorithms in the same `java.security` file:
+
+    ssl.KeyManagerFactory.algorithm=PKIX ssl.TrustManagerFactory.algorithm=PKIX
+
+## Running Mule in FIPS Security Mode
+
+After installing the Bouncy Castle provider, configure Mule to run in FIPS 140-3 mode:
+
+1.  Open your `wrapper.conf` file (located in `$MULE_HOME/conf`).
+2.  Add these properties. Replace `<n>` with the next sequential number in your file:
+
+    \# Enable FIPS 140-3 security mode wrapper.java.additional.<n>=-Dmule.security.model=fips140-3
+
+    # Enable Bouncy Castle approved-only mode
+
+    wrapper.java.additional.<n>=-Dorg.bouncycastle.fips.approved_only=true
+
+    # Required for Java 17+ module access
+
+    wrapper.java.additional.<n>=--add-opens=java.base/sun.security.provider=org.bouncycastle.fips.core
+
+    # For Mule 4.9: set keystore type to BCFKS
+
+    wrapper.java.additional.<n>=-Dmule.keystore.type=BCFKS
+
+3.  If you are using a clustered environment, also add the cluster encryption key:
+
+    wrapper.java.additional.<n>=-Dmule.cluster.network.encryption.key={your-encryption-key}
+
+4.  Save your changes and start Mule runtime.
+
+When Mule launches, the startup logs show that FIPS 140-3 security mode is enabled. Mule
+automatically restricts protocol negotiations to use only approved cryptographic cipher suites.
+
+> [!IMPORTANT] Not all connectors are FIPS 140-3 compliant. Only connectors tagged as
+> `fips-140-3-verified` in Anypoint Exchange are certified for use in FIPS 140-3 environments.
+> Always verify compliance in Exchange before deploying.
+
+## FIPS 140-3 Compliant Cipher Suites
+
+These cipher suites are enabled by default when running Mule in FIPS 140-3 mode. Use these when
+planning or validating migrations from FIPS 140-2 or non-FIPS runtimes.
+
+### TLS 1.3 Cipher Suites
+
+- TLS_AES_128_GCM_SHA256
+- TLS_AES_256_GCM_SHA384
+- TLS_AES_128_CCM_SHA256
+- TLS_AES_128_CCM_8_SHA256
+
+### TLS 1.2 Cipher Suites
+
+- TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+- TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+- TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+- TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+- TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+- TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+- TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384
+- TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+- TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+- TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+- TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+
+> [!NOTE] These cipher suites are configured in the `$MULE_HOME/conf/tls-fips140-3.conf` file. FIPS
+> 140-3 requires support for TLS 1.3 and TLS 1.2. Earlier TLS versions aren’t supported.
+
+## FIPS 140-3 Compliant Keystore Formats
+
+Keystores or truststores in Mule apps are often formatted as `PKCS12` or `JKS`. These formats aren’t
+FIPS compliant. For compliance, convert them to `BCFKS` format:
+
+1.  Download the `bc-fips-2.0.0.jar` file from the
+    [Bouncy Castle website](https://www.bouncycastle.org/download/bouncy-castle-java-fips/).
+2.  Use this example command to convert a keystore to `BCFKS` format:
+
+BC_FIPS_JAR=${BC_PATH}/bc-fips-2.0.0.jar # Replace with a correct path OLD_KEYSTORE="keystore.jks" #
+Replace with the keystore to convert OLD_PASSWD="changeit" # Replace with the keystore password
+NEW_KEYSTORE="keystore.bcfks" # Replace with the new keystore NEW_PASSWD="changeit" # Replace with
+the new keystore password
+
+keytool -importkeystore \\ -providerclass org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
+\\ -providerpath ${BC_FIPS_JAR} \\ -srckeystore ${OLD_KEYSTORE} -srcstoretype JKS -srcstorepass
+${OLD_PASSWD} \\ -destkeystore ${NEW_KEYSTORE} -deststoretype BCFKS -deststorepass ${NEW_PASSWD}
+
+> [!NOTE] If the source keystore is `PKCS12`, set `-srcstoretype` to `PKCS12` in the `keytool`
+> command.
+
+4.  Update the TLS configuration in your Mule configuration file to use the new keystore or
+    truststore:
+
+<tls:context> <tls:key-store type="bcfks" path="server.bcfks" password="changeit"
+keyPassword="changeit" alias="default" /> <tls:trust-store type="bcfks" path="client.bcfks"
+password="changeit" /> </tls:context>
+
+## Connectors Compatibility
+
+Only connectors tagged as `fips-140-3-verified` in Anypoint Exchange are certified for use in FIPS
+140-3 environments. To check compliance in Exchange before deploying:
+
+1.  Open Anypoint Exchange.
+2.  Search for the connector.
+3.  Check for the `fips-140-3-verified` tag.
+
+## Tips and Limitations
+
+- Not all encryption schemes and signatures are FIPS 140-3 compliant. If your app uses a
+  non-approved algorithm, you might see a runtime error such as:
+
+      Could not find encryption algorithm '<algorithm-name>'.
+      You are running in FIPS mode, so please verify that
+      the algorithm is compliant with FIPS.
+
+- Different environments can have different security configurations. Test before deploying to
+  production.
+
+## See Also
+
+- [Security in MuleSoft Government Cloud](gov-cloud-security)
+- [Government Cloud Overview](./)
+
+---
+product: Government Cloud
 ---
 
 # Dedicated Load Balancer Configuration
@@ -118,7 +424,7 @@ application on `http://myApp.lb-name.lb-gprod-rt.anypointdns.net` or
 `https://myApp.lb-name.lb-gprod-rt.anypointdns.net:443`.
 
 In addition, you can set a CNAME record in your corporate DNS nameserver to map the
-`lb-name.lb-gprod-rt.anypointdns.net` domain to your companyâs "vanity" domain.
+`lb-name.lb-gprod-rt.anypointdns.net` domain to your company’s "vanity" domain.
 
 For example, suppose your company owns the DNS domain `example.com`. You can create a CNAME record
 to route requests to `myapp.example.com` to `myApp.lb-name.lb-gprod-rt.anypointdns.net`. This hides
@@ -168,6 +474,9 @@ You can configure the Dedicated Load Balancer to pass request URIs unchanged or 
 
 - [Virtual Private Cloud](../cloudhub/virtual-private-cloud)
 - [Mapping Rules](../cloudhub/lb-mapping-rules)
+
+---
+product: Government Cloud
 ---
 
 # Secure Configuration for FedRAMP (Rev 5)
@@ -190,12 +499,15 @@ provider platform; and you administer your organizations, users, roles, and appl
 
 ## FRR-RSC Controls
 
-<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Control</th><th>Requirement</th><th>Description</th><th>MuleSoft Solution</th></tr></thead><tbody><tr><td><p>SCG-CSO-RSC (FRR-RSC-01)</p></td><td><p>Top-Level Administrative Accounts Guidance</p></td><td><div><div><p>Providers must create and maintain guidance that includes instructions on how to securely access, configure, operate, and decommission top-level administrative accounts that control enterprise access to the entire cloud service offering.</p></div><div><p>Note: This guidance should explain how top-level administrative accounts are named and referred to in the cloud service offering.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft fulfills this requirement in this PaaS model. MuleSoft documents how to create accounts, manage access, and use organization-level adminâincluding the "Organization Administrator" permission, "organization owner," and "Organization Administrators" roles, as well as access (sign-in, single sign-on (SSO), multi-factor authentication (MFA)), configuration (users, business groups, roles), operation (managing users, roles, permissions), and decommissioning (deleting accounts, migrating owners). The documentation explicitly names the "Organization Administrators" and "organization owner" roles and "Organization Administrator" permission.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="../access-management/managing-your-account">Managing your Anypoint Platform Account</a></p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li><li><p><a href="./">Government Cloud Overview</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-RSC (FRR-RSC-02)</p></td><td><p>Administrative Security Settings</p></td><td><div><div><p>Providers must create and maintain guidance that explains security-related settings that can be operated only by top-level administrative accounts and their security implications.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft documents security-relevant settings that only top-level (organization) administrators can change. MuleSoft documentation covers security-related actions that require the Organization Administrators (or equivalent) roleâfor example, trusted domains (Gov Cloud security), user and role management, MFA and identity provider (IdP) configuration, client applications, virtual private cloud (VPC) and load balancer permissions, and organization details. The security and Access Management documentation describes these implications (for example, trusted domains, MFA).</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="../access-management/">Access Management Overview</a> (Organization Administrator Configurations)</p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a> (Organization Administrators Scope)</p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-RSC (FRR-RSC-03)</p></td><td><p>Privileged Accounts Security</p></td><td><div><div><p>Providers should create and maintain guidance that explains security-related settings that can be operated only by privileged accounts and their security implications.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft documents privileged (nonâtop-level) roles and their security-relevant capabilities. MuleSoft documentation lists default roles (for example, API Versions Owner, CloudHub Admin, Exchange Administrators, Audit Log Viewers) and their permission scopes, and explains custom roles. MuleSoft documentation describes security implications so you can understand what each role can do and how to manage privileged-account settings.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li><li><p><a href="../access-management/managing-permissions">Managing Permissions</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-SDF (FRR-RSC-04)</p></td><td><p>Secure Defaults on Provisioning</p></td><td><div><div><p>Providers should set all settings to their recommended secure defaults for top-level administrative accounts and privileged accounts when initially provisioned.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft sets platform-level secure defaults (for example, Government Cloud requirement for two-factor authentication (2FA) for all users, password rules, documented Federal Information Processing Standards (FIPS), Transport Layer Security (TLS), and secure hosting). MuleSoft creates default roles automatically when you create an organization or business group. You provision organizations and users, assign roles, and enable MFA or IdP per your policy. You can align admin and privileged accounts with recommended secure defaults by following MuleSoft guidance when provisioning.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="./">Government Cloud Overview</a></p></li><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li><li><p><a href="../access-management/multi-factor-authentication">Multi-factor Authentication</a></p></li><li><p><a href="../access-management/managing-your-account">Managing your Anypoint Platform Account</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-ENH-CMP (FRR-RSC-05)</p></td><td><p>Comparison Capability</p></td><td><div><div><p>Providers should offer the capability to compare all current settings for top-level administrative accounts and privileged accounts to the recommended secure defaults.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft doesnât provide a built-in capability to compare current settings to recommended secure defaults for admin or privileged accounts in this PaaS model. You can view current roles and permissions in the UI and via the Access Management API. You are responsible for fulfilling the intent (for example, comparing to internal baselines) using exported data or internal processes.</p></div></div></td></tr><tr><td><p>CSG-ENH-EXP (FRR-RSC-06)</p></td><td><p>Export Capability</p></td><td><div><div><p>Providers should offer the capability to export all security settings in a machine-readable format.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft provides programmatic access to some security-relevant data via the Access Management API (organizations, business groups, users, roles, permissions) and API Manager (export of API instances). MuleSoft doesnât offer a single machine-readable export of all security settings (identity and access management (IAM), policies, audit config, and so on) in one format. You can use the APIs to export or script identity and access security settings and to build your own export.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="https://anypoint.mulesoft.com/apiplatform/anypoint-platform/#/portals/organizations/68ef9520-24e9-4cf2-b2f5-620025690913/apis/11270/versions/11646/pages/11244">Access Management API Portal</a></p></li><li><p><a href="../api-manager/latest/export-api-latest-task">Exporting an API Instance</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-ENH-API (FRR-RSC-07)</p></td><td><p>API Capability</p></td><td><div><div><p>Providers should offer the capability to view and adjust security settings via an API or similar capability.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft supports viewing and adjusting security-relevant settings via API. MuleSoft provides the Access Management API for programmatic access to user and client management, organizations, business groups, roles, and permissions. MuleSoft provides API Manager and related APIs for API and configuration management. The platform satisfies this requirement for the access and API-management settings it exposes.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="https://anypoint.mulesoft.com/apiplatform/anypoint-platform/#/portals/organizations/68ef9520-24e9-4cf2-b2f5-620025690913/apis/11270/versions/11646/pages/11244">Access Management API Portal</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-RSC-MRG (FRR-RSC-08)</p></td><td><p>Machine-Readable Guidance</p></td><td><div><div><p>Providers should provide recommended secure configuration guidance in a machine-readable format that can be used by customers or third-party tools to compare against current settings.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft doesnât provide a machine-readable secure-configuration baseline (for example, Security Content Automation Protocol (SCAP), Open Vulnerability and Assessment Language (OVAL), or JSON schema) for admin or privileged account settings in this PaaS model. MuleSoft provides human-readable guidance in documentation. You can use the Access Management API response formats for your own tooling. You are responsible for fulfilling the intent (for example, comparing to internal baselines) using exported data or internal processes.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="https://anypoint.mulesoft.com/apiplatform/anypoint-platform/#/portals/organizations/68ef9520-24e9-4cf2-b2f5-620025690913/apis/11270/versions/11646/pages/11244">Access Management API Portal</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-PUB (FRR-RSC-09)</p></td><td><p>Publish Guidance</p></td><td><div><div><p>Providers should make recommended secure configuration guidance available publicly.</p></div></div></td><td><div><div><p><code>Applicable</code><br>MuleSoft makes recommended secure-configuration and operational documentation guidance publicly available. MuleSoft publishes Government Cloud and security guidance publicly, including Government Cloud overview, security (FedRAMP, FIPS, TLS, National Institute of Standards and Technology (NIST), Center for Internet Security (CIS)), Access Management, roles, permissions, MFA, audit logging, and account lifecycle.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="./">Government Cloud Overview</a></p></li><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-ENH-VRH (FRR-RSC-10)</p></td><td><p>Versioning and Release History</p></td><td><div><div><p>Providers should provide versioning and a release history for recommended secure default settings for top-level administrative accounts and privileged accounts as they are adjusted over time.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft provides product and documentation versioning. MuleSoft does not maintain a dedicated release history for recommended secure default settings for admin or privileged accounts.</p></div><div><p>For details, refer to <a href="../release-notes/quick-refs/by-date-index">MuleSoft Release Notes</a>.</p></div></div></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Control</th><th>Requirement</th><th>Description</th><th>MuleSoft Solution</th></tr></thead><tbody><tr><td><p>SCG-CSO-RSC (FRR-RSC-01)</p></td><td><p>Top-Level Administrative Accounts Guidance</p></td><td><div><div><p>Providers must create and maintain guidance that includes instructions on how to securely access, configure, operate, and decommission top-level administrative accounts that control enterprise access to the entire cloud service offering.</p></div><div><p>Note: This guidance should explain how top-level administrative accounts are named and referred to in the cloud service offering.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft fulfills this requirement in this PaaS model. MuleSoft documents how to create accounts, manage access, and use organization-level admin—including the "Organization Administrator" permission, "organization owner," and "Organization Administrators" roles, as well as access (sign-in, single sign-on (SSO), multi-factor authentication (MFA)), configuration (users, business groups, roles), operation (managing users, roles, permissions), and decommissioning (deleting accounts, migrating owners). The documentation explicitly names the "Organization Administrators" and "organization owner" roles and "Organization Administrator" permission.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="../access-management/managing-your-account">Managing your Anypoint Platform Account</a></p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li><li><p><a href="./">Government Cloud Overview</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-RSC (FRR-RSC-02)</p></td><td><p>Administrative Security Settings</p></td><td><div><div><p>Providers must create and maintain guidance that explains security-related settings that can be operated only by top-level administrative accounts and their security implications.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft documents security-relevant settings that only top-level (organization) administrators can change. MuleSoft documentation covers security-related actions that require the Organization Administrators (or equivalent) role—for example, trusted domains (Gov Cloud security), user and role management, MFA and identity provider (IdP) configuration, client applications, virtual private cloud (VPC) and load balancer permissions, and organization details. The security and Access Management documentation describes these implications (for example, trusted domains, MFA).</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="../access-management/">Access Management Overview</a> (Organization Administrator Configurations)</p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a> (Organization Administrators Scope)</p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-RSC (FRR-RSC-03)</p></td><td><p>Privileged Accounts Security</p></td><td><div><div><p>Providers should create and maintain guidance that explains security-related settings that can be operated only by privileged accounts and their security implications.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft documents privileged (non–top-level) roles and their security-relevant capabilities. MuleSoft documentation lists default roles (for example, API Versions Owner, CloudHub Admin, Exchange Administrators, Audit Log Viewers) and their permission scopes, and explains custom roles. MuleSoft documentation describes security implications so you can understand what each role can do and how to manage privileged-account settings.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li><li><p><a href="../access-management/managing-permissions">Managing Permissions</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-SDF (FRR-RSC-04)</p></td><td><p>Secure Defaults on Provisioning</p></td><td><div><div><p>Providers should set all settings to their recommended secure defaults for top-level administrative accounts and privileged accounts when initially provisioned.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft sets platform-level secure defaults (for example, Government Cloud requirement for two-factor authentication (2FA) for all users, password rules, documented Federal Information Processing Standards (FIPS), Transport Layer Security (TLS), and secure hosting). MuleSoft creates default roles automatically when you create an organization or business group. You provision organizations and users, assign roles, and enable MFA or IdP per your policy. You can align admin and privileged accounts with recommended secure defaults by following MuleSoft guidance when provisioning.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="./">Government Cloud Overview</a></p></li><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li><li><p><a href="../access-management/multi-factor-authentication">Multi-factor Authentication</a></p></li><li><p><a href="../access-management/managing-your-account">Managing your Anypoint Platform Account</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-ENH-CMP (FRR-RSC-05)</p></td><td><p>Comparison Capability</p></td><td><div><div><p>Providers should offer the capability to compare all current settings for top-level administrative accounts and privileged accounts to the recommended secure defaults.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft doesn’t provide a built-in capability to compare current settings to recommended secure defaults for admin or privileged accounts in this PaaS model. You can view current roles and permissions in the UI and via the Access Management API. You are responsible for fulfilling the intent (for example, comparing to internal baselines) using exported data or internal processes.</p></div></div></td></tr><tr><td><p>CSG-ENH-EXP (FRR-RSC-06)</p></td><td><p>Export Capability</p></td><td><div><div><p>Providers should offer the capability to export all security settings in a machine-readable format.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft provides programmatic access to some security-relevant data via the Access Management API (organizations, business groups, users, roles, permissions) and API Manager (export of API instances). MuleSoft doesn’t offer a single machine-readable export of all security settings (identity and access management (IAM), policies, audit config, and so on) in one format. You can use the APIs to export or script identity and access security settings and to build your own export.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="https://anypoint.mulesoft.com/apiplatform/anypoint-platform/#/portals/organizations/68ef9520-24e9-4cf2-b2f5-620025690913/apis/11270/versions/11646/pages/11244">Access Management API Portal</a></p></li><li><p><a href="../api-manager/latest/export-api-latest-task">Exporting an API Instance</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-ENH-API (FRR-RSC-07)</p></td><td><p>API Capability</p></td><td><div><div><p>Providers should offer the capability to view and adjust security settings via an API or similar capability.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft supports viewing and adjusting security-relevant settings via API. MuleSoft provides the Access Management API for programmatic access to user and client management, organizations, business groups, roles, and permissions. MuleSoft provides API Manager and related APIs for API and configuration management. The platform satisfies this requirement for the access and API-management settings it exposes.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="https://anypoint.mulesoft.com/apiplatform/anypoint-platform/#/portals/organizations/68ef9520-24e9-4cf2-b2f5-620025690913/apis/11270/versions/11646/pages/11244">Access Management API Portal</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-RSC-MRG (FRR-RSC-08)</p></td><td><p>Machine-Readable Guidance</p></td><td><div><div><p>Providers should provide recommended secure configuration guidance in a machine-readable format that can be used by customers or third-party tools to compare against current settings.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft doesn’t provide a machine-readable secure-configuration baseline (for example, Security Content Automation Protocol (SCAP), Open Vulnerability and Assessment Language (OVAL), or JSON schema) for admin or privileged account settings in this PaaS model. MuleSoft provides human-readable guidance in documentation. You can use the Access Management API response formats for your own tooling. You are responsible for fulfilling the intent (for example, comparing to internal baselines) using exported data or internal processes.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="https://anypoint.mulesoft.com/apiplatform/anypoint-platform/#/portals/organizations/68ef9520-24e9-4cf2-b2f5-620025690913/apis/11270/versions/11646/pages/11244">Access Management API Portal</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-CSO-PUB (FRR-RSC-09)</p></td><td><p>Publish Guidance</p></td><td><div><div><p>Providers should make recommended secure configuration guidance available publicly.</p></div></div></td><td><div><div><p><code>Applicable</code><br>MuleSoft makes recommended secure-configuration and operational documentation guidance publicly available. MuleSoft publishes Government Cloud and security guidance publicly, including Government Cloud overview, security (FedRAMP, FIPS, TLS, National Institute of Standards and Technology (NIST), Center for Internet Security (CIS)), Access Management, roles, permissions, MFA, audit logging, and account lifecycle.</p></div><div><p>For details, refer to:</p></div><div><ul><li><p><a href="./">Government Cloud Overview</a></p></li><li><p><a href="gov-cloud-security">Security in MuleSoft Government Cloud</a></p></li><li><p><a href="../access-management/">Access Management Overview</a></p></li><li><p><a href="../access-management/roles">Using Roles to Manage Permissions</a></p></li></ul></div></div></td></tr><tr><td><p>SCG-ENH-VRH (FRR-RSC-10)</p></td><td><p>Versioning and Release History</p></td><td><div><div><p>Providers should provide versioning and a release history for recommended secure default settings for top-level administrative accounts and privileged accounts as they are adjusted over time.</p></div></div></td><td><div><div><p><code>Applicable</code><br></p></div><div><p>MuleSoft provides product and documentation versioning. MuleSoft does not maintain a dedicated release history for recommended secure default settings for admin or privileged accounts.</p></div><div><p>For details, refer to <a href="../release-notes/quick-refs/by-date-index">MuleSoft Release Notes</a>.</p></div></div></td></tr></tbody></table>
 
 ## See Also
 
 - [Security in MuleSoft Government Cloud](gov-cloud-security)
 - [Government Cloud Overview](./)
+
+---
+product: Government Cloud
 ---
 
 # Security in MuleSoft Government Cloud
@@ -253,7 +565,7 @@ In addition to FedRAMP compliance, MuleSoft Government Cloud adheres to these se
 
 - **Transport Layer Security (TLS) 1.2 encryption**
 
-  Implements encryption for all external and internal data transmission to block âman in the middleâ
+  Implements encryption for all external and internal data transmission to block “man in the middle”
   attacks.
 
 - **NIST 800-53**
@@ -329,6 +641,9 @@ To add a new domain:
 - [Features Included in MuleSoft Government Cloud](./#features-included-in-government-cloud)
 - [AWS GovCloud](https://aws.amazon.com/govcloud-us/)
 - [FedRAMP](https://www.fedramp.gov/)
+
+---
+product: Government Cloud
 ---
 
 # Standalone Mule Support in MuleSoft Government Cloud
@@ -376,6 +691,9 @@ The following Mule versions are supported for standalone Mule support in MuleSof
 - 4.6.x
 
 To get started, refer to the [Anypoint Runtime Manager](../runtime-manager/) documentation.
+
+---
+product: Government Cloud
 ---
 
 # Government Cloud Overview
@@ -410,13 +728,14 @@ MuleSoft Government Cloud includes the full functionality of the Anypoint Platfo
 Government Cloud supports the full API-led connectivity methodology and end-to-end API lifecycle
 management.
 
-<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Category</th><th>Feature</th><th>Description</th><th>Notes</th></tr></thead><tbody><tr><td rowspan="3"><p>Platform and Runtime</p></td><td><p>Mule Runtime Engine</p></td><td><div><div><p>Supports Mule runtime engine versions 4.3, 4.4, 4.6, and 4.9 on the long-term support (LTS) release channel. The Edge release channel is not supported, as it is not FedRAMP-approved. For more information, visit <a href="../release-notes/mule-runtime/lts-edge-release-cadence">Edge and LTS Releases for Mule</a>.</p></div></div></td><td><div><div><p>Self-signed certificates are not supported. Required Mule agent versions:</p></div><div><ul><li><p>Mule 4: v2.2.0 and later</p></li><li><p>Mule 4.6</p></li></ul></div><div><p>Mule runtime 4.3 has entered <a href="https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/versioning-back-support-policy.pdf">External Support</a>.</p></div><div><p>Government Cloud also supports deploying standalone Mule runtime engine instances on-premises. For more information, see <a href="gov-cloud-standalone">Standalone Mule Support</a>.</p></div></div></td></tr><tr><td><p>Java</p></td><td><p>Supports Java 17. For more information on Java support, see <a href="../general/java-support">Java Support</a>.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p>Anypoint Studio</p></td><td><p>Use Anypoint Studio offline to build applications and then manually deploy them to Government Cloud.</p></td><td><div><div><p>Anypoint Studio is not part of Government Cloud.</p></div></div></td></tr><tr><td rowspan="3"><p>Designing API Specifications</p></td><td><p><a href="../design-center/design-create-publish-api-specs">API Designer</a></p></td><td><div><div><p>Use the API Designer web UI to design API specifications in:</p></div><div><ul><li><p>RESTful API Modeling Language (RAML) version 0.8 or 1.0</p></li><li><p>OpenAPI Specification (OAS) version 2.0 or 3.0</p></li></ul></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../design-center/design-create-publish-api-visual-editor">Visual API Designer</a></p></td><td><p>Use API Designerâs visual API editor to scaffold API specifications in RAML 1.0 or in OAS 2.0 or 3.0 (JSON).</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../design-center/design-create-publish-api-specs#documenting">API Console</a></p></td><td><p>As you add descriptions in your specifications and fragments, you can view them in auto-generated, interactive documentation in the text editor.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="3"><p>Sharing and Discovering APIs</p></td><td><p><a href="../exchange/to-describe-an-asset">API Developer Portals</a></p></td><td><div><div><p>Publish assets in private Exchange instances and Exchange public portals.</p></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../exchange/ex2-to-simulate-api-data">API Simulation (Mocking Service)</a></p></td><td><p>Simulate data for testing OAS or RAML REST APIs.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../exchange/about-documenting-an-api">API Notebooks</a></p></td><td><p>Create API Notebooks to describe each function in your API and provide a test area so that users can experiment with sending different values to your API and receiving output.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="2"><p>Building and Testing APIs</p></td><td><p><a href="../apikit/latest/">APIkit</a></p></td><td><div><div><p>Use APIkit to build Mule REST or SOAP APIs in one of the following modeling languages:</p></div><div><ul><li><p>RESTful API Modeling Language (RAML) 1.0 and 0.8 versions</p></li><li><p>Web Service Description Language (WSDL)</p></li></ul></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../munit/latest/">MUnit</a></p></td><td><p>Use this testing framework to build automated tests for your integrations and APIs.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="5"><p>Managing API Communities</p></td><td><p><a href="../api-community-manager/brand-intro">Brand and Customize Your API Community</a></p></td><td><div><div><p>Customize and adjust the exact details of branding, look and feel, and the site structure of your Salesforce Experience Cloud site, using a simple point-and-click approach.</p></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/publish-apis">Publish APIs</a></p></td><td><p>Add and publish APIs, API groups, and minor and major updates from Anypoint Exchange into your Salesforce Experience Cloud site.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/publish-content">Publish Content and CMS Articles</a></p></td><td><p>Create, organize, and publish content for your community, including news, tutorials, developer blog posts, and events.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/moderate-forums">Moderate Forums</a></p></td><td><p>Use the Anypoint API Community Manager forums to ask questions and collaborate with other members of the community.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/client-apps-contracts">Manage Client Applications and Contracts</a></p></td><td><p>Enable your consumer developers to request access to APIs and API Groups in your community and to manage their client applications and contracts.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="8"><p>Managing Anypoint Platform</p></td><td><p><a href="../access-management/">Anypoint Access Management</a></p></td><td><div><div><p>Create Anypoint Platform accounts, configure external identity, and configure access and permissions.</p></div></div></td><td><div><div><p>You canât configure Microsoft Entra ID (formerly Azure AD) as a client provider in MuleSoft Government Cloud.</p></div><div><p>The Salesforce menu option in Access Management is not available in Government Cloud.</p></div></div></td></tr><tr><td><p><a href="../mq/">Anypoint MQ</a></p></td><td><p>Send messages between different applications or components within an application.</p></td><td><div><div><p>You canât access or configure some Anypoint MQ features, such as client apps and unencrypted queues. For information, see <a href="../mq/#mq-in-govcloud">Anypoint MQ in MuleSoft Government Cloud</a>.</p></div></div></td></tr><tr><td><p><a href="../object-store/">Object Store</a></p></td><td><p>Share data and state across Mule runtime workers within a single application.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-manager/latest/latest-overview-concept">API Manager</a></p></td><td><p>Manage, govern, and secure the APIs you deploy to Anypoint Platform.</p></td><td><div><div><p>The feature to <a href="../api-manager/latest/proxy-latest-concept">deploy an API proxy</a> to hybrid targets is not available in Government Cloud.</p></div></div></td></tr><tr><td><p><a href="../runtime-manager/">Runtime Manager</a></p></td><td><p>Deploy, manage, and monitor your Mule applications in a sandbox, staging, or production environment from one central location, whether your apps are deployed in the cloud or on-premises.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../cloudhub/">CloudHub</a></p></td><td><p>Deploy sophisticated cross-cloud integration applications in the cloud, create new APIs on top of existing data sources, integrate on-premises applications with cloud services, and much more.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../monitoring/">Anypoint Monitoring</a></p></td><td><p>Aggregate and map metrics across systems, and configure dashboards and alerts.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../visualizer/">Anypoint Visualizer</a></p></td><td><p>Explore your application network for architectural review, troubleshooting, and policy compliance.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="7"><p>AI and Agent Connectivity</p></td><td><p><a href="../a2a-connector/latest/">A2A Connector</a></p></td><td><div><div><p>Use the Agent-to-Agent (A2A) Connector to integrate with the A2A protocol, enabling communication between AI agents across platforms and frameworks.</p></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../agentforce-connector/latest/">Agentforce Connector</a></p></td><td><p>Integrate with AI agents running in Salesforceâs Agentforce platform to orchestrate experiences for customers, partners, and employees.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../einstein-ai-connector/latest/">Einstein AI Connector</a></p></td><td><p>Connect to large language models (LLMs) via the Salesforce Einstein Trust Layer for AI-powered experiences, including embeddings generation for RAG-based architectures.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mcp-connector/latest/">MCP Connector</a></p></td><td><p>Use the Model Context Protocol (MCP) Connector to integrate with the MCP protocol, enabling AI models to interact with external tools and data sources.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mulesoft-ai-chain-connector/latest/">MuleSoft AI Chain Connector</a></p></td><td><p>Design, build, and manage AI agents with support for LLMs, vector stores, and advanced AI services including chat, RAG, sentiment analysis, and image generation.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mulesoft-inference-connector/latest/">MuleSoft Inference Connector</a></p></td><td><p>Access inference offerings for LLMs from multiple providers, enabling integration of AI capabilities such as chat, text generation, image analysis, and toxicity detection.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mulesoft-vectors-connector/latest/">MuleSoft Vectors Connector</a></p></td><td><p>Access external vector stores and databases for semantic search and Retrieval Augmented Generation (RAG) use cases.</p></td><td><div><div><p>N/A</p></div></div></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Category</th><th>Feature</th><th>Description</th><th>Notes</th></tr></thead><tbody><tr><td rowspan="3"><p>Platform and Runtime</p></td><td><p>Mule Runtime Engine</p></td><td><div><div><p>Supports Mule runtime engine versions 4.3, 4.4, 4.6, and 4.9 on the long-term support (LTS) release channel. The Edge release channel is not supported, as it is not FedRAMP-approved. For more information, visit <a href="../release-notes/mule-runtime/lts-edge-release-cadence">Edge and LTS Releases for Mule</a>.</p></div></div></td><td><div><div><p>Self-signed certificates are not supported. Required Mule agent versions:</p></div><div><ul><li><p>Mule 4: v2.2.0 and later</p></li><li><p>Mule 4.6</p></li></ul></div><div><p>Mule runtime 4.3 has entered <a href="https://www.salesforce.com/en-us/wp-content/uploads/sites/4/documents/legal/Agreements/versioning-back-support-policy.pdf">External Support</a>.</p></div><div><p>Government Cloud also supports deploying standalone Mule runtime engine instances on-premises. For more information, see <a href="gov-cloud-standalone">Standalone Mule Support</a>.</p></div></div></td></tr><tr><td><p>Java</p></td><td><p>Supports Java 17. For more information on Java support, see <a href="../general/java-support">Java Support</a>.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p>Anypoint Studio</p></td><td><p>Use Anypoint Studio offline to build applications and then manually deploy them to Government Cloud.</p></td><td><div><div><p>Anypoint Studio is not part of Government Cloud.</p></div></div></td></tr><tr><td rowspan="3"><p>Designing API Specifications</p></td><td><p><a href="../design-center/design-create-publish-api-specs">API Designer</a></p></td><td><div><div><p>Use the API Designer web UI to design API specifications in:</p></div><div><ul><li><p>RESTful API Modeling Language (RAML) version 0.8 or 1.0</p></li><li><p>OpenAPI Specification (OAS) version 2.0 or 3.0</p></li></ul></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../design-center/design-create-publish-api-visual-editor">Visual API Designer</a></p></td><td><p>Use API Designer’s visual API editor to scaffold API specifications in RAML 1.0 or in OAS 2.0 or 3.0 (JSON).</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../design-center/design-create-publish-api-specs#documenting">API Console</a></p></td><td><p>As you add descriptions in your specifications and fragments, you can view them in auto-generated, interactive documentation in the text editor.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="3"><p>Sharing and Discovering APIs</p></td><td><p><a href="../exchange/to-describe-an-asset">API Developer Portals</a></p></td><td><div><div><p>Publish assets in private Exchange instances and Exchange public portals.</p></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../exchange/ex2-to-simulate-api-data">API Simulation (Mocking Service)</a></p></td><td><p>Simulate data for testing OAS or RAML REST APIs.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../exchange/about-documenting-an-api">API Notebooks</a></p></td><td><p>Create API Notebooks to describe each function in your API and provide a test area so that users can experiment with sending different values to your API and receiving output.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="2"><p>Building and Testing APIs</p></td><td><p><a href="../apikit/latest/">APIkit</a></p></td><td><div><div><p>Use APIkit to build Mule REST or SOAP APIs in one of the following modeling languages:</p></div><div><ul><li><p>RESTful API Modeling Language (RAML) 1.0 and 0.8 versions</p></li><li><p>Web Service Description Language (WSDL)</p></li></ul></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../munit/latest/">MUnit</a></p></td><td><p>Use this testing framework to build automated tests for your integrations and APIs.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="5"><p>Managing API Communities</p></td><td><p><a href="../api-community-manager/brand-intro">Brand and Customize Your API Community</a></p></td><td><div><div><p>Customize and adjust the exact details of branding, look and feel, and the site structure of your Salesforce Experience Cloud site, using a simple point-and-click approach.</p></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/publish-apis">Publish APIs</a></p></td><td><p>Add and publish APIs, API groups, and minor and major updates from Anypoint Exchange into your Salesforce Experience Cloud site.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/publish-content">Publish Content and CMS Articles</a></p></td><td><p>Create, organize, and publish content for your community, including news, tutorials, developer blog posts, and events.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/moderate-forums">Moderate Forums</a></p></td><td><p>Use the Anypoint API Community Manager forums to ask questions and collaborate with other members of the community.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-community-manager/client-apps-contracts">Manage Client Applications and Contracts</a></p></td><td><p>Enable your consumer developers to request access to APIs and API Groups in your community and to manage their client applications and contracts.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="8"><p>Managing Anypoint Platform</p></td><td><p><a href="../access-management/">Anypoint Access Management</a></p></td><td><div><div><p>Create Anypoint Platform accounts, configure external identity, and configure access and permissions.</p></div></div></td><td><div><div><p>You can’t configure Microsoft Entra ID (formerly Azure AD) as a client provider in MuleSoft Government Cloud.</p></div><div><p>The Salesforce menu option in Access Management is not available in Government Cloud.</p></div></div></td></tr><tr><td><p><a href="../mq/">Anypoint MQ</a></p></td><td><p>Send messages between different applications or components within an application.</p></td><td><div><div><p>You can’t access or configure some Anypoint MQ features, such as client apps and unencrypted queues. For information, see <a href="../mq/#mq-in-govcloud">Anypoint MQ in MuleSoft Government Cloud</a>.</p></div></div></td></tr><tr><td><p><a href="../object-store/">Object Store</a></p></td><td><p>Share data and state across Mule runtime workers within a single application.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../api-manager/latest/latest-overview-concept">API Manager</a></p></td><td><p>Manage, govern, and secure the APIs you deploy to Anypoint Platform.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../runtime-manager/">Runtime Manager</a></p></td><td><p>Deploy, manage, and monitor your Mule applications in a sandbox, staging, or production environment from one central location, whether your apps are deployed in the cloud or on-premises.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../cloudhub/">CloudHub</a></p></td><td><p>Deploy sophisticated cross-cloud integration applications in the cloud, create new APIs on top of existing data sources, integrate on-premises applications with cloud services, and much more.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../monitoring/">Anypoint Monitoring</a></p></td><td><p>Aggregate and map metrics across systems, and configure dashboards and alerts.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../visualizer/">Anypoint Visualizer</a></p></td><td><p>Explore your application network for architectural review, troubleshooting, and policy compliance.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td rowspan="7"><p>AI and Agent Connectivity</p></td><td><p><a href="../a2a-connector/latest/">A2A Connector</a></p></td><td><div><div><p>Use the Agent-to-Agent (A2A) Connector to integrate with the A2A protocol, enabling communication between AI agents across platforms and frameworks.</p></div></div></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../agentforce-connector/latest/">Agentforce Connector</a></p></td><td><p>Integrate with AI agents running in Salesforce’s Agentforce platform to orchestrate experiences for customers, partners, and employees.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../einstein-ai-connector/latest/">Einstein AI Connector</a></p></td><td><p>Connect to large language models (LLMs) via the Salesforce Einstein Trust Layer for AI-powered experiences, including embeddings generation for RAG-based architectures.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mcp-connector/latest/">MCP Connector</a></p></td><td><p>Use the Model Context Protocol (MCP) Connector to integrate with the MCP protocol, enabling AI models to interact with external tools and data sources.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mulesoft-ai-chain-connector/latest/">MuleSoft AI Chain Connector</a></p></td><td><p>Design, build, and manage AI agents with support for LLMs, vector stores, and advanced AI services including chat, RAG, sentiment analysis, and image generation.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mulesoft-inference-connector/latest/">MuleSoft Inference Connector</a></p></td><td><p>Access inference offerings for LLMs from multiple providers, enabling integration of AI capabilities such as chat, text generation, image analysis, and toxicity detection.</p></td><td><div><div><p>N/A</p></div></div></td></tr><tr><td><p><a href="../mulesoft-vectors-connector/latest/">MuleSoft Vectors Connector</a></p></td><td><p>Access external vector stores and databases for semantic search and Retrieval Augmented Generation (RAG) use cases.</p></td><td><div><div><p>N/A</p></div></div></td></tr></tbody></table>
 
 ## Security and Compliance
 
 MuleSoft Government Cloud meets all FedRAMP security and compliance standards, including:
 
-- Federal Information Processing Standards (FIPS 140-2)
+- Federal Information Processing Standards (FIPS 140-3), for details refer to
+  [FIPS 140-3 Compliance Support](gov-cloud-fips-140-3-support).
 - Transport Layer Security (TLS) 1.2 encryption
 - National Institute of Standards and Technology (NIST) 800-53
 - Center for Internet Security (CIS) benchmarks
@@ -429,7 +748,7 @@ For more information, see [Security in MuleSoft Government Cloud](gov-cloud-secu
 
 ## Products Not Currently Supported
 
-These Anypoint Platform products arenât currently supported in Government Cloud:
+These Anypoint Platform products aren’t currently supported in Government Cloud:
 
 <table><colgroup><col> <col></colgroup><thead><tr><th>Product</th><th>Description</th></tr></thead><tbody><tr><td><p>Anypoint Analytics</p></td><td><p>API analytics and dashboards for monitoring API performance and usage.</p></td></tr><tr><td><p>Anypoint Code Builder</p></td><td><p>Cloud-based IDE for designing, building, and deploying integrations and APIs.</p></td></tr><tr><td><p>API Data Gateway</p></td><td><p>Connect Salesforce reports and dashboards to external data sources.</p></td></tr><tr><td><p>API Governance</p></td><td><p>Automated API conformance and governance validation.</p></td></tr><tr><td><p>Anypoint Omni Gateway</p></td><td><p>Lightweight, high-performance API gateway deployable across any environment.</p></td></tr><tr><td><p>Anypoint Runtime Fabric</p></td><td><p>Container-based runtime deployment and management on your infrastructure.</p></td></tr><tr><td><p>Anypoint Security</p></td><td><p>Edge security policies including tokenization and encryption.</p></td></tr></tbody></table>
 
@@ -441,6 +760,9 @@ These Anypoint Platform products arenât currently supported in Government C
 - [Dedicated Load Balancer](gov-cloud-load-balancer)
 - [Anypoint VPN Configuration](gov-cloud-anypoint-vpn)
 - [Standalone Mule Support](gov-cloud-standalone)
+
+---
+product: Government Cloud
 ---
 
 # MuleSoft Government Cloud Release Notes
@@ -449,15 +771,28 @@ These Anypoint Platform products arenât currently supported in Government C
 
 These release notes describe updates to MuleSoft Government Cloud as from January 10, 2024.
 
+## June 19, 2026
+
+### What’s New
+
+- MuleSoft Government Cloud now supports FIPS 140-3 compliance for Mule runtime engine 4.9.
+
+  FIPS 140-3 replaces FIPS 140-2 as the supported cryptographic standard in Government Cloud. This
+  update introduces support for Bouncy Castle 2.0.0 as the certified security provider, requires
+  Java 17 or later, and mandates BCFKS keystore format and TLS 1.2 or TLS 1.3.
+
+  For migration steps and configuration details, see
+  [FIPS 140-3 Compliance Support](gov-cloud-fips-140-3-support).
+
 ## April 8, 2025
 
-### Whatâs New
+### What’s New
 
 - MuleSoft Government Cloud now supports Mule runtime engine version 4.9.3.
 
 ## May 8, 2024
 
-### Whatâs New
+### What’s New
 
 - MuleSoft Government Cloud now supports Java 17.
 
@@ -465,7 +800,7 @@ These release notes describe updates to MuleSoft Government Cloud as from Januar
 
 ## March 12, 2024
 
-### Whatâs New
+### What’s New
 
 - MuleSoft Government Cloud now supports Mule runtime engine version 4.6.
 
@@ -478,10 +813,13 @@ These release notes describe updates to MuleSoft Government Cloud as from Januar
 
 ## January 10, 2024
 
-### Whatâs New
+### What’s New
 
 - Trusted domains allowlisting is now available in MuleSoft Government Cloud.
 
   For more information, visit
   [Allowing Trusted Domains for API Platform Proxies](gov-cloud-security#allowing-trusted-domains-for-api-platform-proxies).
 
+## See Also
+
+- [Known Issues](https://help.salesforce.com/s/issues)
