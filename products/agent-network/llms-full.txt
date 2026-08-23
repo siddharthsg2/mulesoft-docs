@@ -6,6 +6,299 @@ version: 2.0
 is-latest-version: true
 ---
 
+# Using A2A Protocol in Agent Networks
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+The Agent2Agent (A2A) Protocol governs agent-to-agent communication. This protocol powers
+orchestration, observability, and governance features in agent networks. MuleSoft supports v1.0 of
+the [A2A Protocol](https://a2a-protocol.org/latest).
+
+Review the following about using A2A interactions in agent networks.
+
+## Context and Task ID Scoping
+
+In a multi-broker network, each broker generates its own `contextId` and `taskId` for the requests
+it receives. These IDs define the state and scope of a specific conversation between two agents. A
+`taskId` is always matched to a `contextId`, but a `contextId` can exist without a `taskId`.
+
+When a client sends a request to Broker\_1, Broker\_1 generates the necessary IDs for that request.
+When Broker\_1 sends a new request to the next broker or non-broker agent in line, that broker or
+non-broker agent establishes a unique `contextId` and `taskId` for the new request.
+
+> [!NOTE] Non-broker agents don’t have to generate a `contextId` and `taskId` when receiving
+> requests from a client.
+
+Consider a network with a client and two brokers (1 and 2):
+
+- The IDs used between the client and Broker\_1 are independent of the IDs used between Broker\_1
+  and Broker\_2.
+
+- When Broker\_1 delegates a task to Broker\_2, Broker\_2 (acting as a server) generates its own
+  `contextId` and `taskId`.
+
+- Broker\_1 maintains a mapping between its own upstream `taskId` (used to respond to its client)
+  and the downstream `taskId` it tracks with Broker\_2.
+
+- If Broker\_2 requires more information (returns `status: input-required`), it provides a
+  `contextId` and `taskId` to Broker\_1. Broker\_1 uses these IDs to provide the requested input to
+  Broker\_2. The client never sees Broker\_2’s internal IDs.
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Relationship</th><th>Role</th><th>Logic</th></tr></thead><tbody><tr><td><p>Client → Broker_1</p></td><td><p>Broker_1 is server</p></td><td><p>Generates <code>contextId_1</code> and <code>taskId_1</code> for the client.</p></td></tr><tr><td><p>Agent A → Broker_2</p></td><td><p>Broker_2 is server</p></td><td><p>Generates <code>contextId_2</code> and <code>taskId_2</code> for Broker_1.</p></td></tr><tr><td><p>Network broker</p></td><td><p>Broker_1</p></td><td><p>Broker_1 maps <code>contextId_1</code> and <code>taskId_1</code> to <code>contextId_2</code> and <code>taskId_2</code>.</p></td></tr></tbody></table>
+
+For more information, see
+[Life of a Task - Group Related Interactions](https://a2a-protocol.org/latest/topics/life-of-a-task/).
+
+## Creating Conversational Memory with `contextId`
+
+Configure your broker to remember earlier turns in a conversation by reusing a `contextId` across
+requests. When a caller reuses a `contextId`, the broker seeds each new task with the prior
+conversation history so the agent remembers what was said earlier.
+
+To enable conversational memory, you need an agent network with: \* A broker configured with an
+ingress authentication policy that resolves a stable user identity \* A client that supports the A2A
+v1.0 wire contract
+
+### How `contextId` Works
+
+A `contextId` identifies one logical conversation. A `taskId` identifies one turn within that
+conversation. Every turn produces a new `taskId`, but all turns that share a `contextId` belong to
+the same conversation.
+
+Request 1 (no contextId) ──► broker mints contextId=C, taskId=T1 ──► returns C Request 2
+(contextId=C) ──► new taskId=T2, seeded with T1's conversation Request 3 (contextId=C) ──► new
+taskId=T3, seeded with T1+T2
+
+> [!IMPORTANT] Reuse the `contextId`, not the `taskId`. The prior task is already in a terminal
+> state (`TASK_STATE_COMPLETED`). Sending a message to a completed `taskId` returns an error.
+
+### Requirements
+
+All three requirements must be met for conversational memory to work.
+
+1.  The broker resolves a stable user identity for the caller.
+
+2.  The caller reuses the `contextId` across turns.
+
+3.  The caller sends the correct A2A wire contract.
+
+#### User Identity
+
+Conversational memory is scoped to a user identity derived from authentication at the broker’s
+ingress. Configure the broker with an ingress authentication policy that yields this identity.
+Without this policy, tasks are created without an owner and memory doesn’t engage.
+
+The same authenticated caller must be present on every request in a conversation. That identity is
+the key the broker’s memory is stored under.
+
+##### Example: Client ID Enforcement with User Context Propagation
+
+A common way to produce this identity is a pair of inbound API Manager policies applied to the
+broker:
+
+1.  Client ID enforcement authenticates the caller’s `client_id` and `client_secret`.
+
+2.  User context propagation derives the user identity from the authenticated client, using the
+    expression `#[authentication.clientId]`.
+
+Apply client ID enforcement before user context propagation. User context propagation reads
+`#[authentication.clientId]`, which is populated only after Client ID enforcement authenticates the
+request. If the policies are reversed, the identity resolves empty, tasks are created without an
+owner, and conversational memory does not engage. No error is returned to the caller; a `ListTasks`
+request for the context returns an empty result. Use reorder policies on the broker’s inbound policy
+list to set the order.
+
+Other authentication schemes can supply the user identity as well. This ordering requirement is
+specific to the Client ID enforcement and user context propagation pairing.
+
+### A2A Wire Contract
+
+The following values must be exact in every request:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Requirement</th><th>Value</th><th>Error if incorrect</th></tr></thead><tbody><tr><td><p>Version header</p></td><td><p><code>A2A-Version: 1.0</code></p></td><td><p><code>-32009 Unsupported A2A version: missing</code></p></td></tr><tr><td><p>Method</p></td><td><p><code>SendMessage</code></p></td><td><p><code>-32601 Method not found</code></p></td></tr><tr><td><p>Role</p></td><td><p><code>ROLE_USER</code> (enum, not <code>"user"</code>)</p></td><td><p><code>-32602 Invalid enum value user</code></p></td></tr></tbody></table>
+
+### Starting a Conversation
+
+To start a new conversation, send a request without a `contextId`. The broker generates and returns
+a `contextId` in the response.
+
+```bash
+curl -s -X POST "https://<host>/<broker-path>/" \
+  -H "Content-Type: application/json" \
+  -H "A2A-Version: 1.0" \
+  <auth headers for your ingress policy> \
+  -d '{
+    "jsonrpc": "2.0", "id": "1", "method": "SendMessage",
+    "params": { "message": {
+      "role": "ROLE_USER",
+      "parts": [{ "text": "My favorite fruit is DRAGONFRUIT and my order number is ORD-4521. Please remember both." }],
+      "messageId": "g1"
+    }}
+  }'
+```
+
+The response includes a `contextId` in `result.task.contextId`. Save this value for subsequent
+requests:
+
+```json
+{
+  "result": {
+    "task": {
+      "id": "…T1…",
+      "contextId": "c740ccdf-b70a-4e81-b9e4-395845b4c6ab",
+      "status": {
+        "state": "TASK_STATE_COMPLETED",
+        "message": {
+          "parts": [
+            {
+              "text": "Acknowledged — I have recorded your favorite fruit (DRAGONFRUIT) and your order number (ORD-4521)…"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+### Continuing a Conversation
+
+To continue an existing conversation, include the `contextId` from the first turn in subsequent
+requests:
+
+```bash
+curl -s -X POST "https://<host>/<broker-path>/" \
+  -H "Content-Type: application/json" \
+  -H "A2A-Version: 1.0" \
+  <auth headers for your ingress policy> \
+  -d '{
+    "jsonrpc": "2.0", "id": "2", "method": "SendMessage",
+    "params": { "message": {
+      "role": "ROLE_USER",
+      "contextId": "c740ccdf-b70a-4e81-b9e4-395845b4c6ab",
+      "parts": [{ "text": "What is my favorite fruit and my order number?" }],
+      "messageId": "g2"
+    }}
+  }'
+```
+
+The broker recalls facts from prior turns:
+
+```json
+{
+  "result": {
+    "task": {
+      "contextId": "c740ccdf-b70a-4e81-b9e4-395845b4c6ab",
+      "status": {
+        "message": { "parts": [{ "text": "Favorite fruit: DRAGONFRUIT. Order number: ORD-4521." }] }
+      }
+    }
+  }
+}
+```
+
+### Referencing Work from Another Conversation
+
+Reusing `contextId` handles continuity within one conversation. To bring in work from a different
+conversation, add `referenceTaskIds` to the message. This field accepts a list of prior task IDs
+whose conversation is seeded into the current turn.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "3",
+  "method": "SendMessage",
+  "params": {
+    "message": {
+      "role": "ROLE_USER",
+      "contextId": "<this-conversation>",
+      "referenceTaskIds": ["<task-id-from-another-conversation>"],
+      "parts": [{ "text": "Reuse the itinerary from my earlier booking." }],
+      "messageId": "g3"
+    }
+  }
+}
+```
+
+When using `referenceTaskIds`:
+
+- Each referenced task must belong to the same authenticated user (`userId`). If a referenced task
+  is missing or owned by another user, the request is rejected.
+
+- Referencing a task already part of the current conversation doesn’t duplicate its content.
+
+- Use `referenceTaskIds` only to cross conversation boundaries. Same-conversation continuity comes
+  from reusing the `contextId`.
+
+### Memory Scope and Limits
+
+Conversational memory includes user and assistant messages (the text exchanged between the user and
+the agent)
+
+Conversational memory does not include tool calls and tool results. The agent remembers what was
+discussed, not the intermediate tool invocations it made.
+
+Additional limits include:
+
+- Memory is capped at approximately the most recent 200 messages per conversation. Older turns roll
+  off.
+
+- Retention is bounded by the configured TTL. After the TTL expires, recall stops.
+
+- Memory is shared across broker instances. Continuity does not depend on requests landing on the
+  same replica, so sticky sessions or session affinity on your load balancer are not required.
+
+#### Orchestrator Brokers
+
+If a broker calls downstream A2A agents while handling a conversation, it keeps those downstream
+conversations continuous automatically. For a given inbound `contextId`, the broker reuses the same
+downstream conversation with each child agent across turns so the downstream agents recover their
+own context on follow-ups. No extra caller action is required beyond reusing the inbound
+`contextId`.
+
+### Configuring Memory Retention
+
+Set the following variable in `exchange.json` under `metadata.variables` to control how long
+conversational memory persists:
+
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Variable</th><th>Description</th><th>Default</th><th>Notes</th></tr></thead><tbody><tr><td><p><code>OBJECT_STORE_DEFAULT_TTL_MS</code></p></td><td><p>How long a <code>contextId</code> memory persists</p></td><td><p>24 hours (<code>86400000</code>)</p></td><td><p>Maximum 30 days (<code>2592000000</code>). After the TTL expires, recall stops.</p></td></tr></tbody></table>
+
+### Verifying Your Setup
+
+To confirm the ingress policy is active, send an unauthenticated request. A `401` response confirms
+that identity is required:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "https://<host>/<broker-path>/" \
+  -H "Content-Type: application/json" -H "A2A-Version: 1.0" \
+  -d '{"jsonrpc":"2.0","id":"0","method":"SendMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"ping"}],"messageId":"p0"}}}'
+```
+
+After completing your first turn, use `ListTasks` to verify that memory is active. An empty result
+means no user identity was resolved. If you use Client ID enforcement with user context propagation,
+confirm that the policies are applied in that order:
+
+```bash
+curl -s -X POST "https://<host>/<broker-path>/" \
+  -H "Content-Type: application/json" -H "A2A-Version: 1.0" \
+  <auth headers for your ingress policy> \
+  -d '{"jsonrpc":"2.0","id":"l","method":"ListTasks","params":{"contextId":"<contextId>"}}'
+```
+
+## See Also
+
+- [Building Agent Networks for Agent Fabric](af-agent-networks)
+
+- [Agent Network 2.0 Project File Reference](af-project-files)
+
+- [A2A Protocol Specification](https://a2a-protocol.org/latest)
+
+---
+product: Building Agent Networks
+version: 2.0
+is-latest-version: true
+---
+
 # Agent Network (2.0) YAML Reference
 
 > For the full documentation index, see: https://docs.mulesoft.com/llms.txt
@@ -14,12 +307,19 @@ The `agent-network.yaml` file details the required structure and properties that
 project’s assets, connections, and policies.
 
 - [Agent Network Section](#agent-network-section)
+
 - [Info Section](#info-section)
+
 - [Registry Section](#registry-section)
+
 - [Context Section](#context-section)
+
 - [Brokers Section](#brokers-section)
+
 - [Expressions Format](#expressions-format)
+
 - [Exchange JSON File](#exchange-json-file)
+
   - [Runtime System Limits Configuration](#runtime-system-limits)
 
 ## Agent Network Section
@@ -77,12 +377,14 @@ registry:
             card:
               name: hr-system-agent
               description: Creates and manages employee records in the HR system.
-              url: https://hr-agent.example.com/a2a
               version: "1.0.0"
-              protocolVersion: "1.0"
               capabilities: {}
               defaultInputModes: [application/json, text/plain]
               defaultOutputModes: [application/json, text/plain]
+              supportedInterfaces:
+                - url: https://hr-agent.example.com/a2a
+                  protocolBinding: JSONRPC
+                  protocolVersion: "1.0"
               skills: []
         tools:
           - mcp:
@@ -103,12 +405,14 @@ registry:
             card:
               name: salesforce-agent
               description: Onboards new employees to Salesforce.
-              url: https://sfdc-agent.example.com/a2a
               version: "1.0.0"
-              protocolVersion: "1.0"
               capabilities: {}
               defaultInputModes: [application/json]
               defaultOutputModes: [application/json]
+              supportedInterfaces:
+                - url: https://sfdc-agent.example.com/a2a
+                  protocolBinding: JSONRPC
+                  protocolVersion: "1.0"
               skills: []
         llm:
           ref:
@@ -189,19 +493,31 @@ contract, skills, and capabilities. This is a standard A2A agent card
 
 The A2A card section has these properties.
 
-<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th><th>Values</th></tr></thead><tbody><tr><td><p><code>name</code></p></td><td><p>Human-readable name for the agent.</p></td><td><p>string</p></td><td><p>Yes</p></td><td><p> — </p></td></tr><tr><td><p><code>description</code></p></td><td><p>Human-readable description of the agent’s purpose.</p></td><td><p>string</p></td><td><p>Yes</p></td><td><p> — </p></td></tr><tr><td><p><code>url</code></p></td><td><p>Preferred endpoint URL for interacting with the agent. Must support preferredTransport.</p></td><td><p>string</p></td><td><p>Yes</p></td><td><p>for example, <a href="https://api.example.com/a2a/v1">https://api.example.com/a2a/v1</a></p></td></tr><tr><td><p><code>version</code></p></td><td><p>Agent’s own version number (format defined by provider).</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p>for example, 1.0.0</p></td></tr><tr><td><p><code>protocolVersion</code></p></td><td><p>Version of the A2A protocol this agent supports.</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p>for example, 1.0</p></td></tr><tr><td><p><code>capabilities</code></p></td><td><p>Optional capabilities supported by the agent.</p></td><td><p>AgentCapabilities</p></td><td><p>Yes</p></td><td><p>See below</p></td></tr><tr><td><p><code>defaultInputModes</code></p></td><td><p>Default supported input MIME types for all skills (overridable per skill).</p></td><td><p>Array of string</p></td><td><p>Yes</p></td><td><p> — </p></td></tr><tr><td><p><code>defaultOutputModes</code></p></td><td><p>Default supported output MIME types for all skills (overridable per skill).</p></td><td><p>Array of string</p></td><td><p>Yes</p></td><td><p> — </p></td></tr><tr><td><p><code>skills</code></p></td><td><p>The set of skills or distinct capabilities the agent can perform.</p></td><td><p>Array of AgentSkills</p></td><td><p>Yes</p></td><td><p>See below</p></td></tr><tr><td><p><code>preferredTransport</code></p></td><td><p>Transport for the main url. Must be available at that URL.</p></td><td><p>String</p></td><td><p>No</p></td><td><p>JSON-RPC, GRPC, HTTP JSON (default: JSON-RPC)</p></td></tr><tr><td><p><code>additionalInterfaces</code></p></td><td><p>Additional transport+URL combinations for the same agent.</p></td><td><p>Array of AgentInterface</p></td><td><p>No</p></td><td><p>Each: { transport: string, url: string }</p></td></tr><tr><td><p><code>additionalInterfaces.transport</code></p></td><td><p>The transport protocol for this interface.</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p><code>JSONRPC, GRPC, HTTP+JSON)</code></p></td></tr><tr><td><p><code>additionalInterfaces.url</code></p></td><td><p>The URL for this additional interface.</p></td><td><p>String (URI)</p></td><td><p>Yes</p></td><td><p>Valid URI string</p></td></tr><tr><td><p><code>provider</code></p></td><td><p>Agent’s service provider.</p></td><td><p>AgentProvider</p></td><td><p>No</p></td><td><p>{ organization: string, url: string }</p></td></tr><tr><td><p><code>documentationUrl</code></p></td><td><p>Optional URL to the agent’s documentation.</p></td><td><p>String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>iconUrl</code></p></td><td><p>Optional URL to an icon for the agent.</p></td><td><p>String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>security</code></p></td><td><p>Security requirement objects for all interactions (OpenAPI 3.0 style; OR of ANDs).</p></td><td><p>Array of object</p></td><td><p>No</p></td><td><p>Each object: scheme names → array of scope strings</p></td></tr><tr><td><p><code>securitySchemes</code></p></td><td><p>Declared security schemes (key \= scheme name). OpenAPI 3.0 Security Scheme Object.</p></td><td><p>Object</p></td><td><p>No</p></td><td><p>apiKey, http, oauth2, openIdConnect, mutualTLS</p></td></tr><tr><td><p><code>signatures</code></p></td><td><p>JSON Web Signatures for this AgentCard (RFC 7515 JWS).</p></td><td><p>Array of AgentCardSignature</p></td><td><p>No</p></td><td><p>{ protected, signature, header? }</p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th><th>Values</th></tr></thead><tbody><tr><td><p><code>name</code></p></td><td><p>A human-readable name for the agent.</p></td><td><p>String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>description</code></p></td><td><p>A human-readable description of the agent.</p></td><td><p>String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>version</code></p></td><td><p>The version of the agent (format defined by provider).</p></td><td><p>String</p></td><td><p>No</p></td><td><p>for example, 1.0.0</p></td></tr><tr><td><p><code>capabilities</code></p></td><td><p>Optional capabilities supported by the agent.</p></td><td><p>AgentCapabilities</p></td><td><p>No</p></td><td><p>See <a href="#capabilities-properties">Capabilities Properties</a></p></td></tr><tr><td><p><code>defaultInputModes</code></p></td><td><p>Interaction modes the agent supports across all skills (media types).</p></td><td><p>Array of String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>defaultOutputModes</code></p></td><td><p>Media types supported as outputs from this agent.</p></td><td><p>Array of String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>skills</code></p></td><td><p>The set of skills or distinct capabilities the agent can perform.</p></td><td><p>Array of AgentSkill</p></td><td><p>No</p></td><td><p>See <a href="#skills-properties">Skills Properties</a></p></td></tr><tr><td><p><code>supportedInterfaces</code></p></td><td><p>Transport and URL combinations for interacting with the agent.</p></td><td><p>Array of AgentInterface</p></td><td><p>No</p></td><td><p>See <a href="#agent-interface-properties">Agent Interface Properties</a></p></td></tr><tr><td><p><code>provider</code></p></td><td><p>The service provider of the agent.</p></td><td><p>AgentProvider</p></td><td><p>No</p></td><td><p>{ organization: string, url: string }</p></td></tr><tr><td><p><code>documentationUrl</code></p></td><td><p>A URL providing additional documentation about the agent.</p></td><td><p>String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>iconUrl</code></p></td><td><p>A URL to an icon for the agent.</p></td><td><p>String</p></td><td><p>No</p></td><td><p> — </p></td></tr><tr><td><p><code>security</code></p></td><td><p>Security requirement objects for all interactions (OpenAPI 3.0 style; OR of ANDs).</p></td><td><p>Array of Object</p></td><td><p>No</p></td><td><p>Each object: scheme names → array of scope strings</p></td></tr><tr><td><p><code>securitySchemes</code></p></td><td><p>Declared security schemes (key \= scheme name). OpenAPI 3.0 Security Scheme Object.</p></td><td><p>Object</p></td><td><p>No</p></td><td><p>apiKey, http, oauth2, openIdConnect, mutualTLS</p></td></tr><tr><td><p><code>signatures</code></p></td><td><p>JSON Web Signatures for this AgentCard (RFC 7515 JWS).</p></td><td><p>Array of AgentCardSignature</p></td><td><p>No</p></td><td><p>{ protected, signature, header? }</p></td></tr></tbody></table>
 
 ##### Skills Properties
 
 Skills describe the distinct capabilities the agent can perform and have these properties.
 
-<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Valid Values</th><th>Required</th></tr></thead><tbody><tr><td><p><code>id</code></p></td><td><p>Unique identifier for the skill.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>name</code></p></td><td><p>A human-readable name for the skill.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>description</code></p></td><td><p>A description of what this skill does.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>examples</code></p></td><td><p>Usage examples demonstrating how to use this skill.</p></td><td><p>Array of strings</p></td><td><p>Array of example strings</p></td><td><p>No</p></td></tr><tr><td><p><code>inputModes</code></p></td><td><p>Supported input MIME types for this skill (overrides defaultInputModes).</p></td><td><p>Array of strings</p></td><td><p>Array of MIME type strings</p></td><td><p>No</p></td></tr><tr><td><p><code>outputModes</code></p></td><td><p>Supported output MIME types for this skill (overrides defaultOutputModes).</p></td><td><p>Array of strings</p></td><td><p>Array of MIME type strings</p></td><td><p>No</p></td></tr><tr><td><p><code>tags</code></p></td><td><p>Categorization tags for this skill.</p></td><td><p>Array of strings</p></td><td><p>Array of tag strings</p></td><td><p>No</p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Valid Values</th><th>Required</th></tr></thead><tbody><tr><td><p><code>id</code></p></td><td><p>Unique identifier for the skill.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>name</code></p></td><td><p>A human-readable name for the skill.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>description</code></p></td><td><p>A description of what this skill does.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>examples</code></p></td><td><p>Usage examples demonstrating how to use this skill.</p></td><td><p>Array of strings</p></td><td><p>Array of example strings</p></td><td><p>No</p></td></tr><tr><td><p><code>inputModes</code></p></td><td><p>Supported input MIME types for this skill (overrides defaultInputModes).</p></td><td><p>Array of strings</p></td><td><p>Array of MIME type strings</p></td><td><p>No</p></td></tr><tr><td><p><code>outputModes</code></p></td><td><p>Supported output MIME types for this skill (overrides defaultOutputModes).</p></td><td><p>Array of strings</p></td><td><p>Array of MIME type strings</p></td><td><p>No</p></td></tr><tr><td><p><code>tags</code></p></td><td><p>Categorization tags for this skill.</p></td><td><p>Array of strings</p></td><td><p>Array of tag strings</p></td><td><p>No</p></td></tr><tr><td><p><code>securityRequirements</code></p></td><td><p>Security requirements specific to this skill.</p></td><td><p>Array of SecurityRequirement</p></td><td><p>Array of security requirement objects</p></td><td><p>No</p></td></tr></tbody></table>
 
 ##### Capabilities Properties
 
 Capabilities describe optional features supported by the agent and have these properties.
 
-<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Valid Values</th><th>Required</th></tr></thead><tbody><tr><td><p><code>streaming</code></p></td><td><p>Indicates if the agent supports streaming responses.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code></p></td><td><p>No</p></td></tr><tr><td><p><code>pushNotifications</code></p></td><td><p>Indicates if the agent supports push notifications.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code></p></td><td><p>No</p></td></tr><tr><td><p><code>extendedAgentCard</code></p></td><td><p>Indicates if the agent supports providing an extended agent card when authenticated.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code></p></td><td><p>No</p></td></tr><tr><td><p><code>extensions</code></p></td><td><p>List of protocol extensions supported by the agent.</p></td><td><p>Array</p></td><td><p>Array of extension objects</p></td><td><p>No</p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Valid Values</th><th>Required</th></tr></thead><tbody><tr><td><p><code>streaming</code></p></td><td><p>Indicates if the agent supports streaming responses.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code></p></td><td><p>No</p></td></tr><tr><td><p><code>pushNotifications</code></p></td><td><p>Indicates if the agent supports push notifications.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code></p></td><td><p>No</p></td></tr><tr><td><p><code>extendedAgentCard</code></p></td><td><p>Indicates if the agent supports providing an extended agent card when authenticated.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code></p></td><td><p>No</p></td></tr><tr><td><p><code>extensions</code></p></td><td><p>List of protocol extensions supported by the agent.</p></td><td><p>Array of AgentExtension</p></td><td><p>See below</p></td><td><p>No</p></td></tr></tbody></table>
+
+##### Agent Extension Properties
+
+Each extension object describes a protocol extension supported by the agent.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Valid Values</th><th>Required</th></tr></thead><tbody><tr><td><p><code>uri</code></p></td><td><p>The unique URI identifying the extension.</p></td><td><p>String</p></td><td><p>Any URI string</p></td><td><p>No</p></td></tr><tr><td><p><code>description</code></p></td><td><p>Human-readable description of how this agent uses the extension.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr><tr><td><p><code>required</code></p></td><td><p>If true, the client must understand and comply with the extension’s requirements.</p></td><td><p>Boolean</p></td><td><p><code>true</code> or <code>false</code> (default: <code>false</code>)</p></td><td><p>No</p></td></tr><tr><td><p><code>params</code></p></td><td><p>Extension-specific configuration parameters.</p></td><td><p>Object</p></td><td><p>Any JSON object</p></td><td><p>No</p></td></tr></tbody></table>
+
+##### Agent Interface Properties
+
+Each interface object declares a transport and URL combination for interacting with the agent.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Valid Values</th><th>Required</th></tr></thead><tbody><tr><td><p><code>url</code></p></td><td><p>The URL where this interface is available.</p></td><td><p>String</p></td><td><p>Valid URI string</p></td><td><p>No</p></td></tr><tr><td><p><code>protocolBinding</code></p></td><td><p>The protocol binding for this interface.</p></td><td><p>String</p></td><td><p><code>JSONRPC</code>, <code>GRPC</code>, <code>HTTP+JSON</code></p></td><td><p>No</p></td></tr><tr><td><p><code>protocolVersion</code></p></td><td><p>The A2A protocol version for this interface.</p></td><td><p>String</p></td><td><p>For example, 1.0<br><br>IMPORTANT: The A2A protocol version you declare for a connection must match the deployed agent’s actual runtime protocol version. A mismatch causes the platform to apply the wrong Agent Card policy, which prevents the agent card URL from being rewritten to the egress proxy and results in a <code>401 Unauthorized</code> error at runtime rather than a version error.</p></td><td><p>No</p></td></tr><tr><td><p><code>tenant</code></p></td><td><p>Tenant ID to be used in the request when calling the agent.</p></td><td><p>String</p></td><td><p>Any string value</p></td><td><p>No</p></td></tr></tbody></table>
 
 ### MCP
 
@@ -323,7 +639,6 @@ context:
       url: https://api.openai.com/v1
       authentication:
         kind: apiKey
-        apiKey: "${env.OPENAI_API_KEY}"
   policies:
     retry-policy:
       ref:
@@ -342,20 +657,9 @@ The `context` section has these properties.
 Connection definitions live in the `context` object. Each `connections` object has a kind field that
 determines its connection type: either `a2a`, `llm`, or `mcp`.
 
-#### Connection ID Format
-
-Each connection key (ID) must use only:
-
-- Lowercase letters (`a`–`z`)
-- Numeric characters (`0`–`9`)
-- Underscores (`_`), non-trailing
-
-For example, `hr_system_agent` and `slack_mcp` are valid, but `HR-System-Agent` and `my_connection_`
-are not.
-
 Connection objects have these properties.
 
-<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Field Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><p><code>kind</code></p></td><td><p>Connection type</p></td><td><p><code>mcp</code>, <code>a2a</code>, or <code>llm</code></p></td><td><p>Yes</p></td></tr><tr><td><p><code>ref</code></p></td><td><p>A reference to an asset representing the target system.</p></td><td><p>Reference Object</p></td><td><p>Yes</p></td></tr><tr><td><p><code>url</code></p></td><td><p>The base URL of the target system.</p></td><td><p>String</p></td><td><p>No</p></td></tr><tr><td><p><code>authentication</code></p></td><td><p>The authentication method to use when connecting to the target system.</p></td><td><p>Authentication Object</p></td><td><p>No (Yes for <code>llm</code> connections)</p></td></tr><tr><td><p><code>policies</code></p></td><td><p>Policy bindings to apply to this connection, organized by traffic direction.</p></td><td><p>Object</p></td><td><p>No</p></td></tr><tr><td><p><code>policies.inbound</code></p></td><td><p>Policy bindings applied to inbound traffic.</p></td><td><p>Array</p></td><td><p>No</p></td></tr><tr><td><p><code>policies.outbound</code></p></td><td><p>Policy bindings applied to outbound traffic.</p></td><td><p>Array</p></td><td><p>No</p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Field Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><p><code>kind</code></p></td><td><p>Connection type</p></td><td><p><code>mcp</code>, <code>a2a</code>, or <code>llm</code></p></td><td><p>Yes</p></td></tr><tr><td><p><code>ref</code></p></td><td><p>A reference to an asset representing the target system.</p></td><td><p>Reference Object</p></td><td><p>Yes</p></td></tr><tr><td><p><code>url</code></p></td><td><div><div><p>The base URL of the target system. For <code>llm</code> use these defaults:</p></div><div><ul><li><p>OpenAI: <code>https://api.openai.com/v1</code></p></li><li><p>Gemini: <code>https://generativelanguage.googleapis.com</code></p></li><li><p>Bedrock OpenAI: <code>https://bedrock-mantle.&lt;YOUR_REGION&gt;.api.aws/v1</code></p></li><li><p>Azure OpenAI: <code>https://&lt;YOUR_RESOURCE_NAME&gt;.openai.azure.com/openai/v1</code></p></li></ul></div></div></td><td><p>String</p></td><td><p>No</p></td></tr><tr><td><p><code>authentication</code></p></td><td><p>The authentication method to use when connecting to the target system.</p></td><td><p>Authentication Object</p></td><td><p>No (Yes for <code>llm</code> connections)</p></td></tr><tr><td><p><code>policies</code></p></td><td><p>Policy bindings to apply to this connection, organized by traffic direction.</p></td><td><p>Object</p></td><td><p>No</p></td></tr><tr><td><p><code>policies.inbound</code></p></td><td><p>Policy bindings applied to inbound traffic.</p></td><td><p>Array</p></td><td><p>No</p></td></tr><tr><td><p><code>policies.outbound</code></p></td><td><p>Policy bindings applied to outbound traffic.</p></td><td><p>Array</p></td><td><p>No</p></td></tr></tbody></table>
 
 You can attach policies to connection objects by referencing their policy identifier or by defining
 an inline policy binding. See the [policies object](#policies) for field definitions.
@@ -366,9 +670,10 @@ This section describes reusable, composable policy bindings and definitions that
 behaviors or constraints related to connections. You must reference the policy identifier to attach
 a policy.
 
-For more information about applying policies via Flex Gateway in Local Mode, see:
+For more information about applying policies via Omni Gateway in Local Mode, see:
 
-- [Securing Agent Interactions with Flex Gateway](https://docs.mulesoft.com/gateway/latest/flex-agent-secure)
+- [Securing Agent Interactions with Omni Gateway](https://docs.mulesoft.com/gateway/latest/flex-agent-secure)
+
 - [Applying Policies in Local Mode](https://docs.mulesoft.com/gateway/latest/flex-gateway-secure-local)
 
 **Example**
@@ -503,8 +808,6 @@ authentication:
   kind: oauth2-obo
   flow: oauth2-token-exchange
   tokenEndpoint: https://oauth.provider.com/token
-  clientId: clientId
-  clientSecret: clientSecret
   targetType: audience
   targetValue: https://api.example.com/agents/my-agent
   scope: Read #optional, OAuth 2.0 scope to request. Required for Microsoft Entra OBO (for example, api://downstream-client-id/.default). Optional for OAuth 2.0 Token Exchange (RFC 8693).
@@ -518,8 +821,6 @@ authentication:
   kind: oauth2-obo
   flow: microsoft-entra-obo
   tokenEndpoint: https://oauth.provider.com/token
-  clientId: clientId
-  clientSecret: clientSecret
   scope: api://downstream-client-id/.default
   timeout: 5000
 ```
@@ -533,17 +834,6 @@ The `oauth2-obo` authentication has these properties.
 Use this section to define brokers that orchestrate and control the flow of agent and tool
 invocations. Each broker object maps to an `.agent` file. You can have multiple Agent Script files
 in your `/brokers` directory.
-
-### Broker ID Format
-
-Each broker key (ID) must use only:
-
-- Lowercase letters (`a`–`z`)
-- Numeric characters (`0`–`9`)
-- Underscores (`_`), non-trailing
-
-For example, `customer_service_agent` and `billing_agent` are valid, but `customerServiceAgent` and
-`my_broker_` are not.
 
 **Example**
 
@@ -569,7 +859,7 @@ brokers:
 
 The `brokers` section has these properties.
 
-<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th><th>Values</th></tr></thead><tbody><tr><td><p><code><em>(broker id)</em></code></p></td><td><p>Named broker definition. See <a href="#broker-id-format">Broker ID Format</a>.</p></td><td><p>Object</p></td><td><p>No</p></td><td><p>Keys: identifiers using only lowercase <code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>, and non-trailing underscores (<code>_</code>). Values: broker entity (BrokerEntity in agent_network_v2.json)</p></td></tr><tr><td><p><code>kind</code></p></td><td><p>The type of agent implementation.</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p><code>AgentScript</code></p></td></tr><tr><td><p><code>implementation</code></p></td><td><p>The path to the Agent Script implementation file.</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p> — </p></td></tr><tr><td><p><code>interfaces</code></p></td><td><p>Exposed interfaces for this broker.</p></td><td><p>Object</p></td><td><p>Yes</p></td><td><p><code>a2a</code></p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th><th>Values</th></tr></thead><tbody><tr><td><p><code><em>(broker id)</em></code></p></td><td><p>Named broker definition. See <a href="#broker-id-format">[broker-id-format]</a>.</p></td><td><p>Object</p></td><td><p>No</p></td><td><p>Keys: identifiers using only lowercase <code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>, and non-trailing underscores (<code>_</code>). Values: broker entity (BrokerEntity in agent_network_v2.json)</p></td></tr><tr><td><p><code>kind</code></p></td><td><p>The type of agent implementation.</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p><code>AgentScript</code></p></td></tr><tr><td><p><code>implementation</code></p></td><td><p>The path to the Agent Script implementation file.</p></td><td><p>String</p></td><td><p>Yes</p></td><td><p> — </p></td></tr><tr><td><p><code>interfaces</code></p></td><td><p>Exposed interfaces for this broker.</p></td><td><p>Object</p></td><td><p>Yes</p></td><td><p><code>a2a</code></p></td></tr></tbody></table>
 
 ### interfaces.a2a
 
@@ -687,12 +977,18 @@ These key-value pairs are important for your agent network configuration:
 
 - groupId: ID of the Anypoint business group that owns your agent network and all the assets derived
   from it.
+
 - assetId: Unique identifier for the agent network project.
+
 - dependencies: Existing assets that this network needs to reference.
+
 - variables: Nested in the metadata section, defines all the variables whose values shouldn’t be
   hardcoded in the `agent-network.yaml` file. Enter these values when publishing the agent network.
   Each variable has a description value, a default value, and a secret value that indicates whether
   it’s treated as sensitive or not.
+
+For more information about versioning assets in agent network projects, see
+[Version Assets](af-publish-agent-network-assets#version-assets).
 
 ### Runtime System Limits Configuration
 
@@ -763,7 +1059,7 @@ behavior and help prevent infinite loops or excessive resource usage.
 
 The following table describes the runtime system limit variables you can configure:
 
-<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Variable Name</th><th>Description</th><th>Default Value</th></tr></thead><tbody><tr><td><p>MODULE_GRAPH_ERROR_SETTINGS_MAX_HANDOFF_ITERATIONS</p></td><td><p>Maximum number of node-to-node transitions allowed per turn. Controls how many times execution can move between nodes in the agent network graph during a single conversation turn.</p></td><td><p>30</p></td></tr><tr><td><p>MODULE_GRAPH_ERROR_SETTINGS_MAX_REASONING_ITERATIONS</p></td><td><p>Maximum number of LLM reasoning loops allowed within a single node. Limits how many times the LLM can iterate on its reasoning before producing a result.</p></td><td><p>20</p></td></tr><tr><td><p>MODULE_GRAPH_ERROR_SETTINGS_MAX_SUBGRAPH_DEPTH</p></td><td><p>Maximum nesting depth for subgraphs. Controls how deeply agent networks can be nested within other agent networks.</p></td><td><p>10</p></td></tr><tr><td><p>MODULE_GRAPH_ERROR_SETTINGS_MAX_NODE_TOOL_CALL_ITERATIONS</p></td><td><p>Maximum number of tool executor runs allowed per node. Limits how many times a node can invoke tool execution during its processing.</p></td><td><p>20</p></td></tr><tr><td><p>MODULE_GRAPH_ERROR_SETTINGS_MAX_TURN_TOOL_CALL_COUNTS</p></td><td><p>Total number of tool invocations allowed across all nodes per turn. Provides a global limit on tool usage during a single conversation turn.</p></td><td><p>50</p></td></tr><tr><td><p>MODULE_GRAPH_ERROR_SETTINGS_MAX_STATE_SIZE_BYTES</p></td><td><p>Maximum accumulated state size in bytes. Limits the total amount of state data that can be accumulated during graph execution. Default is 10 MB (10485760 bytes).</p></td><td><p>10485760</p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Variable Name</th><th>Description</th><th>Default Value</th></tr></thead><tbody><tr><td><p><code>MODULE_GRAPH_ERROR_SETTINGS_MAX_HANDOFF_ITERATIONS</code></p></td><td><p>Maximum number of node-to-node transitions allowed per turn. Controls how many times execution can move between nodes in the agent network graph during a single conversation turn.</p></td><td><p>30</p></td></tr><tr><td><p><code>MODULE_GRAPH_ERROR_SETTINGS_MAX_REASONING_ITERATIONS</code></p></td><td><p>Maximum number of LLM reasoning loops allowed within a single node. Limits how many times the LLM can iterate on its reasoning before producing a result.</p></td><td><p>20</p></td></tr><tr><td><p><code>MODULE_GRAPH_ERROR_SETTINGS_MAX_SUBGRAPH_DEPTH</code></p></td><td><p>Maximum nesting depth for subgraphs. Controls how deeply agent networks can be nested within other agent networks.</p></td><td><p>10</p></td></tr><tr><td><p><code>MODULE_GRAPH_ERROR_SETTINGS_MAX_NODE_TOOL_CALL_ITERATIONS</code></p></td><td><p>Maximum number of tool executor runs allowed per node. Limits how many times a node can invoke tool execution during its processing.</p></td><td><p>20</p></td></tr><tr><td><p><code>MODULE_GRAPH_ERROR_SETTINGS_MAX_TURN_TOOL_CALL_COUNTS</code></p></td><td><p>Total number of tool invocations allowed across all nodes per turn. Provides a global limit on tool usage during a single conversation turn.</p></td><td><p>50</p></td></tr><tr><td><p><code>MODULE_GRAPH_ERROR_SETTINGS_MAX_STATE_SIZE_BYTES</code></p></td><td><p>Maximum accumulated state size in bytes. Limits the total amount of state data that can be accumulated during graph execution. Default is 10 MB (10485760 bytes).</p></td><td><p>10485760</p></td></tr><tr><td><p><code>OBJECT_STORE_DEFAULT_TTL_MS</code></p></td><td><p>Maximum amount of time, in milliseconds, for data persistence. The default is 24 hours (86,400,000 ms).</p></td><td><p>30 days (2,592,000,000 ms)</p></td></tr></tbody></table>
 
 Specify all runtime system limit variables as string values in the `exchange.json` file. All
 variables are non-sensitive (`secret: false`).
@@ -828,6 +1124,7 @@ requiring probabilistic LLM reasoning from those requiring deterministic control
 
 - Probabilistic (LLM-based) nodes handle complex, open-ended decisions that require nuanced
   judgment, such as classification or AI-powered thinking.
+
 - Deterministic nodes manage all remaining predefined execution paths, ensuring a fixed and
   guaranteed workflow after a key probabilistic judgment has been finalized.
 
@@ -911,8 +1208,10 @@ An agent network project includes these files:
 
 * `exchange.json`: Contains asset metadata available in Anypoint Exchange after publishing your
   agent network assets.
+
 * `agent-network.yaml`: Contains a registry section that defines Exchange assets used in your
   project and a context section that defines connections and policies for the project.
+
 * `.agent` files: Contain broker and node definitions and configurations that enable multi-agent
   orchestration in your project.
 
@@ -971,18 +1270,21 @@ Agent network brokers support the latest models from OpenAI, Azure OpenAI, Bedro
 Gemini, as well as LLM Proxies.
 
 - [OpenAI](https://developers.openai.com/api/docs/models)
+
 - [Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models)
+
 - [Bedrock OpenAI](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html)
 
   > [!NOTE] Bedrock OpenAI uses the `openai.` prefix for model names (for example,
   > `openai.gpt-5.5`), which differs from the model names used with OpenAI and Azure OpenAI.
 
 - [Gemini](https://ai.google.dev/gemini-api/docs/models)
+
 - LLM Proxy
 
   Agent network brokers only support access to OpenAI and Gemini through
-  [Omni Gateway LLM Proxy](../../gateway/latest/flex-gateway-llm-proxy). Transcoding other models to
-  OpenAI format to use in agent networks is not supported.
+  [Omni Gateway LLM Proxy](../../general/model-proxy). Transcoding other models to OpenAI format to
+  use in agent networks is not supported.
 
 This table details requirements and recommended models.
 
@@ -994,51 +1296,23 @@ supported.
 For configuration options, see the [LLM Section](af-agent-script-reference#llm-section) of the Agent
 Script file reference.
 
-## A2A Protocol
+## A2A Protocol in Agent Networks
 
-The Agent2Agent (A2A) Protocol governs agent-to-agent communication. This protocol powers
-orchestration, observability, and governance features in agent networks. MuleSoft supports v1.0 of
-the A2A Protocol Specification.
+The Agent2Agent (A2A) Protocol governs agent-to-agent communication and powers orchestration,
+observability, and governance features in agent networks. For more information, see
+[Using A2A Protocol in Agent Networks](af-a2a-agent-network).
 
-### Context and Task ID Scoping in Agent Networks
-
-In MuleSoft agent networks, the brokers receiving a request always generate a `contextId` and
-`taskId`. These IDs define the state and scope of a specific conversation between two agents. A
-`taskId` is always matched to a `contextId`, but a `contextId` can exist without a `taskId`.
-
-In a multi-agent network, a client sends a request to Broker_1 and Broker_1 generates the necessary
-IDs for that request. When Broker_1 sends a new request to the next broker or non-broker agent in
-line, that broker or non-broker agent establishes a unique `contextId` and `taskId` for the new
-request.
-
-> [!NOTE] Non-broker agents don’t have to generate a `contextId` and `taskId` when receiving
-> requests from a client.
-
-Consider a network with a client and two brokers (1 and 2).
-
-- The IDs used between the client and Broker_1 are independent of the IDs used between Broker_1 and
-  Broker_2.
-- When Broker_1 delegates a task to Broker_2, Broker_2 (acting as a server) generates its own
-  `contextId` and `taskId`.
-- Broker_1 is responsible for maintaining a mapping between its own upstream `taskId` (used to
-  respond to its client) and the downstream `taskId` it’s tracking with Broker_2.
-- If Broker_2 requires more information (if it returns `status: input-required`), it provides a
-  `contextId` and `taskId` to Broker_1. Broker_1 uses these IDs to provide the requested input to
-  Broker_2. The client never sees Broker_2’s internal IDs.
-
-<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Relationship</th><th>Role</th><th>Logic</th></tr></thead><tbody><tr><td><p>Client → Broker_1</p></td><td><p>Broker_1 is server</p></td><td><p>Generates <code>contextId_1</code> and <code>taskId_1</code> for the client.</p></td></tr><tr><td><p>Agent A → Broker_2</p></td><td><p>Broker_2 is server</p></td><td><p>Generates <code>contextId_2</code> and <code>taskId_2</code> for Broker_1.</p></td></tr><tr><td><p>Network broker</p></td><td><p>Broker_1</p></td><td><p>Broker_1 maps <code>contextId_1</code> and <code>taskId_1</code> to <code>contextId_2</code> and <code>taskId_2</code>.</p></td></tr></tbody></table>
-
-For more information, see
-[Life of a Task - Group Related Interactions](https://a2a-protocol.org/latest/topics/life-of-a-task/).
-
-> [!NOTE] With A2A v1.0, agent networks now support streaming with Server-Sent Events (SSE), both
-> for calling A2A agents that support streaming and for streaming as an A2A endpoint itself.
+> [!NOTE] With A2A v1.0, agent networks support streaming with Server-Sent Events (SSE), both for
+> calling A2A agents that support streaming and for streaming as an A2A endpoint itself.
 
 ## See Also
 
 - [Get Started with Agent Networks](af-get-started)
+
 - [Create Agent Networks](af-create-agent-network)
+
 - [Agent Network 2.0 Project File Reference](af-project-files)
+
 - [Agent Fabric Overview](../../general/agent-fabric-overview)
 
 ---
@@ -1056,10 +1330,15 @@ of the workflow using Agent Script. Agent Script enables you to build predictabl
 agent workflows that don’t rely solely on interpretation by an LLM.
 
 - [Agent Script Structure](#agent-script-structure)
+
 - [Node Types](#node-types)
+
 - [A2A Namespace Functions](#a2a-namespace-functions)
+
 - [Built-in Functions](#built-in-functions)
+
 - [Node Outputs](#node-outputs)
+
 - [Node Expressions and References](#node-expressions-and-references)
 
 ## Agent Script Structure
@@ -1078,6 +1357,7 @@ AGENTFABRIC dialect. Deploying an agent to a runtime that doesn’t support this
 error.
 
 - Using major.minor (for example, `AGENTFABRIC=1.1`) binds to version 1.1 or later
+
 - Using major only (for example, `AGENTFABRIC=1`) references the latest version within that major
   version
 
@@ -1147,16 +1427,14 @@ llm:
 
 The OpenAI configuration has these properties.
 
-The OpenAI default URL is [https://api.openai.com/v1](https://api.openai.com/v1).
+> [!NOTE] Bedrock OpenAI uses the `openai.` prefix for model names (for example, `openai.gpt-5.5`),
+> which differs from the model names used with OpenAI and Azure OpenAI.
 
 <table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><p><code>target</code></p></td><td><p>Governed LLM connection as a URI; must use the <code>llm://</code> scheme</p></td><td><p>URI (<code>llm://…​</code>)</p></td><td><p>Yes</p></td></tr><tr><td><p><code>kind</code></p></td><td><p>Discriminator for the LLM provider; selects which provider-specific attributes apply</p></td><td><p>String, <code>OpenAI</code></p></td><td><p>Yes</p></td></tr><tr><td><p><code>model</code></p></td><td><p>The name of the model to use</p></td><td><p>String</p></td><td><p>Yes</p></td></tr><tr><td><p><code>reasoning_effort</code></p></td><td><p>Constrains effort on reasoning for reasoning models. gpt-5.1 defaults to <code>NONE</code>; previous ones default to <code>MEDIUM</code>.</p></td><td><p>enum['NONE', 'MINIMAL', 'LOW', 'MEDIUM', 'HIGH']</p></td><td><p>No</p></td></tr><tr><td><p><code>temperature</code></p></td><td><p>Controls randomness in the output</p></td><td><p>number</p></td><td><p>No</p></td></tr><tr><td><p><code>top_p</code></p></td><td><p>Nucleus sampling parameter</p></td><td><p>number</p></td><td><p>No</p></td></tr><tr><td><p><code>top_logprobs</code></p></td><td><p>Number of most likely tokens to return at each position</p></td><td><p>integer</p></td><td><p>No</p></td></tr><tr><td><p><code>max_output_tokens</code></p></td><td><p>Maximum number of tokens to generate</p></td><td><p>integer</p></td><td><p>No</p></td></tr></tbody></table>
 
 #### LLM Configuration: Gemini
 
 The Gemini configuration has these properties.
-
-The default Gemini URL is
-[https://generativelanguage.googleapis.com](https://generativelanguage.googleapis.com).
 
 <table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><p><code>target</code></p></td><td><p>Governed LLM connection as a URI; must use the <code>llm://</code> scheme</p></td><td><p>URI (<code>llm://…​</code>)</p></td><td><p>Yes</p></td></tr><tr><td><p><code>kind</code></p></td><td><p>Discriminator for the LLM provider; selects which provider-specific attributes apply</p></td><td><p>String, <code>Gemini</code></p></td><td><p>Yes</p></td></tr><tr><td><p><code>model</code></p></td><td><p>The name of the model to use</p></td><td><p>String</p></td><td><p>Yes</p></td></tr><tr><td><p><code>thinking_level</code></p></td><td><p>The level of thoughts tokens that the model should generate</p></td><td><p>Enum['LOW', 'HIGH']</p></td><td><p>No</p></td></tr><tr><td><p><code>thinking_budget</code></p></td><td><p>Indicates the thinking budget in tokens. 0 is DISABLED. -1 is AUTOMATIC. The default values and allowed ranges are model dependent</p></td><td><p>Number</p></td><td><p>No</p></td></tr><tr><td><p><code>temperature</code></p></td><td><p>Controls the degree of randomness in token selection. Lower temperatures are good for prompts that require a less open-ended or creative response, while higher temperatures can lead to more diverse or creative results</p></td><td><p>Number</p></td><td><p>No</p></td></tr><tr><td><p><code>top_p</code></p></td><td><p>Tokens are selected from the most to least probable until the sum of their probabilities equals this value. Use a lower value for less random responses and a higher value for more random responses</p></td><td><p>Number</p></td><td><p>No</p></td></tr><tr><td><p><code>response_logprobs</code></p></td><td><p>Whether to return the log probabilities of the tokens that were chosen by the model at each step</p></td><td><p>Boolean</p></td><td><p>No</p></td></tr><tr><td><p><code>max_output_tokens</code></p></td><td><p>Maximum number of tokens that can be generated in the response</p></td><td><p>Integer</p></td><td><p>No</p></td></tr></tbody></table>
 
@@ -1215,13 +1493,13 @@ ID and task IDs. The trigger also responds to various A2A protocol methods.
 > [!NOTE] Agent network only supports triggers using JSON-RPC or HTTP JSON transport.
 
 - [Get Task](https://a2a-protocol.org/latest/specification/#313-get-task)
+
 - [List Tasks](https://a2a-protocol.org/latest/specification/#314-list-tasks)
+
 - [Cancel Task](https://a2a-protocol.org/latest/specification/#315-cancel-task)
+
 - [Subscribe to Task](https://a2a-protocol.org/latest/specification/#316-subscribe-to-task)
-- [Create Push Notification Config](https://a2a-protocol.org/latest/specification/#317-create-push-notification-config)
-- [Get Push Notification Config](https://a2a-protocol.org/latest/specification/#318-get-push-notification-config)
-- [List Push Notification Config](https://a2a-protocol.org/latest/specification/#319-list-push-notification-configs)
-- [Delete Push Notification Config](https://a2a-protocol.org/latest/specification/#3110-delete-push-notification-config)
+
 - [Get Extended Agent Card](https://a2a-protocol.org/latest/specification/#3111-get-extended-agent-card)
 
 **Example**
@@ -1240,6 +1518,29 @@ The A2A trigger has these properties.
 ## Node Types
 
 Agent network and Agent Script support these node types.
+
+### Choosing the Right Node Type
+
+Use this table to decide which node type fits your use case.
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th></th><th>Subagent</th><th>Orchestrator</th><th>Generator</th><th>Executor</th></tr></thead><tbody><tr><td><p><strong>Uses an LLM</strong></p></td><td><p>Yes (reasoning loop)</p></td><td><p>Yes (reasoning loop)</p></td><td><p>Yes (single call)</p></td><td><p>No</p></td></tr><tr><td><p><strong>Calls actions (A2A/MCP)</strong></p></td><td><p>Yes—​LLM chooses when and how</p></td><td><p>Yes—​LLM coordinates multiple agents/tools</p></td><td><p>No</p></td><td><p>Yes—​deterministic, fully-bound arguments</p></td></tr><tr><td><p><strong>Number of LLM iterations</strong></p></td><td><p>Multiple (configurable loop)</p></td><td><p>Multiple (configurable loop)</p></td><td><p>Exactly one</p></td><td><p>Zero</p></td></tr><tr><td><p><strong>Slot filling (<code>…​</code>)</strong></p></td><td><p>Yes</p></td><td><p>Yes</p></td><td><p>No</p></td><td><p>No</p></td></tr><tr><td><p><strong>Structured output schema</strong></p></td><td><p>Yes</p></td><td><p>Yes</p></td><td><p>Yes</p></td><td><p>No</p></td></tr><tr><td><p><strong>Best for</strong></p></td><td><p>Single-task reasoning: classification, extraction, semantic routing, human-in-the-loop decisions</p></td><td><p>Multi-agent coordination: delegating to several agents/tools to achieve a complex goal</p></td><td><p>One-shot text generation: summaries, formatting, templated responses</p></td><td><p>Deterministic execution: calling actions with known arguments, setting variables, no LLM judgment needed</p></td></tr></tbody></table>
+
+#### Orchestrator vs. Subagent: When to Use Which
+
+Both the orchestrator and subagent nodes run an LLM reasoning loop with access to actions. These are
+the key differences.
+
+- **Orchestrator** is optimized for workflows where the LLM must coordinate multiple external agents
+  and tools to achieve a goal. The LLM decides which agents to call, in what order, and how to
+  combine their results. Use it when the node needs access to two or more actions and the sequencing
+  between them requires judgment.
+
+- **Subagent** is a general-purpose reasoning node ideal for single-task work: classifying input,
+  extracting structured data, making a routing decision, or interacting with one tool. It also
+  supports human-in-the-loop patterns where the LLM can request clarification.
+
+> [!TIP] If the node coordinates multiple agents or tools toward a shared goal, use `orchestrator`.
+> If it reasons about a single task (even if it uses one action), use `subagent`.
 
 ### Subagent Node
 
@@ -1360,9 +1661,11 @@ The generator node has these properties.
 
 ### Executor Node
 
-The executor node is used to execute a set of Agent Script statements, primarily for setting
-variables or deterministic tool invocations. Use this node to set variables or call actions with
-known or fixed arguments.
+The executor node executes Agent Script statements deterministically and no LLM is involved. Because
+there is no LLM reasoning loop, every action argument must be fully resolved at execution time (you
+cannot use slot filling `…​` in an executor). Use this node when you need to call an action with
+known arguments, store a computed value in a variable, or chain multiple deterministic steps before
+transitioning.
 
 **Example**
 
@@ -1374,9 +1677,27 @@ executor sendHrSlackUpdate:
   on_exit: -> transition to @router.countrySwitch
 ```
 
+**Example with multiple statements:**
+
+```yaml
+executor prepareAndNotify:
+  description: "Sets the ticket status variable and sends a Slack notification."
+  do:
+    -> set @variables.ticketStatus = "resolved" run @actions.send_slack_message with text="Ticket "
+    + @generator.classifySeverity.output.ticket_id + " resolved" with
+    channel_id=@variables.notificationChannel
+  on_exit: -> transition to @echo.finalResponse
+```
+
 The executor node has these properties.
 
-<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><p><code>id</code></p></td><td><p>The node identifier, defined next to the node type.</p></td><td><p>String</p></td><td><p>Yes</p></td></tr><tr><td><p><code>label</code></p></td><td><p>An optional short, human-readable display name for the node.</p></td><td><p>String</p></td><td><p>No</p></td></tr><tr><td><p><code>description</code></p></td><td><p>A CommonMark string providing a description of the node.</p></td><td><p>String</p></td><td><p>No</p></td></tr><tr><td><p><code>on_exit</code></p></td><td><p>A procedure that executes when the node execution finishes. If <code>on_exit</code> is not defined, the graph ends when the executor ends.</p></td><td><p>Procedure, but only <code>transition_to</code> statements are allowed.</p></td><td><p>No</p></td></tr><tr><td><p><code>do</code></p></td><td><p>Agent Script statements to execute</p></td><td><p>procedure</p></td><td><p>Yes</p></td></tr></tbody></table>
+<table><colgroup><col> <col> <col> <col></colgroup><thead><tr><th>Parameter</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><p><code>id</code></p></td><td><p>The node identifier, defined next to the node type.</p></td><td><p>String</p></td><td><p>Yes</p></td></tr><tr><td><p><code>label</code></p></td><td><p>An optional short, human-readable display name for the node.</p></td><td><p>String</p></td><td><p>No</p></td></tr><tr><td><p><code>description</code></p></td><td><p>A CommonMark string providing a description of the node.</p></td><td><p>String</p></td><td><p>No</p></td></tr><tr><td><p><code>on_exit</code></p></td><td><p>A procedure that executes when the node execution finishes. If <code>on_exit</code> is not defined, the graph ends when the executor ends.</p></td><td><p>Procedure, but only <code>transition_to</code> statements are allowed.</p></td><td><p>No</p></td></tr><tr><td><p><code>do</code></p></td><td><p>A procedure containing one or more Agent Script statements to execute deterministically. See <a href="#executor-supported-statements">Supported Statements in <code>do</code></a>.</p></td><td><p>Procedure</p></td><td><p>Yes</p></td></tr></tbody></table>
+
+#### Supported Statements in `do`
+
+The `do` block accepts a procedure (`→`) containing one or more of these statements:
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Statement</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><p><code>run @actions.&lt;name&gt;</code></p></td><td><p>Invoke a defined action. Use <code>with</code> to bind arguments from variables, node outputs, or literal values. All arguments must be fully resolved (no slot filling). Multiple <code>with</code> clauses can be chained.</p></td><td><p><code>run @actions.escalate</code> or <code>run @actions.send_slack_message with text=@generator.summary.output with channel_id="my-channel"</code></p></td></tr><tr><td><p><code>set @variables.&lt;name&gt; = &lt;expression&gt;</code></p></td><td><p>Store a value in a workflow variable for use in downstream nodes.</p></td><td><p><code>set @variables.ticketStatus = "escalated"</code></p></td></tr></tbody></table>
 
 ### Router Node
 
@@ -1461,9 +1782,13 @@ Usage notes:
 
 - Functions are designed to be composed: `a2a.message` and `a2a.artifact` accept `parts` created by
   `a2a.textPart`/`a2a.dataPart`/`a2a.filePart`.
+
 - `a2a.filePart` requires either `uri` OR `bytes` (base64-encoded), but not both.
+
 - `a2a.artifact` auto-generates `artifactId` if it’s not provided.
+
 - All `metadata` parameters are optional and accept arbitrary dictionaries.
+
 - For tasks, it’s not necessary to define the `id`, `contextId` and `history` attributes, those are
   automatically populated by the trigger.
 
@@ -1492,14 +1817,19 @@ Schema tutorials unless they match what is documented here.
 Each property definition can include:
 
 - `type`: The data type (required).
+
 - `description`: A human-readable explanation of the property’s purpose.
+
 - `default`: A default value if the property is omitted.
 
 The `outputs` definition doesn’t support:
 
 - `additionalProperties` or similar JSON Schema extensibility flags
+
 - Combinators such as `anyOf`, `oneOf`, or `allOf`
+
 - References or shared definitions (`$ref`, `$defs`)
+
 - Composition beyond nested `object` / `array` structures as described above
 
 ## Node Expressions and References
@@ -1522,13 +1852,14 @@ returned by the \`hrSystemOnboard\` node @generator.writeEmailContent.output # r
 generated by the \`writeEmailContent\` node
 
 - Use `.output` when you know exactly which upstream node you’re referencing.
+
 - Use `.input` when multiple nodes transition into the current one and you want to decouple it from
   the specific path taken.
 
 In this example, `@generator.generate_email.input` returns whichever of `node_a`, `node_b`, or
 `node_c` actually transitioned into it.
 
-node_a ──┐ node_b ──┼──► generate_email ──► send_email node_c ──┘
+node\_a ──┐ node\_b ──┼──► generate\_email ──► send\_email node\_c ──┘
 
 ### Setting Action Headers
 
@@ -1604,20 +1935,21 @@ For installation, package updates, and release details, see
 
 ## Before You Begin
 
-Make sure you meet the [prerequisites](af-get-started#before-you-begin) for this task.
+If you’re using the Anypoint CLI to create agent network projects, ensure you install these
+requirements.
 
-Install the Anypoint CLI Agent Fabric plugin by running this command in a terminal window:
+- Node 20 (v20.19.4) or later. See [Nodejs.org](https://nodejs.org/en).
 
-`npm install mulesoft-anypoint-cli-agent-fabric-plugin`
+  Follow the steps in the installer, and then from a terminal verify that `node -v` returns a Node
+  20 version.
 
-> [!NOTE] The installation package has been renamed from `anypoint-cli-agent-fabric-plugin` to
-> `mulesoft-anypoint-cli-agent-fabric-plugin`.
->
-> If you have the previous version installed, you may encounter an
-> `npm error EXIST: file already exists` error when updating your installation. This occurs because
-> both versions share the same command alias. To resolve this, use the `--force` flag to overwrite
-> the alias and point it to the new package:
-> `npm i mulesoft-anypoint-cli-agent-fabric-plugin --force`.
+- Java 17 or later. Set the `JAVA_HOME` environment variable.
+
+- [Anypoint CLI Agent Fabric Plugin](https://www.npmjs.com/package/mulesoft-anypoint-cli-agent-fabric-plugin)
+
+  Install the Anypoint CLI Agent Fabric plugin by running this command in a terminal window:
+
+  `npm install mulesoft-anypoint-cli-agent-fabric-plugin`
 
 ### Authentication
 
@@ -1632,9 +1964,9 @@ Set configuration file authentication using a client ID and client secret from y
 
 Add authentication values to the configuration file using these commands.
 
-$ anypoint-cli-agent-fabric-plugin conf client_id myClientID
+$ anypoint-cli-agent-fabric-plugin conf client\_id myClientID
 
-$ anypoint-cli-agent-fabric-plugin conf client_secret myClientSecret
+$ anypoint-cli-agent-fabric-plugin conf client\_secret myClientSecret
 
 $ anypoint-cli-agent-fabric-plugin conf organization myOrgId
 
@@ -1683,7 +2015,7 @@ with initial configuration files, including `agent-network.yaml`.
 In addition to the [default flags](../../anypoint-cli/latest/#default-options), this command accepts
 these flags:
 
-<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Flag</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p><code>-n, --name &lt;value&gt;</code></p></div></div></td><td><div><div><p>(Required) Name of the project</p></div></div></td><td><div><div><p><code>--name my-agent-network</code></p></div></div></td></tr><tr><td><div><div><p><code>-o, --output-dir &lt;value&gt;</code></p></div></div></td><td><div><div><p>Output directory for the project</p></div></div></td><td><div><div><p><code>--output-dir ./projects</code></p></div></div></td></tr><tr><td><div><div><p><code>--asset-id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Asset ID (GAV)</p></div></div></td><td><div><div><p><code>--asset-id my-asset</code></p></div></div></td></tr><tr><td><div><div><p><code>--asset-version &lt;value&gt;</code></p></div></div></td><td><div><div><p>Asset version (GAV)<br>Default: <code>1.0.0</code></p></div></div></td><td><div><div><p><code>--asset-version 1.2.0</code></p></div></div></td></tr><tr><td><div><div><p><code>--bearer &lt;value&gt;</code></p></div></div></td><td><div><div><p>Bearer token<br>You can also set it with the <code>ANYPOINT_BEARER</code> variable</p></div></div></td><td><div><div><p><code>--bearer myBearerToken</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client ID<br>You can also set it with the <code>ANYPOINT_CLIENT_ID</code> variable</p></div></div></td><td><div><div><p><code>--client_id myClientID</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_secret &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client Secret<br>You can also set it with the <code>ANYPOINT_CLIENT_SECRET</code> variable</p></div></div></td><td><div><div><p><code>--client_secret myClientSecret</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]collectMetrics</code></p></div></div></td><td><div><div><p>Collect metrics<br>You can also set it with the <code>COLLECT_METRICS</code> variable</p></div></div></td><td><div><div><p><code>--no-collectMetrics</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]create-dir</code></p></div></div></td><td><div><div><p>Create a new directory under <code>output-dir</code> using the project name</p></div></div></td><td><div><div><p><code>--create-dir</code></p></div></div></td></tr><tr><td><div><div><p><code>--environment &lt;value&gt;</code></p></div></div></td><td><div><div><p>Environment name<br>You can also set it with the <code>ANYPOINT_ENV</code> variable</p></div></div></td><td><div><div><p><code>--environment Sandbox</code></p></div></div></td></tr><tr><td><div><div><p><code>--group-id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Group ID (GAV)</p></div></div></td><td><div><div><p><code>--group-id com.myorg</code></p></div></div></td></tr><tr><td><div><div><p><code>--host &lt;value&gt;</code></p></div></div></td><td><div><div><p>Host URL<br>Default: <code>anypoint.mulesoft.com</code><br>You can also set it with the <code>ANYPOINT_HOST</code> variable</p></div></div></td><td><div><div><p><code>--host mycompany.anypoint.mulesoft.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--organization &lt;value&gt;</code></p></div></div></td><td><div><div><p>Organization name<br>You can also set it with the <code>ANYPOINT_ORG</code> env variable</p></div></div></td><td><div><div><p><code>--organization MyOrg</code></p></div></div></td></tr><tr><td><div><div><p><code>--password &lt;value&gt;</code></p></div></div></td><td><div><div><p>Password<br>You can also set it with the <code>ANYPOINT_PASSWORD</code> variable</p></div></div></td><td><div><div><p><code>--password myPassword</code></p></div></div></td></tr><tr><td><div><div><p><code>--tab-size &lt;value&gt;</code></p></div></div></td><td><div><div><p>Tab size for indenting the API specification<br>Default: <code>2</code></p></div></div></td><td><div><div><p><code>--tab-size 4</code></p></div></div></td></tr><tr><td><div><div><p><code>--username &lt;value&gt;</code></p></div></div></td><td><div><div><p>Username<br>You can also set it with the <code>ANYPOINT_USERNAME</code> variable</p></div></div></td><td><div><div><p><code>--username myuser@example.com</code></p></div></div></td></tr></tbody></table>
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Flag</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p><code>-n, --name &lt;value&gt;</code></p></div></div></td><td><div><div><p>(Required) Name of the project</p></div></div></td><td><div><div><p><code>--name my-agent-network</code></p></div></div></td></tr><tr><td><div><div><p><code>-o, --output-dir &lt;value&gt;</code></p></div></div></td><td><div><div><p>Output directory for the project</p></div></div></td><td><div><div><p><code>--output-dir ./projects</code></p></div></div></td></tr><tr><td><div><div><p><code>--api-version &lt;value&gt;</code></p></div></div></td><td><div><div><p>API version<br>Default: <code>v1</code></p></div></div></td><td><div><div><p><code>--api-version v2</code></p></div></div></td></tr><tr><td><div><div><p><code>--asset-id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Asset name (GAV). Valid characters are 'A-Z', 'a-z', '0-9', '_' and '-'.</p></div></div></td><td><div><div><p><code>--asset-id my-asset</code></p></div></div></td></tr><tr><td><div><div><p><code>--asset-version &lt;value&gt;</code></p></div></div></td><td><div><div><p>Asset version (GAV)<br>Default: <code>0.0.0</code></p></div></div></td><td><div><div><p><code>--asset-version 1.2.0</code></p></div></div></td></tr><tr><td><div><div><p><code>--bearer &lt;value&gt;</code></p></div></div></td><td><div><div><p>Bearer token<br>You can also set it with the <code>ANYPOINT_BEARER</code> variable</p></div></div></td><td><div><div><p><code>--bearer myBearerToken</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client ID<br>You can also set it with the <code>ANYPOINT_CLIENT_ID</code> variable</p></div></div></td><td><div><div><p><code>--client_id myClientID</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_secret &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client Secret<br>You can also set it with the <code>ANYPOINT_CLIENT_SECRET</code> variable</p></div></div></td><td><div><div><p><code>--client_secret myClientSecret</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]collectMetrics</code></p></div></div></td><td><div><div><p>Collect metrics<br>You can also set it with the <code>COLLECT_METRICS</code> variable</p></div></div></td><td><div><div><p><code>--no-collectMetrics</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]create-dir</code></p></div></div></td><td><div><div><p>Create a new directory under <code>output-dir</code> using the project name</p></div></div></td><td><div><div><p><code>--create-dir</code></p></div></div></td></tr><tr><td><div><div><p><code>--environment &lt;value&gt;</code></p></div></div></td><td><div><div><p>Environment name<br>You can also set it with the <code>ANYPOINT_ENV</code> variable</p></div></div></td><td><div><div><p><code>--environment Sandbox</code></p></div></div></td></tr><tr><td><div><div><p><code>--group-id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Group ID (GAV)</p></div></div></td><td><div><div><p><code>--group-id com.myorg</code></p></div></div></td></tr><tr><td><div><div><p><code>--host &lt;value&gt;</code></p></div></div></td><td><div><div><p>Host URL<br>Default: <code>anypoint.mulesoft.com</code><br>You can also set it with the <code>ANYPOINT_HOST</code> variable</p></div></div></td><td><div><div><p><code>--host mycompany.anypoint.mulesoft.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--organization &lt;value&gt;</code></p></div></div></td><td><div><div><p>Organization name<br>You can also set it with the <code>ANYPOINT_ORG</code> env variable</p></div></div></td><td><div><div><p><code>--organization MyOrg</code></p></div></div></td></tr><tr><td><div><div><p><code>--password &lt;value&gt;</code></p></div></div></td><td><div><div><p>Password<br>You can also set it with the <code>ANYPOINT_PASSWORD</code> variable</p></div></div></td><td><div><div><p><code>--password myPassword</code></p></div></div></td></tr><tr><td><div><div><p><code>--tab-size &lt;value&gt;</code></p></div></div></td><td><div><div><p>Tab size for indenting the API specification<br>Default: <code>2</code></p></div></div></td><td><div><div><p><code>--tab-size 4</code></p></div></div></td></tr><tr><td><div><div><p><code>--username &lt;value&gt;</code></p></div></div></td><td><div><div><p>Username<br>You can also set it with the <code>ANYPOINT_USERNAME</code> variable</p></div></div></td><td><div><div><p><code>--username myuser@example.com</code></p></div></div></td></tr></tbody></table>
 
 ### Example
 
@@ -1693,19 +2025,26 @@ $ anypoint-cli-agent-fabric-plugin agent-network project create --name my-agent-
 
 \> anypoint-cli-agent-fabric-plugin agent-network project deploy \[flags\]
 
-Deploys the agent network application to the target private space. By default, the command uses the
-`agent-network-ingress-gw` and `agent-network-egress-gw` gateways, and the `agent-network-space`
-private space. You can override these values using flags.
+Deploys the agent network application. By default, the command uses single-gateway mode with the
+`agent-network-gw` gateway. You can override this using the `-g` flag or switch to separate-gateways
+mode using `-i` and `-e` flags.
 
 In addition to the [default flags](../../anypoint-cli/latest/#default-options), this command accepts
 these flags:
 
-<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Flag</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p><code>-e, --egress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target egress gateway<br>Default: <code>agent-network-egress-gw</code></p></div></div></td><td><div><div><p><code>--egress-gw custom-egress</code></p></div></div></td></tr><tr><td><div><div><p><code>-i, --ingress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target ingress gateway<br>Default: <code>agent-network-ingress-gw</code></p></div></div></td><td><div><div><p><code>--ingress-gw custom-ingress</code></p></div></div></td></tr><tr><td><div><div><p><code>-t, --target-space &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target private space to deploy<br>Default: <code>agent-network-space</code></p></div></div></td><td><div><div><p><code>--target-space my-space</code></p></div></div></td></tr><tr><td><div><div><p><code>--bearer &lt;value&gt;</code></p></div></div></td><td><div><div><p>Bearer token<br>You can also set it with the <code>ANYPOINT_BEARER</code> variable</p></div></div></td><td><div><div><p><code>--bearer myBearerToken</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client ID<br>You can also set it with the <code>ANYPOINT_CLIENT_ID</code> variable</p></div></div></td><td><div><div><p><code>--client_id myClientID</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_secret &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client Secret<br>You can also set it with the <code>ANYPOINT_CLIENT_SECRET</code> variable</p></div></div></td><td><div><div><p><code>--client_secret myClientSecret</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]collectMetrics</code></p></div></div></td><td><div><div><p>Collect metrics<br>You can also set it with the <code>COLLECT_METRICS</code> variable</p></div></div></td><td><div><div><p><code>--no-collectMetrics</code></p></div></div></td></tr><tr><td><div><div><p><code>--disable-tracing</code></p></div></div></td><td><div><div><p>Disable tracing functionalities</p></div></div></td><td><div><div><p><code>--disable-tracing</code></p></div></div></td></tr><tr><td><div><div><p><code>--dont-wait-for-agent-network</code></p></div></div></td><td><div><div><p>Do not wait for the agent network to be ready</p></div></div></td><td><div><div><p><code>--dont-wait-for-agent-network</code></p></div></div></td></tr><tr><td><div><div><p><code>--environment &lt;value&gt;</code></p></div></div></td><td><div><div><p>Environment name<br>You can also set it with the <code>ANYPOINT_ENV</code> variable</p></div></div></td><td><div><div><p><code>--environment Sandbox</code></p></div></div></td></tr><tr><td><div><div><p><code>--host &lt;value&gt;</code></p></div></div></td><td><div><div><p>Host URL<br>Default: <code>anypoint.mulesoft.com</code><br>You can also set it with the <code>ANYPOINT_HOST</code> variable</p></div></div></td><td><div><div><p><code>--host mycompany.anypoint.mulesoft.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--organization &lt;value&gt;</code></p></div></div></td><td><div><div><p>Organization name<br>You can also set it with the <code>ANYPOINT_ORG</code> variable</p></div></div></td><td><div><div><p><code>--organization MyOrg</code></p></div></div></td></tr><tr><td><div><div><p><code>--password &lt;value&gt;</code></p></div></div></td><td><div><div><p>Password<br>You can also set it with the <code>ANYPOINT_PASSWORD</code> variable</p></div></div></td><td><div><div><p><code>--password myPassword</code></p></div></div></td></tr><tr><td><div><div><p><code>--path &lt;value&gt;</code></p></div></div></td><td><div><div><p>Path to the project<br>Default: <code>.</code></p></div></div></td><td><div><div><p><code>--path ./my-agent-network</code></p></div></div></td></tr><tr><td><div><div><p><code>--property &lt;value&gt;</code></p></div></div></td><td><div><div><p>One or more deployment properties in <code>name:value</code> format</p></div></div></td><td><div><div><p><code>--property logLevel:DEBUG</code></p></div></div></td></tr><tr><td><div><div><p><code>--username &lt;value&gt;</code></p></div></div></td><td><div><div><p>Username<br>You can also set it with the <code>ANYPOINT_USERNAME</code> variable</p></div></div></td><td><div><div><p><code>--username myuser@example.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--json</code></p></div></div></td><td><div><div><p>Format output as JSON</p></div></div></td><td><div><div><p><code>--json</code></p></div></div></td></tr></tbody></table>
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Flag</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p><code>-e, --egress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target egress gateway (separate-gateways mode; requires <code>--ingress-gw</code>). When no gateway flags are provided, deploy defaults to single-gateway mode using <code>agent-network-gw</code>.</p></div></div></td><td><div><div><p><code>--egress-gw custom-egress</code></p></div></div></td></tr><tr><td><div><div><p><code>-g, --gateway &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the gateway for single-gateway mode (recommended). Mutually exclusive with <code>--ingress-gw</code> and <code>--egress-gw</code>.</p></div></div></td><td><div><div><p><code>--gateway my-gateway</code></p></div></div></td></tr><tr><td><div><div><p><code>-i, --ingress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target ingress gateway. Combine with <code>--egress-gw</code> for separate-gateways mode; on its own it selects single-gateway mode using this gateway. When no gateway flags are provided, deploy defaults to single-gateway mode using <code>agent-network-gw</code>.</p></div></div></td><td><div><div><p><code>--ingress-gw custom-ingress</code></p></div></div></td></tr><tr><td><div><div><p><code>-t, --target-space &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target space to deploy. In single-gateway mode, optional; when provided it must match the gateway’s target space (validated, not used for lookup). In separate-gateways mode, defaults to <code>agent-network-space</code>.</p></div></div></td><td><div><div><p><code>--target-space my-space</code></p></div></div></td></tr><tr><td><div><div><p><code>--bearer &lt;value&gt;</code></p></div></div></td><td><div><div><p>Bearer token<br>You can also set it with the <code>ANYPOINT_BEARER</code> variable</p></div></div></td><td><div><div><p><code>--bearer myBearerToken</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client ID<br>You can also set it with the <code>ANYPOINT_CLIENT_ID</code> variable</p></div></div></td><td><div><div><p><code>--client_id myClientID</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_secret &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client Secret<br>You can also set it with the <code>ANYPOINT_CLIENT_SECRET</code> variable</p></div></div></td><td><div><div><p><code>--client_secret myClientSecret</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]collectMetrics</code></p></div></div></td><td><div><div><p>Collect metrics<br>You can also set it with the <code>COLLECT_METRICS</code> variable</p></div></div></td><td><div><div><p><code>--no-collectMetrics</code></p></div></div></td></tr><tr><td><div><div><p><code>--disable-tracing</code></p></div></div></td><td><div><div><p>Disable tracing functionalities</p></div></div></td><td><div><div><p><code>--disable-tracing</code></p></div></div></td></tr><tr><td><div><div><p><code>--dont-wait-for-agent-network</code></p></div></div></td><td><div><div><p>Do not wait for the agent network to be ready</p></div></div></td><td><div><div><p><code>--dont-wait-for-agent-network</code></p></div></div></td></tr><tr><td><div><div><p><code>--environment &lt;value&gt;</code></p></div></div></td><td><div><div><p>Environment name<br>You can also set it with the <code>ANYPOINT_ENV</code> variable</p></div></div></td><td><div><div><p><code>--environment Sandbox</code></p></div></div></td></tr><tr><td><div><div><p><code>--host &lt;value&gt;</code></p></div></div></td><td><div><div><p>Host URL<br>Default: <code>anypoint.mulesoft.com</code><br>You can also set it with the <code>ANYPOINT_HOST</code> variable</p></div></div></td><td><div><div><p><code>--host mycompany.anypoint.mulesoft.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--max-retries &lt;value&gt;</code></p></div></div></td><td><div><div><p>Max retries to check the status of the deploying application<br>Default: <code>3</code></p></div></div></td><td><div><div><p><code>--max-retries 5</code></p></div></div></td></tr><tr><td><div><div><p><code>--organization &lt;value&gt;</code></p></div></div></td><td><div><div><p>Organization name<br>You can also set it with the <code>ANYPOINT_ORG</code> variable</p></div></div></td><td><div><div><p><code>--organization MyOrg</code></p></div></div></td></tr><tr><td><div><div><p><code>--password &lt;value&gt;</code></p></div></div></td><td><div><div><p>Password<br>You can also set it with the <code>ANYPOINT_PASSWORD</code> variable</p></div></div></td><td><div><div><p><code>--password myPassword</code></p></div></div></td></tr><tr><td><div><div><p><code>--path &lt;value&gt;</code></p></div></div></td><td><div><div><p>Path to the project<br>Default: <code>.</code></p></div></div></td><td><div><div><p><code>--path ./my-agent-network</code></p></div></div></td></tr><tr><td><div><div><p><code>--process-timeout &lt;value&gt;</code></p></div></div></td><td><div><div><p>Process timeout in milliseconds<br>Default: <code>600000</code></p></div></div></td><td><div><div><p><code>--process-timeout 900000</code></p></div></div></td></tr><tr><td><div><div><p><code>--property &lt;value&gt;</code></p></div></div></td><td><div><div><p>Property to override in <code>name:value</code> format</p></div></div></td><td><div><div><p><code>--property apiKey:sk-xxx</code></p></div></div></td></tr><tr><td><div><div><p><code>--request-timeout &lt;value&gt;</code></p></div></div></td><td><div><div><p>Request timeout in milliseconds<br>Default: <code>60000</code></p></div></div></td><td><div><div><p><code>--request-timeout 120000</code></p></div></div></td></tr><tr><td><div><div><p><code>--username &lt;value&gt;</code></p></div></div></td><td><div><div><p>Username<br>You can also set it with the <code>ANYPOINT_USERNAME</code> variable</p></div></div></td><td><div><div><p><code>--username myuser@example.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--json</code></p></div></div></td><td><div><div><p>Format output as JSON</p></div></div></td><td><div><div><p><code>--json</code></p></div></div></td></tr></tbody></table>
 
 ### Example
 
-$ anypoint-cli-agent-fabric-plugin agent-network project deploy --environment Staging --target-space
-staging-private-space --property openai.apiKey:STAGING_API_KEY
+$ anypoint-cli-agent-fabric-plugin agent-network project deploy
+
+$ anypoint-cli-agent-fabric-plugin agent-network project deploy --property apiKey:sk-xxx
+
+$ anypoint-cli-agent-fabric-plugin agent-network project deploy --property apiKey:sk-xxx --property
+role:user
+
+$ anypoint-cli-agent-fabric-plugin agent-network project deploy --path ./my-project --property
+myAgent.url:https://api.example.com
 
 ## agent-network:project:publish
 
@@ -1727,14 +2066,15 @@ $ anypoint-cli-agent-fabric-plugin agent-network project publish
 
 \> anypoint-cli-agent-fabric-plugin agent-network setup gateways \[flags\]
 
-Sets up the agent network environment with the required ingress and egress gateways in the specified
-target private space. This step is required only if the target space does not already have gateways.
-In the typical (happy path) workflow, you run it once per target space before the first deployment.
+Sets up the agent network environment with the required gateways in the specified target space
+(private space, RTF, or shared space). This step is required only if the target space doesn’t
+already have gateways. In the typical (happy path) workflow, you run it once per target space before
+the first deployment.
 
 In addition to the [default flags](../../anypoint-cli/latest/#default-options), this command accepts
 these flags:
 
-<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Flag</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p><code>-e, --egress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the egress gateway<br>Default: <code>agent-network-egress-gw</code></p></div></div></td><td><div><div><p><code>--egress-gw my-egress</code></p></div></div></td></tr><tr><td><div><div><p><code>-i, --ingress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the ingress gateway<br>Default: <code>agent-network-ingress-gw</code></p></div></div></td><td><div><div><p><code>--ingress-gw my-ingress</code></p></div></div></td></tr><tr><td><div><div><p><code>-t, --target-space &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target private space where the gateways will be set up<br>Default: <code>agent-network-space</code></p></div></div></td><td><div><div><p><code>--target-space my-space</code></p></div></div></td></tr><tr><td><div><div><p><code>--bearer &lt;value&gt;</code></p></div></div></td><td><div><div><p>Bearer token<br>You can also set it with the <code>ANYPOINT_BEARER</code> variable</p></div></div></td><td><div><div><p><code>--bearer myBearerToken</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client ID<br>You can also set it with the`ANYPOINT_CLIENT_ID` variable</p></div></div></td><td><div><div><p><code>--client_id myClientID</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_secret &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client Secret<br>You can also set it with the`ANYPOINT_CLIENT_SECRET` variable</p></div></div></td><td><div><div><p><code>--client_secret myClientSecret</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]collectMetrics</code></p></div></div></td><td><div><div><p>Collect metrics<br>You can also set it with the`COLLECT_METRICS` variable</p></div></div></td><td><div><div><p><code>--no-collectMetrics</code></p></div></div></td></tr><tr><td><div><div><p><code>--environment &lt;value&gt;</code></p></div></div></td><td><div><div><p>Environment name<br>You can also set it with the <code>ANYPOINT_ENV</code> variable</p></div></div></td><td><div><div><p><code>--environment Sandbox</code></p></div></div></td></tr><tr><td><div><div><p><code>--host &lt;value&gt;</code></p></div></div></td><td><div><div><p>Host URL<br>Default: <code>anypoint.mulesoft.com</code><br>You can also set it with the <code>ANYPOINT_HOST</code> variable</p></div></div></td><td><div><div><p><code>--host mycompany.anypoint.mulesoft.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--organization &lt;value&gt;</code></p></div></div></td><td><div><div><p>Organization name<br>You can also set it with the <code>ANYPOINT_ORG</code> variable</p></div></div></td><td><div><div><p><code>--organization MyOrg</code></p></div></div></td></tr><tr><td><div><div><p><code>--password &lt;value&gt;</code></p></div></div></td><td><div><div><p>Password<br>You can also set it with the <code>ANYPOINT_PASSWORD</code> variable</p></div></div></td><td><div><div><p><code>--password myPassword</code></p></div></div></td></tr><tr><td><div><div><p><code>--username &lt;value&gt;</code></p></div></div></td><td><div><div><p>Username<br>You can also set it with the <code>ANYPOINT_USERNAME</code> variable</p></div></div></td><td><div><div><p><code>--username myuser@example.com</code></p></div></div></td></tr></tbody></table>
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Flag</th><th>Description</th><th>Example</th></tr></thead><tbody><tr><td><div><div><p><code>-e, --egress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the egress gateway (separate-gateway mode; requires <code>--ingress-gw</code>)</p></div></div></td><td><div><div><p><code>--egress-gw my-egress</code></p></div></div></td></tr><tr><td><div><div><p><code>-g, --gateway &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the gateway for single-gateway mode (recommended). Mutually exclusive with <code>--ingress-gw</code> and <code>--egress-gw</code>.</p></div></div></td><td><div><div><p><code>--gateway my-gateway</code></p></div></div></td></tr><tr><td><div><div><p><code>-i, --ingress-gw &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the ingress gateway (separate-gateway mode)</p></div></div></td><td><div><div><p><code>--ingress-gw my-ingress</code></p></div></div></td></tr><tr><td><div><div><p><code>-t, --target-space &lt;value&gt;</code></p></div></div></td><td><div><div><p>Name of the target space (private space, RTF, or shared space) where you set up the agent network environment<br>Default: <code>agent-network-space</code></p></div></div></td><td><div><div><p><code>--target-space my-space</code></p></div></div></td></tr><tr><td><div><div><p><code>--bearer &lt;value&gt;</code></p></div></div></td><td><div><div><p>Bearer token<br>You can also set it with the <code>ANYPOINT_BEARER</code> variable</p></div></div></td><td><div><div><p><code>--bearer myBearerToken</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_id &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client ID<br>You can also set it with the <code>ANYPOINT_CLIENT_ID</code> variable</p></div></div></td><td><div><div><p><code>--client_id myClientID</code></p></div></div></td></tr><tr><td><div><div><p><code>--client_secret &lt;value&gt;</code></p></div></div></td><td><div><div><p>Client Secret<br>You can also set it with the <code>ANYPOINT_CLIENT_SECRET</code> variable</p></div></div></td><td><div><div><p><code>--client_secret myClientSecret</code></p></div></div></td></tr><tr><td><div><div><p><code>--[no-]collectMetrics</code></p></div></div></td><td><div><div><p>Collect metrics<br>You can also set it with the <code>COLLECT_METRICS</code> variable</p></div></div></td><td><div><div><p><code>--no-collectMetrics</code></p></div></div></td></tr><tr><td><div><div><p><code>--dont-wait-for-gateways-running</code></p></div></div></td><td><div><div><p>Do not wait for the gateways to be running</p></div></div></td><td><div><div><p><code>--dont-wait-for-gateways-running</code></p></div></div></td></tr><tr><td><div><div><p><code>--environment &lt;value&gt;</code></p></div></div></td><td><div><div><p>Environment name<br>You can also set it with the <code>ANYPOINT_ENV</code> variable</p></div></div></td><td><div><div><p><code>--environment Sandbox</code></p></div></div></td></tr><tr><td><div><div><p><code>--host &lt;value&gt;</code></p></div></div></td><td><div><div><p>Host URL<br>Default: <code>anypoint.mulesoft.com</code><br>You can also set it with the <code>ANYPOINT_HOST</code> variable</p></div></div></td><td><div><div><p><code>--host mycompany.anypoint.mulesoft.com</code></p></div></div></td></tr><tr><td><div><div><p><code>--organization &lt;value&gt;</code></p></div></div></td><td><div><div><p>Organization name<br>You can also set it with the <code>ANYPOINT_ORG</code> variable</p></div></div></td><td><div><div><p><code>--organization MyOrg</code></p></div></div></td></tr><tr><td><div><div><p><code>--password &lt;value&gt;</code></p></div></div></td><td><div><div><p>Password<br>You can also set it with the <code>ANYPOINT_PASSWORD</code> variable</p></div></div></td><td><div><div><p><code>--password myPassword</code></p></div></div></td></tr><tr><td><div><div><p><code>--username &lt;value&gt;</code></p></div></div></td><td><div><div><p>Username<br>You can also set it with the <code>ANYPOINT_USERNAME</code> variable</p></div></div></td><td><div><div><p><code>--username myuser@example.com</code></p></div></div></td></tr></tbody></table>
 
 ### Example
 
@@ -1761,10 +2101,11 @@ Make sure you review the [prerequisites](af-get-started#before-you-begin).
 ## Create a Network Using MuleSoft Vibes
 
 Use natural language prompts in MuleSoft Vibes to create your project. For more information, see
-[Creating API Specs with MuleSoft Vibes](../../anypoint-code-builder/vibes-api-ai-create-spec).
+[MuleSoft Vibes Overview](../../anypoint-code-builder/mulesoft-vibes).
 
 1.  In the Anypoint Code Builder activity bar, click the agent icon
     ![](_images/af-acb-dev-agent-icon.png).
+
 2.  Describe your agent network, including the brokers, agents, MCP servers, and LLMs you want to
     connect. MuleSoft Vibes generates the `agent-network.yaml` file, the `exchange.json` file, and
     the corresponding `.agent` files in the `/brokers` directory.
@@ -1773,8 +2114,10 @@ To get started, try one of these suggested prompts:
 
 - Create a new agent network project called "Employee Onboarding." Add a broker that coordinates an
   HR agent and a CRM agent, and use OpenAI as the LLM.
+
 - Build a Travel Planner broker that plans multi-city trips, calls a Flights MCP server for booking,
   and uses an LLM to generate itineraries.
+
 - Generate an agent network project for incident management. Include a broker that coordinates the
   resolution of incidents reported by customers, with subagent and orchestrator nodes.
 
@@ -1784,6 +2127,7 @@ Use a coding agent of your choice, like Claude or Cursor, with these publicly av
 skills on [MuleSoft Developer Hub](https://dev-portal.mulesoft.com/index.html?filter=skill).
 
 - [Build an agent broker project](https://dev-portal.mulesoft.com/skills/build-agent-broker-project.html).
+
 - [Translate an agent network](https://dev-portal.mulesoft.com/skills/translate-agent-broker-old-to-new-project.html)
   1.0 project to an agent network 2.0 project.
 
@@ -1793,14 +2137,19 @@ If you prefer not to use MuleSoft Vibes, create a new agent network project dire
 Anypoint Code Builder UI.
 
 1.  If you’re not logged in, log in to your Anypoint Platform account.
+
 2.  In Anypoint Code Builder, choose one of the following:
+
     - In Create, select **Create an Agent Network**.
+
     - From the Command Palette, run this command: **MuleSoft: Create an Agent Network Project**.
 
 3.  Enter a name for the project and select the location to create the project.
+
 4.  Select the business group associated with the target space you created in
     [Get Started with Agent Networks](af-get-started). The business group you select must be the
     same business group you selected when you created the target space.
+
 5.  Select **Create Project**.
 
 When the project opens, the `agent-network.yaml` file opens in the code view editor. Open the graph
@@ -1831,8 +2180,10 @@ agent network. For full schema details, see
 - `agent-network.yaml`
 
   The top-level configuration file for the project. This file contains:
+
   - A **registry** section that declares the assets (LLMs, MCP servers, agents) used by the project,
     including assets created locally and assets imported from Anypoint Exchange.
+
   - A **context** section that defines the connections (URLs, authentication) and policies that
     apply to those assets.
 
@@ -1899,6 +2250,7 @@ more information, see
 
 1.  In the Anypoint Code Builder activity bar, click the agent icon
     ![](_images/af-acb-dev-agent-icon.png).
+
 2.  Give the agent information about your agent network, including the brokers, agents, MCP servers,
     and LLMs you want to connect. MuleSoft Vibes updates `agent-network.yaml`, `exchange.json`, and
     the appropriate `.agent` files in the `/brokers` directory.
@@ -1906,8 +2258,11 @@ more information, see
 To get started, try one of these suggested prompts:
 
 - Help me build an agent network configuration for my Employee Onboarding project.
+
 - Revise my Employee Onboarding agent network project. Use OpenAI for the LLM.
+
 - Add a new broker for employee offboarding to my HR agent network.
+
 - Add a new skill to my Offboarding broker.
 
 ## Define Your Network in Anypoint Code Builder
@@ -1932,6 +2287,7 @@ editor.
 
 1.  In Anypoint Code Builder, open your agent network project. By default, `agent-network.yaml`
     opens in the editor.
+
 2.  In the editor action bar, click **Show canvas**.
 
     The canvas opens to the right of the code editor, giving you a side-by-side layout.
@@ -1946,6 +2302,7 @@ your changes as you save your work.
 
 1.  Edit `agent-network.yaml` to declare assets in the **registry** section and to define
     connections and policies in the **context** section.
+
 2.  In the Explorer, navigate to the `/brokers` directory and open the `.agent` file for the broker
     you want to edit (for example, `broker1.agent`). Edit the `.agent` file to define the broker,
     its nodes (trigger, subagent, orchestrator, generator, executor, echo, router), and the
@@ -1969,7 +2326,9 @@ Use the navigation shortcuts on the canvas to jump straight to the lines you nee
 
 2.  To open the full Agent Script for a broker, click the **Open in code view** button in that
     broker’s graph header.
+
 3.  To zoom into a specific graph, click the graph name in the **Project Palette**.
+
 4.  To switch the canvas to the Project Assets view, use the toggle at the top of the Project
     Palette.
 
@@ -1979,6 +2338,7 @@ Adjust nodes on the canvas view while you edit your project.
 
 - Use the **zoom** controls and the **organize/reset to default view** button on the canvas footer
   to adjust the view.
+
 - Resize each broker’s graph independently as needed.
 
 ## Manage Project Assets
@@ -1990,6 +2350,7 @@ dependencies from Anypoint Exchange.
 1.  In the Project Palette, select **Project Assets**.
 
     The Project Assets view displays two sections:
+
     - **Created in Project**
 
       Lists assets you defined locally in this project. These assets get published to Anypoint
@@ -2003,7 +2364,9 @@ dependencies from Anypoint Exchange.
 
 2.  Use the **search** and **filter** controls at the top of the Project Assets view to find assets
     across both sections.
+
 3.  To open a locally defined asset’s definition in `agent-network.yaml`, click the asset card.
+
 4.  To open an imported asset’s page in Anypoint Exchange, click the asset card.
 
 ## Add Exchange Assets to Your Agent Network Project
@@ -2018,12 +2381,14 @@ Use natural language prompts in MuleSoft Vibes to add Exchange assets to your pr
 
 1.  In the Anypoint Code Builder activity bar, click the agent icon
     ![](_images/af-acb-dev-agent-icon.png).
+
 2.  Tell the agent that you want to add Exchange assets to your project. MuleSoft Vibes does the
     rest.
 
 To get started, try one of these suggested prompts:
 
 - Add tools for background check processing in my Employee Onboarding project.
+
 - Add a Talent Pool MCP server to my Employee Onboarding agent network project.
 
 ### Add Assets from the Project Assets
@@ -2031,11 +2396,13 @@ To get started, try one of these suggested prompts:
 Use the **Project Assets** view to search Anypoint Exchange and add assets directly from the canvas.
 
 1.  In the Project Palette, open the **Project Assets** view.
+
 2.  Click **Add Exchange Assets**.
 
     The **Add Exchange Assets to Project** UI opens with the Exchange search and listing experience.
 
 3.  Search for the asset you want to add, select it, and choose the version to import.
+
 4.  Click **Add to Project**.
 
     The asset is added to the `dependencies` attribute in `exchange.json` and appears in the
@@ -2057,12 +2424,15 @@ Use the **Project Assets** view to search Anypoint Exchange and add assets direc
 You can also start the **Add Exchange Assets** flow without opening the canvas:
 
 1.  In your Anypoint Code Builder project, choose one of the following:
+
     - In Explorer, right-click a project file and select **Add Exchange Assets to Agent Network
       Project**.
+
     - In the **Command Palette**, run this command: **MuleSoft: Add Agent Network Assets to Agent
       Network Project**.
 
 2.  In **Add Exchange Assets to Project**, search for and select the asset.
+
 3.  Click **Add to Project**.
 
 After you add dependencies, their asset names are available as values in auto-completion menus in
@@ -2072,7 +2442,9 @@ is available in auto-completion menus in `agent-network.yaml` when you reference
 ## See Also
 
 - [Create Agent Networks](af-create-agent-network)
+
 - [Agent Network Project File Reference](af-project-files)
+
 - [Agent Script Reference](af-agent-script-reference)
 
 ---
@@ -2085,17 +2457,38 @@ is-latest-version: true
 
 > For the full documentation index, see: https://docs.mulesoft.com/llms.txt
 
-Deploy your agent network instance to a deployment target. You can deploy to a CloudHub 2.0 shared
-space or a CloudHub 2.0 private space. When you deploy, Omni Gateway secures inbound traffic to your
-agent network and outbound traffic from your brokers, agents, and MCP servers.
+Deploy your agent network instance to a CloudHub 2.0 shared space or a CloudHub 2.0 private space.
+Agent network deployments are available on US Cloud and EU Cloud hosts only. For more information,
+see [Control Plane Hosting Options](../../hosting-home/#control-plane-hosting-options).
 
-> [!NOTE] Agent network deployments are available on US Cloud and EU Cloud hosts only. For more
-> information, see
-> [Control Plane Hosting Options](../../hosting-home/#control-plane-hosting-options).
+Additionally, agent brokers follow the same monthly patching cadence as CloudHub 2.0. For the update
+schedule, see
+[MuleSoft Commercial Cloud Schedule](#release-notes:cloudhub-2/cloudhub-2-runtimes-release-notes.adoc#mulesoft-commercial-cloud-schedule).
+
+## Agent Network Deployments and Omni Gateway
+
+When you deploy, Omni Gateway secures inbound traffic to your agent network and outbound traffic
+from your brokers, agents, and MCP servers.
 
 Omni Gateway applies these policies automatically at deployment.
 
 <table><colgroup><col> <col></colgroup><thead><tr><th>Agent Type</th><th>Policy</th></tr></thead><tbody><tr><td><p>Broker</p></td><td><div><div><ul><li><p>A2A Agent Card policy</p></li><li><p>Tracing policy</p></li><li><p>Agent Connection Telemetry policy</p></li></ul></div></div></td></tr><tr><td><p>Agent</p><p>(ingress and egress)</p></td><td><div><div><ul><li><p>A2A Agent Card policy</p></li><li><p>Tracing policy</p></li><li><p>Agent Connection Telemetry policy</p></li></ul></div></div></td></tr><tr><td><p>MCP Server</p><p>(ingress and egress)</p></td><td><div><div><ul><li><p>MCP Support policy</p></li><li><p>Tracing policy</p></li><li><p>Agent Connection Telemetry policy</p></li></ul></div></div></td></tr></tbody></table>
+
+### Last-Mile Security Considerations for Agent Networks
+
+Agent networks in version 2.0 don’t support Last-Mile Security for outbound (egress) traffic on the
+Omni Gateway. If you have enabled Last-Mile Security, the agent network deploys and the broker can
+answer general questions, but it can’t route requests to downstream agents or MCP servers.
+
+Agent networks route outbound traffic through the egress gateway (on port 8082, cluster endpoint).
+Last-Mile Security enforces TLS on the ingress-gateway-to-pod hop. The outbound path bypasses this
+hop, so the connections can’t be established.
+
+If your deployment requires Last-Mile Security for other applications, deploy your agent network to
+a separate egress gateway that has Last-Mile Security disabled.
+
+The broker’s `egressgw.url` resolving to the cluster endpoint is expected behavior, regardless of
+the Last-Mile Security setting.
 
 ## Before You Begin
 
@@ -2117,13 +2510,17 @@ Use MuleSoft Vibes to deploy your agent network instances. For more information,
 
 1.  In the Anypoint Code Builder activity bar, click the agent icon
     ![](_images/af-acb-dev-agent-icon.png).
+
 2.  Tell the agent that you want to deploy your agent network. MuleSoft Vibes does the rest.
 
 To get started, try one of these suggested messages.
 
 - Deploy my agent network project to the production environment.
+
 - Deploy the hello-world-network project to staging.
+
 - Deploy agent network project at /path/to/project to dev environment with specific gateways.
+
 - Deploy my agent network to CloudHub 2.0.
 
 ## Deploy Your Network Using Anypoint Code Builder
@@ -2131,14 +2528,20 @@ To get started, try one of these suggested messages.
 Deploy your agent network instance to a CloudHub 2.0 space directly from Anypoint Code Builder.
 
 1.  If you’re not logged in already, log in to your Anypoint Platform account.
+
 2.  In Anypoint Code Builder, choose one of the following:
+
 3.  In Explorer, right-click a project file and select **Deploy Agent Network**.
+
 4.  From the Command Palette, run this command: **MuleSoft: Deploy Agent Network**.
+
 5.  In Deploy Agent Network, specify the environment, target space, gateways, and other deployment
     information. If you don’t see any deployment targets to select, then you need to set up your
     target deployment space and set up gateways. For instructions, see
     [Get Started with Agent Networks](af-get-started).
+
 6.  Select **Deploy**.
+
 7.  Your instances are now deployed and ready to test. The system deploys one instance for each
     connection defined in your agent network. If your agent network contains brokers, the system
     deploys one instance per broker.
@@ -2153,10 +2556,22 @@ If you run operations within a CI/CD environment, use Anypoint CLI’s plugin to
 build, publish, and deploy agent networks. For more information, see
 [Build Agent Networks in a CI/CD Environment](af-build-agent-networks-in-a-ci-cd-environment).
 
+## Resolve Agent Network Deployment Errors in Anypoint Code Builder
+
+If you try to deploy an agent network project and see errors related to CLI version, install the
+latest Anypoint Code Builder version (1.24.1 or later) and then rebuild, republish, and deploy your
+project.
+
+If you try to deploy an agent network project and see errors related to invalid API metadata, use
+API Manager to delete existing API instances that were created with previous a Anypoint Code Builder
+version. Then rebuild, republish, and deploy your project.
+
 ## See Also
 
 - [Agent Network 2.0 Project File Reference](af-project-files)
+
 - [Agent Fabric Overview](../../general/agent-fabric-overview)
+
 - [Managed Omni Gateway in Shared Spaces with Unified Traffic Control](https://blogs.mulesoft.com/news/managed-omni-gateway-in-shared-spaces-with-unified-traffic-control/)
 
 ---
@@ -2172,6 +2587,13 @@ is-latest-version: true
 Use MuleSoft Vibes to build an IT Investigation agent that triages incoming support tickets,
 escalates critical issues, resolves common problems through cross-platform investigation, and
 handles licensing requests.
+
+## Get Hands On
+
+To follow along and try this example yourself, download the
+[complete project from GitHub](https://github.com/MuleSoft-AI-Chain-Project/example-mule-apps/blob/master/agent-network-2.0-examples/it-investigation-broker-example).
+The repository includes mock endpoints so that you can deploy and test the full agent network. You
+need your LLM provider credentials and your Anypoint Platform organization ID.
 
 In each phase, you interact with MuleSoft Vibes as it builds your agent network project. Here’s how
 it works.
@@ -2219,6 +2641,7 @@ The deterministic `severityRouter` node then directs the process into two paths 
 classification output:
 
 - High: An executor node calls the Escalation MCP tool.
+
 - Low: An orchestrator node coordinates agents and tools to investigate, producing a structured
   outcome (for example, `help_given`). A second router then directs the flow based on this outcome,
   with all paths concluding via an Echo node.
@@ -2397,8 +2820,6 @@ context:
       url: ${licenseProcurementAgent.url}
       authentication:
         kind: oauth2-client-credentials
-        clientId: ${licenseProcurementAgent.clientId}
-        clientSecret: ${licenseProcurementAgent.clientSecret}
         token:
           url: ${licenseProcurementAgent.tokenUrl}
     escalation_mcp_connection:
@@ -2408,7 +2829,6 @@ context:
       url: ${escalationMcp.url}
       authentication:
         kind: apiKey
-        apiKey: ${escalationMcp.apiKey}
     jira_mcp_connection:
       kind: mcp
       ref:
@@ -2417,8 +2837,6 @@ context:
       authentication:
         kind: oauth2-obo
         flow: oauth2-token-exchange
-        clientId: ${jiraMcp.clientId}
-        clientSecret: ${jiraMcp.clientSecret}
         tokenEndpoint: ${jiraMcp.tokenUrl}
     openai_mini_connection:
       kind: llm
@@ -2427,7 +2845,6 @@ context:
       url: https://api.openai.com/v1
       authentication:
         kind: apiKey
-        apiKey: ${openai.apiKey}
 brokers:
   it_help_investigation:
     kind: AgentScript
@@ -2753,7 +3170,9 @@ echo unresolvedResponse:
 ## See Also
 
 - [Get Started with Agent Networks](af-get-started)
+
 - [Create Agent Networks](af-create-agent-network)
+
 - [Agent Network 2.0 Project File Reference](af-project-files)
 
 ---
@@ -2785,12 +3204,13 @@ for a list of all Anypoint Platform permissions.
 To complete these tasks, you also need:
 
 - Your Anypoint Platform credentials
+
 - [Anypoint Code Builder desktop](../../anypoint-code-builder/start-acb)
 
   Allowlist Anypoint Code Builder URLs. For more information, see
   [Allow URLs for Anypoint Code Builder](../../anypoint-code-builder/urls-to-allow).
 
-- [Omni Gateway Ingress and Egress gateways](../../gateway/latest/flex-gateway-managed-ingress-egress)
+- [Omni Gateway Ingress and Egress gateways](../../gateway/latest/gateway-managed-ingress-egress)
 
 ### MuleSoft Vibes Requirements (Optional)
 
@@ -2803,8 +3223,10 @@ If you’re using the Anypoint CLI to create agent network projects, ensure you 
 requirements.
 
 - Node 20 (v20.19.4) or later. See [Nodejs.org](https://nodejs.org/en).
+
 - Java 17 or later. Set the `JAVA_HOME` environment variable.
-- [Anypoint CLI Fabric Plugin](af-build-agent-networks-in-a-ci-cd-environment)
+
+- [Anypoint CLI Agent Fabric Plugin](https://www.npmjs.com/package/mulesoft-anypoint-cli-agent-fabric-plugin)
 
 ## Task Overview
 
@@ -2815,8 +3237,10 @@ requirements.
     See [Set Up the Target Space for Your Environment](#setup-space).
 
 2.  Set up Omni Gateways for the space.
+
     - If using Anypoint Code Builder, see
       [Set Up Agent Network Gateways for the Space](#setup-gateways).
+
     - If using the Anypoint CLI, see the
       [setup gateways command reference](af-build-agent-networks-in-a-ci-cd-environment#agent-network-setup-gateways).
 
@@ -2825,7 +3249,9 @@ requirements.
 Now you’re ready to create an agent network project. Choose one of these methods.
 
 - [Create a Network Using MuleSoft Vibes](af-create-agent-network#create-dev-agent)
+
 - [Create a Network Using Anypoint Code Builder](af-create-agent-network#create-acb)
+
 - [Create a Network Using the Anypoint CLI](af-create-agent-network#create-cli)
 
 ### Step 3: Define Your Agent Network Specification
@@ -2834,6 +3260,7 @@ After you create your agent network project, configure `agent-network.yaml` and 
 reflect the structure of your network.
 
 - [Define a Network Using MuleSoft Vibes](af-define-your-agent-network-specification#define-dev-agent)
+
 - [Define a Network Using Anypoint Code Builder or IDE](af-define-your-agent-network-specification#define-acb-ide)
 
 ### Step 4: Publish Your Agent Network Assets
@@ -2843,7 +3270,9 @@ network, an asset is created in Exchange for each broker, agent, and MCP server 
 network.
 
 - [Publish Your Network Using MuleSoft Vibes](af-publish-agent-network-assets#publish-dev-agent)
+
 - [Publish Your Network Using Anypoint Code Builder](af-publish-agent-network-assets#publish-acb)
+
 - [Publish Your Network Using the Anypoint CLI](af-build-agent-networks-in-a-ci-cd-environment#agent-network-project-publish)
 
 ### Step 5: Deploy Your Agent Network Instances
@@ -2852,7 +3281,9 @@ Deploy your agent network instance to a deployment target. You can deploy to a C
 space or a CloudHub 2.0 private space.
 
 - [Deploy Your Network Using MuleSoft Vibes](af-deploy-agent-network-targets#deploy-dev-agent)
+
 - [Deploy Your Network Using Anypoint Code Builder](af-deploy-agent-network-targets#deploy-acb)
+
 - [Deploy Your Network Using the Anypoint CLI](af-build-agent-networks-in-a-ci-cd-environment#agent-network-project-deploy)
 
 ## Set Up the Target Space for Your Environment
@@ -2871,6 +3302,7 @@ Depending on your deployment target:
   available to all business groups and environments.
 
 - CloudHub 2.0 private space:
+
   1.  Create a private space in CloudHub 2.0 or verify that you can access an existing private
       space.
 
@@ -2894,20 +3326,29 @@ can handle both ingress and egress traffic, which is the recommended configurati
 separate gateways for ingress and egress traffic in a private space.
 
 For more information about gateways, see
-[Omni Gateway Deployment Models](../../gateway/latest/flex-architecture-basic-deployments).
+[Omni Gateway Deployment Models](../../gateway/latest/gateway-architecture-basic-deployments).
 
 1.  In Anypoint Code Builder, from the Command Palette, run the command **MuleSoft: Set Up Agent
     Network Gateways**.
+
 2.  If you’re not logged in, log in to your Anypoint Platform account.
+
 3.  Select the business group and environment.
+
 4.  Select the deployment target:
+
     - **Shared Space**: The command creates one gateway named `agent-network-shared-gw` that handles
       both ingress and egress traffic.
+
     - **Private Space**: Select the target space, then choose a gateway configuration:
+
       - **Single Gateway** (recommended): The command creates one gateway named `agent-network-gw`
         that handles both ingress and egress traffic.
+
       - **Separate Ingress & Egress**: The command creates two gateways:
+
         - `agent-network-ingress-gw` (with public and internal endpoint)
+
         - `agent-network-egress-gw` (with internal endpoint only)
 
           If you didn’t associate the private space with the business group and environment, you see
@@ -2947,14 +3388,17 @@ An agent network project includes these files:
 
 - `exchange.json`: Contains asset metadata available in Anypoint Exchange after publishing your
   agent network assets.
+
 - `agent-network.yaml`: Contains a registry section that defines Exchange assets used in your
   project and a context section that defines connections and policies for the project.
+
 - `.agent` files: Contain broker and node definitions and configurations that enable multi-agent
   orchestration in your project.
 
 For complete schema details, see:
 
 - [Agent Network (2.0) YAML Reference](af-agent-network-yaml-reference)
+
 - [Agent Script Reference](af-agent-script-reference)
 
 > [!NOTE] For a complete, working example you can use as a starting point for your own agent network
@@ -2986,7 +3430,7 @@ Make sure you review the [prerequisites](af-get-started#before-you-begin).
 To publish your project assets to a different business group, update the relevant `groupId` in
 `exchange.json`.
 
-## Versioning Assets
+## Version Assets
 
 Don’t specify a semantic version (for example, `1.0.1`) each time you publish your project. Instead,
 enter a version group (for example, `V1` or `V2`) that represents the high-level version of your
@@ -2997,6 +3441,18 @@ For existing projects, specify the same version group you were previously using.
 different version group, then Exchange triggers a major semantic version upgrade (for example,
 `1.x.x` to `2.x.x`) for all associated assets.
 
+The `apiVersion` field in `exchange.json` is the version group shown when you publish an agent
+network to Exchange. The `apiVersion` field has these behaviors:
+
+- The version group name only changes when you explicitly rename `apiVersion`. Changing `apiVersion`
+  automatically increments the major version (`x.0.0`).
+
+- The version group name doesn’t need to follow a `v#` pattern. You can can use any string.
+
+- Any other change unrelated to `apiVersion` automatically increments only the patch version.
+
+- You can’t manually increment the minor version. Exchange handles minor version increments.
+
 ## Publish Your Network Using MuleSoft Vibes
 
 Use MuleSoft Vibes to publish your agent network specification to Anypoint Exchange. For more
@@ -3005,13 +3461,17 @@ information, see
 
 1.  In the Anypoint Code Builder activity bar, click the agent icon
     ![](_images/af-acb-dev-agent-icon.png).
+
 2.  Tell MuleSoft Vibes that you want to publish your agent network. MuleSoft Vibes does the rest.
 
 To get started, try one of these suggested messages.
 
 - Publish my Employee Onboarding project.
+
 - Publish my agent network project version 1.0.0.
+
 - Publish the hello-world-network project to Exchange.
+
 - Publish agent network project at /path/to/project with version 2.1.0.
 
 ## Publish Your Network Using Anypoint Code Builder
@@ -3020,13 +3480,19 @@ Use Anypoint Code Builder to publish your agent network assets directly from you
 Anypoint Exchange.
 
 1.  If you’re not logged in already, log in to your Anypoint Platform account.
+
 2.  In your Anypoint Code Builder project, choose one of the following:
+
 3.  In Explorer, right-click a project file and select **Publish Agent Network Assets**.
+
 4.  In the Command Palette, run this command: **MuleSoft: Publish Agent Network Assets**.
+
 5.  In **Publish Agent Network Project Assets**, enter a version group for the project and review
     the project metadata. If you want to publish project assets to a different business group,
     update the `groupId` in `exchange.json`.
+
 6.  Select **Publish**.
+
 7.  Anypoint Code Builder publishes your agents, MCP servers, and LLM provider definitions to
     Exchange and creates an asset for each element in your agent network.
 
@@ -3071,16 +3537,20 @@ Agent brokers provide two levels of logging detail:
 
 - **INFO**: Logs node transitions, MCP tool discovery, agent card retrieval, and related operational
   events. INFO-level logs don’t use the `INSECURE-LOGGING` level.
+
 - **DEBUG**: Logs LLM reasoning, LLM input and output, tools invoked, and all external calls made by
   the broker. All DEBUG-level logs use the `INSECURE-LOGGING` level.
 
 To enable logging:
 
 1.  In Runtime Manager, navigate to the application for the agent broker.
+
 2.  Choose one of these options to configure logging:
+
     - [CloudHub 2.0](../../cloudhub-2/ch2-manage-app-logs#configure-log-levels-and-categories)
 
 3.  To view operational logs, set the log level to `INFO`.
+
 4.  To view detailed LLM and tool execution logs, set the log level for `INSECURE-LOGGING` to
     `DEBUG`.
 
@@ -3131,6 +3601,7 @@ Use the steps in this section to diagnose and fix common problems in agent netwo
 If Anypoint Monitoring isn’t showing traces for agents and MCP servers, check these settings:
 
 - In API Manager, verify you’ve enabled the tracing policy for all brokers and agents.
+
 - In the managed Omni Gateways, verify that you’ve enabled Distributed Tracing for ingress and
   egress.
 
@@ -3155,7 +3626,9 @@ full rebuild.
 After any source file change, run the full pipeline:
 
 1.  Build
+
 2.  Publish
+
 3.  Deploy
 
 ### Error: "Asset belongs to another project" (Error 2006)
@@ -3169,6 +3642,7 @@ To resolve this conflict:
 
 - Prefix every registry key with a unique network short ID (for example, `myNetRegistry` instead of
   `registry`).
+
 - If you own the conflicting project, remove or delete it before you publish the new project.
 
 ### Error: CrashLoopBackOff or Exit 139 with No Clear Error
@@ -3177,12 +3651,38 @@ If your deployment keeps restarting without a clear error, the broker is most li
 bad upstream connection before your agent network configuration is parsed. Common causes include:
 
 - An expired API key
+
 - An incorrect MCP server URL
+
 - An MCP server returning JSON instead of SSE
+
 - A missing A2A agent card
 
 Before you deploy, validate every connection with live probes. Don’t troubleshoot your agent network
 configuration until you confirm all upstream connections are healthy.
+
+### Issue: Broker Cannot Reach Downstream Agents (Last-Mile Security Enabled)
+
+If your broker deploys successfully and answers general questions, but fails whenever it routes a
+request to a downstream agent or MCP server, check if **Last-Mile Security** is enabled on the Omni
+Gateway used for outbound (egress) traffic.
+
+Agent networks route outbound traffic directly to the pod through the egress gateway (port 8082),
+which bypasses the ingress-to-pod hop that Last-Mile Security protects. As a result, agent networks
+are not compatible with Last-Mile Security on the egress gateway.
+
+To resolve:
+
+- In Runtime Manager, go to **Omni Gateways** > <the gateway in use> > **Settings**, and disable
+  **Last-Mile Security**.
+
+- If Last-Mile Security is required for other applications on that gateway, deploy your agent
+  network to a separate egress gateway that has Last-Mile Security disabled.
+
+> [!NOTE] This is a behavior change from Agent Network version 1.0, which routed outbound traffic
+> through the CloudHub ingress gateway (port 8081) and was therefore unaffected by Last-Mile
+> Security. A gateway that worked under version 1.0 with Last-Mile Security enabled will fail under
+> version 2.0.
 
 ### Error: "Cannot complete task due to issue accessing reasoning engine"
 
@@ -3199,6 +3699,7 @@ delegation. This is especially common with Gemini on widely-known topics.
 In the broker’s system instructions:
 
 - Add a hard directive, such as `MUST delegate IMMEDIATELY` and `NEVER answer yourself`.
+
 - Map every intent to a specific named action.
 
 ### Error: Runtime System Limit Exceeded
@@ -3211,8 +3712,11 @@ usage.
 Common limit-related errors include:
 
 - Maximum handoff iterations exceeded
+
 - Maximum reasoning iterations exceeded
+
 - Maximum tool call count exceeded
+
 - State size limit exceeded
 
 To adjust these limits, add runtime system limit variables to the `metadata.variables` section of
@@ -3224,12 +3728,48 @@ your `exchange.json` file. For detailed information about configuring these limi
 You can encounter this error in two different scenarios:
 
 1.  The agent card URL is incorrect. In this case:
+
     - Check that the URL you set on the connection ends with a `/`.
+
     - Use a browser or Postman to request the agent card URL by appending
       `.well-known/agent-card.json` to the connection URL, for example,
       `[https://ping-id-agent-url/pingid/.well-known/agent-card.json](https://ping-id-agent-url/pingid/.well-known/agent-card.json)`.
 
 2.  The A2A agent doesn’t use A2A protocol version 1.0.0. In this case:
+
     - If you created the agent with MuleSoft, verify that you are using the latest version of the
       Anypoint Connector for A2A (A2A Connector).
+
     - If you are using an external agent, verify that it uses the A2A protocol version 1.0.0.
+
+### Error: "401 Unauthorized" When a Broker Calls an Agent
+
+If the broker returns **401 Unauthorized** error when it routes a request to a downstream A2A agent,
+the A2A protocol version declared for that agent in `agent-network.yaml` might not match the agent’s
+actual runtime protocol version.
+
+When the declared version doesn’t match the real version, the platform applies the wrong A2A Agent
+Card policy. That policy doesn’t rewrite the agent card’s `url` field to the egress proxy URL, so
+the A2A SDK posts `send_message` directly to the external gateway URL and bypasses the egress proxy.
+Because the egress proxy is what injects the `client_id` and `client_secret` headers required by the
+Client-ID-Enforcement policy, the request arrives without credentials and is rejected with a `401`
+error.
+
+To resolve this error:
+
+1.  Confirm the agent’s real A2A protocol version. Request the agent card in a browser or Postman by
+    appending `.well-known/agent-card.json` to the connection URL, and check the `protocolVersion`
+    field.
+
+2.  Update the connection definition in `agent-network.yaml` so the declared protocol version
+    matches the agent’s real version.
+
+3.  Rebuild, republish, and redeploy the agent network.
+
+> [!NOTE] A protocol version mismatch surfaces as an authentication (401) error, not as a version
+> error. Verify the protocol version whenever a downstream agent call fails with `401` even if
+> you’ve correctly configured the the egress auth policy.
+
+## See Also
+
+- [Known Issues](https://help.salesforce.com/s/issues)

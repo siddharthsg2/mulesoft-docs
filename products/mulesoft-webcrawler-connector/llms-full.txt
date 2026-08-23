@@ -1,0 +1,1922 @@
+# MuleSoft WebCrawler Connector - Full Documentation
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# Configuring Crawl Operations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Configure the **Get SiteMap** operation.
+
+## Configure the Get SiteMap Operation
+
+The **Get SiteMap** operation returns a sitemap in standard XML format following the
+[sitemap protocol](https://www.sitemaps.org/protocol.html). The operation first tries to discover
+URLs from the site’s own sitemap and robots.txt, then falls back to a breadth-first crawl up to the
+specified depth. The sitemap results can be used to customize subsequent crawling of specific pages.
+
+Priority is calculated based on depth: depth 0 = priority 1.0, depth 1 = priority 0.9, and so on.
+Depth greater than 10 always yields priority 0.0.
+
+To configure the **Get SiteMap** operation:
+
+1.  Select the operation on the Anypoint Code Builder or Studio canvas.
+
+2.  In the **General** properties tab for the operation, enter these values:
+
+    - **Path**
+
+      Relative path, resolved against the connection’s base URL, where the sitemap crawl starts.
+
+    - **Maximum depth**
+
+      The maximum depth to reach while crawling a website. Defaults to 0.
+
+    - **Encoding**
+
+      Encoding for emitted page bodies. Overrides the configuration’s encoding when set.
+
+    - **Restrict crawl under URL**
+
+      If true, only internal pages under the base URL are crawled. Defaults to false.
+
+    - **Regex URLs filter logic**
+
+      Type of filter logic to apply to regex URLs while crawling. Select INCLUDE to crawl only
+      matching pages, or EXCLUDE to skip matching pages.
+
+    - **Regex URLs List**
+
+      List of regex patterns for URLs to include or exclude while crawling, based on the filter
+      logic selected above.
+
+### Crawl Options
+
+- **Delay between pages**
+
+  The delay introduced between each request, in the time unit selected below. Defaults to 0.
+
+- **Delay time unit**
+
+  Time unit for the delay between pages.
+
+- **Enforce robots.txt**
+
+  If true, enforce checks against the robots.txt file. Defaults to false.
+
+### Page Load Options
+
+- **Wait on page load**
+
+  The time to wait on page load, in the time unit selected below. On the HTTP connection, values
+  greater than 0 fail with INVALID\_PARAMETERS.
+
+- **Wait on page load unit**
+
+  Time unit for the page-load wait.
+
+### WebDriver Options (Remote WebDriver only)
+
+These options apply only when using the Remote WebDriver connection type:
+
+- **Wait for XPath**
+
+  The XPath to wait for before proceeding with content extraction.
+
+- **Extract Shadow DOM**
+
+  If true, extracts the Shadow DOM content.
+
+- **Shadow Host(s) XPath**
+
+  Shadow host(s) to extract by XPath. If not set, the whole Shadow DOM is extracted.
+
+### Timeout Options
+
+- **Response Timeout**
+
+  Response timeout value. Overrides the configuration’s timeout when set.
+
+- **Response Timeout Unit**
+
+  Time unit for the response timeout.
+
+### XML Configuration
+
+This is the XML for this operation:
+
+```xml
+<ms-webcrawler:get-sitemap
+    config-ref="MuleSoft_WebCrawler_Config"
+    doc:name="Get SiteMap"
+    doc:id="6410aae9-21d4-4005-8d86-ac9a136657b4"
+    path="#[payload.path]"
+    maxDepth="#[payload.maxDepth]"
+    restrictToPath="true"/>
+```
+
+### Output Configuration
+
+This operation responds with an XML payload that uses the sitemap protocol specification. This is an
+example response:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/</loc>
+    <lastmod>2024-01-15T10:30:00Z</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://example.com/docs</loc>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://example.com/docs/getting-started</loc>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+```
+
+The `<lastmod>` and `<changefreq>` elements appear only for URLs where the crawled site’s own source
+sitemap supplies them, so some `<url>` entries include them while others contain only `<loc>` and
+`<priority>`.
+
+The response attributes include:
+
+- `count`
+
+  The total number of URLs in the sitemap.
+
+- `depth`
+
+  The configured maximum crawl depth.
+
+- `url`
+
+  The root URL of the crawled site.
+
+## See Also
+
+- [MuleSoft WebCrawler Connector Overview](./)
+
+- [Configuring Crawl Sources](configuring-crawl-sources)
+
+- [MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# Configuring Crawl Sources
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Configure the **On Content Crawl** source.
+
+## Configure the On Content Crawl Source
+
+The **On Content Crawl** source crawls a website starting from a configured path, emitting each
+discovered page, image, or document as a Mule event. The source uses a VM queue for URL scheduling
+and an object store for URL deduplication, enabling distributed and resumable crawling.
+
+To configure the **On Content Crawl** source:
+
+- **Path**
+
+  Relative path, resolved against the connection’s base URL, where the crawl starts. When empty or
+  `/`, the crawl starts at the base URL itself. Fully-qualified URLs are rejected with
+  INVALID\_PARAMETERS.
+
+- **Additional seed URLs**
+
+  Comma-separated list of additional fully-qualified seed URLs to enqueue alongside the path. Each
+  entry must be a fully-qualified URL, and relative paths are dropped. Off-host and off-path entries
+  are dropped and a warning is logged.
+
+- **Maximum depth**
+
+  The maximum depth to reach while crawling a website. Defaults to 0.
+
+- **Queue Name**
+
+  VM queue used to schedule URLs for crawling. When omitted, defaults to
+  `webcrawler-{configName}-source-queue`.
+
+- **Object Store**
+
+  Object store used for crawl visit fingerprints (content hash, ETag, last-modified, and correlation
+  ID) and the active crawl identity. Use a persistent store so that reconnection and app restart
+  resume the same crawl.
+
+- **Output format**
+
+  Format applied to each emitted page body. Select TEXT, HTML, or MARKDOWN. Default is TEXT.
+
+- **Number Of Consumers**
+
+  Number of concurrent queue consumers used by this source. Defaults to 1.
+
+- **Hash route mode**
+
+  How to treat URLs containing #fragments. IGNORE strips fragments before crawling (default, fits
+  classic server-rendered sites). PATH rewrites SPA-style hash routes (for example, #/page) into
+  real paths (/page). PRESERVE keeps the URL verbatim, fragment included.
+
+- **Crawl schedule**
+
+  Periodic re-crawl mode. Select **No Schedule** to crawl once at start (default), or **Interval**
+  to re-seed the crawl at a fixed frequency and time unit. Ticks that occur while a crawl is in
+  progress are coalesced into one pending reseed, so consumers don’t stack. The schedule is
+  registered on all replicas, but the actual reseed runs on the primary node only.
+
+- **Encoding**
+
+  Encoding for emitted page bodies. Overrides the configuration’s encoding when set.
+
+- **Restrict crawl under URL**
+
+  If true, only internal pages under the base URL are crawled. Defaults to false.
+
+- **Regex URLs filter logic**
+
+  Type of filter logic to apply to regex URLs while crawling.
+
+- **Regex URLs List**
+
+  List of regex patterns for URLs to include or exclude while crawling.
+
+### Target Content Options
+
+By default, the source emits only page content. To also download and emit the images and documents
+referenced on each crawled page, enable the **Images** and **Documents** options. Use the **Max
+image number for each page** and **Max document number for each page** options to cap how many
+assets are fetched per page, and **Additional Allowed Base URLs** to control which hosts assets can
+be downloaded from.
+
+- **Pages**
+
+  If true, page content of the crawled URL is emitted. Defaults to true.
+
+- **Images**
+
+  If true, images referenced on the crawled URL are emitted. Defaults to false.
+
+- **Max image number for each page**
+
+  Maximum number of images to fetch for each page. 0 means no limit.
+
+- **Documents**
+
+  If true, documents referenced on the crawled URL are emitted. Defaults to false.
+
+- **Max document number for each page**
+
+  Maximum number of documents to fetch for each page. 0 means no limit.
+
+- **Additional Allowed Base URLs**
+
+  Optional comma-separated allowlist for image and document URLs. When set, assets must be under the
+  base URL or one of these base URLs.
+
+- **Retrieve meta tags**
+
+  If true, meta tags are retrieved from each crawled page. Defaults to false.
+
+- **Tag list**
+
+  List of HTML tags for which content must be retrieved.
+
+### Crawl Options
+
+- **Delay between pages**
+
+  The delay introduced between each request, in the time unit selected below. Defaults to 0.
+
+- **Delay time unit**
+
+  Time unit for the delay between pages.
+
+- **Enforce robots.txt**
+
+  If true, enforce checks against the robots.txt file. Defaults to false.
+
+### Page Load Options
+
+- **Wait on page load**
+
+  The time to wait on page load, in the time unit selected below. On the HTTP connection, values
+  greater than 0 fail with INVALID\_PARAMETERS.
+
+- **Wait on page load unit**
+
+  Time unit for the page-load wait.
+
+### WebDriver Options (Remote WebDriver only)
+
+These options apply only when using the Remote WebDriver connection type:
+
+- **Wait for XPath**
+
+  The XPath to wait for before proceeding with content extraction.
+
+- **Extract Shadow DOM**
+
+  If true, extracts the Shadow DOM content.
+
+- **Shadow Host(s) XPath**
+
+  Shadow host(s) to extract by XPath. If not set, the whole Shadow DOM is extracted.
+
+### Timeout Options
+
+- **Response Timeout**
+
+  Response timeout value. Overrides the configuration’s timeout when set.
+
+- **Response Timeout Unit**
+
+  Time unit for the response timeout.
+
+### XML Configuration
+
+This is the XML for this source:
+
+```xml
+<flow name="crawl-content-flow">
+    <ms-webcrawler:crawl-content-listener
+        config-ref="MuleSoft_WebCrawler_Config"
+        doc:name="On Content Crawl"
+        doc:id="7a2b3c4d-5e6f-7890-abcd-ef1234567890"
+        maxDepth="3"
+        outputFormat="MARKDOWN"
+        restrictToPath="true"
+        path="/docs">
+        <ms-webcrawler:object-store>
+            <os:private-object-store
+                config-ref="ObjectStore_Config"
+                persistent="true"/>
+        </ms-webcrawler:object-store>
+    </ms-webcrawler:crawl-content-listener>
+
+    <logger level="INFO" message="#[attributes.url]"/>
+</flow>
+```
+
+### Output Configuration
+
+Each emitted event contains the crawled page content in the configured output format. The response
+attributes include:
+
+- `cacheControl`
+
+  The cache-control header value from the page response.
+
+- `contentType`
+
+  The content type of the page response.
+
+- `depth`
+
+  The crawl depth at which this page was discovered.
+
+- `etag`
+
+  The ETag header value from the page response.
+
+- `eventType`
+
+  The type of emitted event: PAGE, IMAGE, or DOCUMENT.
+
+- `fileName`
+
+  The file name of the emitted image or document.
+
+- `lastModified`
+
+  The last-modified timestamp from the page response.
+
+- `metaTags`
+
+  The meta tags retrieved from the page.
+
+- `size`
+
+  The size of the emitted content in bytes.
+
+- `statusCode`
+
+  The HTTP status code of the page response.
+
+- `title`
+
+  The page title.
+
+- `url`
+
+  The page URL.
+
+- `otherAttributes`
+
+  Additional metadata about the page.
+
+## See Also
+
+- [MuleSoft WebCrawler Connector Overview](./)
+
+- [Configuring Crawl Operations](configuring-crawl-operations)
+
+- [MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# Configuring Page Operations
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Configure the **Get Page Content** and **Get Page Elements** operations.
+
+## Configure the Get Page Content Operation
+
+The **Get Page Content** operation retrieves the content of a specified web page in TEXT, HTML, or
+MARKDOWN format. Optionally target specific HTML tags via the Tag list parameter.
+
+To configure the **Get Page Content** operation:
+
+1.  Select the operation on the Anypoint Code Builder or Studio canvas.
+
+2.  In the **General** properties tab for the operation, enter these values:
+
+    - **Path**
+
+      Relative path, resolved against the connection’s base URL, of the page to retrieve content
+      from.
+
+    - **Output format**
+
+      Format of the extracted content. Select TEXT, HTML, or MARKDOWN. Default is TEXT.
+
+    - **Encoding**
+
+      Encoding for emitted page bodies. Overrides the configuration’s encoding when set.
+
+    - **Tag list**
+
+      List of HTML tags for which content must be retrieved. If specified, only content within the
+      listed tags is returned.
+
+    - **Javascript**
+
+      Browser-context JavaScript executed after page load (not available for the HTTP connection).
+      Trusted input only — never bind to user-controlled data; runs with full DOM access.
+
+### Crawl Options
+
+- **Enforce robots.txt**
+
+  If true, enforce checks against the robots.txt file. Defaults to false.
+
+### Page Load Options
+
+- **Wait on page load**
+
+  The time to wait on page load, in the time unit selected below. On the HTTP connection, values
+  greater than 0 fail with INVALID\_PARAMETERS.
+
+- **Wait on page load unit**
+
+  Time unit for the page-load wait.
+
+### WebDriver Options (Remote WebDriver only)
+
+These options apply only when using the Remote WebDriver connection type:
+
+- **Wait for XPath**
+
+  The XPath to wait for before proceeding with content extraction.
+
+- **Extract Shadow DOM**
+
+  If true, extracts the Shadow DOM content.
+
+- **Shadow Host(s) XPath**
+
+  Shadow host(s) to extract by XPath. If not set, the whole Shadow DOM is extracted.
+
+### Timeout Options
+
+- **Response Timeout**
+
+  Response timeout value. Overrides the configuration’s timeout when set.
+
+- **Response Timeout Unit**
+
+  Time unit for the response timeout.
+
+### XML Configuration
+
+This is the XML for this operation:
+
+```xml
+<ms-webcrawler:page-content
+    config-ref="MuleSoft_WebCrawler_Config"
+    doc:name="Get Page Content"
+    doc:id="8f436a64-1795-42a0-9fe7-69be66db235b"
+    path="#[payload.path]"
+    outputFormat="MARKDOWN"
+    waitOnPageLoad="5"
+    waitForXPath="//results"
+    extractShadowDom="true"
+    shadowHostXPath="//results"/>
+```
+
+### Output Configuration
+
+This operation responds with a JSON payload. This is an example response:
+
+```json
+{
+  "title": "Example Page Title",
+  "url": "https://example.com/page",
+  "content": "The full text content of the page..."
+}
+```
+
+- `title`
+
+  The page title.
+
+- `url`
+
+  The page URL.
+
+- `content`
+
+  The extracted content in the specified output format.
+
+## Configure the Get Page Elements Operation
+
+The **Get Page Elements** operation fetches analytical data about a web page including word count,
+element or tag counts (H1–H5, DIV, P), link structures (internal, external, reference), and image
+links. Use these metrics to customize subsequent crawling operations.
+
+To configure the **Get Page Elements** operation:
+
+1.  Select the operation on the Anypoint Code Builder or Studio canvas.
+
+2.  In the **General** properties tab for the operation, enter these values:
+
+    - **Path**
+
+      Relative path, resolved against the connection’s base URL, of the page to analyze.
+
+    - **Encoding**
+
+      Encoding for emitted page bodies. Overrides the configuration’s encoding when set.
+
+    - **Tag list**
+
+      List of HTML tags for which content must be retrieved.
+
+    - **Javascript**
+
+      Browser-context JavaScript executed after page load (not available for the HTTP connection).
+      Trusted input only — never bind to user-controlled data; runs with full DOM access.
+
+### Crawl Options
+
+- **Enforce robots.txt**
+
+  If true, enforce checks against the robots.txt file. Defaults to false.
+
+### Page Load Options
+
+- **Wait on page load**
+
+  The time to wait on page load, in the time unit selected below. On the HTTP connection, values
+  greater than 0 fail with INVALID\_PARAMETERS.
+
+- **Wait on page load unit**
+
+  Time unit for the page-load wait.
+
+### WebDriver Options (Remote WebDriver only)
+
+These options apply only when using the Remote WebDriver connection type:
+
+- **Wait for XPath**
+
+  The XPath to wait for before proceeding with content extraction.
+
+- **Extract Shadow DOM**
+
+  If true, extracts the Shadow DOM content.
+
+- **Shadow Host(s) XPath**
+
+  Shadow host(s) to extract by XPath. If not set, the whole Shadow DOM is extracted.
+
+### Timeout Options
+
+- **Response Timeout**
+
+  Response timeout value. Overrides the configuration’s timeout when set.
+
+- **Response Timeout Unit**
+
+  Time unit for the response timeout.
+
+### XML Configuration
+
+This is the XML for this operation:
+
+```xml
+<ms-webcrawler:page-elements
+    config-ref="MuleSoft_WebCrawler_Config"
+    doc:name="Get Page Elements"
+    doc:id="08dd9627-5220-41df-a7cf-869bff4eee91"
+    path="#[payload.path]"/>
+```
+
+### Output Configuration
+
+This operation outputs a Binary payload containing page statistics and link details in JSON format.
+This is an example response:
+
+```json
+{
+  "pageStats": {
+    "div": 36,
+    "p": 6,
+    "reference": 0,
+    "internal": 7,
+    "external": 2,
+    "images": 4,
+    "wordCount": 147,
+    "h1": 1,
+    "h2": 0,
+    "h3": 4,
+    "h4": 0,
+    "h5": 0
+  },
+  "links": {
+    "reference": [],
+    "internal": ["https://example.com/docs", "https://example.com/about"],
+    "external": ["https://github.com/example"],
+    "images": ["https://example.com/images/logo.png"],
+    "documents": [],
+    "iframe": []
+  },
+  "title": "Example Page",
+  "url": "https://example.com/"
+}
+```
+
+- `pageStats` - Counts of HTML elements and page metrics.
+
+  - `div`, `p`, `h1` through `h5` - Counts of the respective HTML elements.
+
+  - `reference`, `internal`, `external` - Counts of reference, internal, and external links.
+
+  - `images` - Count of images on the page.
+
+  - `wordCount` - Total word count of the page content.
+
+- `links` - Categorized lists of URLs found on the page.
+
+  - `reference` - Reference links (anchors).
+
+  - `internal` - Internal links to the same domain.
+
+  - `external` - External links to other domains.
+
+  - `images` - Image URLs.
+
+  - `documents` - Document URLs.
+
+  - `iframe` - Iframe URLs.
+
+- `title` - The page title.
+
+- `url` - The page URL.
+
+## See Also
+
+- [MuleSoft WebCrawler Connector Overview](./)
+
+- [MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# MuleSoft WebCrawler Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for MuleSoft WebCrawler (MuleSoft WebCrawler Connector) is a highly customizable
+web-crawling connector that enables you to crawl websites, retrieve content, and automate web
+scraping processes within Mule flows. The connector is suited for gathering large-scale web data
+efficiently, with helper operations for fine-tuned crawling such as targeting specific content types
+and emitting referenced documents and images as Mule events. Use it to organize web data into
+structured formats for knowledge extraction, AI applications, and downstream processing.
+
+For information about compatibility and fixed issues, see the MuleSoft WebCrawler Connector release
+notes.
+
+## Before You Begin
+
+To use this connector, you must be familiar with:
+
+- Anypoint Connectors
+
+- Mule runtime engine (Mule)
+
+- Elements and global elements in a Mule flow
+
+- How to create a Mule app using Anypoint Code Builder or Anypoint Studio
+
+- Web crawling concepts and robots.txt compliance
+
+Before creating an app, you must have:
+
+- Java 17 (required for compilation and runtime)
+
+- Apache Maven
+
+- Anypoint Platform
+
+- The latest versions of Anypoint Code Builder or Anypoint Studio
+
+- Your own Chromium-based remote WebDriver endpoint when content must be rendered in a real browser
+  before scraping, such as JavaScript-heavy web applications. MuleSoft doesn’t provide or host a
+  remote browser, so you must supply and maintain your own.
+
+## Connection Types
+
+MuleSoft WebCrawler Connector supports these connection types for different crawling scenarios.
+
+- **HTTP**
+
+  Connects via standard HTTP requests with a configurable base URL, browser user agent, proxy,
+  response timeout, and TLS settings. Use for static web content that doesn’t require JavaScript
+  rendering.
+
+- **Remote WebDriver**
+
+  Connects through a remote Selenium WebDriver endpoint that you provide. Use for JavaScript-heavy
+  or single-page application (SPA) pages that require browser rendering.
+
+## Key Features
+
+MuleSoft WebCrawler Connector simplifies web data extraction into Mule applications with:
+
+- Comprehensive Web Crawling
+
+  Crawl entire websites or target specific content for large-scale data extraction with configurable
+  depth and URL filtering.
+
+- Customizable Crawls
+
+  Control crawl depth, content filters, URL inclusion or exclusion patterns, and crawl delays
+  tailored to specific business needs.
+
+- Content Extraction
+
+  Retrieve page content in TEXT, HTML, or MARKDOWN format. Target specific HTML tags to extract only
+  relevant content.
+
+- Document and Image Extraction
+
+  Emit documents and images referenced on crawled pages as Mule events, with configurable limits and
+  an optional allowlist of base URLs.
+
+- Page Elements
+
+  Get analytical data about web pages including word count, element or tag counts, and link
+  structures to help customize crawls.
+
+- Dynamic Content Support
+
+  Crawl JavaScript-rendered pages using the Remote WebDriver connection, including Shadow DOM
+  extraction and XPath-based wait conditions.
+
+- Robots.txt Compliance
+
+  Optionally enforce robots.txt rules to ensure respectful crawling practices.
+
+- Event-Driven Crawling
+
+  Use the **On Content Crawl** source to emit each discovered page, image, or document as a Mule
+  event, with deduplication and URL queue management.
+
+## Use Cases
+
+MuleSoft WebCrawler Connector supports a wide range of data ingestion and automation scenarios.
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Role</th><th>Goal</th></tr></thead><tbody><tr><td><p>Agentic Automation</p></td><td><p>Scrape internal documents to ground agents and bots with up-to-date knowledge.</p></td></tr><tr><td><p>Data Analyst</p></td><td><p>Extract product information from e-commerce websites for competitive analysis.</p></td></tr><tr><td><p>Marketing Team</p></td><td><p>Gather customer reviews from various platforms for sentiment tracking.</p></td></tr><tr><td><p>Business Development</p></td><td><p>Collect contact information from industry directories for lead generation.</p></td></tr></tbody></table>
+
+## Authentication
+
+MuleSoft WebCrawler Connector supports unauthenticated (public) websites.
+
+## Limitations
+
+MuleSoft WebCrawler Connector has these limitations:
+
+- Analyzing or extracting the content within multimodal media, such as images and videos, isn’t
+  supported. The connector can emit referenced image and document files as Mule events, but it
+  doesn’t interpret what those files contain.
+
+- The recommended maximum size for a downloadable attachment is 25 MB.
+
+## Performance
+
+The total crawl time depends on several factors, including:
+
+- Crawl depth
+
+  Higher crawl depths discover and process more pages.
+
+- Number of pages
+
+  Larger websites naturally take longer to crawl.
+
+- Website complexity
+
+  JavaScript-rendered websites require a Remote Browser and generally take longer than static HTML
+  sites.
+
+- Network latency
+
+  Response times between the crawler, Remote Browser, and target website can affect overall
+  performance.
+
+- Attachments
+
+  Downloading large files, such as PDFs or images, increases crawl time.
+
+- Remote Browser capacity
+
+  The CPU, memory, and concurrency of the Remote Browser deployment directly affect crawling
+  throughput.
+
+- Number of consumers
+
+  Crawling throughput depends on the number of concurrent queue consumers. More consumers can
+  increase throughput, but the Remote Browser must be able to handle that many concurrent sessions.
+
+## Best Practices
+
+For the best crawling experience:
+
+- Deploy the Remote Browser with sufficient CPU and memory based on your expected crawl size.
+
+- Configure the Remote Browser reconnection strategy to Reconnect Forever to improve resilience
+  during long-running crawls.
+
+- Use the HTTP connection for static websites whenever possible, and reserve the Remote Browser for
+  JavaScript-rendered or interactive websites.
+
+- Limit crawl depth and exclude unnecessary pages or attachments to reduce crawl time.
+
+- For large websites, break the crawl into smaller jobs or use sitemap-based discovery to target
+  only relevant pages.
+
+- Keep the crawl schedule in sync with the object store’s time-to-live (TTL) so that a full crawl
+  runs on reseed. Otherwise, reseeding is skipped for that tick.
+
+## Next Step
+
+After you complete the prerequisites, you are ready to create an app and configure the connector
+using [Anypoint Studio](mulesoft-webcrawler-connector-studio) or
+[Anypoint Code Builder](mulesoft-webcrawler-connector-config-acb).
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+
+- [MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# MuleSoft WebCrawler Connector 1.0 - Additional Configuration Information
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+MuleSoft WebCrawler Connector provides detailed configuration information for each operation type.
+Select the operation category you want to configure.
+
+- [Configure Crawl Sources](configuring-crawl-sources)
+
+- [Configure Crawl Operations](configuring-crawl-operations)
+
+- [Configure Page Operations](configuring-page-operations)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# Using Anypoint Code Builder to Configure MuleSoft WebCrawler Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Cloud IDE (Beta) is scheduled for retirement on August 31, 2026. August 30, 2026 is the last day you
+can access Cloud IDE (Beta). Download your projects to work from Desktop IDE. Learn more in
+[Migrate a Project from Cloud IDE to Desktop IDE](../../anypoint-code-builder/int-import-mule-project#migrate-cloud-to-desktop).
+
+To use Anypoint Code Builder to configure a connector or module, create a basic integration project
+in Anypoint Code Builder, add connectors and other components to your Mule application to process
+your business logic, and configure the attributes.
+
+## Before You Begin
+
+Before creating an integration project, you must:
+
+- [Set up and access the Anypoint Code Builder web or desktop IDE](../../anypoint-code-builder/start-acb)
+
+- Have credentials to access the connector’s API
+
+- Ensure that the Visual Studio Code Extension Pack for Java is installed.
+
+To use this connector, you must be familiar with:
+
+- The connector’s API
+
+- Anypoint Connectors
+
+- Mule runtime engine (Mule)
+
+## Create a New Integration Project
+
+To create a new integration project:
+
+1.  In the activity bar of the IDE, click the
+    ![Anypoint Code Builder icon](../../connectors/_images/acb-icon-ms-logo.png) (**Anypoint Code
+    Builder**) icon.
+
+2.  From **Quick Actions**, click **Develop an Integration**:
+
+    ![Develop an Integration link highlighted in the Getting started section](../../anypoint-code-builder/_images/develop-integration-option-mat.png)
+
+3.  Complete the following in the **Develop an Integration** form:
+
+    <table><colgroup><col> <col></colgroup><thead><tr><th>Attribute</th><th>Value</th></tr></thead><tbody><tr><td><div><div><p><strong>Project Name</strong></p></div></div></td><td><div><div><p>Unique name for your project.</p></div><div><p>This name is used as the title and name of the integration project file. For example, if the project name is "Salesforce Integration," the project file name is <code>salesforce-integration</code>.</p></div></div></td></tr><tr><td><div><div><p><strong>Project Location</strong></p></div></div></td><td><div><div><p>Your home directory or another directory you create. Click <strong>Browse</strong> to select a different directory for the integration project.</p></div><div><p>Don’t create the project within another project directory.</p></div><div><p>See <a href="../../anypoint-code-builder/start-add-folders">Adding Folders to Your Home Directory</a>.</p></div></div></td></tr></tbody></table>
+
+4.  Select the type of project to create by selecting either the **Empty Project** or **Template or
+    Example** card.
+
+5.  Select the **Mule runtime** and **Java Version** for your app.
+
+6.  Click **Create Project**.
+
+## Add the Connector to Your Integration Project
+
+Anypoint Connectors provide operations for retrieving, modifying, and sending data to and from
+systems.
+
+In addition to the
+[built-in connectors](../../anypoint-code-builder/acb-reference#builtin-connectors) that Anypoint
+Code Builder provides, you can download many other connectors from Anypoint Exchange.
+
+To import a connector from Exchange and add it to your configuration:
+
+1.  In the Explorer view, open the configuration XML file for your project, such as
+    `my-project-name.xml`.
+
+2.  Click the
+    ![Show Mule graphical mode icon](../../anypoint-code-builder/_images/icon-tree-view.png) (**Show
+    Mule graphical mode**) icon in the activity bar to open the canvas UI if it doesn’t open
+    automatically.
+
+3.  Add the connector the same way you added other components from the canvas UI:
+
+    1.  In the canvas UI, click the
+        ![Add component icon](../../anypoint-code-builder/_images/icon-plus.png) (**Add component**)
+        icon.
+
+    2.  In the **Add Component** panel, click **Connectors**.
+
+    3.  Click the connector name and then click the operation to add, such as **Publish**:
+
+        ![Add Publish operation from Anypoint MQ Connector](../../anypoint-code-builder/_images/int-add-connector-operation.png)
+
+        If the connector is not available locally, click the
+        ![Search in Exchange icon](../../anypoint-code-builder/_images/icon-search-exchange.png)
+        (**Search in Exchange**) toggle:
+
+        ![Search in Exchange toggle](../../anypoint-code-builder/_images/int-connector-search-exchange.png)
+
+        <table><tbody><tr><td><i data-value="1"></i><b>1</b></td><td>Search locally</td></tr><tr><td><i data-value="2"></i><b>2</b></td><td>Search in Exchange</td></tr></tbody></table>
+
+    4.  Select the connector to add to your project.
+
+    5.  Select the operation from the **Add Component** panel.
+
+Adding a connector to an integration project does not make that connector available to other
+projects in your Anypoint Code Builder workspace.
+
+## Configure the Source For the Flow
+
+A trigger (source) starts the flow when specified conditions are met. If a connector has its own
+associated sources, you can use a connector-specific trigger to initiate the flow. Each connector
+trigger has a unique configuration.
+
+You can configure the following sources for this connector:
+
+- **HTTP > Listener**
+
+  Initiates a flow each time it receives a request on the configured host and port
+
+- **Scheduler**
+
+  Initiates a flow when a time-based condition is met
+
+For example, to configure an HTTP Listener trigger, follow these steps:
+
+1.  Click the **Listener** component on the canvas UI.
+
+2.  (Optional) Click the edit icon to change the name of the **Listener** component.
+
+3.  (Optional) If you created a configuration file for the connector, select it.
+
+4.  In the **General** tab, in the **Path** field, enter the relative path for the path set in the
+    HTTP configuration element. See
+    [Configure Paths](../../http-connector/latest/http-listener-ref#configure-paths).
+
+5.  Select the **Advanced** tab to configure the following attributes:
+
+    <table><colgroup><col> <col> <col></colgroup><thead><tr><th>Attribute</th><th>Description</th><th>Required</th></tr></thead><tbody><tr><td><p>Allowed methods</p></td><td><p>To allow all HTTP methods (default), do not define this attribute. To restrict certain methods, specify all allowed HTTP methods, for example, <code>GET, POST</code>, as a comma-separated list.</p></td><td><p>No</p></td></tr><tr><td><p>Response streaming mode</p></td><td><p>Whether to use streaming when the response is sent.</p></td><td><p>No</p></td></tr><tr><td><p>Output MIME type</p></td><td><p>MIME type of the payload that this component outputs.</p></td><td><p>No</p></td></tr><tr><td><p>Parameters</p></td><td><p>Appends a key-value pair for a reader property to the value of the Output MIME attribute. Multiple key-value pairs are allowed.</p></td><td><p>No</p></td></tr><tr><td><p>Output encoding</p></td><td><p>Encoding of the payload that this component outputs.</p></td><td><p>No</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><p>Configures the way data streams are consumed in Mule apps.</p></td><td><p>No</p></td></tr><tr><td><p>Primary node only</p></td><td><p>Select this option to execute the <strong>Listener</strong> trigger on the primary node only when running in a cluster.</p></td><td><p>No</p></td></tr><tr><td><p>Redelivery policy</p></td><td><p>Configures the redelivery policy for executing requests that generate errors. You can add a redelivery policy to any source in a flow.</p></td><td><p>No</p></td></tr><tr><td><p>Reconnection strategy</p></td><td><p>When an operation in a Mule application fails to connect to an external server, the default behavior is for the operation to fail immediately and return a connectivity error. You can modify the default behavior by configuring the reconnection strategy for the operation.</p></td><td><p>No</p></td></tr><tr><td><p>Response</p></td><td><p>See <a href="../../http-connector/latest/http-documentation#HttpResponseAttributes">HTTP Response Attributes</a>.</p></td><td><p>No</p></td></tr><tr><td><p>Error Response</p></td><td><p>HTTP error response returns a status code for the error.</p></td><td><p>No</p></td></tr><tr><td><p>Body</p></td><td><p>Body of the error message.</p></td><td><p>No</p></td></tr><tr><td><p>Headers</p></td><td><p>Headers to include in the error message.</p></td><td><p>No</p></td></tr><tr><td><p>Status code</p></td><td><p>Status code of the error response, for example, <code>500</code>.</p></td><td><p>No</p></td></tr><tr><td><p>Reason phrase</p></td><td><p>Reason for the error, for example, <code>Gateway Timeout</code> or <code>Internal Server Error</code>.</p></td><td><p>No</p></td></tr></tbody></table>
+
+## Add Components to Your Project
+
+Add components to your integration project to build a flow:
+
+1.  In the **Explorer** view, open the XML file for your project, such as `my-project-name.xml`.
+
+2.  Select **Build a Flow** from the start card to create an empty flow:
+
+    ![Anypoint Code Builder canvas with starting cards with the options to start from scratch, build a flow, or build a subflow](../../connectors/_images/acb-build-flow.png)
+
+3.  Change the name of the flow:
+
+    1.  Click **Flow**.
+
+    2.  Click the edit icon.
+
+        ![Arrow pointing to the flow name edit pencil icon](../../connectors/_images/acb-change-flow-name.png)
+
+    3.  Enter the flow name, and click the checkmark.
+
+    4.  In the canvas UI, click the
+        ![Add component icon](../../anypoint-code-builder/_images/icon-plus.png) (**Add component**)
+        icon.
+
+    5.  In the **Add Component** panel, search for and select your component from the results. The
+        following example shows the **Listener** component from the **HTTP** search results:
+
+        ![Listener component highlighted in the Add Component section](../../anypoint-code-builder/_images/main-tutorial-add-first-listener.png)
+
+        The configuration XML file now includes the XML for the HTTP Listener into the `<flow/>`
+        element, for example:
+
+        ```XML
+        <flow name="getFlights" >
+          <http:listener path="" config-ref="" doc:name="Listener" doc:id="ojzfry" />
+        </flow>
+        ```
+
+## Configure the Component Attributes
+
+After you add components to your integration project, configure the attributes in the component UI,
+or configure the attributes directly in the XML code editor.
+
+Connector XML tags start with a namespace followed by an operation, following the syntax
+`namespace:operation`, such as `<db:select/>` for a **Select** operation in Anypoint Connector for
+Database (Database Connector).
+
+You can use autocomplete from an expression (**fx**) field for a component to select DataWeave
+functions from the Core module and other values accepted in this field.
+
+## Create a New Configuration XML File
+
+Anypoint Code Builder creates the initial Mule configuration XML file in `src/main/mule` within the
+Mule project. This file contains global configurations and flow structures.
+
+You can create additional configuration files, for example, to store global configurations.
+
+To create a new XML configuration file:
+
+1.  In the Explorer view, right-click the **mule** folder (`src/main/mule`) and select **New File**.
+
+    Alternatively, use the menu.
+
+    Show me how
+
+    Select the `mule` folder, and then:
+
+    - In the desktop IDE, select **File** > **New Mule Configuration File**.
+
+    - In the cloud IDE, click the ![](../../anypoint-code-builder/_images/icon-menu.png) (menu)
+      icon, and select **File** > **New File**.
+
+2.  Enter a name for the new file with the `.xml` extension.
+
+3.  In the Editor view for the new file, press Ctrl+Space to display available options.
+
+4.  Select **Empty mule configuration**:
+
+    ![New Mule configuration option in auto-correct](../../anypoint-code-builder/_images/int-new-mule-config.png)
+
+    This command adds the following code to the file:
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+        xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    </mule>
+    ```
+
+## See Also
+
+- [Anypoint Code Builder Overview](../../anypoint-code-builder/)
+
+- [Creating Integrations](../../anypoint-code-builder/int-create-integrations)
+
+- [Using Anypoint Code Builder to Configure a Connector](../../connectors/introduction/intro-config-use-acb)
+
+- [Anypoint Code Builder Components and Commands Reference](../../anypoint-code-builder/acb-reference)
+
+- [Defining and Securing Properties for a Mule Application](../../anypoint-code-builder/int-create-secure-configs)
+
+- [Triggering Flows in Your Development Environment](../../anypoint-code-builder/int-trigger-flows)
+
+- [Configuring Components](../../anypoint-code-builder/int-configure-components)
+
+- [Debugging Mule Applications](../../anypoint-code-builder/int-debug-mule-apps)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# MuleSoft WebCrawler Connector 1.0 Examples
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+This example is a Mule app that exposes MuleSoft WebCrawler Connector through two HTTP endpoints.
+Use it as a starting point for your own crawl flow.
+
+The application uses both connection types and exercises the two most common operations.
+
+<table><colgroup><col> <col> <col></colgroup><thead><tr><th>Endpoint</th><th>Operation</th><th>Notes</th></tr></thead><tbody><tr><td><p><code>GET /api/page</code></p></td><td><p><strong>Get Page Content</strong></p></td><td><p>Single-page fetch. Returns the rendered content in the requested <code>outputFormat</code> (<code>HTML</code>, <code>TEXT</code>, or <code>MARKDOWN</code>).</p></td></tr><tr><td><p><code>GET /api/sitemap</code></p></td><td><p><strong>Get SiteMap</strong></p></td><td><p>Crawls to the specified <code>depth</code>. <code>restrictToPath=true</code> keeps the crawl under the base URL’s path.</p></td></tr></tbody></table>
+
+Each endpoint accepts a `path` query parameter, which is resolved against the connection’s base URL,
+and a `connection` query parameter that selects between the two configurations.
+
+- `connection=http` (default)
+
+  Uses `ms-webcrawler:http-connection`. Plain HTTP fetch, fastest, no JavaScript execution.
+
+- `connection=webdriver`
+
+  Uses `ms-webcrawler:remote-webdriver-connection`. Selenium-driven Chromium fetch, use for
+  JavaScript-heavy or SPA pages.
+
+Error handling on `GET /api/page` maps two connector errors to JSON responses.
+
+- `MS-WEBCRAWLER:ROBOTS_DISALLOWED` → HTTP 403
+
+- `MS-WEBCRAWLER:PAGE_FETCH_FAILED` → HTTP 500
+
+## Example Calls
+
+```bash
+# Plain HTTP fetch, return as Markdown
+curl 'http://localhost:8081/api/page?path=/docs&outputFormat=MARKDOWN&connection=http'
+
+# WebDriver fetch (JS rendered), HTML output
+curl 'http://localhost:8081/api/page?path=/docs&outputFormat=HTML&connection=webdriver'
+
+# Two-level sitemap, HTTP path
+curl 'http://localhost:8081/api/sitemap?path=/docs&depth=2&connection=http'
+```
+
+## XML Source
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ms-webcrawler="http://www.mulesoft.org/schema/mule/ms-webcrawler"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ms-webcrawler http://www.mulesoft.org/schema/mule/ms-webcrawler/current/mule-ms-webcrawler.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+  <!-- HTTP listener that backs both demo endpoints. -->
+  <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config">
+    <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+  </http:listener-config>
+
+  <!-- HTTP fetch (no JS); use for static pages. -->
+  <ms-webcrawler:config name="HTTP_Configuration" doc:name="WebCrawler HTTP">
+    <ms-webcrawler:http-connection baseUrl="${webcrawler.baseUrl}" userAgent="${webcrawler.userAgent}"/>
+  </ms-webcrawler:config>
+
+  <!-- WebDriver fetch (Selenium); use for JS-heavy pages. -->
+  <ms-webcrawler:config name="WebDriver_Configuration" doc:name="WebCrawler WebDriver">
+    <ms-webcrawler:remote-webdriver-connection baseUrl="${webcrawler.baseUrl}" userAgent="${webcrawler.userAgent}" remoteUrl="${webcrawler.webDriverUrl}"/>
+  </ms-webcrawler:config>
+
+  <configuration-properties file="config.properties"/>
+
+  <!-- GET /api/page?path=&outputFormat=&connection=http|webdriver  ->  webcrawler:page-content -->
+  <flow name="get-page-content">
+    <http:listener config-ref="HTTP_Listener_config" path="/api/page"/>
+    <choice>
+      <when expression='#[attributes.queryParams.connection == "webdriver"]'>
+        <ms-webcrawler:page-content config-ref="WebDriver_Configuration"
+            path="#[attributes.queryParams.path]"
+            outputFormat="#[attributes.queryParams.outputFormat]"
+            enforceRobotsTxt="true"/>
+      </when>
+      <otherwise>
+        <ms-webcrawler:page-content config-ref="HTTP_Configuration"
+            path="#[attributes.queryParams.path]"
+            outputFormat="#[attributes.queryParams.outputFormat]"
+            enforceRobotsTxt="true"/>
+      </otherwise>
+    </choice>
+    <error-handler>
+      <on-error-propagate type="MS-WEBCRAWLER:ROBOTS_DISALLOWED">
+        <ee:transform>
+          <ee:message><ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ message: error.description }]]></ee:set-payload></ee:message>
+          <ee:variables><ee:set-variable variableName="httpStatus">403</ee:set-variable></ee:variables>
+        </ee:transform>
+      </on-error-propagate>
+      <on-error-propagate type="MS-WEBCRAWLER:PAGE_FETCH_FAILED">
+        <ee:transform>
+          <ee:message><ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ message: error.description }]]></ee:set-payload></ee:message>
+          <ee:variables><ee:set-variable variableName="httpStatus">500</ee:set-variable></ee:variables>
+        </ee:transform>
+      </on-error-propagate>
+    </error-handler>
+  </flow>
+
+  <!-- GET /api/sitemap?path=&depth=&connection=http|webdriver  ->  webcrawler:get-sitemap -->
+  <flow name="get-sitemap">
+    <http:listener config-ref="HTTP_Listener_config" path="/api/sitemap"/>
+    <choice>
+      <when expression='#[attributes.queryParams.connection == "webdriver"]'>
+        <ms-webcrawler:get-sitemap config-ref="WebDriver_Configuration"
+            path="#[attributes.queryParams.path]"
+            maxDepth="#[attributes.queryParams.depth]"
+            restrictToPath="true"/>
+      </when>
+      <otherwise>
+        <ms-webcrawler:get-sitemap config-ref="HTTP_Configuration"
+            path="#[attributes.queryParams.path]"
+            maxDepth="#[attributes.queryParams.depth]"
+            restrictToPath="true"/>
+      </otherwise>
+    </choice>
+  </flow>
+
+</mule>
+```
+
+## See Also
+
+- [MuleSoft WebCrawler Connector Overview](./)
+
+- [MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# MuleSoft WebCrawler Connector Reference
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Connector for MuleSoft WebCrawler (MuleSoft WebCrawler Connector) enhances data ingestion
+capabilities by allowing you to extract and process data from web pages.
+
+## Configurations
+
+---
+
+### Config
+
+Default configuration
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Name</p></td><td><p>String</p></td><td><p>The name for this configuration. Connectors reference the configuration with this name.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Connection</p></td><td><div><div><ul><li><p><a href="#Config_Http">HTTP</a></p></li><li><p><a href="#Config_RemoteWebdriverConnection">Remote WebDriver</a></p></li></ul></div></div></td><td><p>The connection types to provide to this configuration.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding for emitted page bodies. Can be overridden per-operation. Falls back to the Mule context default encoding when unset.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout value.</p></td><td><p>60</p></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Name</p></td><td><div><div><p>String</p></div></div></td><td><p>The identifier of this element used to reference it in other components.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Expiration Policy</p></td><td><div><div><p><a href="#ExpirationPolicy">Expiration Policy</a></p></div></div></td><td><p>Configures the minimum amount of time that a dynamic configuration instance can remain idle before Mule considers it eligible for expiration. This doesn’t mean that the platform expires the instance at the exact moment that it becomes eligible. Mule purges the instances as appropriate.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Connection Types
+
+##### HTTP
+
+Use for static websites that return their content directly in the HTML response and can be crawled
+without a remote browser.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>Base URL against which relative paths are resolved.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Browser User Agent</p></td><td><div><div><p>String</p></div></div></td><td><p>Browser user-agent advertised on outbound requests.</p></td><td></td><td></td></tr><tr><td><p>Proxy Configuration</p></td><td><div><div><p><a href="#DefaultHttpProxyConfig">Default HTTP Proxy Config</a></p></div></div></td><td><p>Proxy configuration for outbound HTTP requests.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connect and read timeout for the connection’s HTTP client, in the time unit selected below.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Response timeout unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>TLS configuration for secure HTTPS connections.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesn’t pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr></tbody></table>
+
+##### Remote WebDriver
+
+Use for websites that render content dynamically using JavaScript instead of returning it directly
+in the HTML response.
+
+###### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Base URL</p></td><td><div><div><p>String</p></div></div></td><td><p>Base URL against which relative paths are resolved.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Browser User Agent</p></td><td><div><div><p>String</p></div></div></td><td><p>Browser user-agent advertised on outbound requests.</p></td><td></td><td></td></tr><tr><td><p>Proxy Configuration</p></td><td><div><div><p><a href="#DefaultHttpProxyConfig">Default HTTP Proxy Config</a></p></div></div></td><td><p>Proxy configuration for outbound HTTP requests.</p></td><td></td><td></td></tr><tr><td><p>Response timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Connect and read timeout for the connection’s HTTP client, in the time unit selected below.</p></td><td><p>30</p></td><td></td></tr><tr><td><p>Response timeout unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response timeout</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>TLS Configuration</p></td><td><div><div><p><a href="#Tls">TLS</a></p></div></div></td><td><p>TLS configuration for secure HTTPS connections.</p></td><td></td><td></td></tr><tr><td><p>Remote Browser URL</p></td><td><div><div><p>String</p></div></div></td><td><p>URL of your own remote Selenium WebDriver endpoint (for example, Selenium Grid, standalone ChromeDriver, or BrowserStack). MuleSoft doesn’t provide or host a remote browser. Chromium-only (Chrome, Chromium, Edge).</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Browser Authentication</p></td><td><div><div><ul><li><p>None</p></li><li><p><a href="#Basic">Basic</a></p></li><li><p><a href="#ApiAccessToken">API Access Token</a></p></li></ul></div></div></td><td><p>Authentication for the remote browser hub connection. Applied when a session is created. Changed credentials take effect on the next fresh session.</p></td><td></td><td></td></tr><tr><td><p>Reconnection</p></td><td><div><div><p><a href="#Reconnection">Reconnection</a></p></div></div></td><td><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesn’t pass after exhausting the associated reconnection strategy.</p></td><td></td><td></td></tr><tr><td><p>Pooling Profile</p></td><td><div><div><p><a href="#PoolingProfile">Pooling Profile</a></p></div></div></td><td><p>Characteristics of the connection pool.</p></td><td></td><td></td></tr></tbody></table>
+
+## Supported Operations
+
+- [Get SiteMap](#GetSitemap)
+
+- [Get Page Content](#PageContent)
+
+- [Get Page Elements](#PageElements)
+
+## Associated Sources
+
+- [On Content Crawl](#CrawlContentListener)
+
+## Operations
+
+### Get SiteMap
+
+`<ms-webcrawler:get-sitemap>`
+
+Crawls a website to a specified depth and returns a sitemap in standard XML format following the
+sitemap protocol specification.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path, resolved against the connection’s base URL, where the sitemap crawl starts.</p></td><td></td><td></td></tr><tr><td><p>Maximum depth</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum depth to reach while crawling a website.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding for emitted page bodies. Overrides the configuration’s encoding when set.</p></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Restrict crawl under URL</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, only internal pages are crawled.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Regex URLs filter logic</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INCLUDE</p></li><li><p>EXCLUDE</p></li></ul></div></div></td><td><p>Type of filter logic to apply to regex URLs while crawling.</p></td><td></td><td></td></tr><tr><td><p>Regex URLs List</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of regex patterns for URLs to include or exclude while crawling.</p></td><td></td><td></td></tr><tr><td><p>Delay between pages</p></td><td><div><div><p>Number</p></div></div></td><td><p>The delay introduced between each request.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Delay time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Delay between pages</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Enforce robots.txt</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, enforce checks against the robots.txt file.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Wait on page load</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to wait on page load. On the HTTP connection, values greater than 0 fail with INVALID_PARAMETERS.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Wait on page load unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Wait on page load</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Wait for XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>The XPath to wait for (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Extract Shadow DOM</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Extract the Shadow DOM content (not available for HTTP connection).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Shadow Host(s) XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>Shadow host(s) to extract by XPath (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout value. Overrides the configuration’s timeout when set.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operation’s output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operation’s output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p><a href="#urlset">urlset</a></p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#SitemapResponseAttributes">Sitemap Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#Config)
+
+#### Throws
+
+- MS-WEBCRAWLER:CONNECTIVITY
+
+- MS-WEBCRAWLER:CRAWLER\_ERROR
+
+- MS-WEBCRAWLER:INVALID\_PARAMETERS
+
+- MS-WEBCRAWLER:PAGE\_FETCH\_FAILED
+
+- MS-WEBCRAWLER:PAGE\_LOAD\_TIMEOUT
+
+- MS-WEBCRAWLER:RETRY\_EXHAUSTED
+
+- MS-WEBCRAWLER:ROBOTS\_DISALLOWED
+
+- MS-WEBCRAWLER:TIMEOUT
+
+### Get Page Content
+
+`<ms-webcrawler:page-content>`
+
+Retrieves the content of a specified web page in TEXT, HTML, or MARKDOWN format.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path, resolved against the connection’s base URL, of the page to retrieve content from.</p></td><td></td><td></td></tr><tr><td><p>Javascript</p></td><td><div><div><p>String</p></div></div></td><td><p>Browser-context JavaScript executed after page load (not available for HTTP connection). Trusted input only — never bind to user-controlled data; runs with full DOM access.</p></td><td></td><td></td></tr><tr><td><p>Output format</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TEXT</p></li><li><p>HTML</p></li><li><p>MARKDOWN</p></li></ul></div></div></td><td><p>Format of the extracted content.</p></td><td><p>TEXT</p></td><td></td></tr><tr><td><p>Enforce robots.txt</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, enforce checks against the robots.txt file.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding for emitted page bodies. Overrides the configuration’s encoding when set.</p></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Tag list</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of HTML tags for which content must be retrieved.</p></td><td></td><td></td></tr><tr><td><p>Wait on page load</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to wait on page load. On the HTTP connection, values greater than 0 fail with INVALID_PARAMETERS.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Wait on page load unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Wait on page load</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Wait for XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>The XPath to wait for (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Extract Shadow DOM</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Extract the Shadow DOM content (not available for HTTP connection).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Shadow Host(s) XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>Shadow host(s) to extract by XPath (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout value. Overrides the configuration’s timeout when set.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operation’s output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operation’s output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#PageResponseAttributes">Page Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#Config)
+
+#### Throws
+
+- MS-WEBCRAWLER:CONNECTIVITY
+
+- MS-WEBCRAWLER:INVALID\_PARAMETERS
+
+- MS-WEBCRAWLER:PAGE\_FETCH\_FAILED
+
+- MS-WEBCRAWLER:PAGE\_LOAD\_TIMEOUT
+
+- MS-WEBCRAWLER:RETRY\_EXHAUSTED
+
+- MS-WEBCRAWLER:ROBOTS\_DISALLOWED
+
+- MS-WEBCRAWLER:TIMEOUT
+
+### Get Page Elements
+
+`<ms-webcrawler:page-elements>`
+
+Fetches analytical data about a web page including word count, element or tag counts, link
+structures, and image links.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path, resolved against the connection’s base URL, of the page to analyze.</p></td><td></td><td></td></tr><tr><td><p>Javascript</p></td><td><div><div><p>String</p></div></div></td><td><p>Browser-context JavaScript executed after page load (not available for HTTP connection). Trusted input only — never bind to user-controlled data; runs with full DOM access.</p></td><td></td><td></td></tr><tr><td><p>Enforce robots.txt</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, enforce checks against the robots.txt file.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding for emitted page bodies. Overrides the configuration’s encoding when set.</p></td><td></td><td></td></tr><tr><td><p>Output Mime Type</p></td><td><div><div><p>String</p></div></div></td><td><p>The mime type of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Output Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>The encoding of the payload that this operation outputs.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Tag list</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of HTML tags for which content must be retrieved.</p></td><td></td><td></td></tr><tr><td><p>Wait on page load</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to wait on page load. On the HTTP connection, values greater than 0 fail with INVALID_PARAMETERS.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Wait on page load unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Wait on page load</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Wait for XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>The XPath to wait for (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Extract Shadow DOM</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Extract the Shadow DOM content (not available for HTTP connection).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Shadow Host(s) XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>Shadow host(s) to extract by XPath (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout value. Overrides the configuration’s timeout when set.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Target Variable</p></td><td><div><div><p>String</p></div></div></td><td><p>Name of the variable that stores the operation’s output.</p></td><td></td><td></td></tr><tr><td><p>Target Value</p></td><td><div><div><p>String</p></div></div></td><td><p>An expression to evaluate against the operation’s output and store the expression outcome in the target variable.</p></td><td><p>#[payload]</p></td><td></td></tr><tr><td><p>Error Mappings</p></td><td><div><div><p>Array of <a href="#ErrorMapping">Error Mapping</a></p></div></div></td><td><p>Set of error mappings.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Binary</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#PageResponseAttributes">Page Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#Config)
+
+#### Throws
+
+- MS-WEBCRAWLER:CONNECTIVITY
+
+- MS-WEBCRAWLER:INVALID\_PARAMETERS
+
+- MS-WEBCRAWLER:PAGE\_FETCH\_FAILED
+
+- MS-WEBCRAWLER:PAGE\_LOAD\_TIMEOUT
+
+- MS-WEBCRAWLER:RETRY\_EXHAUSTED
+
+- MS-WEBCRAWLER:ROBOTS\_DISALLOWED
+
+- MS-WEBCRAWLER:TIMEOUT
+
+## Sources
+
+### On Content Crawl
+
+`<ms-webcrawler:crawl-content-listener>`
+
+A source that crawls a website starting from a configured path, emitting each discovered page as a
+Mule event.
+
+#### Parameters
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p>Configuration</p></td><td><p>String</p></td><td><p>The name of the configuration to use.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Path</p></td><td><div><div><p>String</p></div></div></td><td><p>Relative path, resolved against the connection’s base URL, where the crawl starts. When empty or <code>/</code>, the crawl starts at the base URL itself. Fully-qualified URLs are rejected with INVALID_PARAMETERS.</p></td><td></td><td></td></tr><tr><td><p>Additional seed URLs</p></td><td><div><div><p>String</p></div></div></td><td><p>Comma-separated list of additional fully-qualified seed URLs to enqueue alongside the path. Each entry must be a fully-qualified URL, and relative paths are dropped. Off-host and off-path entries are dropped and a warning is logged.</p></td><td></td><td></td></tr><tr><td><p>Maximum depth</p></td><td><div><div><p>Number</p></div></div></td><td><p>The maximum depth to reach while crawling a website.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Queue Name</p></td><td><div><div><p>String</p></div></div></td><td><p>VM queue used to schedule URLs for crawling. When omitted, defaults to <code>webcrawler-{configName}-source-queue</code>.</p></td><td></td><td></td></tr><tr><td><p>Object Store</p></td><td><div><div><p>ObjectStore</p></div></div></td><td><p>Object store used for crawl visit fingerprints (content hash, ETag, last-modified, and correlation ID) and the active crawl identity. Use a persistent store so that reconnection and app restart resume the same crawl.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Output format</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>TEXT</p></li><li><p>HTML</p></li><li><p>MARKDOWN</p></li></ul></div></div></td><td><p>Format applied to each emitted page body.</p></td><td><p>TEXT</p></td><td></td></tr><tr><td><p>Number Of Consumers</p></td><td><div><div><p>Number</p></div></div></td><td><p>Number of concurrent queue consumers used by this source.</p></td><td><p>1</p></td><td></td></tr><tr><td><p>Hash route mode</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>IGNORE</p></li><li><p>PATH</p></li><li><p>PRESERVE</p></li></ul></div></div></td><td><p>How to treat URLs containing #fragments. IGNORE strips fragments before crawling (default, fits classic server-rendered sites). PATH rewrites SPA-style hash routes (for example, #/page) into real paths (/page). PRESERVE keeps the URL verbatim, fragment included.</p></td><td><p>IGNORE</p></td><td></td></tr><tr><td><p>Crawl schedule</p></td><td><div><div><ul><li><p>No Schedule</p></li><li><p><a href="#Interval">Interval</a></p></li></ul></div></div></td><td><p>Periodic re-crawl mode. No Schedule crawls once at start (default). Interval re-seeds at a fixed frequency and time unit. Ticks that occur while a crawl is in progress are coalesced into one pending reseed (no consumer stacking). The schedule is registered on all replicas, but the actual reseed (new correlation ID and seed enqueue) runs on the primary node only.</p></td><td></td><td></td></tr><tr><td><p>Encoding</p></td><td><div><div><p>String</p></div></div></td><td><p>Encoding for emitted page bodies. Overrides the configuration’s encoding when set.</p></td><td></td><td></td></tr><tr><td><p>Primary Node Only</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Whether this source should only be executed on the primary node when running in a cluster.</p></td><td></td><td></td></tr><tr><td><p>Config Ref</p></td><td><div><div><p>ConfigurationProvider</p></div></div></td><td><p>The name of the configuration to use to execute this component.</p></td><td></td><td><p>x</p></td></tr><tr><td><p>Streaming Strategy</p></td><td><div><div><ul><li><p><a href="#RepeatableInMemoryStream">Repeatable In Memory Stream</a></p></li><li><p><a href="#RepeatableFileStoreStream">Repeatable File Store Stream</a></p></li><li><p>non-repeatable-stream</p></li></ul></div></div></td><td><p>Configures how Mule processes streams. Repeatable streams are the default behavior.</p></td><td></td><td></td></tr><tr><td><p>Redelivery Policy</p></td><td><div><div><p><a href="#RedeliveryPolicy">Redelivery Policy</a></p></div></div></td><td><p>Defines a policy for processing the redelivery of the same message.</p></td><td></td><td></td></tr><tr><td><p>Restrict crawl under URL</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, only internal pages are crawled.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Regex URLs filter logic</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INCLUDE</p></li><li><p>EXCLUDE</p></li></ul></div></div></td><td><p>Type of filter logic to apply to regex URLs while crawling.</p></td><td></td><td></td></tr><tr><td><p>Regex URLs List</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of regex patterns for URLs to include or exclude while crawling.</p></td><td></td><td></td></tr><tr><td><p>Pages</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, page content of the crawled URL is emitted.</p></td><td><p>true</p></td><td></td></tr><tr><td><p>Images</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, images referenced on the crawled URL are emitted.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max image number for each page</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of images to fetch for each page. 0 means no limit.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Documents</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, documents referenced on the crawled URL are emitted.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Max document number for each page</p></td><td><div><div><p>Number</p></div></div></td><td><p>Maximum number of documents to fetch for each page. 0 means no limit.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Additional Allowed Base URLs</p></td><td><div><div><p>String</p></div></div></td><td><p>Optional comma-separated allowlist for image and document URLs. When set, assets must be under the base URL or one of these base URLs.</p></td><td></td><td></td></tr><tr><td><p>Retrieve meta tags</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, meta tags are retrieved from each crawled page.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Tag list</p></td><td><div><div><p>Array of String</p></div></div></td><td><p>List of HTML tags for which content must be retrieved.</p></td><td></td><td></td></tr><tr><td><p>Delay between pages</p></td><td><div><div><p>Number</p></div></div></td><td><p>The delay introduced between each request.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Delay time unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Delay between pages</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Enforce robots.txt</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>If true, enforce checks against the robots.txt file.</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Wait on page load</p></td><td><div><div><p>Number</p></div></div></td><td><p>The time to wait on page load. On the HTTP connection, values greater than 0 fail with INVALID_PARAMETERS.</p></td><td><p>0</p></td><td></td></tr><tr><td><p>Wait on page load unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Wait on page load</strong> field.</p></td><td><p>SECONDS</p></td><td></td></tr><tr><td><p>Wait for XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>The XPath to wait for (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Extract Shadow DOM</p></td><td><div><div><p>Boolean</p></div></div></td><td><p>Extract the Shadow DOM content (not available for HTTP connection).</p></td><td><p>false</p></td><td></td></tr><tr><td><p>Shadow Host(s) XPath</p></td><td><div><div><p>String</p></div></div></td><td><p>Shadow host(s) to extract by XPath (not available for HTTP connection).</p></td><td></td><td></td></tr><tr><td><p>Response Timeout</p></td><td><div><div><p>Number</p></div></div></td><td><p>Response timeout value. Overrides the configuration’s timeout when set.</p></td><td></td><td></td></tr><tr><td><p>Response Timeout Unit</p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><p>Time unit for the <strong>Response Timeout</strong> field.</p></td><td></td><td></td></tr><tr><td><p>Reconnection Strategy</p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><p>A retry strategy in case of connectivity errors.</p></td><td></td><td></td></tr></tbody></table>
+
+#### Output
+
+<table><colgroup><col> <col></colgroup><tbody><tr><td><p>Type</p></td><td><p>Any</p></td></tr><tr><td><p>Attributes Type</p></td><td><div><div><p><a href="#PageResponseAttributes">Page Response Attributes</a></p></div></div></td></tr></tbody></table>
+
+#### For Configurations
+
+- [Config](#Config)
+
+## Types
+
+### Default HTTP Proxy Config
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Host</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The proxy host.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Port</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The proxy port.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username for proxy authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password for proxy authentication.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Non Proxy Hosts</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Comma-separated list of hosts that shouldn’t go through the proxy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### TLS
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Enabled Protocols</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of protocols enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Enabled Cipher Suites</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>A comma-separated list of cipher suites enabled for this context.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Trust Store</strong></p></td><td><div><div><p><a href="#TrustStore">Trust Store</a></p></div></div></td><td><div><div><p>Configures the trust store for TLS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Store</strong></p></td><td><div><div><p><a href="#KeyStore">Key Store</a></p></div></div></td><td><div><div><p>Configures the key store for TLS.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Revocation Check</strong></p></td><td><div><div><ul><li><p><a href="#StandardRevocationCheck">Standard Revocation Check</a></p></li><li><p><a href="#CustomOcspResponder">Custom OCSP Responder</a></p></li><li><p><a href="#CrlFile">CRL File</a></p></li></ul></div></div></td><td><div><div><p>Configures certificate revocation checking.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Trust Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (resolved relative to the current classpath and file system, if possible) of the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the trust store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Insecure</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If true, no certificate validations are performed, rendering connections vulnerable to attacks. Use at your own risk.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Key Store
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The location (resolved relative to the current classpath and file system, if possible) of the key store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The type of store used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>When the key store contains many private keys, this attribute indicates the alias of the key to use. If not defined, the first key in the file is used.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Key Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the private key.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The password used to protect the key store.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The algorithm used by the key store.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Standard Revocation Check
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Only End Entities</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Only verify the last element of the certificate chain.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Prefer Crls</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Try CRL instead of OCSP first.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>No Fallback</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Don’t use the secondary checking method (the one not selected before).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Soft Fail</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Avoid verification failure when the revocation server can’t be reached or is busy.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Custom OCSP Responder
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL of the OCSP responder.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Cert Alias</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Alias of the signing certificate for the OCSP response (must be in the trust store), if present.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### CRL File
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Path</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The path to the CRL file.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnection
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Fails Deployment</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>When the application is deployed, a connectivity test is performed on all connectors. If set to true, deployment fails if the test doesn’t pass after exhausting the associated reconnection strategy.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Reconnection Strategy</strong></p></td><td><div><div><ul><li><p><a href="#Reconnect">Reconnect</a></p></li><li><p><a href="#ReconnectForever">Reconnect Forever</a></p></li></ul></div></div></td><td><div><div><p>The reconnection strategy to use.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How many reconnection attempts to make.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Reconnect Forever
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often in milliseconds to reconnect.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Blocking</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>If false, the reconnection strategy runs in a separate, non-blocking thread.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Pooling Profile
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Active</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Controls the maximum number of Mule components that can be borrowed from a session at one time. When set to a negative value, there’s no limit to the number of components that may be active at one time. When maxActive is exceeded, the pool is said to be exhausted.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Idle</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Controls the maximum number of Mule components that can sit idle in the pool at any time. When set to a negative value, there’s no limit to the number of Mule components that may be idle at one time.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Wait</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the number of milliseconds to wait for a pooled component to become available when the pool is exhausted and the exhaustedAction is set to WHEN_EXHAUSTED_WAIT.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Min Eviction Millis</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Determines the minimum amount of time an object may sit idle in the pool before it’s eligible for eviction. When non-positive, no objects are evicted from the pool due to idle time alone.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Eviction Check Interval Millis</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>Specifies the number of milliseconds between runs of the object evictor. When non-positive, no object evictor is executed.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Exhausted Action</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>WHEN_EXHAUSTED_GROW</p></li><li><p>WHEN_EXHAUSTED_WAIT</p></li><li><p>WHEN_EXHAUSTED_FAIL</p></li></ul></div></div></td><td><div><div><p>Specifies the behavior of the Mule component pool when the pool is exhausted. Possible values are: WHEN_EXHAUSTED_FAIL, which throws a NoSuchElementException; WHEN_EXHAUSTED_WAIT, which blocks by invoking Object.wait(long) until a new or idle object is available; or WHEN_EXHAUSTED_GROW, which creates a new Mule instance and returns it, essentially making maxActive meaningless. If a positive maxWait value is supplied, it blocks for at most that many milliseconds, after which a NoSuchElementException is thrown. If maxThreadWait is a negative value, it blocks indefinitely.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Initialisation Policy</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>INITIALISE_NONE</p></li><li><p>INITIALISE_ONE</p></li><li><p>INITIALISE_ALL</p></li></ul></div></div></td><td><div><div><p>Determines how components in a pool should be initialized. Possible values are: INITIALISE_NONE (doesn’t load any components into the pool on startup), INITIALISE_ONE (loads one initial component into the pool on startup), or INITIALISE_ALL (loads all components in the pool on startup).</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Disabled</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether pooling should be disabled.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Expiration Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Idle Time</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of time a dynamic configuration instance can be idle before it’s considered eligible for expiration.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Time Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Max Idle Time</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Basic
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Username</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Username for basic authentication.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Password</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Password for basic authentication.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Preemptive</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to send credentials preemptively.</p></div></div></td><td><div><div><p>false</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### API Access Token
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Token</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The API access token used to authenticate to the remote browser endpoint.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Interval
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Frequency</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How often the crawl re-seeds.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>NANOSECONDS</p></li><li><p>MICROSECONDS</p></li><li><p>MILLISECONDS</p></li><li><p>SECONDS</p></li><li><p>MINUTES</p></li><li><p>HOURS</p></li><li><p>DAYS</p></li></ul></div></div></td><td><div><div><p>Time unit for the <strong>Frequency</strong> field.</p></div></div></td><td><div><div><p>SECONDS</p></div></div></td><td><div></div></td></tr></tbody></table>
+
+### Page Response Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Cache Control</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The cache-control header value from the page response.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Content Type</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The content type of the page response.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Depth</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The crawl depth at which this page was discovered.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Etag</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The ETag header value from the page response.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Event Type</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>PAGE</p></li><li><p>IMAGE</p></li><li><p>DOCUMENT</p></li></ul></div></div></td><td><div><div><p>The type of emitted event.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>File Name</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The file name of the emitted image or document.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Last Modified</strong></p></td><td><div><div><p>DateTime</p></div></div></td><td><div><div><p>The last-modified timestamp from the page response.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Meta Tags</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The meta tags retrieved from the page.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Other Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Additional attributes returned by the operation.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The size of the emitted content in bytes.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Status Code</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The HTTP status code of the page response.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Title</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The page title.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The page URL.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable In Memory Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Initial Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The amount of memory allocated to consume the stream and provide random access to it. If the stream contains more data than fits in this buffer, the buffer expands according to the <strong>Buffer Size Increment</strong> field, with an upper limit of <strong>Max Buffer Size</strong>.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Size Increment</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>How much the buffer size expands if it exceeds its initial size. Setting a value of zero or lower means the buffer doesn’t expand, and a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised when the buffer gets full.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Max Buffer Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum amount of memory to use. If more is used, a STREAM_MAXIMUM_SIZE_EXCEEDED error is raised. A value lower than or equal to zero means no limit.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>Initial Buffer Size</strong>, <strong>Buffer Size Increment</strong>, and <strong>Max Buffer Size</strong> fields.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Repeatable File Store Stream
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>In Memory Size</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum memory the stream uses to keep data in memory. If more is consumed, content is buffered on disk.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Buffer Unit</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>BYTE</p></li><li><p>KB</p></li><li><p>MB</p></li><li><p>GB</p></li></ul></div></div></td><td><div><div><p>Unit for the <strong>In Memory Size</strong> field.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Max Redelivery Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The maximum number of times a message can be redelivered and processed unsuccessfully before triggering process-failed-message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Digest Algorithm</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The secure hashing algorithm to use. If not set, the default is SHA-256.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Message Identifier</strong></p></td><td><div><div><p><a href="#RedeliveryPolicyMessageIdentifier">Redelivery Policy Message Identifier</a></p></div></div></td><td><div><div><p>Defines which strategy is used to identify the messages.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Object Store</strong></p></td><td><div><div><p>ObjectStore</p></div></div></td><td><div><div><p>The object store where the redelivery counter for each message is stored.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Redelivery Policy Message Identifier
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Use Secure Hash</strong></p></td><td><div><div><p>Boolean</p></div></div></td><td><div><div><p>Whether to use a secure hash algorithm to identify a redelivered message.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Id Expression</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>Defines one or more expressions to use to determine when a message has been redelivered. This property may only be set if useSecureHash is false.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### urlset
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Urlset</strong></p></td><td><div><div><p><a href="#AnonType_urlset">Anon Type_urlset</a></p></div></div></td><td><div><div><p>List of URL entries in the sitemap.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### Anon Type\_urlset
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Url</strong></p></td><td><div><div><p><a href="#tUrl">tURL</a></p></div></div></td><td><div><div><p>List of URL entries in the sitemap.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+### tURL
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Loc</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The URL location.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr><tr><td><p><strong>Lastmod</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The date of last modification.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Changefreq</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>always</p></li><li><p>hourly</p></li><li><p>daily</p></li><li><p>weekly</p></li><li><p>monthly</p></li><li><p>yearly</p></li><li><p>never</p></li></ul></div></div></td><td><div><div><p>How frequently the page is likely to change.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Priority</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The priority of this URL relative to other URLs on the site (0.0 to 1.0).</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Sitemap Response Attributes
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Count</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The total number of URLs in the sitemap.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Depth</strong></p></td><td><div><div><p>Number</p></div></div></td><td><div><div><p>The configured maximum crawl depth.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Other Attributes</strong></p></td><td><div><div><p>Object</p></div></div></td><td><div><div><p>Additional attributes.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Url</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The root URL of the crawled site.</p></div></div></td><td><div></div></td><td><div></div></td></tr></tbody></table>
+
+### Error Mapping
+
+<table><colgroup><col> <col> <col> <col> <col></colgroup><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Default Value</th><th>Required</th></tr></thead><tbody><tr><td><p><strong>Source</strong></p></td><td><div><div><p>Enumeration, one of:</p></div><div><ul><li><p>ANY</p></li><li><p>REDELIVERY_EXHAUSTED</p></li><li><p>TRANSFORMATION</p></li><li><p>EXPRESSION</p></li><li><p>SECURITY</p></li><li><p>CLIENT_SECURITY</p></li><li><p>SERVER_SECURITY</p></li><li><p>ROUTING</p></li><li><p>CONNECTIVITY</p></li><li><p>RETRY_EXHAUSTED</p></li><li><p>TIMEOUT</p></li></ul></div></div></td><td><div><div><p>The source error type to map from.</p></div></div></td><td><div></div></td><td><div></div></td></tr><tr><td><p><strong>Target</strong></p></td><td><div><div><p>String</p></div></div></td><td><div><div><p>The target error type to map to.</p></div></div></td><td><div></div></td><td><div><div><p>x</p></div></div></td></tr></tbody></table>
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# Using Anypoint Studio to Configure MuleSoft WebCrawler Connector 1.0
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Anypoint Studio (Studio) editors help you design and update your Mule applications, properties, and
+configuration files.
+
+To add and configure a connector in Studio:
+
+1.  [Create a Mule project](#create-mule-project).
+
+2.  [Add the connector to your Mule project](#add-connector-to-project).
+
+3.  [Configure a source for the connector’s flow](#configure-source).
+
+4.  [Add a connector operation to the flow](#add-connector-operation).
+
+5.  [Configure a global element for the connector](#configure-global-element).
+
+6.  [Configure the other connector fields](#configure-other-fields).
+
+When you run the connector, you can view the app log to check for problems in real time, as
+described in [View the App Log](#view-app-log).
+
+If you are new to configuring connectors in Studio, see
+[Using Anypoint Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio).
+If, after reading this topic, you need additional information about the connector fields, see the
+[MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference).
+
+## Create a Mule Project
+
+In Studio, create a new Mule project in which to add and configure Anypoint Connector for MuleSoft
+WebCrawler (MuleSoft WebCrawler Connector):
+
+1.  In Studio, select **File > New > Mule Project**.
+
+2.  Enter a name for your Mule project and click **Finish**.
+
+## Add the Connector to Your Mule Project
+
+Add MuleSoft WebCrawler Connector to your Mule project to automatically populate the XML code with
+the connector’s namespace and schema location and add the required dependencies to the project’s
+`pom.xml` file:
+
+1.  In **Mule Palette**, click **(X) Search in Exchange**.
+
+2.  In **Add Dependencies to Project**, type `mulesoft webcrawler` in the search field.
+
+3.  Click **MuleSoft WebCrawler Connector** in **Available modules**.
+
+4.  Click **Add**.
+
+5.  Click **Finish**.
+
+Adding a connector to a Mule project in Studio doesn’t make that connector available to other
+projects in your Studio workspace.
+
+## Configure a Source
+
+A source initiates a flow when a specified condition is met. You can configure one of these sources
+to use with MuleSoft WebCrawler Connector:
+
+- **On Content Crawl**
+
+  Crawls a website starting from a configured path, emitting each discovered page, image, or
+  document as a Mule event. Supports deduplication via an object store and URL scheduling via a VM
+  queue.
+
+- **HTTP Listener**
+
+  Initiates a flow each time it receives a request on the configured host and port.
+
+- **Scheduler**
+
+  Initiates a flow when a time-based condition is met.
+
+For example, to configure an **HTTP > Listener** source, follow these steps:
+
+1.  In **Mule Palette**, select **HTTP > Listener**.
+
+2.  Drag **Listener** to the Studio canvas.
+
+3.  On the **Listener** configuration screen, optionally change the value of the **Display Name**
+    field.
+
+4.  Specify a value for the **Path** field.
+
+5.  Click the plus sign (**+**) next to the **Connector configuration** field to configure a global
+    element that can be used by all instances of the **HTTP > Listener** source in the app.
+
+6.  On the **General** tab, specify the connection information for the connector.
+
+7.  On the **TLS** tab, optionally specify the TLS information for the connector.
+
+8.  On the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+
+9.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+
+10. Click **OK**.
+
+## Add a Connector Operation to the Flow
+
+When you add a connector operation to your flow, you are specifying an action for that connector to
+perform.
+
+To add an operation for MuleSoft WebCrawler Connector:
+
+1.  In **Mule Palette**, select **MuleSoft WebCrawler Connector** and then select the operation to
+    add.
+
+2.  Drag the operation onto the Studio canvas, next to the source.
+
+## Configure a Global Element for the Connector
+
+When you configure a connector, configure a global element that all instances of that connector in
+the app can use. Configuring a global element requires you to provide the connection settings that
+the connector requires to access the target web resources.
+
+To configure the global element for MuleSoft WebCrawler Connector:
+
+1.  Select the operation in the Studio canvas.
+
+2.  In the **General** configuration screen for the operation, click the **Add** icon to access the
+    global element configuration fields.
+
+3.  In the **General** tab, in **Connection**, select the connection type to configure:
+
+    - [HTTP](#http)
+
+    - [Remote WebDriver](#remote-webdriver)
+
+    You can reference a configuration file that contains ANT-style property placeholders
+    (recommended), or you can enter your connection settings in the global configuration properties.
+    For information about the benefits of using property placeholders and how to configure them,
+    refer to
+    [Anypoint Connector Configuration](../../connectors/introduction/intro-connector-configuration-overview).
+
+4.  In the **Advanced** tab, optionally specify reconnection information, including a reconnection
+    strategy.
+
+5.  Click **Test Connection** to confirm that Mule can connect with the specified server.
+
+6.  Click **OK**.
+
+### HTTP
+
+Use the HTTP connection type for crawling static web content.
+
+Enter this information in the **General** tab of the **Global Element Properties** screen to
+configure the HTTP connection:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>User Action</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Enter the configuration name.</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p>Select <strong>HTTP</strong>.</p></div></div></td></tr><tr><td><p><strong>Base URL</strong></p></td><td><div><div><p>Enter the base URL against which relative paths are resolved.</p></div></div></td></tr><tr><td><p><strong>Browser User Agent</strong></p></td><td><div><div><p>Enter the browser user-agent advertised on outbound requests.</p></div></div></td></tr><tr><td><p><strong>Proxy Configuration</strong></p></td><td><div><div><p>Configure a proxy for outbound HTTP requests. Specify host, port, and optional credentials.</p></div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Enter the connect and read timeout for the connection’s HTTP client. Default is 30 seconds.</p></div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Select the time unit for the response timeout.</p></div></div></td></tr></tbody></table>
+
+Optionally configure TLS settings for secure connections in the **TLS** tab.
+
+### Remote WebDriver
+
+Use the Remote WebDriver connection type for crawling dynamic web content that requires JavaScript
+rendering.
+
+Enter this information in the **General** tab of the **Global Element Properties** screen to
+configure the Remote WebDriver connection:
+
+<table><colgroup><col> <col></colgroup><thead><tr><th>Field</th><th>User Action</th></tr></thead><tbody><tr><td><p><strong>Name</strong></p></td><td><div><div><p>Enter the configuration name.</p></div></div></td></tr><tr><td><p><strong>Connection</strong></p></td><td><div><div><p>Select <strong>Remote WebDriver</strong>.</p></div></div></td></tr><tr><td><p><strong>Base URL</strong></p></td><td><div><div><p>Enter the base URL against which relative paths are resolved.</p></div></div></td></tr><tr><td><p><strong>Remote Browser URL</strong></p></td><td><div><div><p>Enter the URL of your own remote Selenium WebDriver endpoint (for example, Selenium Grid, standalone ChromeDriver, or BrowserStack). Chromium-only (Chrome, Chromium, Edge).</p></div></div></td></tr><tr><td><p><strong>Browser User Agent</strong></p></td><td><div><div><p>Enter the browser user-agent advertised on outbound requests.</p></div></div></td></tr><tr><td><p><strong>Browser Authentication</strong></p></td><td><div><div><p>Select the authentication used to reach the remote browser endpoint: None, Basic, or API Access Token.</p></div></div></td></tr><tr><td><p><strong>Proxy Configuration</strong></p></td><td><div><div><p>Configure a proxy for outbound HTTP requests. Specify host, port, and optional credentials.</p></div></div></td></tr><tr><td><p><strong>Response timeout</strong></p></td><td><div><div><p>Enter the connect and read timeout for the connection’s HTTP client. Default is 30 seconds.</p></div></div></td></tr><tr><td><p><strong>Response timeout unit</strong></p></td><td><div><div><p>Select the time unit for the response timeout.</p></div></div></td></tr></tbody></table>
+
+Optionally configure TLS settings for secure connections in the **TLS** tab. You can also configure
+a **Pooling Profile** in the **Advanced** tab to control connection pool behavior.
+
+## Configure Additional Connector Fields
+
+After you configure a global element for the connector, configure the other required fields. The
+required fields vary depending on which connector operation you use.
+
+For detailed configuration information for each operation type, see
+[MuleSoft WebCrawler Connector - Additional Configuration Information](mulesoft-webcrawler-connector-additional-config).
+
+## View the App Log
+
+To check for problems, you can view the app log as follows:
+
+- If you’re running the app from Anypoint Platform, the app log output is visible on the Anypoint
+  Studio console window.
+
+- If you’re running the app using Mule from the command line, the app log output is visible in your
+  operating system console.
+
+Unless the log file path is customized in the app’s log file (`log4j2.xml`), you can also view the
+app log in the default location `MULE_HOME/logs/<app-name>.log`. You can configure the location of
+the log path in the app log file `log4j2.xml`.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+
+- [Using Studio to Configure a Connector](../../connectors/introduction/intro-config-use-studio)
+
+- [MuleSoft WebCrawler Connector Reference](mulesoft-webcrawler-connector-reference)
+
+- [Salesforce Help](https://help.salesforce.com)
+
+---
+product: MuleSoft WebCrawler Connector
+version: 1.0
+is-latest-version: true
+---
+
+# MuleSoft WebCrawler Connector 1.0 XML and Maven Support
+
+> For the full documentation index, see: https://docs.mulesoft.com/llms.txt
+
+Although you can manually code a Mule app in XML, it is more efficient to use Anypoint Code Builder
+or Studio:
+
+- If you manually code a Mule runtime engine (Mule) app in XML, either from the Anypoint Code
+  Builder or Studio XML editor, or from a text editor, you can access the connector from your app by
+  adding reference statements to both your XML Mule flow and the Apache Maven `pom.xml` file.
+
+- If you add the connector in Anypoint Code Builder or Studio, the XML is automatically populated
+  the code with the connector’s namespace and schema location and it also adds a dependency to the
+  `pom.xml` file.
+
+## Add a Namespace for the Connector
+
+Paste the following code inside the `mule` tag of the header of your configuration XML:
+
+```xml
+http://www.mulesoft.org/schema/mule/mulesoft-webcrawler
+http://www.mulesoft.org/schema/mule/mulesoft-webcrawler/current/mule-mulesoft-webcrawler.xsd
+```
+
+This example shows how the namespace statements are placed in the `<mule>` XML block:
+
+```xml
+<mule xmlns:mulesoft-webcrawler="http://www.mulesoft.org/schema/mule/mulesoft-webcrawler"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core
+	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+	http://www.mulesoft.org/schema/mule/file
+	http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+	http://www.mulesoft.org/schema/mule/http
+	http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+	http://www.mulesoft.org/schema/mule/ee/core
+	http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+	http://www.mulesoft.org/schema/mule/mulesoft-webcrawler
+	http://www.mulesoft.org/schema/mule/mulesoft-webcrawler/current/mule-mulesoft-webcrawler.xsd">
+```
+
+## Add a POM File Dependency
+
+The Apache Maven `pom.xml` file generated by Anypoint Studio contains dependencies for a Mule app.
+If you code a Mule app manually, include this XML snippet in your `pom.xml` file to enable access to
+this connector:
+
+```xml
+<dependency>
+  <groupId>com.mulesoft.connectors</groupId>
+  <artifactId>mule4-webcrawler-connector</artifactId>
+  <version>x.x.x</version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+
+Replace `x.x.x` with the version that corresponds to the connector you are using.
+
+To obtain the most up-to-date `pom.xml` file information:
+
+1.  Go to [Anypoint Exchange](https://www.mulesoft.com/exchange/).
+
+2.  In Exchange, click **Login** and supply your Anypoint Platform username and password.
+
+3.  In Exchange, search for `mulesoft webcrawler`.
+
+4.  Select the connector.
+
+5.  Click **Dependency Snippets** near the upper right of the screen.
+
+## See Also
+
+- [Introduction to Anypoint Connectors](../../connectors/introduction/introduction-to-anypoint-connectors)
+
+- [Salesforce Help](https://help.salesforce.com)
